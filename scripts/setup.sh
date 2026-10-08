@@ -2,7 +2,7 @@
 # One-time setup: creates the GitHub repository, switches GitHub Pages to "GitHub Actions", and pushes.
 # After this, every push to main tests, builds and deploys by itself.
 set -euo pipefail
-REPO="${1:-music-timer}"
+REPO="${1:-practice-timer}"
 command -v gh  >/dev/null || { echo "Install the GitHub CLI first: https://cli.github.com"; exit 1; }
 command -v git >/dev/null || { echo "Install git first."; exit 1; }
 gh auth status >/dev/null 2>&1 || gh auth login
