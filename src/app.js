@@ -346,8 +346,8 @@ function paint() {
   else if (st === 'running' && !V.music) next = 'Losing power. Keep playing';
   else for (const n of NEXT) { const at = MT.MILESTONES[n[0]]; if (sim.fp < at) { next = n[1] + ' in ' + fmt(Math.ceil(at - sim.fp)); break; } }
   text($('rNext'), next);
-  if (skin === 2 || dragging) paintCity(st, fol, label);
-  if (skin === 3 || dragging) paintDash(st, label);
+  if (visible(2)) paintCity(st, fol, label);
+  if (visible(3)) paintDash(st, label);
 }
 /* dash theme */
 function dashStep(dt, running, mus, eff, progress) { const on = pendingOnsets; pendingOnsets = 0; dashAt = performance.now(); dash.update(Math.min(0.1, dt), { running: running, music: mus, eff: eff, onsets: on, progress: progress }); }
@@ -552,19 +552,21 @@ function frame(t) {
   if (mode === 'follow') followStep(dt);
   while (sim.events.length) fire(sim.events.shift());
   paint();
-  if (skin === 0 || dragging) drawViz(dt);
-  if (skin === 1 || dragging) rocket.draw({ running: V.st === 'running', playing: V.music, power: V.pw }, dt);
-  if (skin === 2 || (dragging && skin >= 1)) drawCity(dt);
+  if (visible(0)) drawViz(dt);
+  if (visible(1)) rocket.draw({ running: V.st === 'running', playing: V.music, power: V.pw }, dt);
+  if (visible(2)) drawCity(dt);
   dashStep(dt, V.st === 'running', V.music, V.pw, V.goal > 0 ? V.play / V.goal : 0);
   let geo = null;
-  if (skin === 3 || (dragging && skin >= 2)) { let lv = 0; for (let i = 0; i < NB; i++) lv += bars[i]; geo = dashView.draw({ running: V.st === 'running', music: V.music, level: Math.min(1, lv / NB * 2.2) }, dt); if (V.st === 'running') dashSeen = true; }
+  if (visible(3)) { let lv = 0; for (let i = 0; i < NB; i++) lv += bars[i]; geo = dashView.draw({ running: V.st === 'running', music: V.music, level: Math.min(1, lv / NB * 2.2) }, dt); if (V.st === 'running') dashSeen = true; }
   while (dash.events.length) { const e = dash.events.shift(); if (geo) dashView.event(e, geo); if (e === 'complete' && skin === 3) dashBanner('Level complete!'); }
   requestAnimationFrame(frame);
 }
 
 /* ---------- themes: swipe (touch, mouse drag or trackpad) or arrow keys ---------- */
 const SKINS = ['classic', 'rocket', 'city', 'dash'], LAST = SKINS.length - 1, stage = $('stage'), track = $('track');
-let skin = Math.max(0, SKINS.indexOf(S.skin)), dragging = false, drag = null;
+let skin = Math.max(0, SKINS.indexOf(S.skin)), dragging = false, drag = null, peek = -1;   // peek: the theme a swipe is pulling into view
+/* Only the theme on screen is drawn, plus the one a swipe is revealing. Each scene is costly (City is WebGL), so drawing every theme while a finger is down made swipes lag. */
+function visible(i) { return i === skin || (dragging && i === peek); }
 function setSkin(i, animate) {
   skin = i; app.dataset.skin = SKINS[i]; app.dataset.chrome = i === 0 ? 'clean' : 'pixel'; S.skin = SKINS[i]; saveS();
   if (i === 2) city.ensure();
@@ -578,6 +580,7 @@ stage.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse' && e.
 stage.addEventListener('pointermove', e => {
   if (!drag || e.pointerId !== drag.id) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
   if (!drag.lock) { if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.3) { drag.lock = true; dragging = true; try { stage.setPointerCapture(drag.id); } catch (er) {} rocket.resize(); } else { if (Math.abs(dy) > 14) drag = null; return; } }
+  peek = dx < 0 ? Math.min(LAST, skin + 1) : Math.max(0, skin - 1);
   const end = -LAST * drag.w; let x = -skin * drag.w + dx; if (x > 0) x *= 0.3; if (x < end) x = end + (x - end) * 0.3;
   track.style.transition = 'none'; track.style.transform = 'translateX(' + x + 'px)';
 });
