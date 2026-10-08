@@ -131,6 +131,8 @@ function levelBars() {
   for (let i = 0; i < NB; i++) { let s = 0; for (let k = e[i]; k < e[i + 1]; k++) s += P[k];
     const v = (10 * Math.log10(s + 1e-12) + 74) / 64; bars[i] = v < 0 ? 0 : v > 1 ? 1 : v; }
 }
+/* iPhone and iPad (iPadOS reports itself as a Mac with touch): every browser there takes its microphone permission from the Settings app */
+const iOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const MIC_FRAMED = 'The microphone is not available inside this Claude view. Use the demo sound here, or open the standalone Music Timer file in a browser to time real playing.';
 function micMessage(e) {
   const n = e && e.name;
@@ -138,6 +140,7 @@ function micMessage(e) {
   if (n === 'NotAllowedError' || n === 'SecurityError' || n === 'Unsupported') {
     if (framed) return MIC_FRAMED;
     return n === 'Unsupported' ? 'This browser cannot use the microphone. You can try the demo sound instead.'
+      : iOS ? 'Microphone access was not allowed. Open the Settings app, go to Apps, choose this browser and turn on Microphone, then press Start again.'
       : 'Microphone access was not allowed. Allow the microphone for this page in the browser settings, then press Start again.';
   }
   if (n === 'NotFoundError') return 'No microphone was found on this device. You can try the demo sound instead.';
