@@ -28,7 +28,12 @@ button{cursor:pointer}
 [hidden]{display:none !important}
 :focus-visible{outline:2px solid var(--accent); outline-offset:2px}
 
-#app{height:100%; display:flex; flex-direction:column; background:var(--paper); color:var(--ink); transition:background-color .3s}
+/* Every theme keeps to the Classic column on a wide screen; around it, the page takes the theme's ground colour */
+#app{height:100%; max-width:596px; margin:0 auto; display:flex; flex-direction:column; background:var(--paper); color:var(--ink); transition:background-color .3s}
+body{transition:background-color .3s}
+body:has(> #app[data-skin="rocket"]){background:#070A14}
+body:has(> #app[data-skin="city"]){background:#0E1130}
+body:has(> #app[data-skin="dash"]){background:#07071F}
 
 /* ---------- chrome (classic look; the rocket theme overrides it below) ---------- */
 #top{display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:12px; padding:12px 0 12px; margin:0 auto 6px; max-width:560px; width:calc(100% - 36px); border-bottom:1px solid var(--rule)}
@@ -138,7 +143,7 @@ button{cursor:pointer}
 #cityCv{position:absolute; inset:0; width:100%; height:100%; display:block}
 /* City read-outs. Sized for the pixel font, which is wide: every row is either a fixed pair (play time | goal block) or a row of
    equal cells, short labels sit above their numbers, and the two message lines shorten with an ellipsis instead of spilling. */
-.city-hud{position:absolute; left:13px; right:13px; max-width:520px; top:9px; padding:8px 12px 8px; font-size:11px; line-height:1.4; text-shadow:1px 1px 0 #000}
+.city-hud{position:absolute; left:13px; right:13px; top:9px; padding:8px 12px 8px; font-size:11px; line-height:1.4; text-shadow:1px 1px 0 #000}
 .city-hud .k{color:#D9D2C6}
 .ch-top{display:flex; justify-content:space-between; align-items:flex-end; gap:10px}
 .ch-play{min-width:0}
@@ -304,7 +309,7 @@ details.rep summary{cursor:pointer; padding:8px 0; color:var(--mute); font-size:
 #app[data-skin="dash"][data-chrome="pixel"] .award-card p{font-size:14px; color:#B9BCE8}
 #pDash{background:#07071F; color:#FFFFFF; font-family:var(--sans)}
 #dashCv{position:absolute; inset:0; width:100%; height:100%; display:block}
-.dash-hud{position:absolute; left:10px; right:10px; top:8px; max-width:520px; padding:9px 12px 8px; font-size:12px; line-height:1.4; background:rgba(8,8,34,.78); border:2px solid rgba(255,255,255,.2); border-radius:16px; cursor:pointer}
+.dash-hud{position:absolute; left:10px; right:10px; top:8px; padding:9px 12px 8px; font-size:12px; line-height:1.4; background:rgba(8,8,34,.78); border:2px solid rgba(255,255,255,.2); border-radius:16px; cursor:pointer}
 .dash-hud .k{color:#B9BCE8}
 .dh-prog{display:flex; align-items:center; gap:8px}
 .dh-bar{flex:1; min-width:0; height:12px; border-radius:7px; background:rgba(255,255,255,.14); border:2px solid #05051A; box-shadow:0 0 0 1px rgba(255,255,255,.35); overflow:hidden}
