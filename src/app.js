@@ -566,31 +566,55 @@ function frame(t) {
 }
 
 /* ---------- themes: swipe (touch, mouse drag or trackpad) or arrow keys ---------- */
-const SKINS = ['classic', 'rocket', 'city', 'dash'], LAST = SKINS.length - 1, stage = $('stage'), track = $('track');
+const SKINS = ['classic', 'rocket', 'city', 'dash'], SKIN_NAMES = ['Classic', 'Rocket', 'City', 'Dash'], PANELS = ['pClassic', 'pRocket', 'pCity', 'pDash'], stage = $('stage'), track = $('track');
 let skin = Math.max(0, SKINS.indexOf(S.skin)), dragging = false, drag = null, peek = -1;   // peek: the theme a swipe is pulling into view
+/* Whether a theme can be chosen yet. Every theme is open for now; to hold one back until a condition is met, return false for it here
+   and call refreshSkins() when the condition changes. A locked theme keeps its dot in the indicator (drawn hollow) but leaves the swipe
+   track, so swipes, arrow keys and the dots all skip it. Classic is always open, so there is somewhere to land. */
+function skinOpen(i) { return true; }
+let open = [];   // indices of the open themes, in swipe order
+function refreshSkins() {
+  open = SKINS.map((_, i) => i).filter(i => i === 0 || skinOpen(i));
+  PANELS.forEach((id, i) => { $(id).hidden = !open.includes(i); });
+  track.style.width = open.length * 100 + '%';
+  setSkin(open.includes(skin) ? skin : 0, false);
+}
+function stepSkin(d) { const p = open.indexOf(skin) + d; return open[Math.max(0, Math.min(open.length - 1, p))]; }   // the next open theme that way, or the same one at either end
 /* Only the theme on screen is drawn, plus the one a swipe is revealing. Each scene is costly (City is WebGL), so drawing every theme while a finger is down made swipes lag. */
 function visible(i) { return i === skin || (dragging && i === peek); }
 function setSkin(i, animate) {
   skin = i; app.dataset.skin = SKINS[i]; app.dataset.chrome = i === 0 ? 'clean' : 'pixel'; S.skin = SKINS[i]; saveS();
   if (i === 2) city.ensure();
   track.style.transition = animate && !reduceMotion ? 'transform .3s cubic-bezier(.2,.8,.2,1)' : 'none';
-  track.style.transform = 'translateX(' + (-i * 100 / SKINS.length) + '%)';
-  $('pClassic').inert = i !== 0; $('pRocket').inert = i !== 1; $('pCity').inert = i !== 2; $('pDash').inert = i !== 3;
+  track.style.transform = 'translateX(' + (-open.indexOf(i) * 100 / open.length) + '%)';
+  PANELS.forEach((id, j) => { $(id).inert = j !== i; });
+  paintSkinDots();
   layoutChanged();
+}
+/* The theme indicator: one dot per theme, the current one drawn long. Tapping a dot goes to that theme. */
+const skinDots = $('skinDots');
+SKINS.forEach((_, i) => { const b = document.createElement('button'); b.type = 'button'; b.onclick = () => { if (open.includes(i) && i !== skin) setSkin(i, true); }; skinDots.appendChild(b); });
+function paintSkinDots() {
+  [...skinDots.children].forEach((b, i) => {
+    const locked = !open.includes(i), on = i === skin;
+    b.disabled = locked; b.dataset.state = locked ? 'locked' : on ? 'on' : 'off';
+    if (on) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current');
+    b.setAttribute('aria-label', SKIN_NAMES[i] + ' theme' + (locked ? ', locked' : '')); b.title = SKIN_NAMES[i] + (locked ? ' (locked)' : '');
+  });
 }
 function layoutChanged() { requestAnimationFrame(() => { rocket.resize(); city.resize(); dashView.resize(); $('rBanner').style.top = Math.max(0, $('hud').offsetHeight - 6) + 'px'; }); }   // event banners sit just under the read-outs, clear of the scene
 stage.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse' && e.button !== 0) return; drag = { x: e.clientX, y: e.clientY, id: e.pointerId, w: stage.clientWidth, lock: false, t: performance.now() }; });
 stage.addEventListener('pointermove', e => {
   if (!drag || e.pointerId !== drag.id) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
   if (!drag.lock) { if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.3) { drag.lock = true; dragging = true; try { stage.setPointerCapture(drag.id); } catch (er) {} rocket.resize(); } else { if (Math.abs(dy) > 14) drag = null; return; } }
-  peek = dx < 0 ? Math.min(LAST, skin + 1) : Math.max(0, skin - 1);
-  const end = -LAST * drag.w; let x = -skin * drag.w + dx; if (x > 0) x *= 0.3; if (x < end) x = end + (x - end) * 0.3;
+  peek = stepSkin(dx < 0 ? 1 : -1);
+  const end = -(open.length - 1) * drag.w; let x = -open.indexOf(skin) * drag.w + dx; if (x > 0) x *= 0.3; if (x < end) x = end + (x - end) * 0.3;
   track.style.transition = 'none'; track.style.transform = 'translateX(' + x + 'px)';
 });
 function endDrag(e) {
   if (!drag || (e && e.pointerId !== drag.id)) return; const d = drag; drag = null; if (!d.lock) return; dragging = false; lastSwipe = performance.now();
   const dx = (e ? e.clientX : d.x) - d.x, fast = performance.now() - d.t < 350 && Math.abs(dx) > 40;
-  let i = skin; if (dx < 0 && (dx < -d.w * 0.25 || fast)) i = Math.min(LAST, skin + 1); else if (dx > 0 && (dx > d.w * 0.25 || fast)) i = Math.max(0, skin - 1);
+  let i = skin; if (dx < 0 && (dx < -d.w * 0.25 || fast)) i = stepSkin(1); else if (dx > 0 && (dx > d.w * 0.25 || fast)) i = stepSkin(-1);
   setSkin(i, true);
 }
 stage.addEventListener('pointerup', endDrag); stage.addEventListener('pointercancel', () => endDrag(null));
@@ -603,10 +627,10 @@ stage.addEventListener('wheel', e => {
   if (wheelDone) return;
   wheelX += e.deltaX * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? stage.clientWidth : 1);
   if (Math.abs(wheelX) < 60) return; wheelDone = true;
-  setSkin(Math.max(0, Math.min(LAST, skin + Math.sign(wheelX))), true);
+  setSkin(stepSkin(Math.sign(wheelX)), true);
 }, { passive: false });
 document.addEventListener('keydown', e => { if (document.querySelector('dialog[open]') || /INPUT|TEXTAREA/.test(e.target.tagName)) return;
-  if (e.key === 'ArrowRight') setSkin(Math.min(LAST, skin + 1), true); else if (e.key === 'ArrowLeft') setSkin(Math.max(0, skin - 1), true); });
+  if (e.key === 'ArrowRight') setSkin(stepSkin(1), true); else if (e.key === 'ArrowLeft') setSkin(stepSkin(-1), true); });
 window.addEventListener('resize', layoutChanged);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState !== 'visible') return;
   if (session.state === 'running' || session.state === 'paused') keepAwake();
@@ -725,7 +749,7 @@ for (const el of [$('hud'), $('cityHud'), $('dashHud')]) {
   el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setHudCompact(!S.hudCompact); } });
 }
 setHudCompact(!!S.hudCompact);
-setSkin(skin, false); paintGoal(); paintControls(); paintDemoBar();
+refreshSkins(); paintGoal(); paintControls(); paintDemoBar();
 try { const b = document.querySelector('meta[name="build"]'); $('ver').textContent = 'Version ' + (b && b.content && b.content.indexOf('__') < 0 ? b.content : 'dev'); } catch (e) {}
 if (S.source === 'mic' && (micPolicyBlocked() || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia))
   showNotice('mic', framed ? MIC_FRAMED : micMessage({ name: window.isSecureContext === false ? 'Insecure' : 'Unsupported' }), 'Use demo sound', useDemoAction);

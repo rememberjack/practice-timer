@@ -60,7 +60,7 @@ body:has(> #app[data-skin="dash"]){background:#07071F}
 
 #stage{flex:1; min-height:0; overflow:hidden; position:relative; touch-action:pan-y; -webkit-user-select:none; user-select:none}   /* a mouse swipe must not select text, or the next swipe drags the selection instead */
 #track{display:flex; width:400%; height:100%; will-change:transform}
-.panel{width:25%; height:100%; position:relative; overflow:hidden; container-type:size}
+.panel{flex:1 1 0; min-width:0; height:100%; position:relative; overflow:hidden; container-type:size}
 
 #controls{display:flex; flex-wrap:wrap; gap:10px; padding:10px 18px 14px; justify-content:center; max-width:596px; width:100%; margin:0 auto}
 #controls button{flex:1; min-height:56px; border-radius:18px; border:1px solid var(--rule); background:var(--surface); color:var(--ink); font-size:18px; font-weight:700}
@@ -340,6 +340,19 @@ details.rep summary{cursor:pointer; padding:8px 0; color:var(--mute); font-size:
 @media (max-width:350px){ .dash-hud{font-size:11px; padding:8px 10px 7px} .dh-stats span{font-size:10px} .dh-stats b{font-size:14px} #app[data-skin="dash"][data-chrome="pixel"] #controls button{font-size:15px} }
 @media (max-height:620px){ .dh-line.dim{display:none} }
 
+/* ---------- theme indicator: a dot per theme under the scene, the current one long; a locked theme is a hollow ring ---------- */
+#skinDots{display:flex; justify-content:center; flex:none; height:20px; margin-top:4px; --dot:var(--accent)}
+#skinDots button{height:20px; padding:0 8.5px; border:0; background:none; display:flex; align-items:center}   /* the dot sets the width, so the long one pushes its neighbours aside smoothly */
+#skinDots button::before{content:""; flex:none; width:7px; height:7px; border-radius:4px; background:var(--dot); opacity:.35; transition:width .25s, opacity .25s}
+#skinDots button[data-state="on"]::before{width:20px; opacity:1}
+#skinDots button[data-state="locked"]{cursor:default}
+#skinDots button[data-state="locked"]::before{background:none; box-shadow:inset 0 0 0 1.5px var(--dot); opacity:.35}
+#app[data-skin] #skinDots + #controls{padding-top:4px}
+#app[data-skin="rocket"] #skinDots{--dot:#FFFFFF}
+#app[data-skin="rocket"] #skinDots button::before, #app[data-skin="city"] #skinDots button::before{border-radius:0}
+#app[data-skin="city"] #skinDots{--dot:#F2C94C}
+#app[data-skin="dash"] #skinDots{--dot:#7CFF4F}
+
 /* ---------- more room for the Rocket and City scenes ---------- */
 .ctl-set{display:none}
 #hud, #cityHud{cursor:pointer}
@@ -504,6 +517,8 @@ details.rep summary{cursor:pointer; padding:8px 0; color:var(--mute); font-size:
       </div>
     </div>
   </main>
+
+  <nav id="skinDots" aria-label="Themes"></nav>
 
   <footer id="controls">
     <button id="btnStart" class="primary">Start</button>

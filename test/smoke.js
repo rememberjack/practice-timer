@@ -7,7 +7,7 @@ check(scripts.length === 2, 'two inline scripts');
 scripts.forEach((s, i) => { try { new vm.Script(s); check(true, 'script ' + (i + 1) + ' parses'); } catch (e) { check(false, 'script ' + (i + 1) + ' parses: ' + e.message); } });
 const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map(m => m[1]);
 check(new Set(ids).size === ids.length, 'element ids are unique');
-for (const id of ['app', 'btnStart', 'btnPause', 'btnResume', 'btnStop', 'cClock', 'vizBox', 'rk', 'hud', 'dlgSettings', 'dlgSummary', 'award', 'ver', 'pCity', 'cityCv', 'cityHud', 'yPlay', 'pDash', 'dashCv', 'dashHud', 'dPlay'])
+for (const id of ['app', 'btnStart', 'btnPause', 'btnResume', 'btnStop', 'cClock', 'vizBox', 'rk', 'hud', 'dlgSettings', 'dlgSummary', 'award', 'ver', 'pCity', 'cityCv', 'cityHud', 'yPlay', 'pDash', 'dashCv', 'dashHud', 'dPlay', 'skinDots'])
   check(ids.includes(id), 'has #' + id);
 check(!html.includes('__BUILD__') && !html.includes('/*__CORE__*/') && !html.includes('/*__APP__*/'), 'no placeholders left');
 check(/<meta name="viewport"[^>]*viewport-fit=cover/.test(html), 'viewport tag');
