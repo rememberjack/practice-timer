@@ -376,7 +376,7 @@ details.rep summary{cursor:pointer; padding:8px 0; color:var(--mute); font-size:
 .city-hud.compact .big, .city-hud.compact .big.long{font-size:24px; margin:0}
 .city-hud.compact .big.long{font-size:20px}
 .city-hud.compact .engine{flex:1; margin:0}
-@media (max-width:760px){
+@media (max-width:699px), (max-width:760px) and (max-height:599px){   /* phones; a tablet keeps the title row (see the tablet layout below) */
   #app[data-chrome="pixel"] #top{display:none}                                  /* the title row goes; Settings sits with the buttons */
   #app[data-chrome="pixel"] .ctl-set{display:grid; place-items:center; flex:none; width:50px; max-width:50px; padding:0}
   #app[data-chrome="pixel"] .ctl-set svg{width:22px; height:22px}
@@ -395,6 +395,149 @@ details.rep summary{cursor:pointer; padding:8px 0; color:var(--mute); font-size:
   .hud-line{margin-top:3px}
   .engine{margin-top:5px}
   .city-hud{top:7px}
+}
+/* ---------- tablet layout (iPad and larger): a screen at least 700 px wide and 600 px tall ----------
+   Classic grows into a wider column, and in landscape splits into the clock and stats on the left and the sound monitor on the right.
+   Rocket, City and Dash fill the whole width. Their read-outs keep the phone's stacked plan in portrait, with larger type, and become one
+   short strip across the top in landscape, so the scene keeps most of the screen. The three pixel themes still share every vertical
+   measurement around the scene (title row, notice, demo bar, theme bar, buttons), so swiping between them never resizes a scene. */
+@media (min-width:700px) and (min-height:600px){
+  #app{max-width:none}
+  /* chrome */
+  #top{max-width:880px; width:calc(100% - 64px); padding:16px 0 14px; margin-bottom:10px}
+  .app-icon{width:42px; height:42px; border-radius:12px} .app-icon svg{width:24px; height:24px}
+  #top h1{font-size:24px} .tagline{font-size:14px}
+  #notice, #demoBar{max-width:880px; width:calc(100% - 64px); margin-bottom:10px; font-size:15px}
+  #demoClips{margin-top:8px}
+  @media (min-width:960px){                                                     /* demo sound on one line when it fits: label, sounds, speed */
+    #demoBar{display:flex; align-items:center; gap:14px}
+    .demo-top{display:contents}
+    #demoBar .lab{flex:none; order:0}
+    #demoClips{order:1; flex:1; min-width:0; margin-top:0}
+    #demoWarp{order:2; flex:none}
+  }
+  .chips button{font-size:14px; padding:5px 13px}
+  #controls{max-width:880px; padding:12px 32px 18px; gap:14px}
+  #controls button{max-width:320px; min-height:60px; font-size:19px}
+  .keep{font-size:14px; text-align:center}
+  #skinBar{height:36px; gap:8px; margin-top:6px}
+  #skinBar button{width:50px; height:36px}
+  #skinBar button::before{border-radius:18px}
+  #skinBar .ic{width:22px; height:22px}
+  #skinBar .lk{right:9px; bottom:3px; width:12px; height:12px}
+  #toast{font-size:15px; bottom:calc(120px + env(safe-area-inset-bottom,0px))}
+  .award-card{max-width:380px; padding:26px 34px 24px}
+  .award-card .trophy, .award-card .px-trophy{width:128px; height:128px}
+  .award-card h3{font-size:30px} .award-card p{font-size:17px}
+
+  /* classic, portrait: one wide column, the four figures in a row, a big sound picture */
+  .classic{max-width:880px; padding:8px 32px 0}
+  .status{font-size:14px; min-height:24px}
+  .clock-label{font-size:17px; margin-top:14px}
+  .clock{font-size:clamp(60px, min(20cqw, 17cqh), 200px)}
+  .stats{gap:14px 28px; margin-top:20px}
+  @container (min-width:820px){ .stats{grid-template-columns:repeat(4, minmax(0, 1fr))} }   /* the four figures in a row when they fit */
+  .stat .k{font-size:15px}
+  .stat .v{font-size:30px}
+  .stat .v small{font-size:15px}
+  .meter{height:5px; margin-top:8px}
+  .classic > .monitor{margin:22px 0 6px; padding:18px 22px 16px; border-radius:26px}
+  .mon-head h2{font-size:19px}
+  .mon-state{font-size:13px}
+  .heard{margin-top:10px}
+  .heard h3{font-size:18px; line-height:26px; height:26px}
+  .heard p{font-size:14px; line-height:19px; height:38px}
+  .note{font-size:28px; line-height:26px; height:26px}
+  .viz{margin-top:10px}
+  .viz-name{font-size:13px}
+
+  /* classic, landscape: clock and figures on the left, the sound monitor down the right */
+  @container (min-width:900px) and (orientation:landscape){
+    .classic{max-width:1240px; display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); grid-template-rows:1fr auto auto auto auto 1fr; column-gap:44px; padding:6px 40px 6px}
+    .classic > .status{grid-area:2 / 1}
+    .classic > .clock-label{grid-area:3 / 1}
+    .classic > .clock{grid-area:4 / 1; font-size:clamp(60px, min(11cqw, 26cqh), 190px)}
+    .classic > .stats{grid-area:5 / 1; grid-template-columns:1fr 1fr; gap:18px 32px; margin-top:24px}
+    .classic > .monitor{grid-column:2; grid-row:1 / -1; margin:0; min-height:0}
+  }
+
+  @media (orientation:landscape) and (min-width:960px){
+    #app[data-chrome="clean"] #top, #app[data-chrome="clean"] #notice, #app[data-chrome="clean"] #demoBar{max-width:1160px; width:calc(100% - 80px)}
+    #app[data-chrome="clean"] #controls{max-width:1240px; padding-left:40px; padding-right:40px}
+  }
+
+  /* pixel themes: the same measurements in all three */
+  #app[data-chrome="pixel"] #top{padding:12px 24px 10px}
+  #app[data-chrome="pixel"] #top h1{font-size:17px}
+  #app[data-skin="dash"][data-chrome="pixel"] #top h1{font-size:22px}
+  #app[data-chrome="pixel"] .icon-btn{width:44px; height:44px}
+  #app[data-chrome="pixel"] .icon-btn svg{width:22px; height:22px}
+  #app[data-chrome="pixel"] #notice, #app[data-chrome="pixel"] #demoBar{margin-left:24px; margin-right:24px}
+  #app[data-skin="city"] #notice, #app[data-skin="city"] #demoBar{margin-left:27px; margin-right:27px}   /* 3 px more for the black outline */
+  #app[data-chrome="pixel"] #controls{padding:10px 24px 16px; gap:16px}
+  #app[data-skin="city"] #controls{padding:10px 27px 16px; gap:22px}
+  #app[data-skin="dash"][data-chrome="pixel"] #controls{padding-bottom:16px}
+  #app[data-chrome="pixel"] #controls button{max-width:300px; min-height:58px; font-size:17px}
+  #app[data-skin="city"] #controls button{font-size:15px}
+  #app[data-skin="dash"][data-chrome="pixel"] #controls button{font-size:20px}
+  #app[data-chrome="pixel"] .award-card h3{font-size:26px}
+  #app[data-chrome="pixel"] .award-card p{font-size:14px}
+  #rBanner{font-size:17px; padding:10px 16px}
+  #yBanner{font-size:15px; padding:9px 16px}
+  #yMsg{font-size:15px; padding:14px 20px}
+  #dBanner{font-size:19px; padding:10px 18px}
+
+  /* read-outs, portrait: the phone's plan, larger, kept to a readable width in the middle */
+  .hud{padding:12px max(24px, calc((100% - 820px) / 2)) 16px; font-size:15px}
+  .hud .big{font-size:clamp(44px, 7cqw, 64px)}
+  .hud .big.long{font-size:clamp(32px, 5cqw, 46px)}
+  .hud-side{line-height:1.5}
+  .hud-stats{margin-top:10px}
+  .hud-stats span{font-size:11px} .hud-stats b{font-size:18px}
+  .engine{margin-top:10px; gap:12px}
+  .pbar{height:18px}
+  .hud-line{margin-top:8px; min-height:20px}
+  .city-hud{left:max(27px, calc((100% - 820px) / 2)); right:max(27px, calc((100% - 820px) / 2)); top:12px; padding:12px 18px 12px; font-size:14px}
+  .city-hud .big{font-size:clamp(40px, 6.4cqw, 58px)}
+  .city-hud .big.long{font-size:clamp(30px, 4.8cqw, 42px)}
+  .city-hud .engine{margin-top:10px}
+  .city-hud .pbar{height:16px}
+  .ch-stats{margin-top:10px}
+  .ch-stats span{font-size:11px} .ch-stats b{font-size:17px}
+  .ch-line{margin-top:6px; min-height:20px}
+  .dash-hud{left:max(24px, calc((100% - 820px) / 2)); right:max(24px, calc((100% - 820px) / 2)); top:12px; padding:14px 18px 12px; font-size:15px; border-radius:20px}
+  .dh-bar{height:16px; border-radius:9px}
+  #dPct{font-size:16px}
+  .dh-top{margin-top:10px}
+  .dash-hud .big{font-size:clamp(44px, 7cqw, 64px)}
+  .dash-hud .big.long{font-size:clamp(34px, 5.4cqw, 48px)}
+  .dh-stats{margin-top:10px}
+  .dh-stats span{font-size:13px} .dh-stats b{font-size:21px}
+  .dh-line{margin-top:6px; min-height:21px}
+  .hud.compact, .city-hud.compact, .dash-hud.compact{padding-top:8px; padding-bottom:8px}
+  .hud.compact{padding-left:24px; padding-right:34px}
+  .city-hud.compact, .dash-hud.compact{padding-left:16px; padding-right:28px}
+  .hud.compact .big, .city-hud.compact .big, .dash-hud.compact .big{font-size:32px}
+  .hud.compact .big.long, .city-hud.compact .big.long, .dash-hud.compact .big.long{font-size:26px}
+
+  /* read-outs, landscape: one strip. Play time on the left, goal on the right, the power bar over the four figures in the middle,
+     and the two message lines underneath */
+  @container (min-width:960px){
+    .hud:not(.compact), .city-hud:not(.compact), .dash-hud:not(.compact){display:grid; grid-template-columns:auto minmax(0, 1fr) auto; column-gap:36px; row-gap:6px; align-items:center}
+    .hud:not(.compact){grid-template-areas:"play bar side" "play stats side" "heard heard next"; padding:12px max(28px, calc((100% - 1180px) / 2)) 18px}
+    .city-hud:not(.compact), .dash-hud:not(.compact){grid-template-areas:"play bar side" "play stats side" "heard heard next"; padding:14px 24px 14px}
+    .city-hud{left:max(27px, calc((100% - 1180px) / 2)); right:max(27px, calc((100% - 1180px) / 2))}
+    .dash-hud{left:max(24px, calc((100% - 1180px) / 2)); right:max(24px, calc((100% - 1180px) / 2))}
+    .hud:not(.compact) .hud-row, .city-hud:not(.compact) .ch-top, .dash-hud:not(.compact) .dh-top{display:contents}
+    .hud-play, .ch-play, .dh-play{grid-area:play}
+    .hud-side, .ch-side, .dh-side{grid-area:side}
+    .hud:not(.compact) .engine, .city-hud:not(.compact) .engine, .dash-hud:not(.compact) .dh-prog{grid-area:bar; margin:0}
+    .hud-stats, .ch-stats, .dh-stats{grid-area:stats; margin:0}
+    #rHeard, #yHeard, #dHeard{grid-area:heard; margin:2px 0 0}
+    #rNext, #yHint, #dHint{grid-area:next; margin:2px 0 0; text-align:right}
+    .hud .big, .city-hud .big, .dash-hud .big{font-size:clamp(48px, 5.4cqw, 68px)}
+    .hud .big.long, .city-hud .big.long, .dash-hud .big.long{font-size:clamp(36px, 4cqw, 50px)}
+  }
 }
 @media (prefers-reduced-motion: reduce){ *{transition-duration:.01ms !important} }
 </style>
