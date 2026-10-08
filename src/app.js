@@ -469,7 +469,8 @@ function fitKeyboard(dt) {
 function keyBox(k, ww) { const u = whiteU(k); return BLACK[pc(k)] ? { x: (u + 1 - kbLo) * ww, w: Math.max(3, ww * 0.62), black: true } : { x: (u + 0.5 - kbLo) * ww, w: ww, black: false }; }
 function drawPiano(w, h, dt) {
   fitKeyboard(dt);
-  const g = vg, kbH = Math.max(14, Math.min(46, h * 0.3)), top = h - kbH, ww = w / (kbHi - kbLo), speed = top / 3.2, lit = curKey != null ? curKey : -1;
+  // keys in a piano's proportions, 5.5 times as long as they are wide, but no more than 40% of the picture, so the notes keep room to fall
+  const g = vg, ww = w / (kbHi - kbLo), kbH = Math.max(14, Math.min(ww * 5.5, h * 0.4)), top = h - kbH, speed = top / 3.2, lit = curKey != null ? curKey : -1;
   g.save(); rrect(g, 0, 0, w, h, 10); g.clip();
   g.fillStyle = '#080D15'; g.fillRect(0, 0, w, h);
   for (const n of notes) { const yB = n.t1 < 0 ? top : top - (vt - n.t1) * speed, yT = Math.max(-6, top - (vt - n.t0) * speed); if (yB < 0) continue;
@@ -482,9 +483,15 @@ function drawPiano(w, h, dt) {
   const glow = g.createLinearGradient(0, top - 12, 0, top); glow.addColorStop(0, 'rgba(60,130,255,0)'); glow.addColorStop(1, 'rgba(60,130,255,0.5)');
   g.fillStyle = glow; g.fillRect(0, top - 12, w, 12); g.fillStyle = '#5B9BFF'; g.fillRect(0, top - 1, w, 2);
   const gap = ww > 5 ? 1 : 0.5, u0 = Math.floor(kbLo) - 1, u1 = Math.ceil(kbHi) + 1, litU = lit >= 0 && !BLACK[pc(lit)] ? whiteU(lit) : -1;
-  for (let u = u0; u <= u1; u++) { g.fillStyle = u === litU ? COL.accent : '#EEF2F7'; g.fillRect((u - kbLo) * ww + gap / 2, top + 1, ww - gap, kbH - 1); }
+  // white keys shaded under the glow line and rounded at the near end; black keys with a lighter front edge
+  const ivory = g.createLinearGradient(0, top, 0, h); ivory.addColorStop(0, '#CDD5E0'); ivory.addColorStop(Math.min(0.5, 10 / kbH), '#EEF2F7'); ivory.addColorStop(1, '#F8FAFC');
+  const end = (x, y, bw, bh, r) => { g.beginPath(); if (g.roundRect) g.roundRect(x, y, bw, bh, [0, 0, r, r]); else g.rect(x, y, bw, bh); g.fill(); };
+  const rW = Math.min(4, ww * 0.12), bH = kbH * 0.62, lip = Math.max(1, Math.min(5, bH * 0.07));
+  for (let u = u0; u <= u1; u++) { g.fillStyle = u === litU ? COL.accent : ivory; end((u - kbLo) * ww + gap / 2, top + 1, ww - gap, kbH - 1, rW); }
   const kA = 12 * Math.floor(u0 / 7) - 1, kZ = 12 * Math.ceil(u1 / 7) + 12;
-  for (let k = kA; k <= kZ; k++) if (BLACK[pc(k)]) { const b = keyBox(k, ww); if (b.x < -b.w || b.x > w + b.w) continue; g.fillStyle = k === lit ? COL.accent : '#0B1019'; g.fillRect(b.x - b.w / 2, top + 1, b.w, kbH * 0.62); }
+  for (let k = kA; k <= kZ; k++) if (BLACK[pc(k)]) { const b = keyBox(k, ww); if (b.x < -b.w || b.x > w + b.w) continue;
+    g.fillStyle = k === lit ? COL.accent : '#0B1019'; end(b.x - b.w / 2, top + 1, b.w, bH, rW * 0.6);
+    if (k !== lit) { g.fillStyle = '#323C4E'; g.fillRect(b.x - b.w / 2 + 1, top + 1 + bH - lip - 1, b.w - 2, lip); } }
   if (lit >= 0) { const b = keyBox(lit, ww);                                               // where the note meets the key: a flash and a few sparks
     g.fillStyle = COL.accent; g.globalAlpha = 0.35; g.beginPath(); g.arc(b.x, top, 11, 0, 7); g.fill();
     g.fillStyle = '#FFFFFF'; g.globalAlpha = 0.95; g.beginPath(); g.arc(b.x, top, 4.5, 0, 7); g.fill(); g.globalAlpha = 1;
