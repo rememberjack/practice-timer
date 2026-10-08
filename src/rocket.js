@@ -131,7 +131,7 @@ function makeRocketView(cv, hud, sim, MT) {
     const r = cv.parentElement.getBoundingClientRect(); if (r.width < 10 || r.height < 10) return false;
     ps = Math.max(2, Math.round(r.height / 200));
     const w = Math.max(40, Math.ceil(r.width / ps)), h = Math.max(60, Math.ceil(r.height / ps));
-    topInset = Math.min(h * 0.5, hud.offsetHeight / ps);
+    topInset = Math.min(h * 0.5, (hud.offsetTop + hud.offsetHeight) / ps);
     if (w === W && h === H) return true;
     W = w; H = h; cv.width = W; cv.height = H; cv.style.width = W * ps + 'px'; cv.style.height = H * ps + 'px';
     img = g.createImageData(W, H); px = new Uint32Array(img.data.buffer);

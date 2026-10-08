@@ -200,7 +200,7 @@ body:has(> #app[data-skin="dash"]){background:#07071F}
 #rPwN{min-width:4ch; text-align:right}
 .hud-line{margin-top:6px; min-height:16px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 #rNext{color:#C5CCDD}
-#rBanner{position:absolute; left:50%; top:150px; transform:translateX(-50%); max-width:92%; text-align:center; padding:8px 12px; background:#05070D; color:#FFD23F; border:2px solid #FFD23F;
+#rBanner{position:absolute; left:50%; top:max(0px, calc(var(--hud-b, 156px) - 6px)); transform:translateX(-50%); max-width:92%; text-align:center; padding:8px 12px; background:#05070D; color:#FFD23F; border:2px solid #FFD23F;
   font-size:14px; opacity:0; transition:opacity .25s; pointer-events:none}
 #rBanner.on{opacity:1}
 
@@ -313,6 +313,7 @@ details.rep summary{cursor:pointer; padding:8px 0; color:var(--mute); font-size:
 .dash-hud{position:absolute; left:10px; right:10px; top:8px; padding:9px 12px 8px; font-size:12px; line-height:1.4; background:rgba(8,8,34,.78); border:2px solid rgba(255,255,255,.2); border-radius:16px; cursor:pointer}
 .dash-hud .k{color:#B9BCE8}
 .dh-prog{display:flex; align-items:center; gap:8px}
+.dh-prog .k{display:none; flex:none}                                          /* shown on a tablet */
 .dh-bar{flex:1; min-width:0; height:12px; border-radius:7px; background:rgba(255,255,255,.14); border:2px solid #05051A; box-shadow:0 0 0 1px rgba(255,255,255,.35); overflow:hidden}
 .dh-bar i{display:block; height:100%; width:0; background:#7CFF4F; transition:width .2s linear}
 #dPct{flex:none; min-width:4ch; text-align:right; font-weight:800; font-size:13px; font-variant-numeric:tabular-nums}
@@ -397,43 +398,69 @@ details.rep summary{cursor:pointer; padding:8px 0; color:var(--mute); font-size:
   .city-hud{top:7px}
 }
 /* ---------- tablet layout (iPad and larger): a screen at least 700 px wide and 600 px tall ----------
-   Classic grows into a wider column, and in landscape splits into the clock and stats on the left and the sound monitor on the right.
-   Rocket, City and Dash fill the whole width. Their read-outs keep the phone's stacked plan in portrait, with larger type, and become one
-   short strip across the top in landscape, so the scene keeps most of the screen. The three pixel themes still share every vertical
-   measurement around the scene (title row, notice, demo bar, theme bar, buttons), so swiping between them never resizes a scene. */
+   All four themes share one frame, so a swipe changes the look but nothing moves:
+   - one page edge (--edge) for the title row, notice, demo bar, read-outs, sound monitor and buttons;
+   - the same title row, demo bar, theme bar and button row, at the same heights;
+   - read-outs on top and the picture underneath (the sound monitor in Classic, the scene in the others). Rocket, City and Dash put
+     their read-outs in a card of one shared size and grid: play time and goal, the power bar, four figures, two message lines;
+     in landscape the card becomes one short strip. Event banners sit just under the card in all three.
+   The three pixel themes still match every vertical measurement around the scene, so swiping never resizes a scene. */
 @media (min-width:700px) and (min-height:600px){
+  :root{--edge:max(24px, calc((100vw - 1180px) / 2))}              /* 24 px, or centred at most 1180 px wide on a big screen */
   #app{max-width:none}
-  /* chrome */
-  #top{max-width:880px; width:calc(100% - 64px); padding:16px 0 14px; margin-bottom:10px}
+
+  /* title row, the same height in every theme */
+  #top, #app[data-chrome="pixel"] #top{display:flex; align-items:center; gap:12px; max-width:none; width:auto; min-height:68px; margin:0 0 10px; padding:12px var(--edge); border-bottom:0}
+  #top{background:linear-gradient(var(--rule), var(--rule)) center bottom / calc(100% - 2 * var(--edge)) 1px no-repeat}
+  #app[data-chrome="pixel"] #top{background:none}
+  #top .brand{flex:1}
   .app-icon{width:42px; height:42px; border-radius:12px} .app-icon svg{width:24px; height:24px}
   #top h1{font-size:24px} .tagline{font-size:14px}
-  #notice, #demoBar{max-width:880px; width:calc(100% - 64px); margin-bottom:10px; font-size:15px}
+  #app[data-chrome="pixel"] #top h1{font-size:18px}
+  #app[data-skin="dash"][data-chrome="pixel"] #top h1{font-size:24px}
+  .icon-btn{min-height:44px}
+  #app[data-chrome="pixel"] .icon-btn{width:44px; height:44px}
+  #app[data-chrome="pixel"] .icon-btn svg{width:22px; height:22px}
+
+  /* notice and demo bar: the same place and size in every theme (City's black outline sits outside its box, hence the extra 3 px) */
+  #app[data-skin] #notice, #app[data-skin] #demoBar{max-width:none; width:auto; align-self:stretch; margin:0 var(--edge) 10px; font-size:15px}
+  #app[data-skin="city"] #notice, #app[data-skin="city"] #demoBar{margin:3px calc(var(--edge) + 3px) 9px}
   #demoClips{margin-top:8px}
   @media (min-width:960px){                                                     /* demo sound on one line when it fits: label, sounds, speed */
-    #demoBar{display:flex; align-items:center; gap:14px}
+    #app[data-skin] #demoBar{display:flex; align-items:center; gap:14px}
     .demo-top{display:contents}
     #demoBar .lab{flex:none; order:0}
-    #demoClips{order:1; flex:1; min-width:0; margin-top:0}
+    #app[data-skin] #demoClips{order:1; flex:1; min-width:0; margin-top:0}
     #demoWarp{order:2; flex:none}
   }
   .chips button{font-size:14px; padding:5px 13px}
-  #controls{max-width:880px; padding:12px 32px 18px; gap:14px}
-  #controls button{max-width:320px; min-height:60px; font-size:19px}
-  .keep{font-size:14px; text-align:center}
-  #skinBar{height:36px; gap:8px; margin-top:6px}
+
+  /* theme bar and buttons: the same in every theme, with the reminder line under the buttons */
+  #skinBar{height:36px; gap:8px; margin-top:8px}
   #skinBar button{width:50px; height:36px}
   #skinBar button::before{border-radius:18px}
   #skinBar .ic{width:22px; height:22px}
   #skinBar .lk{right:9px; bottom:3px; width:12px; height:12px}
-  #toast{font-size:15px; bottom:calc(120px + env(safe-area-inset-bottom,0px))}
+  #app[data-skin] #controls, #app[data-skin][data-chrome="pixel"] #controls{flex-wrap:wrap; max-width:none; padding:8px var(--edge) 14px; gap:10px 16px}
+  #app[data-skin="city"] #controls{padding-left:calc(var(--edge) + 3px); padding-right:calc(var(--edge) + 3px); column-gap:22px}
+  #app[data-skin] #controls button{flex:1 1 0; max-width:300px; min-height:58px; font-size:19px}
+  #app[data-chrome="pixel"] #controls button{font-size:17px}
+  #app[data-skin="city"] #controls button{font-size:15px}
+  #app[data-skin="dash"][data-chrome="pixel"] #controls button{font-size:20px}
+  #app[data-chrome="pixel"] .ctl-set{display:none}
+  #app[data-skin] .keep{display:block; flex-basis:100%; text-align:center; font-size:13px; line-height:18px; color:var(--mute)}
+
+  #toast{font-size:15px; bottom:calc(132px + env(safe-area-inset-bottom,0px))}
   .award-card{max-width:380px; padding:26px 34px 24px}
   .award-card .trophy, .award-card .px-trophy{width:128px; height:128px}
   .award-card h3{font-size:30px} .award-card p{font-size:17px}
+  #app[data-chrome="pixel"] .award-card h3{font-size:26px}
+  #app[data-chrome="pixel"] .award-card p{font-size:14px}
 
-  /* classic, portrait: one wide column, the four figures in a row, a big sound picture */
-  .classic{max-width:880px; padding:8px 32px 0}
+  /* ----- classic: read-outs on top, lined up with the read-out cards of the other themes, and the sound monitor underneath ----- */
+  .classic{max-width:none; padding:14px calc(var(--edge) + 18px) 0}
   .status{font-size:14px; min-height:24px}
-  .clock-label{font-size:17px; margin-top:14px}
+  .clock-label{font-size:17px; margin-top:12px}
   .clock{font-size:clamp(60px, min(20cqw, 17cqh), 200px)}
   .stats{gap:14px 28px; margin-top:20px}
   @container (min-width:820px){ .stats{grid-template-columns:repeat(4, minmax(0, 1fr))} }   /* the four figures in a row when they fit */
@@ -441,7 +468,7 @@ details.rep summary{cursor:pointer; padding:8px 0; color:var(--mute); font-size:
   .stat .v{font-size:30px}
   .stat .v small{font-size:15px}
   .meter{height:5px; margin-top:8px}
-  .classic > .monitor{margin:22px 0 6px; padding:18px 22px 16px; border-radius:26px}
+  .classic > .monitor{margin:22px -18px 12px; padding:16px 18px 16px; border-radius:20px}   /* the monitor spans the page edge to edge, like the scene cards */
   .mon-head h2{font-size:19px}
   .mon-state{font-size:13px}
   .heard{margin-top:10px}
@@ -450,94 +477,62 @@ details.rep summary{cursor:pointer; padding:8px 0; color:var(--mute); font-size:
   .note{font-size:28px; line-height:26px; height:26px}
   .viz{margin-top:10px}
   .viz-name{font-size:13px}
-
-  /* classic, landscape: clock and figures on the left, the sound monitor down the right */
+  /* landscape: the same strip plan as the other themes. Status over the clock on the left, the four figures on the right, the monitor below */
   @container (min-width:900px) and (orientation:landscape){
-    .classic{max-width:1240px; display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); grid-template-rows:1fr auto auto auto auto 1fr; column-gap:44px; padding:6px 40px 6px}
-    .classic > .status{grid-area:2 / 1}
-    .classic > .clock-label{grid-area:3 / 1}
-    .classic > .clock{grid-area:4 / 1; font-size:clamp(60px, min(11cqw, 26cqh), 190px)}
-    .classic > .stats{grid-area:5 / 1; grid-template-columns:1fr 1fr; gap:18px 32px; margin-top:24px}
-    .classic > .monitor{grid-column:2; grid-row:1 / -1; margin:0; min-height:0}
+    .classic{display:grid; grid-template-columns:auto minmax(0, 1fr); grid-template-rows:auto auto auto minmax(0, 1fr); grid-template-areas:"status stats" "label stats" "clock stats" "mon mon"; column-gap:56px}
+    .classic > .status{grid-area:status}
+    .classic > .clock-label{grid-area:label}
+    .classic > .clock{grid-area:clock; font-size:clamp(60px, min(11cqw, 22cqh), 150px)}
+    .classic > .stats{grid-area:stats; align-self:end; grid-template-columns:1fr 1fr; gap:12px 32px; margin:0 0 4px}
+    .classic > .monitor{grid-area:mon; margin-top:18px; min-height:0}
   }
 
-  @media (orientation:landscape) and (min-width:960px){
-    #app[data-chrome="clean"] #top, #app[data-chrome="clean"] #notice, #app[data-chrome="clean"] #demoBar{max-width:1160px; width:calc(100% - 80px)}
-    #app[data-chrome="clean"] #controls{max-width:1240px; padding-left:40px; padding-right:40px}
+  /* ----- Rocket, City, Dash: one read-out card, the same size and grid in all three ----- */
+  .hud, .city-hud, .dash-hud{top:12px; left:var(--edge); right:var(--edge); line-height:1.4; font-size:14px;
+    display:grid; grid-template-columns:minmax(0, 1fr) auto; column-gap:24px; row-gap:6px; align-items:center;
+    grid-template-rows:84px 26px 44px 22px 22px; grid-template-areas:"play side" "bar bar" "stats stats" "heard heard" "next next"}
+  .hud{padding:12px 16px; background:rgba(7,10,20,.8); border:2px solid #2C3550; box-shadow:4px 4px 0 rgba(0,0,0,.35)}
+  .city-hud{top:15px; left:calc(var(--edge) + 3px); right:calc(var(--edge) + 3px); padding:11px 15px}        /* its outline is drawn outside the box */
+  .dash-hud{padding:12px 16px; font-size:15px; border-radius:20px}
+  .hud-row, .ch-top, .dh-top{display:contents}
+  .hud-play, .ch-play, .dh-play{grid-area:play; align-self:end}
+  .hud-side, .ch-side, .dh-side{grid-area:side; align-self:end; line-height:1.45}
+  .hud .engine, .city-hud .engine, .dh-prog{grid-area:bar; margin:0; gap:12px}
+  .hud-stats, .ch-stats, .dh-stats{grid-area:stats; margin:0}
+  #rHeard, #yHeard, #dHeard{grid-area:heard; margin:0; min-height:0}
+  #rNext, #yHint, #dHint{grid-area:next; margin:0; min-height:0}
+  .ch-line.dim, .dh-line.dim{display:block}
+  .hud .k, .city-hud .k, .dash-hud .k{white-space:nowrap}
+  .hud .big, .city-hud .big, .dash-hud .big{font-size:clamp(44px, 7cqw, 58px); margin-top:2px}
+  .hud .big.long, .city-hud .big.long, .dash-hud .big.long{font-size:clamp(32px, 5cqw, 42px)}
+  .pbar, .city-hud .pbar, .dh-bar{height:18px}
+  .dh-prog .k{display:block}                                                    /* the course bar gets a label, like Engine and Power */
+  #rPwN, #yPwN, #dPct{min-width:4ch; font-size:inherit}
+  #dPct{font-weight:800}
+  .hud-stats span, .ch-stats span{font-size:12px} .hud-stats b, .ch-stats b{font-size:18px}
+  .dh-stats span{font-size:13px} .dh-stats b{font-size:21px}
+  /* landscape: the card becomes one strip. Play time on the left, goal on the right, the bar over the four figures between them */
+  @container (min-width:960px){
+    .hud, .city-hud, .dash-hud{grid-template-columns:auto minmax(0, 1fr) auto; column-gap:36px; grid-template-rows:30px 44px 22px;
+      grid-template-areas:"play bar side" "play stats side" "heard heard next"}
+    .hud-play, .ch-play, .dh-play{align-self:center}
+    .hud-side, .ch-side, .dh-side{align-self:center}
+    #rNext, #yHint, #dHint{text-align:right}
   }
-
-  /* pixel themes: the same measurements in all three */
-  #app[data-chrome="pixel"] #top{padding:12px 24px 10px}
-  #app[data-chrome="pixel"] #top h1{font-size:17px}
-  #app[data-skin="dash"][data-chrome="pixel"] #top h1{font-size:22px}
-  #app[data-chrome="pixel"] .icon-btn{width:44px; height:44px}
-  #app[data-chrome="pixel"] .icon-btn svg{width:22px; height:22px}
-  #app[data-chrome="pixel"] #notice, #app[data-chrome="pixel"] #demoBar{margin-left:24px; margin-right:24px}
-  #app[data-skin="city"] #notice, #app[data-skin="city"] #demoBar{margin-left:27px; margin-right:27px}   /* 3 px more for the black outline */
-  #app[data-chrome="pixel"] #controls{padding:10px 24px 16px; gap:16px}
-  #app[data-skin="city"] #controls{padding:10px 27px 16px; gap:22px}
-  #app[data-skin="dash"][data-chrome="pixel"] #controls{padding-bottom:16px}
-  #app[data-chrome="pixel"] #controls button{max-width:300px; min-height:58px; font-size:17px}
-  #app[data-skin="city"] #controls button{font-size:15px}
-  #app[data-skin="dash"][data-chrome="pixel"] #controls button{font-size:20px}
-  #app[data-chrome="pixel"] .award-card h3{font-size:26px}
-  #app[data-chrome="pixel"] .award-card p{font-size:14px}
+  /* folded: play time and the bar on one line, the same height in all three */
+  .hud.compact, .city-hud.compact, .dash-hud.compact{display:flex; height:50px; padding:0 30px 0 16px}
+  .city-hud.compact{height:44px; padding:0 27px 0 15px}                                              /* plus its 3 px outline: 50 px */
+  .hud.compact .big, .city-hud.compact .big, .dash-hud.compact .big{font-size:30px}
+  .hud.compact .big.long, .city-hud.compact .big.long, .dash-hud.compact .big.long{font-size:24px}
+  .dash-hud.compact .dh-prog .k{display:none}
+  .hud.compact .hud-play, .city-hud.compact .ch-play, .dash-hud.compact .dh-play{align-self:center; flex:none}
+  .dash-hud.compact .dh-play{order:-1}
+  /* event banners: just under the read-outs, in the middle, in all three */
+  #rBanner, #yBanner, #dBanner{top:calc(var(--hud-b, 0px) + 14px); bottom:auto; margin:0}
   #rBanner{font-size:17px; padding:10px 16px}
   #yBanner{font-size:15px; padding:9px 16px}
   #yMsg{font-size:15px; padding:14px 20px}
   #dBanner{font-size:19px; padding:10px 18px}
-
-  /* read-outs, portrait: the phone's plan, larger, kept to a readable width in the middle */
-  .hud{padding:12px max(24px, calc((100% - 820px) / 2)) 16px; font-size:15px}
-  .hud .big{font-size:clamp(44px, 7cqw, 64px)}
-  .hud .big.long{font-size:clamp(32px, 5cqw, 46px)}
-  .hud-side{line-height:1.5}
-  .hud-stats{margin-top:10px}
-  .hud-stats span{font-size:11px} .hud-stats b{font-size:18px}
-  .engine{margin-top:10px; gap:12px}
-  .pbar{height:18px}
-  .hud-line{margin-top:8px; min-height:20px}
-  .city-hud{left:max(27px, calc((100% - 820px) / 2)); right:max(27px, calc((100% - 820px) / 2)); top:12px; padding:12px 18px 12px; font-size:14px}
-  .city-hud .big{font-size:clamp(40px, 6.4cqw, 58px)}
-  .city-hud .big.long{font-size:clamp(30px, 4.8cqw, 42px)}
-  .city-hud .engine{margin-top:10px}
-  .city-hud .pbar{height:16px}
-  .ch-stats{margin-top:10px}
-  .ch-stats span{font-size:11px} .ch-stats b{font-size:17px}
-  .ch-line{margin-top:6px; min-height:20px}
-  .dash-hud{left:max(24px, calc((100% - 820px) / 2)); right:max(24px, calc((100% - 820px) / 2)); top:12px; padding:14px 18px 12px; font-size:15px; border-radius:20px}
-  .dh-bar{height:16px; border-radius:9px}
-  #dPct{font-size:16px}
-  .dh-top{margin-top:10px}
-  .dash-hud .big{font-size:clamp(44px, 7cqw, 64px)}
-  .dash-hud .big.long{font-size:clamp(34px, 5.4cqw, 48px)}
-  .dh-stats{margin-top:10px}
-  .dh-stats span{font-size:13px} .dh-stats b{font-size:21px}
-  .dh-line{margin-top:6px; min-height:21px}
-  .hud.compact, .city-hud.compact, .dash-hud.compact{padding-top:8px; padding-bottom:8px}
-  .hud.compact{padding-left:24px; padding-right:34px}
-  .city-hud.compact, .dash-hud.compact{padding-left:16px; padding-right:28px}
-  .hud.compact .big, .city-hud.compact .big, .dash-hud.compact .big{font-size:32px}
-  .hud.compact .big.long, .city-hud.compact .big.long, .dash-hud.compact .big.long{font-size:26px}
-
-  /* read-outs, landscape: one strip. Play time on the left, goal on the right, the power bar over the four figures in the middle,
-     and the two message lines underneath */
-  @container (min-width:960px){
-    .hud:not(.compact), .city-hud:not(.compact), .dash-hud:not(.compact){display:grid; grid-template-columns:auto minmax(0, 1fr) auto; column-gap:36px; row-gap:6px; align-items:center}
-    .hud:not(.compact){grid-template-areas:"play bar side" "play stats side" "heard heard next"; padding:12px max(28px, calc((100% - 1180px) / 2)) 18px}
-    .city-hud:not(.compact), .dash-hud:not(.compact){grid-template-areas:"play bar side" "play stats side" "heard heard next"; padding:14px 24px 14px}
-    .city-hud{left:max(27px, calc((100% - 1180px) / 2)); right:max(27px, calc((100% - 1180px) / 2))}
-    .dash-hud{left:max(24px, calc((100% - 1180px) / 2)); right:max(24px, calc((100% - 1180px) / 2))}
-    .hud:not(.compact) .hud-row, .city-hud:not(.compact) .ch-top, .dash-hud:not(.compact) .dh-top{display:contents}
-    .hud-play, .ch-play, .dh-play{grid-area:play}
-    .hud-side, .ch-side, .dh-side{grid-area:side}
-    .hud:not(.compact) .engine, .city-hud:not(.compact) .engine, .dash-hud:not(.compact) .dh-prog{grid-area:bar; margin:0}
-    .hud-stats, .ch-stats, .dh-stats{grid-area:stats; margin:0}
-    #rHeard, #yHeard, #dHeard{grid-area:heard; margin:2px 0 0}
-    #rNext, #yHint, #dHint{grid-area:next; margin:2px 0 0; text-align:right}
-    .hud .big, .city-hud .big, .dash-hud .big{font-size:clamp(48px, 5.4cqw, 68px)}
-    .hud .big.long, .city-hud .big.long, .dash-hud .big.long{font-size:clamp(36px, 4cqw, 50px)}
-  }
 }
 @media (prefers-reduced-motion: reduce){ *{transition-duration:.01ms !important} }
 </style>
@@ -642,7 +637,7 @@ details.rep summary{cursor:pointer; padding:8px 0; color:var(--mute); font-size:
       <section class="panel" id="pDash" aria-label="Dash theme">
         <canvas id="dashCv" aria-hidden="true"></canvas>
         <div class="dash-hud" id="dashHud">
-          <div class="dh-prog"><div class="dh-bar"><i id="dBar"></i></div><b id="dPct">0%</b></div>
+          <div class="dh-prog"><span class="k">Level</span><div class="dh-bar"><i id="dBar"></i></div><b id="dPct">0%</b></div>
           <div class="dh-top">
             <div class="dh-play"><span class="k">Play time</span><span class="big" id="dPlay">00:00</span></div>
             <div class="dh-side">

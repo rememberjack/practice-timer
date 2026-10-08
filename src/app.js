@@ -604,7 +604,9 @@ function paintSkinBar() {
     b.setAttribute('aria-label', SKIN_NAMES[i] + ' theme' + (locked ? ', locked' : '')); b.title = SKIN_NAMES[i] + (locked ? ' (locked)' : '');
   });
 }
-function layoutChanged() { requestAnimationFrame(() => { rocket.resize(); city.resize(); dashView.resize(); $('rBanner').style.top = Math.max(0, $('hud').offsetHeight - 6) + 'px'; }); }   // event banners sit just under the read-outs, clear of the scene
+/* Event banners sit just under the read-outs, clear of the scene: each panel gets --hud-b, the bottom of its read-outs, for the CSS to use */
+function layoutChanged() { requestAnimationFrame(() => { rocket.resize(); city.resize(); dashView.resize();
+  for (const [p, h] of [['pRocket', 'hud'], ['pCity', 'cityHud'], ['pDash', 'dashHud']]) { const el = $(h); $(p).style.setProperty('--hud-b', el.offsetTop + el.offsetHeight + 'px'); } }); }
 stage.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse' && e.button !== 0) return; drag = { x: e.clientX, y: e.clientY, id: e.pointerId, w: stage.clientWidth, lock: false, t: performance.now() }; });
 stage.addEventListener('pointermove', e => {
   if (!drag || e.pointerId !== drag.id) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
