@@ -64,7 +64,7 @@ class MusicDetector {
     for (let i = 0; i < N; i++) this.win[i] = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / (N - 1));
     this.re = new Float64Array(N); this.im = new Float64Array(N);
     const half = N / 2 + 1;
-    this.P = new Float32Array(half); this.E = new Float32Array(half);
+    this.P = new Float32Array(half); this.P0 = new Float32Array(half); this.E = new Float32Array(half);
     this.floor = new Float32Array(half); this.used = new Uint8Array(half);
     this.W = Math.max(4, Math.round(100 / this.binHz));
     this.kLo = Math.max(3, Math.ceil(70 / this.binHz));
@@ -73,7 +73,8 @@ class MusicDetector {
     this.peaks = []; for (let i = 0; i < 40; i++) this.peaks.push({ f: 0, p: 0 });
     this.hp = new Float64Array(17);
     this.pf = new Float64Array(4); this.pd = new Float64Array(4);
-    this.lh = new Float64Array(5); this.ld = new Float64Array(5);
+    this.lh = new Float64Array(6); this.lp = new Float64Array(6); this.lpf = new Float64Array(6); this.lt = new Uint8Array(6); this.fq = new Int8Array(6);
+    this.hist = new Float32Array(128);
     this.setSensitivity(opts.sensitivity || 'normal');
     this.out = { levelDb: -120, active: false, tonal: false, ter: 0, pitch: 0, note: '', score: 0,
       isMusic: false, kind: 'quiet', label: 'Quiet', detail: '', instrument: '' };
@@ -83,10 +84,12 @@ class MusicDetector {
   reset() {
     this.floor.fill(1e-9); this.pf.fill(0); this.pd.fill(0.05);
     this.score = 0; this.isMusic = false; this.run = 0; this.glideHold = 0; this.flat = 0; this.bridge = 0;
-    this.lh.fill(-120); this.ld.fill(0.05);
+    this.lh.fill(-120); this.lp.fill(0); this.lpf.fill(0); this.lt.fill(0); this.fq.fill(-1); this.P0.fill(0); this.hist.fill(0);
     this.duty = 0; this.trans = 0; this.prevLevel = -120; this.prevLevel2 = -120;
     this.lm = -80; this.lv = 0;
-    this.fall = 0.3; this.poly = 0; this.oddR = 0.6; this.rich = 5; this.lf0 = Math.log(330); this.instN = 0;
+    // what the instrument sounds like: averages that start from a guess worth three frames, then keep a 2.5 s memory (vibrato: 5 s, no guess)
+    this.fall = 0.2; this.fallN = 0; this.fade = 0.3; this.fadeN = 0; this.inh = 0.2; this.inhN = 0; this.poly = 0;
+    this.vib = 0; this.vibN = 0; this.oddR = 0.6; this.up = 0.1; this.h21 = 0; this.h21N = 0; this.lf0 = Math.log(330); this.instN = 0;
   }
   process(frame, dt) {
     const N = this.N, re = this.re, im = this.im, win = this.win, P = this.P, E = this.E, fl = this.floor;
@@ -133,9 +136,20 @@ class MusicDetector {
     }
     const ter = Etot > 0 ? Epk / Etot : 0;
 
+    // do the overtones that carry on from the last frame grow quieter (a struck string) or hold (bowed, blown)?
+    // Each peak is compared with the same spot a frame ago; weighted share of them fading by more than 4 dB a second
+    const P0 = this.P0; let fw = 0, fd = 0;
+    for (let j = 0; j < np; j++) {
+      const k0 = Math.round(peaks[j].f / binHz); let c = 0, b = 0;
+      for (let k = k0 - 2; k <= k0 + 2; k++) { if (P[k] > c) c = P[k]; if (P0[k] > b) b = P0[k]; }
+      const d = 10 * Math.log10((c + 1e-20) / (b + 1e-20)), w = Math.sqrt(peaks[j].p);
+      if (d > -12 && d < 12) { fw += w; if (d < -4 * dt) fd += w; }                       // a peak that just began or ended is not compared
+    }
+    P0.set(P.subarray(0, kTop + 3));
+
     // fundamental by harmonic matching
     const hp = this.hp; hp.fill(0);
-    let f0 = 0, harm = 0;
+    let f0 = 0, harm = 0, stretch = null, fine = 0;
     if (np > 0) {
       let best = 0, bestF = 0;
       const m = Math.min(np, 8);
@@ -154,14 +168,21 @@ class MusicDetector {
         if (S > best) { best = S; bestF = fc; }
       }
       if (bestF > 0) {
-        let Em = 0, wsum = 0, fsum = 0;
+        let Em = 0, wsum = 0, fsum = 0, gw = 0, gf = 0, sw = 0, sx = 0, sy = 0, sxx = 0, sxy = 0, nh = 0, hmax = 0;
         for (let j = 0; j < np; j++) {
           const q = peaks[j], h = Math.round(q.f / bestF); if (h < 1 || h > 16) continue;
           if (Math.abs(q.f - h * bestF) > Math.min(0.03 * q.f + 0.5 * binHz, 0.3 * bestF)) continue;
           Em += q.p; if (q.p > hp[h]) hp[h] = q.p;
-          if (h <= 5) { const w = Math.sqrt(q.p); wsum += w; fsum += w * q.f / h; }
+          const w = Math.sqrt(q.p), x = h * h, r = q.f / (h * bestF) - 1;
+          if (h <= 5) { wsum += w; fsum += w * q.f / h; }
+          gw += w * h * h; gf += w * h * q.f;                                 // the high overtones pin the pitch down finest
+          sw += w; sx += w * x; sy += w * r; sxx += w * x * x; sxy += w * x * r; nh++; if (h > hmax) hmax = h;
         }
-        harm = Em / Epk; f0 = wsum > 0 ? fsum / wsum : bestF;
+        harm = Em / Epk; f0 = wsum > 0 ? fsum / wsum : bestF; fine = gw > 0 ? gf / gw : 0;
+        // A stiff piano string sounds its overtones a little sharp, the more so the higher they go: f(h) = h f0 (1 + B h^2 / 2).
+        // Bowed strings and wind instruments keep them exactly in tune. B comes from a weighted line fit of the mistuning against h^2.
+        const den = sw * sxx - sx * sx;
+        if (nh >= 4 && hmax >= 4 && den > 0) stretch = 2 * (sw * sxy - sx * sy) / den;
       }
     }
 
@@ -207,24 +228,44 @@ class MusicDetector {
     this.duty += ((tonal ? 1 : 0) - this.duty) * a15;
     if (active && !tonal && level - Math.min(this.prevLevel, this.prevLevel2) > 9) this.trans = 0.9; else this.trans -= dt;
     this.lm += (level - this.lm) * a1; this.lv += ((level - this.lm) * (level - this.lm) - this.lv) * a1;
-    const lh = this.lh, ld = this.ld;
-    for (let i = 0; i < 4; i++) { lh[i] = lh[i + 1]; ld[i] = ld[i + 1]; } lh[4] = level; ld[4] = dt;
+    const lh = this.lh, lp = this.lp, lpf = this.lpf, lt = this.lt, fq = this.fq;   // the last six frames: level, pitch, fine pitch, tonal, overtones fading
+    for (let i = 0; i < 5; i++) { lh[i] = lh[i + 1]; lp[i] = lp[i + 1]; lpf[i] = lpf[i + 1]; lt[i] = lt[i + 1]; fq[i] = fq[i + 1]; }
+    lh[5] = level; lp[5] = pitch; lpf[5] = pitch > 0 ? fine : 0; lt[5] = tonal ? 1 : 0; fq[5] = tonal && np >= 2 && fw > 0 ? (fd > 0.5 * fw ? 1 : 0) : -1;
     if (tonal) {
-      // between attacks, does the level keep falling (struck/plucked) or hold (bowed/blown)?
-      if (this.run >= ld[1] + ld[2] + ld[3] + ld[4]) {
-        let onset = false; for (let i = 1; i < 5; i++) if (lh[i] - lh[i - 1] > 1) onset = true;
-        if (!onset) this.fall += (((lh[4] - lh[0]) / (ld[1] + ld[2] + ld[3] + ld[4]) < -2 ? 1 : 0) - this.fall) * (1 - Math.exp(-dt / 0.8));
-      }
+      const a = 1 - Math.exp(-dt / 2.5), wt = n => Math.max(a, 1 / (n + 3));
+      // Struck (piano) or held (bowed, blown)? Three signs, each counted only where it can be judged:
+      // the level of a note falls steadily, the overtones that carry on fade, the overtones are stretched sharp.
+      // The first two are judged two frames late and only while the sound goes on, so the end of a note is not taken for a fade;
+      // a held note wavers up and down instead (bow, breath, vibrato).
+      let same = lp[3] > 0;
+      for (let i = 0; i < 6 && same; i++) if (!(lp[i] > 0) || Math.abs(Math.log2(lp[i] / lp[3])) > 0.05 || (i > 0 && lh[i] - lh[i - 1] > 1)) same = false;
+      if (same) { const rise = Math.max(lh[1] - lh[0], lh[2] - lh[1], lh[3] - lh[2]);
+        this.fall += ((lh[3] - lh[0] < -0.9 && rise <= 0.25 ? 1 : 0) - this.fall) * wt(this.fallN++); }
+      if (fq[3] >= 0 && lt[4] && lt[5] && lh[5] - lh[3] > -3) this.fade += (fq[3] - this.fade) * wt(this.fadeN++);   // chords too
+      // the higher the note, the fewer overtones there are to measure it by (and the stiffer a piano's strings): the bar rises from 150 Hz
+      if (stretch != null && pitch > 0 && pitch < 700) this.inh += ((stretch > 1e-4 * Math.max(1, pitch / 150) ? 1 : 0) - this.inh) * wt(this.inhN++);
       this.poly += ((harm < 0.6 && np >= 4 ? 1 : 0) - this.poly) * a15;
       if (pitch > 0) {
-        const odd = hp[1] + hp[3] + hp[5] + hp[7], even = hp[2] + hp[4] + hp[6] + hp[8];
-        let mx = 0, rich = 0; for (let h = 1; h <= 12; h++) if (hp[h] > mx) mx = hp[h];
-        for (let h = 1; h <= 12; h++) if (hp[h] > 0.01 * mx) rich++;
-        const a = 1 - Math.exp(-dt / 1.2);
-        this.oddR += (odd / (odd + even + 1e-20) - this.oddR) * a;
-        this.rich += (rich - this.rich) * a;
-        this.lf0 += (Math.log(pitch) - this.lf0) * a;
-        this.instN++;
+        const w = wt(this.instN++);
+        let odd = 0, even = 0, tot = 0, up = 0;
+        for (let h = 1; h <= 16; h++) { const p = hp[h]; tot += p; if (h > 1 && h * pitch >= 1800) up += p; if (h <= 8) { if (h & 1) odd += p; else even += p; } }
+        this.oddR += (odd / (odd + even + 1e-20) - this.oddR) * w;              // a clarinet's lower notes have hardly any even overtones
+        this.up += (up / (tot + 1e-20) - this.up) * w;                          // share of the sound above 1.8 kHz: a bright violin, a soft-edged flute
+        this.lf0 += (Math.log(pitch) - this.lf0) * w;
+        // below about 300 Hz a violin's body hardly sounds the fundamental, while a cello's sounds it strongly
+        if (pitch < 300) this.h21 += (Math.max(-30, Math.min(30, 10 * Math.log10((hp[2] + 1e-20) / (hp[1] + 1e-20)))) - this.h21) * wt(this.h21N++);
+        // Does the pitch of a held note waver? Vibrato on strings and flute; a clarinet, like a piano, holds it dead steady.
+        // Judged in the middle of six frames of one note, away from its start and its end, as the share of those frames where the
+        // pitch bends by more than 1.5 cents: under a half, the pitch mostly holds still (a few unsteady attacks do not change that)
+        let held = lpf[3] > 0;
+        for (let i = 0; i < 6 && held; i++) if (!(lpf[i] > 0) || Math.abs(Math.log2(lpf[i] / lpf[3])) > 0.05) held = false;
+        if (held) this.vib += ((600 * Math.abs(Math.log2(lpf[4] * lpf[2] / (lpf[3] * lpf[3]))) > 1.5 ? 1 : 0) - this.vib) * Math.max(1 - Math.exp(-dt / 5), 1 / ++this.vibN);
+        // which notes are played (held for three frames or more), over the last minute or so
+        if (pf[1] > 0 && pf[2] > 0 && Math.abs(Math.log2(pf[1] / pf[3])) < 0.05 && Math.abs(Math.log2(pf[2] / pf[3])) < 0.05) {
+          const hs = this.hist, k = Math.round(69 + 12 * Math.log2(pitch / 440)), d = Math.exp(-dt / 40);
+          for (let i = 0; i < 128; i++) hs[i] *= d;
+          if (k >= 0 && k < 128) hs[k] += dt;
+        }
       }
     }
     this.prevLevel2 = this.prevLevel; this.prevLevel = level;
@@ -243,13 +284,23 @@ class MusicDetector {
     else { o.kind = 'noise'; o.label = 'Noise'; o.detail = 'No clear notes'; }
     return o;
   }
+  /* the key number (middle C = 60) that a share p of the notes held lately lie below */
+  range(p) {
+    const hs = this.hist; let t = 0; for (let i = 0; i < 128; i++) t += hs[i];
+    let c = 0; for (let i = 0; i < 128; i++) { c += hs[i]; if (c > p * t) return i; } return -1;   // -1: no note held yet
+  }
+  /* Lowest notes, as key numbers: cello C2 (36), clarinet D3 (50), violin G3 (55), flute B3 (59); a semitone of leeway for tuning.
+     The few lowest notes (4%) are ignored, so a stray wrong octave in the pitch does not count. */
   classify() {
-    const f0 = Math.exp(this.lf0);
-    if (this.fall > 0.5 || this.poly > 0.4) return INSTRUMENTS.piano;
-    if (this.instN < 4) return f0 < 185 ? INSTRUMENTS.cello : INSTRUMENTS.violin;
-    if (this.oddR > 0.9 && this.rich >= 2.5 && f0 < 1000) return INSTRUMENTS.clarinet;
-    if (this.rich <= 3.3 && f0 >= 240) return INSTRUMENTS.flute;
-    if (f0 < 185) return INSTRUMENTS.cello;
+    const f0 = Math.exp(this.lf0), lo = this.range(0.04);
+    // a struck string: overtones stretched sharp, or fading, or several notes at once. A piano cannot play vibrato, so a
+    // wavering pitch rules it out unless the signs are overwhelming (very fast notes leave few held frames to judge vibrato by)
+    const struck = this.inh > 0.5 || this.fade > 0.62 || (this.fallN >= 10 && this.fall > 0.65) || this.poly > 0.4;
+    if (struck && (this.vibN < 6 || this.vib < 0.5 || this.inh > 0.8 || this.fade > 0.8)) return INSTRUMENTS.piano;
+    if (this.instN < 6 || lo < 0) return f0 < 185 ? INSTRUMENTS.cello : INSTRUMENTS.violin;   // too early to tell more
+    if (this.vibN >= 6 && this.vib < 0.5 && lo >= 49 && this.oddR > 0.8 && this.up < 0.12) return INSTRUMENTS.clarinet;   // dead steady, hollow
+    if (lo >= 58 && this.up < 0.08) return INSTRUMENTS.flute;                                  // soft-edged tone, nothing below the flute
+    if (lo <= 54 || (this.h21N >= 8 && this.h21 < -6)) return INSTRUMENTS.cello;              // notes below the violin, or a cello's strong fundamental
     return INSTRUMENTS.violin;
   }
 }
@@ -306,6 +357,61 @@ function synthPiano(sr, events, total, level, seed) {
         out[i0 + i] += a * (t < 0.004 ? t / 0.004 : 1) * Math.exp(-t / tau) * (t > held ? Math.exp(-(t - held) / 0.08) : 1) * Math.sin(w * i);
       }
     }
+  }
+  for (let i = 0; i < out.length; i++) out[i] += 0.0006 * (R() * 2 - 1);
+  return out;
+}
+/* Instruments closer to how they really sound, checked against recordings of single violin, cello, flute and clarinet notes.
+   The voices above are idealised, each built around one trait; these are not, and most of the instrument tests use them:
+   - a bowed string is a sawtooth shaped by the body: its resonances sit at fixed frequencies, so vibrato also swells and dips
+     each overtone, and a violin body barely sounds anything below its air resonance (about 275 Hz)
+   - a flute's overtones depend on the register: strong in the low octave, almost none at the top; plenty of breath noise
+   - a clarinet has hardly any even overtones in its low register but has them higher up; no vibrato
+   - bow pressure and breath are never quite steady: the level wanders by a dB or so, the pitch by a cent or two
+   db(h, f, f0): level of overtone h (dB), now sounding at f, of a note whose fundamental is f0. */
+const below = (f, fc, s) => f < fc ? -s * Math.log2(fc / f) : 0, above = (f, fc, s) => f > fc ? -s * Math.log2(f / fc) : 0;
+const bump = (f, fc, oct, g) => { const x = Math.log2(f / fc) / oct; return g * Math.exp(-0.5 * x * x); };
+const ripple = f => 3.5 * Math.sin(2 * Math.PI * 2.7 * Math.log2(f / 100) + 1.3) + 2.5 * Math.sin(2 * Math.PI * 4.9 * Math.log2(f / 100) + 0.4);   // the many small body modes
+const PLAYED = {
+  violin:   { vibHz: 6, vibCents: 11, wander: 1.5, noise: -38, attack: 0.07, release: 0.06,
+    db: (h, f) => -20 * Math.log10(h) + below(f, 275, 12) + bump(f, 280, 0.12, 5) + bump(f, 480, 0.25, 6) + bump(f, 2600, 0.7, 9) + above(f, 4500, 18) + ripple(f) },
+  cello:    { vibHz: 5.5, vibCents: 11, wander: 1.5, noise: -38, attack: 0.08, release: 0.07,
+    db: (h, f) => -20 * Math.log10(h) + below(f, 95, 12) + bump(f, 105, 0.12, 4) + bump(f, 210, 0.4, 7) + above(f, 500, 4) + bump(f, 1700, 0.6, 7) + above(f, 3200, 15) + ripple(f) },
+  flute:    { vibHz: 5, vibCents: 10, am: 1.5, wander: 1.2, noise: -27, attack: 0.06, release: 0.06,
+    db: (h, f, f0) => h === 1 ? 0 : 6 - 10 * Math.log2(f0 / 262) - (5 + 9 * clamp01(Math.log2(f0 / 440))) * (h - 2) },
+  clarinet: { vibHz: 0, vibCents: 0, wander: 0.4, noise: -42, attack: 0.03, release: 0.05,
+    db: (h, f, f0) => -3 * Math.log2(h) + above(f, 1600, 24) +
+      (h % 2 ? 0 : (-28 + 25 * clamp01(Math.log2(f0 / 450) / Math.log2(650 / 450))) * clamp01(1 - Math.log2(f / 1600))) }
+};
+/* notes: [midi, seconds, gapSeconds]; o: {level, seed, vib (vibrato depth in cents; 0 plays without vibrato)} */
+function synthPlayed(sr, inst, notes, o) {
+  o = o || {}; const v = PLAYED[inst], R = rng(o.seed || 1), level = o.level || 0.2, nz = level * Math.pow(10, v.noise / 20);
+  let total = 0.05; for (const nt of notes) total += nt[1] + (nt[2] || 0);
+  const out = new Float32Array(Math.ceil(total * sr)), amp = new Float64Array(65), ph = new Float64Array(65);
+  const vibC = o.vib != null ? o.vib : v.vibCents, vibHz = v.vibHz * (0.95 + 0.1 * R());
+  const K = Math.ceil(total * 8) + 2, wl = new Float64Array(K), wp = new Float64Array(K);   // the wandering level (dB) and pitch (cents), 8 steps a second
+  for (let i = 0; i < K; i++) { wl[i] = (R() * 2 - 1) * v.wander; wp[i] = (R() * 2 - 1) * 2; }
+  const walk = (a, t) => { const x = t * 8, i = Math.floor(x), u = x - i; return a[i] + (a[i + 1] - a[i]) * u * u * (3 - 2 * u); };
+  let pos = Math.floor(0.05 * sr), T = 0.05, vph = R() * 2 * Math.PI, prev = 0;
+  for (const nt of notes) {
+    const f0 = midiHz(nt[0]), dur = nt[1], n = Math.floor(dur * sr);
+    let H = 0; for (let h = 1; h <= 64 && h * f0 < 6000; h++) H = h;
+    let g = 0, fi = f0;
+    for (let i = 0; i < n; i++) {
+      const t = i / sr;
+      if ((i & 31) === 0) {                                                  // overtone levels follow the sounding pitch through the body
+        const vd = vibC * clamp01((t - 0.12) / 0.25);                        // vibrato starts once the note is under way
+        fi = f0 * Math.pow(2, (vd * Math.sin(vph) + walk(wp, T + t)) / 1200);
+        let e2 = 0; for (let h = 1; h <= H; h++) { const a = Math.pow(10, v.db(h, h * fi, f0) / 20); amp[h] = a; e2 += a * a; }
+        g = level / Math.sqrt(e2) * Math.pow(10, (walk(wl, T + t) + (v.am && vibC ? v.am * vd / vibC * Math.sin(vph) : 0)) / 20);
+      }
+      vph += 2 * Math.PI * vibHz / sr;
+      const env = Math.min(1, t / v.attack, (dur - t) / v.release);
+      let s = 0; for (let h = 1; h <= H; h++) { ph[h] += 2 * Math.PI * h * fi / sr; s += amp[h] * Math.sin(ph[h]); }
+      const w = R() * 2 - 1; out[pos + i] += env * (g * s + nz * (w - 0.6 * prev)); prev = w;   // bow or breath noise, tilted towards the highs
+    }
+    for (let h = 1; h <= H; h++) ph[h] %= 2 * Math.PI;
+    pos += n + Math.floor((nt[2] || 0) * sr); T += dur + (nt[2] || 0);
   }
   for (let i = 0; i < out.length; i++) out[i] += 0.0006 * (R() * 2 - 1);
   return out;
@@ -393,7 +499,18 @@ const CLIPS = {
   pink:     sr => synthNoise(sr, 5, 'pink', 0.3, 25),
   claps:    sr => synthNoise(sr, 5, 'claps', 0.5, 26),
   quiet:    sr => synthNoise(sr, 4, 'quiet', 0, 27),
-  hum:      sr => synthNoise(sr, 24, 'hum', 0.02, 28)
+  hum:      sr => synthNoise(sr, 24, 'hum', 0.02, 28),
+  // played in a room (see PLAYED), across each instrument's registers
+  violinBowed:  sr => synthPlayed(sr, 'violin', mel([67, 69, 71, 74, 76, 74, 72, 71, 69, 67, 71, 74], 0.5), { seed: 41 }),
+  violinHigh:   sr => synthPlayed(sr, 'violin', mel([76, 79, 81, 83, 84, 86, 88, 86, 84, 83, 81, 79], 0.45), { seed: 42 }),
+  violinPlain:  sr => synthPlayed(sr, 'violin', mel([55, 57, 59, 60, 62, 64, 62, 60, 59, 57, 55, 62], 0.5), { seed: 43, vib: 0 }),
+  celloTenor:   sr => synthPlayed(sr, 'cello', mel([50, 53, 57, 60, 62, 60, 57, 55, 53, 57, 60, 62], 0.55), { seed: 44 }),
+  celloAString: sr => synthPlayed(sr, 'cello', mel([57, 59, 60, 62, 64, 65, 67, 65, 64, 62, 60, 59], 0.55), { seed: 45 }),
+  clarinetHigh: sr => synthPlayed(sr, 'clarinet', mel([69, 71, 72, 74, 76, 77, 79, 77, 76, 74, 72, 71], 0.5), { seed: 46 }),
+  fluteLow:     sr => synthPlayed(sr, 'flute', mel([60, 62, 64, 65, 67, 69, 67, 65, 64, 62, 60, 64], 0.5), { seed: 47 }),
+  fluteHigh:    sr => synthPlayed(sr, 'flute', mel([81, 83, 84, 86, 88, 89, 91, 89, 88, 86, 84, 83], 0.45), { seed: 48 }),
+  pianoTune:    sr => synthPiano(sr, [67, 64, 64, 65, 62, 62, 60, 62, 64, 65, 67, 67, 67, 64, 64, 65, 62, 62].map((m, i) => [0.1 + i * 0.32, m, 0.3]), 6.2, 0.18, 50),
+  pianoScale:   sr => synthPiano(sr, [48, 50, 52, 53, 55, 57, 59, 60, 62, 64, 65, 67, 65, 64, 62, 60, 59, 57, 55, 53, 52, 50, 48, 50, 52].map((m, i) => [0.1 + i * 0.25, m, 0.24]), 6.6, 0.18, 51)
 };
 
 /* Run a clip through the detector exactly as the live app does and return a timeline. */
@@ -407,18 +524,31 @@ function analyzeClip(samples, sr, sensitivity) {
   return tl;
 }
 function fraction(tl, t0, t1) { let n = 0, m = 0; for (const f of tl) if (f.t >= t0 && f.t <= t1) { n++; if (f.music) m++; } return n ? m / n : 0; }
-function topInstrument(tl) { const c = {}; let best = '', bn = 0;
-  for (const f of tl) if (f.music && f.inst) { c[f.inst] = (c[f.inst] || 0) + 1; if (c[f.inst] > bn) { bn = c[f.inst]; best = f.inst; } } return best; }
+/* the instrument named most often while music was heard from t0 on, and for what share of that time */
+function heardAs(tl, t0) { const c = {}; let best = '', bn = 0, n = 0;
+  for (const f of tl) if (f.t >= t0 && f.music) { n++; if (f.inst) { c[f.inst] = (c[f.inst] || 0) + 1; if (c[f.inst] > bn) { bn = c[f.inst]; best = f.inst; } } }
+  return { inst: best, share: n ? bn / n : 0 }; }
 
 const DETECTION_CASES = [
   { name: 'Violin melody with vibrato', clip: 'violin', music: true, inst: 'Violin' },
-  { name: 'Fast violin scales', clip: 'violinFast', music: true },
-  { name: 'Quiet violin over room noise', clip: 'violinQuiet', music: true },
-  { name: 'Detached (staccato) notes', clip: 'staccato', music: true, min: 0.8 },
+  { name: 'Fast violin scales', clip: 'violinFast', music: true, inst: 'Violin' },
+  { name: 'Quiet violin over room noise', clip: 'violinQuiet', music: true, inst: 'Violin' },
+  { name: 'Detached (staccato) notes', clip: 'staccato', music: true, min: 0.8, inst: 'Violin' },
   { name: 'Cello, low notes', clip: 'cello', music: true, inst: 'Cello' },
   { name: 'Clarinet melody', clip: 'clarinet', music: true, inst: 'Clarinet' },
   { name: 'Flute melody', clip: 'flute', music: true, inst: 'Flute' },
   { name: 'Piano melody with chords', clip: 'piano', music: true, inst: 'Piano' },
+  // the instruments as they sound in a room, in their other registers too (see PLAYED)
+  { name: 'Violin, natural bowing (the level wavers)', clip: 'violinBowed', music: true, inst: 'Violin' },
+  { name: 'Violin, high on the E string', clip: 'violinHigh', music: true, inst: 'Violin' },
+  { name: 'Violin, beginner without vibrato', clip: 'violinPlain', music: true, inst: 'Violin' },
+  { name: 'Cello, tenor range (D3 to D4)', clip: 'celloTenor', music: true, inst: 'Cello' },
+  { name: 'Cello, up on the A string (A3 to G4)', clip: 'celloAString', music: true, inst: 'Cello' },
+  { name: 'Clarinet, upper register (A4 to G5)', clip: 'clarinetHigh', music: true, inst: 'Clarinet' },
+  { name: 'Flute, low register with breath noise', clip: 'fluteLow', music: true, inst: 'Flute' },
+  { name: 'Flute, high register', clip: 'fluteHigh', music: true, inst: 'Flute' },
+  { name: 'Piano tune, one note at a time', clip: 'pianoTune', music: true, inst: 'Piano' },
+  { name: 'Piano scale, no chords', clip: 'pianoScale', music: true, inst: 'Piano' },
   { name: 'Talking, low voice', clip: 'talk', music: false },
   { name: 'Talking, high voice', clip: 'talkHigh', music: false },
   { name: 'Talking, flat monotone', clip: 'talkFlat', music: false },
@@ -435,8 +565,11 @@ function detectionTests(sr) {
     const x = CLIPS[c.clip](sr), tl = analyzeClip(x, sr), end = x.length / sr;
     const fr = fraction(tl, c.from != null ? c.from : (c.music ? 1.2 : 0), end);
     let pass = c.music ? fr >= (c.min || 0.9) : fr <= 0.05, got = Math.round(fr * 100) + '% counted as music';
-    if (c.inst) { const ins = topInstrument(tl); got += ', heard as ' + (ins || 'nothing'); if (ins !== c.inst) pass = false; }
-    return { name: c.name, expect: c.music ? 'music' : 'not music', got: got, pass: pass };
+    if (c.inst) {                                                            // named right for most of the time, not just more often than the rest
+      const h = heardAs(tl, 1.2); got += ', heard as ' + (h.inst ? h.inst + ' ' + Math.round(h.share * 100) + '% of the time' : 'nothing');
+      if (h.inst !== c.inst || h.share < 0.7) pass = false;
+    }
+    return { name: c.name, expect: c.music ? 'music' + (c.inst ? ', heard as ' + c.inst + ' at least 70% of the time' : '') : 'not music', got: got, pass: pass };
   } }));
   // start/stop response: music, silence, music
   list.push({ name: 'Starts and stops with the music', run: () => {
@@ -729,6 +862,6 @@ class DashSim {
 }
 
 const api = { OnsetTracker, DashSim, DASH, dashSpeed, MusicDetector, Session, RocketSim, WORLD, MILESTONES, SENSITIVITY, CLIPS, DETECTION_CASES,
-  detectionTests, runDetectionTests, analyzeClip, fraction, topInstrument, noteOf, smooth, pchip, clamp01 };
+  detectionTests, runDetectionTests, analyzeClip, fraction, heardAs, noteOf, smooth, pchip, clamp01 };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.MT = api;
 })(typeof self !== 'undefined' ? self : this);
