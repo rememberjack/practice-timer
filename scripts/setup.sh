@@ -9,7 +9,7 @@ gh auth status >/dev/null 2>&1 || gh auth login
 cd "$(dirname "$0")/.."
 [ -d .git ] || git init -q -b main
 git add -A
-git -c user.name="${GIT_AUTHOR_NAME:-$(git config user.name || echo dev)}" -c user.email="${GIT_AUTHOR_EMAIL:-$(git config user.email || echo dev@example.com)}" commit -q -m "Music Timer" || true
+git -c user.name="${GIT_AUTHOR_NAME:-$(git config user.name || echo dev)}" -c user.email="${GIT_AUTHOR_EMAIL:-$(git config user.email || echo dev@example.com)}" commit -q -m "Practice Timer" || true
 OWNER="$(gh api user --jq .login)"
 # Public, because GitHub Pages on private repositories needs a paid plan. The app contains no secrets.
 gh repo create "$OWNER/$REPO" --public --source=. --remote=origin >/dev/null
