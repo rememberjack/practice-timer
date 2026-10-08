@@ -562,7 +562,7 @@ function frame(t) {
   requestAnimationFrame(frame);
 }
 
-/* ---------- themes: swipe or arrow keys ---------- */
+/* ---------- themes: swipe (touch, mouse drag or trackpad) or arrow keys ---------- */
 const SKINS = ['classic', 'rocket', 'city', 'dash'], LAST = SKINS.length - 1, stage = $('stage'), track = $('track');
 let skin = Math.max(0, SKINS.indexOf(S.skin)), dragging = false, drag = null;
 function setSkin(i, animate) {
@@ -588,6 +588,17 @@ function endDrag(e) {
   setSkin(i, true);
 }
 stage.addEventListener('pointerup', endDrag); stage.addEventListener('pointercancel', () => endDrag(null));
+stage.addEventListener('dragstart', e => e.preventDefault());   // a native drag would cancel the pointer stream mid-swipe
+let wheelX = 0, wheelT = 0, wheelDone = false;   // a two-finger trackpad swipe arrives as horizontal wheel events: one theme per gesture
+stage.addEventListener('wheel', e => {
+  const now = performance.now(); if (now - wheelT > 250) { wheelX = 0; wheelDone = false; } wheelT = now;   // momentum keeps events coming, so a gap marks a new gesture
+  if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+  e.preventDefault();   // also stops the browser reading it as back/forward
+  if (wheelDone) return;
+  wheelX += e.deltaX * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? stage.clientWidth : 1);
+  if (Math.abs(wheelX) < 60) return; wheelDone = true;
+  setSkin(Math.max(0, Math.min(LAST, skin + Math.sign(wheelX))), true);
+}, { passive: false });
 document.addEventListener('keydown', e => { if (document.querySelector('dialog[open]') || /INPUT|TEXTAREA/.test(e.target.tagName)) return;
   if (e.key === 'ArrowRight') setSkin(Math.min(LAST, skin + 1), true); else if (e.key === 'ArrowLeft') setSkin(Math.max(0, skin - 1), true); });
 window.addEventListener('resize', layoutChanged);

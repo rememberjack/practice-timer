@@ -53,7 +53,7 @@ button{cursor:pointer}
 .chips button{flex:none; border:1px solid var(--rule); background:none; border-radius:999px; padding:4px 11px; font-size:13px; color:var(--mute)}
 .chips button[aria-pressed="true"]{background:var(--accent); color:var(--on-accent); border-color:var(--accent); font-weight:700}
 
-#stage{flex:1; min-height:0; overflow:hidden; position:relative; touch-action:pan-y}
+#stage{flex:1; min-height:0; overflow:hidden; position:relative; touch-action:pan-y; -webkit-user-select:none; user-select:none}   /* a mouse swipe must not select text, or the next swipe drags the selection instead */
 #track{display:flex; width:400%; height:100%; will-change:transform}
 .panel{width:25%; height:100%; position:relative; overflow:hidden; container-type:size}
 
