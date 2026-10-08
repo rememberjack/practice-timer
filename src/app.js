@@ -333,12 +333,12 @@ function paint() {
   const rp = $('rPlay'), rpc = play.length > 5 ? 'big long' : 'big'; text(rp, play); if (rp.className !== rpc) rp.className = rpc;
   text($('rActive'), fmt(V.active)); text($('rGoal'), fmt(V.goal)); text($('rGoalLeft'), reached ? 'Reached' : fmt(Math.ceil(V.goal - V.play)) + ' left'); text($('rTotal'), fmt(V.total)); text($('rPauses'), String(V.pauses));
   const km = sim.kmAt(sim.l); text($('rAltK'), km < 1 ? 'Alt m' : 'Alt km'); text($('rAlt'), km < 1 ? String(Math.round(km * 1000)) : km < 100 ? km.toFixed(1) : Math.round(km).toLocaleString('en-US'));
-  const pwEl = $('rPw'), cls = V.pw >= 0.8 ? 'go' : V.pw >= 0.5 ? 'ok' : ''; width(pwEl, V.pw); if (pwEl.className !== cls) pwEl.className = cls;
+  const pwEl = $('rPw'), cls = V.pw >= MT.LIFTOFF ? 'go' : ''; width(pwEl, V.pw); if (pwEl.className !== cls) pwEl.className = cls;
   text($('rPwN'), Math.round(V.pw * 100) + '%');
   text($('rHeard'), st === 'running' ? label : st === 'paused' ? 'Paused: not listening' : st === 'idle' ? 'Press Start, then play' : 'Session finished');
   let next = '';
   if (st === 'idle') next = 'Power follows efficiency';
-  else if (sim.mode === 'pad') next = sim.down > 0 ? 'Rolling out a new rocket' : !fol && sim.ignited && sim.hold > 0 ? 'Lift-off in ' + Math.max(1, Math.ceil(3 - sim.hold)) : 'Lift-off at 80% engine power';
+  else if (sim.mode === 'pad') next = sim.down > 0 ? 'Rolling out a new rocket' : !fol && sim.ignited && sim.hold > 0 ? 'Lift-off in ' + Math.max(1, Math.ceil(3 - sim.hold)) : 'Lift-off at ' + Math.round(MT.LIFTOFF * 100) + '% engine power';
   else if (sim.mode === 'fall') next = 'Falling back to Earth';
   else if (sim.mode === 'orbit') next = sim.spinUp > 0 ? 'In Moon orbit, module spinning' : 'In orbit around the Moon';
   else if (V.pw < 0.5) next = 'Engine below 50%: drifting';
