@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Music Timer</title>
+<meta name="build" content="__BUILD__">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* deep navy ground, slate panels, mint accent */
+  --paper:#121A27; --surface:#1A2535; --sheet:#162030; --ink:#F4F7FB; --mute:#A9B4C6; --mute-2:#7C8AA1; --rule:#2C3A4F;
+  --accent:#86DCC0; --on-accent:#0F2B23; --gold:#F2C14E; --alert:#F0907A;
+  --sans:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
+  --pixel:"Silkscreen","Lucida Console","Courier New",ui-monospace,monospace;
+  color-scheme:dark;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*,*::before,*::after{box-sizing:border-box}
+html{height:100%; scroll-padding-top:env(safe-area-inset-top,0px)}
+body{height:100%; margin:0; background:var(--paper); color:var(--ink); font-family:var(--sans); font-size:16px; line-height:1.35;
+  overflow:hidden; -webkit-text-size-adjust:100%; -webkit-tap-highlight-color:transparent}
+button,input{font:inherit; color:inherit}
+button{cursor:pointer}
+[hidden]{display:none !important}
+:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+
+#app{height:100%; display:flex; flex-direction:column; background:var(--paper); color:var(--ink); transition:background-color .3s}
+
+/* ---------- chrome (classic look; the rocket theme overrides it below) ---------- */
+#top{display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:12px; padding:12px 0 12px; margin:0 auto 6px; max-width:560px; width:calc(100% - 36px); border-bottom:1px solid var(--rule)}
+.brand{min-width:0}
+.app-icon{width:34px; height:34px; border-radius:10px; background:var(--accent); color:var(--on-accent); display:grid; place-items:center}
+.app-icon svg{width:20px; height:20px}
+#top h1{font-size:20px; font-weight:800; letter-spacing:-.01em; line-height:1.1; margin:0; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.tagline{display:block; color:var(--mute); font-size:13px; line-height:1.25; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.icon-btn{display:flex; align-items:center; justify-content:center; min-height:44px; padding:0 16px; border:1px solid var(--rule); border-radius:14px; background:var(--surface); font-size:15px; font-weight:500}
+.icon-btn svg{display:none; width:20px; height:20px}
+
+#notice, #demoBar{margin:0 18px 8px; padding:10px 14px; border:1px solid var(--rule); border-radius:16px; background:var(--surface); font-size:14px; max-width:560px; width:calc(100% - 36px); align-self:center}
+#notice{display:flex; flex-wrap:wrap; align-items:center; gap:8px 10px}
+#notice p{margin:0; flex:1 1 210px; color:var(--mute)}
+#notice .act{border:0; background:var(--accent); color:var(--on-accent); border-radius:10px; padding:8px 12px; font-weight:700; font-size:14px; white-space:nowrap}
+#notice .x{border:0; background:none; font-size:20px; line-height:1; padding:4px 6px; color:var(--mute)}
+.demo-top{display:flex; align-items:center; gap:8px}
+#demoBar .lab{color:var(--mute); flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+#demoClips{flex-wrap:nowrap; overflow-x:auto; margin-top:6px; padding-bottom:2px; scrollbar-width:none}
+#demoClips::-webkit-scrollbar{display:none}
+.chips{display:flex; flex-wrap:wrap; gap:4px}
+.chips button{flex:none; border:1px solid var(--rule); background:none; border-radius:999px; padding:4px 11px; font-size:13px; color:var(--mute)}
+.chips button[aria-pressed="true"]{background:var(--accent); color:var(--on-accent); border-color:var(--accent); font-weight:700}
+
+#stage{flex:1; min-height:0; overflow:hidden; position:relative; touch-action:pan-y}
+#track{display:flex; width:400%; height:100%; will-change:transform}
+.panel{width:25%; height:100%; position:relative; overflow:hidden; container-type:size}
+
+#controls{display:flex; flex-wrap:wrap; gap:10px; padding:10px 18px 14px; justify-content:center; max-width:596px; width:100%; margin:0 auto}
+#controls button{flex:1; min-height:56px; border-radius:18px; border:1px solid var(--rule); background:var(--surface); color:var(--ink); font-size:18px; font-weight:700}
+#controls button.primary{background:var(--accent); border-color:var(--accent); color:var(--on-accent)}
+#controls button:active{transform:translateY(1px)}
+.keep{flex-basis:100%; margin:0; color:var(--mute); font-size:13px}
+
+/* ---------- classic theme ---------- */
+.classic{height:100%; max-width:596px; margin:0 auto; padding:6px 18px 0; display:flex; flex-direction:column; overflow-y:auto; scrollbar-width:none}
+.classic > *{flex:none}
+.status, .mon-state{display:flex; align-items:center; gap:10px; font-size:13px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--mute-2)}
+.status{min-height:22px}
+.status > span:last-child, .mon-state > span:last-child{min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}   /* one line, whatever the words */
+.lamp{width:9px; height:9px; border-radius:50%; background:var(--mute-2); flex:none; transition:background-color .2s, box-shadow .2s}
+#app[data-music="1"] .lamp{background:var(--accent); box-shadow:0 0 0 4px rgba(134,220,192,.2)}
+#app[data-music="1"] .status, #app[data-music="1"] .mon-state{color:var(--accent)}
+.clock-label{color:var(--mute); font-size:15px; margin:10px 0 0}
+.clock{font-size:clamp(60px, 21vw, 112px); font-weight:800; line-height:1; letter-spacing:-.05em; font-variant-numeric:tabular-nums; margin:2px 0 0 -.03em; display:flex; align-items:baseline; color:var(--ink); transition:color .25s}
+#app[data-music="1"] .clock{color:var(--accent)}
+.clock .d, .clock .c{display:inline-block}
+.tenths{font-size:.4em; font-weight:500; letter-spacing:0; color:var(--mute-2); margin-left:.08em}
+.stats{display:grid; grid-template-columns:1fr 1fr; gap:10px 20px; margin-top:12px}
+.stat{min-width:0}
+.stat .k{font-size:14px; color:var(--mute); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.stat .v{font-size:26px; font-weight:800; letter-spacing:-.02em; line-height:1.15; font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.stat .v small{font-size:14px; font-weight:500; letter-spacing:0; color:var(--mute)}
+.meter{height:4px; border-radius:2px; background:var(--rule); margin-top:6px; overflow:hidden}
+.meter i{display:block; height:100%; width:0; background:var(--accent); border-radius:2px; transition:width .25s linear}
+.classic > .monitor{flex:1 1 0; min-height:104px; display:flex; flex-direction:column; margin:14px 0 4px; padding:14px 16px 12px; background:var(--surface); border:1px solid var(--rule); border-radius:22px}
+.mon-head{display:flex; align-items:center; justify-content:space-between; gap:10px}
+.mon-head h2{font-size:17px; font-weight:800; margin:0; flex:none; white-space:nowrap}
+.mon-state{font-size:12px; gap:8px; min-width:0}
+/* The read-out above the picture keeps one fixed height whatever it says (one-line label, two reserved lines of detail, a note that
+   comes and goes), so the picture below never shifts or resizes as the words change. */
+.heard{display:flex; align-items:flex-start; gap:12px; margin-top:6px}
+.heard .txt{flex:1; min-width:0}
+.heard h3{font-size:16px; font-weight:600; line-height:24px; height:24px; margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.heard p{margin:1px 0 0; font-size:13px; line-height:17px; height:34px; overflow:hidden; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; color:var(--mute)}
+.note{flex:none; font-size:24px; font-weight:800; line-height:24px; height:24px; min-width:2.2ch; text-align:right; white-space:nowrap; color:var(--accent)}
+.viz{flex:1 1 0; min-height:26px; position:relative; margin-top:6px}
+.viz{cursor:pointer; border-radius:10px}
+.viz canvas{position:absolute; inset:0; width:100%; height:100%}
+.viz-name{position:absolute; right:8px; top:8px; padding:3px 10px; font-size:12px; font-weight:700; color:var(--ink); background:rgba(18,26,39,.86); border:1px solid var(--rule); border-radius:999px; opacity:0; transition:opacity .25s; pointer-events:none}
+.viz-name.on{opacity:1}
+
+/* ---------- rocket theme ---------- */
+#app[data-skin="rocket"]{--paper:#070A14; --surface:#1B2030; --ink:#F4F6FA; --mute:#A3ACC2; --rule:#3A4258; --accent:#FFD23F; --accent:#5DA831; --on-accent:#FFFFFF}
+#app[data-chrome="pixel"] #top{display:flex; gap:12px; padding:10px 16px 8px; margin:0; max-width:none; width:auto; border-bottom:0}
+#app[data-chrome="pixel"] .brand{flex:1}
+#app[data-chrome="pixel"] .app-icon, #app[data-chrome="pixel"] .tagline, #app[data-chrome="pixel"] .icon-btn .lbl, #app[data-chrome="pixel"] .keep{display:none}
+#app[data-chrome="pixel"] #top h1{font-family:var(--pixel); font-size:15px; font-weight:400; letter-spacing:0}
+#app[data-chrome="pixel"] .icon-btn{flex:none; width:40px; height:40px; min-height:0; padding:0; display:grid; place-items:center}
+#app[data-chrome="pixel"] .icon-btn svg{display:block}
+#app[data-chrome="pixel"] #notice, #app[data-chrome="pixel"] #demoBar{margin:0 16px 8px; max-width:none; width:auto; align-self:stretch}
+#app[data-chrome="pixel"] #notice p{color:var(--ink)}
+#app[data-chrome="pixel"] .chips button{color:var(--ink)}
+#app[data-chrome="pixel"] .chips button[aria-pressed="true"], #app[data-chrome="pixel"] #notice .act{background:var(--ink); color:var(--paper); border-color:var(--ink); font-weight:400}
+#app[data-chrome="pixel"] #controls{flex-wrap:nowrap; max-width:none; padding:10px 16px 14px}
+#app[data-chrome="pixel"] .icon-btn,
+#app[data-chrome="pixel"] #notice, #app[data-chrome="pixel"] #demoBar, #app[data-chrome="pixel"] .chips button, #app[data-chrome="pixel"] #notice .act{border-radius:0}
+#app[data-chrome="pixel"] #controls button{font-family:var(--pixel); font-size:15px; font-weight:400; max-width:260px; min-height:54px; border-radius:0; border:2px solid #05070D; background:#7B8293; color:#fff; text-shadow:2px 2px 0 rgba(0,0,0,.45);
+  box-shadow:inset -3px -4px 0 rgba(0,0,0,.32), inset 3px 3px 0 rgba(255,255,255,.28)}
+#app[data-chrome="pixel"] #controls button.primary{background:#5DA831}
+#app[data-chrome="pixel"] #controls button:active{box-shadow:inset 3px 4px 0 rgba(0,0,0,.32)}
+#pRocket{background:#070A14; color:#F4F6FA; font-family:var(--pixel)}
+
+/* ---------- city theme, after "Block City Defense": stone-grey bevelled panels and buttons, gold titles ---------- */
+#app[data-skin="city"]{--paper:#0E1130; --surface:#3A3A3A; --ink:#F4F4F4; --mute:#D9D2C6; --rule:#1C1C1C; --accent:#86D25A; --on-accent:#FFFFFF}
+.bevel{background:#3A3A3A; box-shadow:inset 3px 3px 0 #6E6E6E, inset -3px -3px 0 #1C1C1C, 0 0 0 3px #000}
+#app[data-skin="city"] #controls{gap:16px; padding:12px 19px 17px}
+#app[data-skin="city"] #controls button{font-size:13px; border:0; background:#6B6B6B; text-shadow:1px 1px 0 #333; box-shadow:inset 3px 3px 0 #A8A8A8, inset -3px -3px 0 #3B3B3B, 0 0 0 3px #000}
+#app[data-skin="city"] #controls button.primary{background:#4E8B32; box-shadow:inset 3px 3px 0 #86D25A, inset -3px -3px 0 #2B5A1A, 0 0 0 3px #000}
+#app[data-skin="city"] #controls button:active{box-shadow:inset -3px -3px 0 #A8A8A8, inset 3px 3px 0 #3B3B3B, 0 0 0 3px #000}
+#app[data-skin="city"] #notice, #app[data-skin="city"] #demoBar{background:#3A3A3A; border:0; margin:3px 19px 11px; box-shadow:inset 3px 3px 0 #6E6E6E, inset -3px -3px 0 #1C1C1C, 0 0 0 3px #000}
+#app[data-skin="city"] .icon-btn{background:#6B6B6B; border:0; box-shadow:inset 3px 3px 0 #A8A8A8, inset -3px -3px 0 #3B3B3B, 0 0 0 3px #000}
+#app[data-skin="city"] #top h1{color:#F2C94C; text-shadow:2px 2px 0 #000}
+#app[data-skin="city"][data-chrome="pixel"] .award-card{background:#3A3A3A; border:0; box-shadow:inset 3px 3px 0 #6E6E6E, inset -3px -3px 0 #1C1C1C, 0 0 0 3px #000, 6px 6px 0 3px rgba(0,0,0,.45)}
+#app[data-skin="city"][data-chrome="pixel"] .award-card h3{color:#F2C94C; text-shadow:2px 2px 0 #000}
+#pCity{background:#0E1130; color:#F4F4F4; font-family:var(--pixel)}
+#cityCv{position:absolute; inset:0; width:100%; height:100%; display:block}
+/* City read-outs. Sized for the pixel font, which is wide: every row is either a fixed pair (play time | goal block) or a row of
+   equal cells, short labels sit above their numbers, and the two message lines shorten with an ellipsis instead of spilling. */
+.city-hud{position:absolute; left:13px; right:13px; max-width:520px; top:9px; padding:8px 12px 8px; font-size:11px; line-height:1.4; text-shadow:1px 1px 0 #000}
+.city-hud .k{color:#D9D2C6}
+.ch-top{display:flex; justify-content:space-between; align-items:flex-end; gap:10px}
+.ch-play{min-width:0}
+.ch-play .k{display:block; white-space:nowrap}
+.city-hud .big{display:block; font-size:clamp(26px, 8.6vw, 40px); line-height:1; font-weight:700; margin-top:2px; white-space:nowrap; text-shadow:2px 2px 0 #000}
+.city-hud .big.long{font-size:clamp(21px, 6.8vw, 32px)}                     /* an hour or more: h:mm:ss */
+#app[data-music="1"] .city-hud .big{color:#F2C94C}
+.ch-side{flex:none; text-align:right; white-space:nowrap; color:#D9D2C6}
+.ch-side b{color:#F4F4F4; font-weight:700}
+.city-hud .ok{color:#86D25A} .city-hud .bad{color:#FF6B4A}
+.city-hud .engine{margin-top:6px}
+.city-hud .engine .k{flex:none}
+.city-hud .pbar{min-width:0; height:12px; background:#1C1C1C; border:2px solid #000}
+.city-hud .pbar i{background:#FF6B4A} .city-hud .pbar i.ok{background:#F2C94C} .city-hud .pbar i.go{background:#86D25A}
+#yPwN{flex:none; min-width:4ch; text-align:right}
+.ch-stats{display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:0 4px; margin-top:6px; text-align:center}
+.ch-stats span{display:block; font-size:9px; line-height:1.3; color:#D9D2C6; white-space:nowrap}
+.ch-stats b{display:block; font-size:13px; line-height:1.25; font-weight:700; white-space:nowrap}
+.ch-line{margin-top:4px; min-height:16px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.ch-line.dim{color:#D9D2C6; margin-top:1px}
+#yBanner{position:absolute; left:50%; bottom:14px; transform:translateX(-50%); width:max-content; max-width:calc(100% - 40px); padding:7px 12px; color:#F2C94C; font-size:12px; line-height:1.35; text-align:center; text-shadow:1px 1px 0 #000;
+  opacity:0; transition:opacity .25s; pointer-events:none}
+#yBanner.on{opacity:1}
+#yMsg{position:absolute; left:50%; top:62%; transform:translate(-50%, -50%); width:max-content; max-width:calc(100% - 44px); padding:10px 14px; font-size:12px; line-height:1.5; text-align:center}
+#app[data-skin="city"] #controls button{font-size:clamp(10px, 3.2vw, 13px); padding-left:4px; padding-right:4px; min-width:0}
+@media (max-width:350px){ .city-hud{font-size:10px; padding:7px 10px 7px} .ch-stats span{font-size:8px} .ch-stats b{font-size:12px} }
+@media (max-height:620px){ .ch-line.dim{display:none} }
+#rk{position:absolute; left:0; top:0; image-rendering:pixelated; image-rendering:crisp-edges}
+.hud{position:absolute; left:0; right:0; top:0; padding:8px 14px 10px; font-size:12px; text-shadow:2px 2px 0 rgba(0,0,0,.55);
+  background:linear-gradient(rgba(7,10,20,.72), rgba(7,10,20,.72) 82%, rgba(7,10,20,0))}
+.hud-row{display:flex; justify-content:space-between; gap:10px; align-items:flex-end}
+.hud-play{min-width:0}
+.hud-play .k{display:block; white-space:nowrap}
+.hud .k{color:#C5CCDD}
+.hud .big{font-size:clamp(34px, 11vw, 52px); line-height:1; font-weight:700; display:block; margin-top:2px; white-space:nowrap}
+.hud .big.long{font-size:clamp(22px, 7.2vw, 36px)}                          /* an hour or more: h:mm:ss */
+#app[data-music="1"] .hud .big{color:#FFD23F}
+/* Same plan as the City read-outs, for the same wide pixel font: play time beside a short goal block, then one row of equal cells. */
+.hud-side{flex:none; text-align:right; white-space:nowrap; line-height:1.45; color:#C5CCDD}
+.hud-side b{color:#F4F6FA; font-weight:700}
+.hud-stats{display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:0 4px; margin-top:6px; text-align:center}
+.hud-stats span{display:block; font-size:9px; line-height:1.3; color:#C5CCDD; white-space:nowrap}
+.hud-stats b{display:block; font-size:13px; line-height:1.25; font-weight:700; white-space:nowrap}
+.engine .k{flex:none} .pbar{min-width:0} #rPwN{flex:none}
+#app[data-chrome="pixel"] #controls button{font-size:clamp(10px, 3.4vw, 15px); padding-left:4px; padding-right:4px; min-width:0}
+.engine{display:flex; align-items:center; gap:8px; margin-top:8px}
+.pbar{flex:1; height:14px; background:#10141F; border:2px solid #05070D; position:relative; box-shadow:inset 2px 2px 0 rgba(0,0,0,.5)}
+.pbar i{display:block; height:100%; width:0; background:#E2502C}
+.pbar i.ok{background:#FFB629}
+.pbar i.go{background:#5DA831}
+.pbar b{position:absolute; top:-3px; bottom:-3px; width:2px; background:#F4F6FA; opacity:.85}
+.pbar b.m50{left:50%} .pbar b.m80{left:80%}
+#rPwN{min-width:4ch; text-align:right}
+.hud-line{margin-top:6px; min-height:16px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+#rNext{color:#C5CCDD}
+#rBanner{position:absolute; left:50%; top:150px; transform:translateX(-50%); max-width:92%; text-align:center; padding:8px 12px; background:#05070D; color:#FFD23F; border:2px solid #FFD23F;
+  font-size:14px; opacity:0; transition:opacity .25s; pointer-events:none}
+#rBanner.on{opacity:1}
+
+/* ---------- trophy ---------- */
+.trophy{color:var(--gold); display:block}
+.px-trophy{display:block; image-rendering:pixelated; image-rendering:crisp-edges}
+.badge{display:none; width:1.05em; height:1.05em; vertical-align:-0.16em; margin-right:5px}
+#app[data-goal="1"] .badge{display:inline-block}
+#award{position:absolute; inset:0; z-index:3; display:grid; place-items:center; pointer-events:none; padding:16px}
+.award-card{pointer-events:auto; cursor:pointer; text-align:center; padding:20px 26px 18px; background:var(--surface); color:var(--ink); border:1px solid var(--rule); border-radius:24px;
+  box-shadow:0 18px 50px rgba(4,8,14,.55); max-width:300px; animation:award-in .5s cubic-bezier(.2,1.4,.4,1) both}
+.award-card .trophy{width:96px; height:96px; margin:0 auto 6px; animation:trophy-in .7s .15s cubic-bezier(.2,1.5,.4,1) both}
+.award-card .px-trophy{width:96px; height:96px; margin:0 auto 8px; display:none}
+.award-card h3{font-weight:800; font-size:24px; letter-spacing:-.01em; line-height:1.15; margin:0}
+.award-card p{margin:5px 0 0; font-size:15px; color:var(--mute)}
+#app[data-chrome="pixel"] .award-card{background:#05070D; color:#F4F6FA; border:2px solid #FFD23F; border-radius:0; font-family:var(--pixel); box-shadow:6px 6px 0 rgba(0,0,0,.5)}
+#app[data-chrome="pixel"] .award-card .trophy{display:none}
+#app[data-chrome="pixel"] .award-card .px-trophy{display:block}
+#app[data-chrome="pixel"] .award-card h3{font-family:var(--pixel); font-size:20px; color:#FFD23F}
+#app[data-chrome="pixel"] .award-card p{font-size:12px; color:#C5CCDD}
+@keyframes award-in{from{opacity:0; transform:scale(.7)} to{opacity:1; transform:none}}
+@keyframes trophy-in{from{transform:translateY(14px) scale(.5) rotate(-14deg)} to{transform:none}}
+.sum-trophy{display:flex; align-items:center; gap:10px; margin:0 0 10px; padding:8px 12px; border:1px solid var(--rule); border-radius:14px; background:var(--surface); font-weight:600; font-size:15px}
+.sum-trophy .trophy{width:34px; height:34px; flex:none}
+
+/* ---------- sheets ---------- */
+dialog{border:1px solid var(--rule); padding:0; background:var(--sheet); color:var(--ink); font-family:var(--sans); width:min(520px, 100%); max-width:100%; max-height:92%; border-radius:18px; overflow:hidden}
+@supports (height:1dvh){ dialog{max-height:92dvh} }
+dialog[open]{display:flex; flex-direction:column}
+dialog::backdrop{background:rgba(4,8,14,.66)}
+@media (max-width:560px){ dialog{margin:auto 0 0; border-radius:22px 22px 0 0; border-width:1px 0 0; padding-bottom:env(safe-area-inset-bottom,0px)} }
+.sh-head{flex:none; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 16px 10px}
+.sh-head h2{font-weight:800; font-size:22px; letter-spacing:-.01em; margin:0; line-height:1.1}
+.sh-body{flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; padding:0 16px 14px}
+.sh-foot{flex:none; display:grid; gap:8px; padding:10px 16px 14px; border-top:1px solid var(--rule)}
+.sh-foot .two{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+.x-btn{flex:none; width:40px; height:40px; border-radius:12px; border:1px solid var(--rule); background:var(--surface); font-size:24px; line-height:1; padding:0 0 3px}
+.field{padding:12px 0; border-top:1px solid var(--rule)}
+.sh-body > .field:first-child{border-top:0; padding-top:2px}
+.field > label, .field > .lab{display:block; font-weight:700; font-size:15px}
+.field .hint{font-size:13px; color:var(--mute); margin:3px 0 0}
+.field .row{display:flex; align-items:center; gap:10px; margin-top:8px}
+.seg{display:flex; gap:4px; padding:4px; border:1px solid var(--rule); border-radius:14px; margin-top:8px}
+.seg button{flex:1; border:0; background:none; padding:9px 6px; font-size:14px; border-radius:10px; color:var(--mute)}
+.seg button[aria-pressed="true"]{background:var(--accent); color:var(--on-accent); font-weight:700}
+.seg button:disabled{opacity:.45; cursor:default}
+.stepper{display:flex; align-items:center; gap:6px}
+.stepper button{width:44px; height:44px; border-radius:12px; border:1px solid var(--rule); background:var(--surface); font-size:22px; line-height:1}
+.stepper output{min-width:86px; text-align:center; font-size:20px; font-weight:800; font-variant-numeric:tabular-nums}
+input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); border-radius:12px; background:var(--surface); margin-top:8px}
+.switch{display:flex; align-items:center; justify-content:space-between; gap:12px}
+.switch input{width:22px; height:22px; accent-color:var(--accent)}
+.btn{border:1px solid var(--rule); background:var(--surface); border-radius:14px; padding:10px 14px; font-weight:700; font-size:15px}
+.btn.solid{background:var(--accent); color:var(--on-accent); border-color:var(--accent)}
+.btn:disabled{opacity:.5}
+.btn{min-height:44px}
+.btn-row{display:flex; flex-wrap:wrap; gap:8px; margin-top:12px}
+#tests{list-style:none; margin:10px 0 0; padding:0; font-size:13px}
+#tests li{display:grid; grid-template-columns:44px 1fr; gap:2px 8px; padding:6px 0; border-top:1px solid var(--rule)}
+#tests .r{font-weight:600}
+#tests .r.pass{color:var(--accent)} #tests .r.fail{color:var(--alert)}
+#tests .g{grid-column:2; color:var(--mute)}
+.hero{display:flex; align-items:flex-end; justify-content:space-between; gap:12px; padding-bottom:10px}
+.hero p{margin:0}
+.sum-big{font-weight:800; font-size:clamp(46px, 15vw, 62px); letter-spacing:-.05em; line-height:1; font-variant-numeric:tabular-nums}
+.sum-eff{font-weight:800; font-size:clamp(30px, 10vw, 40px); letter-spacing:-.03em; line-height:1; text-align:right; color:var(--accent)}
+.sum-cap{color:var(--mute); font-size:13px}
+.hero-r .sum-cap{text-align:right}
+.sum{display:grid; grid-template-columns:1fr 1fr; gap:0 16px; margin:0; border-top:1px solid var(--rule)}
+.sum > div{padding:8px 0; border-bottom:1px solid var(--rule); min-width:0}
+.sum dt{color:var(--mute); font-size:13px}
+.sum dd{margin:1px 0 0; font-weight:700; font-size:16px; line-height:1.25; font-variant-numeric:tabular-nums; overflow-wrap:anywhere}
+details.rep{margin-top:10px}
+details.rep summary{cursor:pointer; padding:8px 0; color:var(--mute); font-size:14px}
+#reportText{display:block; width:100%; height:150px; padding:10px; border:1px solid var(--rule); border-radius:12px; background:var(--surface); color:inherit; font:13px/1.4 ui-monospace,Menlo,Consolas,monospace; resize:none}
+#recBox{margin-top:12px}
+#recBox audio{display:block; width:100%; margin-bottom:8px}
+#recBox .btn{width:100%}
+#toast{position:fixed; left:50%; bottom:calc(96px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%); background:var(--surface); color:var(--ink); border:1px solid var(--rule); padding:10px 14px; border-radius:14px; font-size:14px;
+  opacity:0; transition:opacity .25s; pointer-events:none; max-width:90%; text-align:center; z-index:5}
+#toast.on{opacity:1}
+.sr{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap}
+@media (max-width:359px){ #top{gap:10px; width:calc(100% - 28px)} #top h1{font-size:18px} .icon-btn{padding:0 12px} .classic{padding-left:14px; padding-right:14px} .stats{gap:8px 14px}
+  #notice, #demoBar{margin-left:14px; margin-right:14px; width:calc(100% - 28px)} #controls{padding-left:14px; padding-right:14px} .hud{padding-left:10px; padding-right:10px; font-size:11px} .hud-stats span{font-size:8px} .hud-stats b{font-size:11px} }
+@media (max-height:700px){ .keep{display:none} #top{padding-top:8px; padding-bottom:8px} .tagline{font-size:12px} #controls button{min-height:50px} }
+/* the clock, stats and monitor give way when the panel is short (small phones, or a notice showing) */
+@supports (font-size:1cqh){ .clock{font-size:clamp(42px, min(21vw, 20cqh), 112px)} }
+@container (max-height:470px){ .clock-label{margin-top:4px; font-size:14px} .stats{gap:6px 16px; margin-top:8px} .stat .k{font-size:13px} .stat .v{font-size:21px} .meter{margin-top:3px}
+  .classic > .monitor{margin-top:10px; padding:10px 12px 8px; border-radius:16px; min-height:74px} .heard{margin-top:3px} .heard p{display:none} .heard h3{font-size:15px; line-height:20px; height:20px} .note{font-size:20px; line-height:20px; height:20px} }
+@container (max-height:330px){ .classic > .monitor{min-height:52px} .mon-head h2{font-size:15px} .heard{display:none} .stat .v{font-size:19px} }
+@container (max-height:262px){ .classic > .monitor{display:none} .clock-label{display:none} .stats{margin-top:6px} }
+/* ---------- dash theme: a neon runner. Bold rounded type, thick dark outlines, bright lime and cyan ---------- */
+#app[data-skin="dash"]{--paper:#07071F; --surface:#17174A; --ink:#FFFFFF; --mute:#B9BCE8; --rule:#34348A; --accent:#7CFF4F; --on-accent:#06210A}
+#app[data-skin="dash"][data-chrome="pixel"] #top h1{font-family:var(--sans); font-size:20px; font-weight:800}
+#app[data-skin="dash"][data-chrome="pixel"] .icon-btn{border-radius:12px}
+#app[data-skin="dash"][data-chrome="pixel"] #notice, #app[data-skin="dash"][data-chrome="pixel"] #demoBar{border-radius:14px}
+#app[data-skin="dash"][data-chrome="pixel"] .chips button{border-radius:999px}
+#app[data-skin="dash"][data-chrome="pixel"] .chips button[aria-pressed="true"], #app[data-skin="dash"][data-chrome="pixel"] #notice .act{background:var(--accent); color:var(--on-accent); border-color:var(--accent); font-weight:700; border-radius:999px}
+#app[data-skin="dash"][data-chrome="pixel"] #controls button{font-family:var(--sans); font-size:17px; font-weight:800; border-radius:16px; border:3px solid #05051A; background:#2B2B7A; color:#FFFFFF; text-shadow:none; box-shadow:0 4px 0 #05051A}
+#app[data-skin="dash"][data-chrome="pixel"] #controls button.primary{background:#7CFF4F; color:#06210A}
+#app[data-skin="dash"][data-chrome="pixel"] #controls button:active{transform:translateY(2px); box-shadow:0 2px 0 #05051A}
+#app[data-skin="dash"][data-chrome="pixel"] #controls{padding-bottom:14px}
+#app[data-skin="dash"][data-chrome="pixel"] .award-card{background:#17174A; border:3px solid #7CFF4F; border-radius:22px; font-family:var(--sans); box-shadow:0 8px 0 rgba(5,5,26,.6)}
+#app[data-skin="dash"][data-chrome="pixel"] .award-card .trophy{display:block}
+#app[data-skin="dash"][data-chrome="pixel"] .award-card .px-trophy{display:none}
+#app[data-skin="dash"][data-chrome="pixel"] .award-card h3{font-family:var(--sans); font-size:24px; font-weight:800; color:#7CFF4F}
+#app[data-skin="dash"][data-chrome="pixel"] .award-card p{font-size:14px; color:#B9BCE8}
+#pDash{background:#07071F; color:#FFFFFF; font-family:var(--sans)}
+#dashCv{position:absolute; inset:0; width:100%; height:100%; display:block}
+.dash-hud{position:absolute; left:10px; right:10px; top:8px; max-width:520px; padding:9px 12px 8px; font-size:12px; line-height:1.4; background:rgba(8,8,34,.78); border:2px solid rgba(255,255,255,.2); border-radius:16px; cursor:pointer}
+.dash-hud .k{color:#B9BCE8}
+.dh-prog{display:flex; align-items:center; gap:8px}
+.dh-bar{flex:1; min-width:0; height:12px; border-radius:7px; background:rgba(255,255,255,.14); border:2px solid #05051A; box-shadow:0 0 0 1px rgba(255,255,255,.35); overflow:hidden}
+.dh-bar i{display:block; height:100%; width:0; background:#7CFF4F; transition:width .2s linear}
+#dPct{flex:none; min-width:4ch; text-align:right; font-weight:800; font-size:13px; font-variant-numeric:tabular-nums}
+.dh-top{display:flex; justify-content:space-between; align-items:flex-end; gap:10px; margin-top:6px}
+.dh-play{min-width:0}
+.dh-play .k{display:block; white-space:nowrap}
+.dash-hud .big{display:block; font-size:clamp(30px, 9.4vw, 44px); line-height:1; font-weight:800; letter-spacing:-.04em; font-variant-numeric:tabular-nums; white-space:nowrap}
+.dash-hud .big.long{font-size:clamp(24px, 7.6vw, 36px)}
+#app[data-music="1"] .dash-hud .big{color:#7CFF4F}
+.dh-side{flex:none; text-align:right; white-space:nowrap; color:#B9BCE8}
+.dh-side b{color:#FFFFFF; font-weight:800; font-variant-numeric:tabular-nums}
+.dh-stats{display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:0 4px; margin-top:6px; text-align:center}
+.dh-stats span{display:block; font-size:11px; color:#B9BCE8; white-space:nowrap}
+.dh-stats b{display:block; font-size:16px; line-height:1.2; font-weight:800; font-variant-numeric:tabular-nums; white-space:nowrap}
+.dh-line{margin-top:4px; min-height:17px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.dh-line.dim{margin-top:0; font-weight:400; color:#B9BCE8}
+#dBanner{position:absolute; left:50%; bottom:16px; transform:translateX(-50%); width:max-content; max-width:calc(100% - 40px); padding:8px 14px; background:#05051A; color:#7CFF4F; border:3px solid #7CFF4F; border-radius:14px;
+  font-size:15px; font-weight:800; text-align:center; opacity:0; transition:opacity .25s; pointer-events:none}
+#dBanner.on{opacity:1}
+.dash-hud.compact{display:flex; align-items:center; gap:10px; padding:6px 24px 6px 12px}
+.dash-hud.compact .dh-top{order:-1; flex:none; margin:0}
+.dash-hud.compact .dh-prog{flex:1; min-width:0}
+.dash-hud.compact .dh-play .k, .dash-hud.compact .dh-side, .dash-hud.compact .dh-stats, .dash-hud.compact .dh-line{display:none}
+.dash-hud.compact .big, .dash-hud.compact .big.long{font-size:24px}
+@media (max-width:350px){ .dash-hud{font-size:11px; padding:8px 10px 7px} .dh-stats span{font-size:10px} .dh-stats b{font-size:14px} #app[data-skin="dash"][data-chrome="pixel"] #controls button{font-size:15px} }
+@media (max-height:620px){ .dh-line.dim{display:none} }
+
+/* ---------- more room for the Rocket and City scenes ---------- */
+.ctl-set{display:none}
+#hud, #cityHud{cursor:pointer}
+.fold{position:absolute; right:7px; bottom:5px; width:0; height:0; border-left:5px solid transparent; border-right:5px solid transparent; border-bottom:6px solid currentColor; opacity:.5; pointer-events:none}
+.compact > .fold{border-bottom:0; border-top:6px solid currentColor}
+/* read-outs folded away: play time and the power bar on one line (tap the read-outs to switch) */
+.hud.compact{display:flex; align-items:center; gap:10px; padding:5px 22px 6px 12px}
+.hud.compact .hud-row{flex:none}
+.hud.compact .hud-row .k, .hud.compact .hud-side, .hud.compact .hud-stats, .hud.compact .hud-line, .hud.compact .engine > .k{display:none}
+.hud.compact .big{font-size:26px; margin:0}
+.hud.compact .big.long{font-size:21px}
+.hud.compact .engine{flex:1; margin:0}
+.city-hud.compact{display:flex; align-items:center; gap:10px; padding:5px 22px 6px 12px}
+.city-hud.compact .ch-top{flex:none}
+.city-hud.compact .ch-play .k, .city-hud.compact .ch-side, .city-hud.compact .ch-stats, .city-hud.compact .ch-line, .city-hud.compact .engine > .k{display:none}
+.city-hud.compact .big, .city-hud.compact .big.long{font-size:24px; margin:0}
+.city-hud.compact .big.long{font-size:20px}
+.city-hud.compact .engine{flex:1; margin:0}
+@media (max-width:760px){
+  #app[data-chrome="pixel"] #top{display:none}                                  /* the title row goes; Settings sits with the buttons */
+  #app[data-chrome="pixel"] .ctl-set{display:grid; place-items:center; flex:none; width:50px; max-width:50px; padding:0}
+  #app[data-chrome="pixel"] .ctl-set svg{width:22px; height:22px}
+  #app[data-chrome="pixel"] #controls{padding:8px 12px 10px; gap:10px}
+  #app[data-chrome="pixel"] #controls button{min-height:46px}
+  #app[data-skin="city"] #controls{padding:9px 15px 12px; gap:14px}
+  #app[data-chrome="pixel"] #notice{margin-top:8px}
+  #app[data-chrome="pixel"] #demoBar{display:flex; align-items:center; gap:6px; padding:6px 8px; margin-top:8px}   /* demo sound on one line */
+  #app[data-chrome="pixel"] #demoBar .lab{display:none}
+  #app[data-chrome="pixel"] .demo-top{flex:none}
+  #app[data-chrome="pixel"] #demoClips{margin-top:0; flex:1; min-width:0}
+  #app[data-skin="city"] #demoBar{margin:11px 15px 9px}
+  .hud{padding:6px 12px 8px}
+  .hud .big{font-size:clamp(30px, 9.5vw, 44px)}
+  .hud-line{margin-top:3px}
+  .engine{margin-top:5px}
+  .city-hud{top:7px}
+}
+@media (prefers-reduced-motion: reduce){ *{transition-duration:.01ms !important} }
+</style>
+</head>
+<body>
+<div id="app" data-skin="classic" data-state="idle" data-music="0">
+  <header id="top">
+    <span class="app-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M10 4.4v9.9a3.4 3.4 0 1 0 2 3.1V8.1l5-1.5V4.1a1 1 0 0 0-1.3-1l-4.6 1.4a1.5 1.5 0 0 0-1.1 1.4z" transform="translate(-.6 .4)"/></svg></span>
+    <div class="brand"><h1>Music Timer</h1><span class="tagline">Instrument practice timer</span></div>
+    <button class="icon-btn" id="btnSettings" aria-label="Settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>
+      <span class="lbl">Settings</span>
+    </button>
+  </header>
+
+  <div id="notice" hidden role="status"><p id="noticeText"></p><button class="act" id="noticeAct"></button><button class="x" id="noticeClose" aria-label="Dismiss">&times;</button></div>
+
+  <div id="demoBar" hidden>
+    <div class="demo-top"><span class="lab">Demo sound</span><div class="chips" id="demoWarp" role="group" aria-label="Demo speed"></div></div>
+    <div class="chips" id="demoClips" role="group" aria-label="Demo sound"></div>
+  </div>
+
+  <main id="stage">
+    <div id="track">
+      <section class="panel" id="pClassic" aria-label="Classic theme">
+        <div class="classic">
+          <div class="status"><span class="lamp"></span><span id="cStatus">Ready when you are</span></div>
+          <p class="clock-label">Play time</p>
+          <div class="clock" role="timer" aria-label="Play time"><span id="cClock"></span><span class="tenths" id="cTenths">.0</span></div>
+          <div class="stats">
+            <div class="stat"><div class="k">Efficiency</div><div class="v" id="cEff">0%</div><div class="meter"><i id="cEffBar"></i></div></div>
+            <div class="stat"><div class="k"><svg class="trophy badge" viewBox="0 0 64 64" aria-hidden="true"><path d="M19 13H9c0 10 5 15 12 16M45 13h10c0 10-5 15-12 16" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><path fill="currentColor" d="M18 7h28v15c0 10-6 17-14 17s-14-7-14-17zM29 38h6v9h-6zM22 47h20a2 2 0 0 1 2 2v3H20v-3a2 2 0 0 1 2-2zM17 52h30a2 2 0 0 1 2 2v4H15v-4a2 2 0 0 1 2-2z"/><path d="M25 12v9c0 4 1 7 3 10" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="3" stroke-linecap="round"/></svg><span id="cGoalK">Practice goal</span></div><div class="v"><span id="cGoalV">30:00</span> <small id="cGoal">30:00 left</small></div><div class="meter"><i id="cGoalBar"></i></div></div>
+            <div class="stat"><div class="k">Active session time</div><div class="v" id="cActive">00:00</div></div>
+            <div class="stat"><div class="k">Total session time</div><div class="v"><span id="cTotal">00:00</span> <small id="cPauses">0 pauses</small></div></div>
+          </div>
+          <section class="monitor" aria-label="Sound monitor">
+            <div class="mon-head"><h2>Sound monitor</h2><span class="mon-state"><i class="lamp"></i><span id="cMic">Mic off</span></span></div>
+            <div class="heard">
+              <div class="txt"><h3 id="cHeard">Press Start, then play</h3><p id="cDetail">The timer only counts while an instrument is heard.</p></div>
+              <div class="note" id="cNote" aria-label="Note heard"></div>
+            </div>
+            <div class="viz" id="vizBox" role="button" tabindex="0" aria-label="Sound picture. Tap to change"><canvas id="viz" aria-hidden="true"></canvas><span class="viz-name" id="vizName"></span></div>
+          </section>
+        </div>
+      </section>
+      <section class="panel" id="pRocket" aria-label="Rocket theme">
+        <canvas id="rk" aria-hidden="true"></canvas>
+        <div class="hud" id="hud">
+          <div class="hud-row">
+            <div class="hud-play"><span class="k">Play time</span><span class="big" id="rPlay">00:00</span></div>
+            <div class="hud-side">
+              <div><canvas class="px-trophy badge" id="rTrophy" width="16" height="16"></canvas>Goal <b id="rGoal">30:00</b></div>
+              <div id="rGoalLeft">30:00 left</div>
+            </div>
+          </div>
+          <div class="engine"><span class="k">Engine</span><div class="pbar"><i id="rPw"></i><b class="m50"></b><b class="m80"></b></div><span id="rPwN">0%</span></div>
+          <div class="hud-stats">
+            <div><span>Active</span><b id="rActive">00:00</b></div>
+            <div><span>Total</span><b id="rTotal">00:00</b></div>
+            <div><span>Pauses</span><b id="rPauses">0</b></div>
+            <div><span id="rAltK">Alt m</span><b id="rAlt">0</b></div>
+          </div>
+          <div class="hud-line" id="rHeard">Press Start, then play</div>
+          <div class="hud-line" id="rNext"></div>
+          <span class="fold" aria-hidden="true"></span>
+        </div>
+        <div id="rBanner" role="status"></div>
+      </section>
+      <section class="panel" id="pCity" aria-label="City theme">
+        <canvas id="cityCv" aria-hidden="true"></canvas>
+        <div class="city-hud bevel" id="cityHud">
+          <div class="ch-top">
+            <div class="ch-play"><span class="k">Play time</span><span class="big" id="yPlay">00:00</span></div>
+            <div class="ch-side">
+              <div><canvas class="px-trophy badge" id="yTrophy" width="16" height="16"></canvas>Goal <b id="yGoal">30:00</b></div>
+              <div id="yGoalLeft">30:00 left</div>
+              <div>Pauses <b id="yPauses">0</b></div>
+            </div>
+          </div>
+          <div class="engine"><span class="k">Power</span><div class="pbar"><i id="yPw"></i></div><span id="yPwN">0%</span></div>
+          <div class="ch-stats">
+            <div><span>Shot down</span><b id="yDown">0</b></div>
+            <div><span>Impacts</span><b id="yImp">0</b></div>
+            <div><span>Buildings</span><b id="yBld">0</b></div>
+            <div><span>Cannons</span><b id="yCan" class="ok">3/3</b></div>
+          </div>
+          <div class="ch-line" id="yHeard">Press Start, then play</div>
+          <div class="ch-line dim" id="yHint">Play to defend the city</div>
+          <span class="fold" aria-hidden="true"></span>
+        </div>
+        <div id="yBanner" class="bevel" role="status"></div>
+        <div id="yMsg" class="bevel" hidden></div>
+      </section>
+      <section class="panel" id="pDash" aria-label="Dash theme">
+        <canvas id="dashCv" aria-hidden="true"></canvas>
+        <div class="dash-hud" id="dashHud">
+          <div class="dh-prog"><div class="dh-bar"><i id="dBar"></i></div><b id="dPct">0%</b></div>
+          <div class="dh-top">
+            <div class="dh-play"><span class="k">Play time</span><span class="big" id="dPlay">00:00</span></div>
+            <div class="dh-side">
+              <div><svg class="trophy badge" viewBox="0 0 64 64" aria-hidden="true"><path d="M19 13H9c0 10 5 15 12 16M45 13h10c0 10-5 15-12 16" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><path fill="currentColor" d="M18 7h28v15c0 10-6 17-14 17s-14-7-14-17zM29 38h6v9h-6zM22 47h20a2 2 0 0 1 2 2v3H20v-3a2 2 0 0 1 2-2zM17 52h30a2 2 0 0 1 2 2v4H15v-4a2 2 0 0 1 2-2z"/><path d="M25 12v9c0 4 1 7 3 10" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="3" stroke-linecap="round"/></svg>Goal <b id="dGoal">30:00</b></div>
+              <div id="dGoalLeft">30:00 left</div>
+              <div>Pauses <b id="dPauses">0</b></div>
+            </div>
+          </div>
+          <div class="dh-stats">
+            <div><span>Attempt</span><b id="dAtt">1</b></div>
+            <div><span>Jumps</span><b id="dJumps">0</b></div>
+            <div><span>Speed</span><b id="dSpeed">1&times;</b></div>
+            <div><span>Power</span><b id="dPw">0%</b></div>
+          </div>
+          <div class="dh-line" id="dHeard">Press Start, then play</div>
+          <div class="dh-line dim" id="dHint">Play to run the course</div>
+          <span class="fold" aria-hidden="true"></span>
+        </div>
+        <div id="dBanner" role="status"></div>
+      </section>
+    </div>
+    <div id="award" hidden role="status">
+      <div class="award-card" id="awardCard">
+        <svg class="trophy" viewBox="0 0 64 64" aria-hidden="true"><path d="M19 13H9c0 10 5 15 12 16M45 13h10c0 10-5 15-12 16" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><path fill="currentColor" d="M18 7h28v15c0 10-6 17-14 17s-14-7-14-17zM29 38h6v9h-6zM22 47h20a2 2 0 0 1 2 2v3H20v-3a2 2 0 0 1 2-2zM17 52h30a2 2 0 0 1 2 2v4H15v-4a2 2 0 0 1 2-2z"/><path d="M25 12v9c0 4 1 7 3 10" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="3" stroke-linecap="round"/></svg>
+        <canvas class="px-trophy" id="awardPx" width="16" height="16"></canvas>
+        <h3>Trophy earned</h3>
+        <p id="awardSub"></p>
+      </div>
+    </div>
+  </main>
+
+  <footer id="controls">
+    <button id="btnStart" class="primary">Start</button>
+    <button id="btnSummary" hidden>Summary</button>
+    <button id="btnPause" hidden>Pause</button>
+    <button id="btnResume" class="primary" hidden>Resume</button>
+    <button id="btnStop" hidden>Stop</button>
+    <button id="btnUnfollow" hidden>Stop following</button>
+    <button id="btnSettings2" class="ctl-set" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg></button>
+    <p class="keep">Keep this page open while timing.</p>
+  </footer>
+</div>
+
+<dialog id="dlgSettings" aria-labelledby="setH">
+  <div class="sh-head"><h2 id="setH">Settings</h2><button class="btn solid" id="setClose">Done</button></div>
+  <div class="sh-body">
+    <div class="field">
+      <span class="lab">Practice goal</span>
+      <p class="hint">The total play time to reach.</p>
+      <div class="row stepper"><button id="goalDn" aria-label="Five minutes less">&minus;</button><output id="goalOut">30 min</output><button id="goalUp" aria-label="Five minutes more">+</button></div>
+    </div>
+    <div class="field">
+      <label for="nameIn">Student name</label>
+      <p class="hint">Shown on the report you send to the instructor.</p>
+      <input type="text" id="nameIn" maxlength="40" autocomplete="off">
+    </div>
+    <div class="field">
+      <span class="lab">Sound source</span>
+      <div class="seg" id="segSource"><button data-v="mic">Microphone</button><button data-v="demo">Demo sound</button></div>
+      <p class="hint" id="sourceHint">Demo sound feeds built-in test sounds to the detector (nothing is played aloud) and can run faster than real time to preview the rocket trip.</p>
+    </div>
+    <div class="field">
+      <span class="lab">Detection sensitivity</span>
+      <div class="seg" id="segSens"><button data-v="strict">Strict</button><button data-v="normal">Normal</button><button data-v="lenient">Lenient</button></div>
+      <p class="hint">Strict if talking or TV sets the timer off. Lenient if soft playing is missed.</p>
+    </div>
+    <div class="field">
+      <span class="lab">Rocket, cannon and dash power follow</span>
+      <div class="seg" id="segEff"><button data-v="session">Whole session</button><button data-v="recent">Last minute</button></div>
+      <p class="hint">Whole session uses the efficiency shown on screen. Last minute reacts faster and lets a new rocket launch sooner after a crash.</p>
+    </div>
+    <div class="field">
+      <label class="switch" for="recIn"><span>Record the playing</span><input type="checkbox" id="recIn"></label>
+      <p class="hint">Keeps an audio recording of the session (microphone only) that you can save when you stop.</p>
+    </div>
+    <div class="field">
+      <span class="lab">Detection tests</span>
+      <p class="hint">Runs built-in violin, piano, clarinet, flute, cello, talking and noise samples through the detector and checks the timer and rocket rules.</p>
+      <div class="btn-row"><button class="btn" id="btnTests">Run tests</button><span id="testSum" style="align-self:center;font-size:14px"></span></div>
+      <ul id="tests"></ul>
+    </div>
+    <p class="hint" id="ver" style="margin:14px 0 0;font-size:12px;color:var(--mute-2)"></p>
+  </div>
+</dialog>
+
+<dialog id="dlgSummary" aria-labelledby="sumH">
+  <div class="sh-head"><h2 id="sumH">Session summary</h2><button class="x-btn" id="sumClose" aria-label="Close">&times;</button></div>
+  <div class="sh-body">
+    <div class="hero">
+      <div><p class="sum-big" id="sPlay">00:00</p><p class="sum-cap" id="sCap">of playing</p></div>
+      <div class="hero-r"><p class="sum-eff" id="sEff">0%</p><p class="sum-cap">efficiency</p></div>
+    </div>
+    <p class="sum-trophy" id="sTrophy" hidden><svg class="trophy" viewBox="0 0 64 64" aria-hidden="true"><path d="M19 13H9c0 10 5 15 12 16M45 13h10c0 10-5 15-12 16" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><path fill="currentColor" d="M18 7h28v15c0 10-6 17-14 17s-14-7-14-17zM29 38h6v9h-6zM22 47h20a2 2 0 0 1 2 2v3H20v-3a2 2 0 0 1 2-2zM17 52h30a2 2 0 0 1 2 2v4H15v-4a2 2 0 0 1 2-2z"/><path d="M25 12v9c0 4 1 7 3 10" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="3" stroke-linecap="round"/></svg><span id="sTrophyText"></span></p>
+    <dl class="sum">
+      <div><dt>Active time</dt><dd id="sActive"></dd></div>
+      <div><dt>Practice goal</dt><dd id="sGoal"></dd></div>
+      <div><dt>Total time</dt><dd id="sTotal"></dd></div>
+      <div><dt>Pauses</dt><dd id="sPauses"></dd></div>
+      <div><dt>Mostly heard</dt><dd id="sInst"></dd></div>
+      <div><dt>Rocket</dt><dd id="sRocket"></dd></div>
+      <div id="sCityRow" hidden><dt>City</dt><dd id="sCity"></dd></div>
+      <div id="sDashRow" hidden><dt>Dash</dt><dd id="sDash"></dd></div>
+    </dl>
+    <div id="recBox" hidden>
+      <audio id="recAudio" controls></audio>
+      <button class="btn" id="btnSaveRec">Save recording</button>
+    </div>
+    <details class="rep" id="repDetails"><summary>Report text</summary><textarea id="reportText" readonly aria-label="Report text"></textarea></details>
+  </div>
+  <div class="sh-foot">
+    <button class="btn solid" id="btnShare">Send to instructor</button>
+    <div class="two"><button class="btn" id="btnCopy">Copy report</button><button class="btn" id="btnSaveRep">Save as file</button></div>
+  </div>
+</dialog>
+
+<div id="toast" role="status"></div>
+
+<script>
+/*__CORE__*/
+</script>
+<script>
+/*__APP__*/
+</script>
+</body>
+</html>

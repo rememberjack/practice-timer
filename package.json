@@ -1,0 +1,14 @@
+{
+  "name": "music-timer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Instrument practice timer that only runs while an instrument is heard.",
+  "scripts": {
+    "test": "node test/run.js",
+    "build": "node scripts/build.js",
+    "check": "node test/smoke.js",
+    "ci": "npm test && npm run build && npm run check",
+    "serve": "npm run build && npx --yes serve dist"
+  },
+  "engines": { "node": ">=20" }
+}
