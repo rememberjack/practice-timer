@@ -716,7 +716,9 @@ function makeCityView(host) {
     }
     function resize() {
       const w = Math.max(1, host.clientWidth), h = Math.max(1, host.clientHeight), hud = host.querySelector('.city-hud');
-      hudPx = hud ? Math.min(h * 0.5, hud.offsetTop + hud.offsetHeight) : 0; W = w; H = h;
+      const hp = hud ? Math.min(h * 0.5, hud.offsetTop + hud.offsetHeight) : 0;
+      if (w === W && h === H && hp === hudPx) return;               // every theme change asks; refitting the camera and the drawing buffer is costly
+      hudPx = hp; W = w; H = h;
       renderer.setSize(w, h, false);
       camera.clearViewOffset(); camera.aspect = w / h; camera.updateProjectionMatrix();
       area.hi = 1 - 2 * (hudPx + 8) / h;

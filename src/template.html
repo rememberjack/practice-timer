@@ -130,11 +130,12 @@ body:has(> #app[data-skin="dash"]){background:#07071F}
 /* ---------- city theme, after "Block City Defense": stone-grey bevelled panels and buttons, gold titles ---------- */
 #app[data-skin="city"]{--paper:#0E1130; --surface:#3A3A3A; --ink:#F4F4F4; --mute:#D9D2C6; --rule:#1C1C1C; --accent:#86D25A; --on-accent:#FFFFFF}
 .bevel{background:#3A3A3A; box-shadow:inset 3px 3px 0 #6E6E6E, inset -3px -3px 0 #1C1C1C, 0 0 0 3px #000}
-#app[data-skin="city"] #controls{gap:16px; padding:12px 19px 17px}
+/* City, Rocket and Dash keep the same top and bottom spacing, so the scene keeps its size when swiping between them (a resize costs a frame and nudges the page) */
+#app[data-skin="city"] #controls{gap:16px; padding:10px 19px 14px}
 #app[data-skin="city"] #controls button{font-size:13px; border:0; background:#6B6B6B; text-shadow:1px 1px 0 #333; box-shadow:inset 3px 3px 0 #A8A8A8, inset -3px -3px 0 #3B3B3B, 0 0 0 3px #000}
 #app[data-skin="city"] #controls button.primary{background:#4E8B32; box-shadow:inset 3px 3px 0 #86D25A, inset -3px -3px 0 #2B5A1A, 0 0 0 3px #000}
 #app[data-skin="city"] #controls button:active{box-shadow:inset -3px -3px 0 #A8A8A8, inset 3px 3px 0 #3B3B3B, 0 0 0 3px #000}
-#app[data-skin="city"] #notice, #app[data-skin="city"] #demoBar{background:#3A3A3A; border:0; margin:3px 19px 11px; box-shadow:inset 3px 3px 0 #6E6E6E, inset -3px -3px 0 #1C1C1C, 0 0 0 3px #000}
+#app[data-skin="city"] #notice, #app[data-skin="city"] #demoBar{background:#3A3A3A; border:0; margin:3px 19px 7px; box-shadow:inset 3px 3px 0 #6E6E6E, inset -3px -3px 0 #1C1C1C, 0 0 0 3px #000}
 #app[data-skin="city"] .icon-btn{background:#6B6B6B; border:0; box-shadow:inset 3px 3px 0 #A8A8A8, inset -3px -3px 0 #3B3B3B, 0 0 0 3px #000}
 #app[data-skin="city"] #top h1{color:#F2C94C; text-shadow:2px 2px 0 #000}
 #app[data-skin="city"][data-chrome="pixel"] .award-card{background:#3A3A3A; border:0; box-shadow:inset 3px 3px 0 #6E6E6E, inset -3px -3px 0 #1C1C1C, 0 0 0 3px #000, 6px 6px 0 3px rgba(0,0,0,.45)}
@@ -363,13 +364,14 @@ details.rep summary{cursor:pointer; padding:8px 0; color:var(--mute); font-size:
   #app[data-chrome="pixel"] .ctl-set svg{width:22px; height:22px}
   #app[data-chrome="pixel"] #controls{padding:8px 12px 10px; gap:10px}
   #app[data-chrome="pixel"] #controls button{min-height:46px}
-  #app[data-skin="city"] #controls{padding:9px 15px 12px; gap:14px}
+  #app[data-skin="city"] #controls{padding:8px 15px 10px; gap:14px}
+  #app[data-skin="dash"][data-chrome="pixel"] #controls{padding:6px 12px 12px}   /* room for the drop shadow, same height as the others */
   #app[data-chrome="pixel"] #notice{margin-top:8px}
   #app[data-chrome="pixel"] #demoBar{display:flex; align-items:center; gap:6px; padding:6px 8px; margin-top:8px}   /* demo sound on one line */
   #app[data-chrome="pixel"] #demoBar .lab{display:none}
   #app[data-chrome="pixel"] .demo-top{flex:none}
   #app[data-chrome="pixel"] #demoClips{margin-top:0; flex:1; min-width:0}
-  #app[data-skin="city"] #demoBar{margin:11px 15px 9px}
+  #app[data-skin="city"] #notice, #app[data-skin="city"] #demoBar{margin:10px 15px 8px}
   .hud{padding:6px 12px 8px}
   .hud .big{font-size:clamp(30px, 9.5vw, 44px)}
   .hud-line{margin-top:3px}
