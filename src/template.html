@@ -340,18 +340,23 @@ details.rep summary{cursor:pointer; padding:8px 0; color:var(--mute); font-size:
 @media (max-width:350px){ .dash-hud{font-size:11px; padding:8px 10px 7px} .dh-stats span{font-size:10px} .dh-stats b{font-size:14px} #app[data-skin="dash"][data-chrome="pixel"] #controls button{font-size:15px} }
 @media (max-height:620px){ .dh-line.dim{display:none} }
 
-/* ---------- theme indicator: a dot per theme under the scene, the current one long; a locked theme is a hollow ring ---------- */
-#skinDots{display:flex; justify-content:center; flex:none; height:20px; margin-top:4px; --dot:var(--accent)}
-#skinDots button{height:20px; padding:0 8.5px; border:0; background:none; display:flex; align-items:center}   /* the dot sets the width, so the long one pushes its neighbours aside smoothly */
-#skinDots button::before{content:""; flex:none; width:7px; height:7px; border-radius:4px; background:var(--dot); opacity:.35; transition:width .25s, opacity .25s}
-#skinDots button[data-state="on"]::before{width:20px; opacity:1}
-#skinDots button[data-state="locked"]{cursor:default}
-#skinDots button[data-state="locked"]::before{background:none; box-shadow:inset 0 0 0 1.5px var(--dot); opacity:.35}
-#app[data-skin] #skinDots + #controls{padding-top:4px}
-#app[data-skin="rocket"] #skinDots{--dot:#FFFFFF}
-#app[data-skin="rocket"] #skinDots button::before, #app[data-skin="city"] #skinDots button::before{border-radius:0}
-#app[data-skin="city"] #skinDots{--dot:#F2C94C}
-#app[data-skin="dash"] #skinDots{--dot:#7CFF4F}
+/* ---------- theme bar: each theme's icon under the scene; the current one lit on a tinted tab, a locked one faint with a padlock ---------- */
+#skinBar{display:flex; justify-content:center; gap:6px; flex:none; height:28px; margin-top:4px; --tint:var(--accent)}
+#skinBar button{position:relative; width:38px; height:28px; padding:0; border:0; background:none; color:var(--tint); display:grid; place-items:center}
+#skinBar button::before{content:""; position:absolute; inset:1px; border-radius:14px; background:var(--tint); opacity:0; transition:opacity .25s}
+#skinBar .ic{position:relative; width:18px; height:18px; opacity:.4; transition:opacity .25s}
+#skinBar button[data-state="off"]:hover .ic{opacity:.7}
+#skinBar button[data-state="on"]::before{opacity:.2}
+#skinBar button[data-state="on"] .ic{opacity:1}
+#skinBar button[data-state="locked"]{cursor:default}
+#skinBar button[data-state="locked"] .ic{opacity:.18}
+#skinBar .lk{display:none; position:absolute; right:7px; bottom:2px; width:10px; height:10px; opacity:.75}
+#skinBar button[data-state="locked"] .lk{display:block}
+#app[data-skin] #skinBar + #controls{padding-top:4px}
+#app[data-skin="rocket"] #skinBar{--tint:#FFFFFF}
+#app[data-skin="rocket"] #skinBar button::before, #app[data-skin="city"] #skinBar button::before{border-radius:0}
+#app[data-skin="city"] #skinBar{--tint:#F2C94C}
+#app[data-skin="dash"] #skinBar{--tint:#7CFF4F}
 
 /* ---------- more room for the Rocket and City scenes ---------- */
 .ctl-set{display:none}
@@ -395,6 +400,14 @@ details.rep summary{cursor:pointer; padding:8px 0; color:var(--mute); font-size:
 </style>
 </head>
 <body>
+<!-- Theme icons, drawn on a 24-unit grid in currentColor. Use one anywhere with <svg><use href="#ico-rocket"/></svg>. -->
+<svg style="position:absolute; width:0; height:0; overflow:hidden" aria-hidden="true">
+  <symbol id="ico-classic" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="13.5" r="7.5"/><path d="M12 13.5V9.5M10 2.5h4M12 2.5v3.5M18.2 6.6l1.4-1.4"/></g></symbol>
+  <symbol id="ico-rocket" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M12 1.5c3.1 2.3 4.6 5.7 4.6 9.8V16H7.4v-4.7C7.4 7.2 8.9 3.8 12 1.5zM12 7.6a1.9 1.9 0 1 0 0 3.8a1.9 1.9 0 1 0 0-3.8zM6.6 11.8L3.5 15.2V19l3.1-1.6zM17.4 11.8l3.1 3.4V19l-3.1-1.6zM9.8 17.4h4.4l-.7 2.6L12 22.6 10.5 20z"/></symbol>
+  <symbol id="ico-city" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M2.5 11.5h5.5V21H2.5zM9 6h6v15H9zM16 9.5h5.5V21H16zM10.6 8h1.2v1.6h-1.2zM12.2 8h1.2v1.6h-1.2zM10.6 11.6h1.2v1.6h-1.2zM12.2 11.6h1.2v1.6h-1.2zM4.3 14h1.8v1.6H4.3zM17.8 12h1.8v1.6h-1.8zM2 21h20v1.6H2z"/><circle cx="17.3" cy="5.2" r="2.2" fill="currentColor"/><path fill="currentColor" opacity=".6" d="M15.7 3.6L22.6.4 18.9 6.8z"/></symbol>
+  <symbol id="ico-dash" viewBox="0 0 24 24"><rect x="3.6" y="3.6" width="16.8" height="16.8" rx="3" fill="none" stroke="currentColor" stroke-width="2.6"/><path fill="currentColor" d="M12 7.2l4.8 4.8-4.8 4.8L7.2 12z"/></symbol>
+  <symbol id="ico-lock" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="3" d="M7.5 11V8a4.5 4.5 0 0 1 9 0v3"/><rect x="4" y="11" width="16" height="11" rx="2" fill="currentColor"/></symbol>
+</svg>
 <div id="app" data-skin="classic" data-state="idle" data-music="0">
   <header id="top">
     <span class="app-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M10 4.4v9.9a3.4 3.4 0 1 0 2 3.1V8.1l5-1.5V4.1a1 1 0 0 0-1.3-1l-4.6 1.4a1.5 1.5 0 0 0-1.1 1.4z" transform="translate(-.6 .4)"/></svg></span>
@@ -518,7 +531,7 @@ details.rep summary{cursor:pointer; padding:8px 0; color:var(--mute); font-size:
     </div>
   </main>
 
-  <nav id="skinDots" aria-label="Themes"></nav>
+  <nav id="skinBar" aria-label="Themes"></nav>
 
   <footer id="controls">
     <button id="btnStart" class="primary">Start</button>

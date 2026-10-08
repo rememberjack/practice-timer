@@ -2,8 +2,8 @@
 
 A practice timer that only runs while an instrument is heard. It listens through the microphone, counts the time
 you are actually playing, and pauses itself in the silences. Four themes show your progress: Classic, Rocket, City
-and Dash. Swipe or use the arrow keys to change theme; the dots under the scene show which one you are on, and
-tapping a dot jumps to it.
+and Dash. Swipe or use the arrow keys to change theme. Each theme has its own icon, and the row of icons under
+the scene shows which one you are on; tap an icon to jump to that theme.
 
 Live at **https://rememberjack.github.io/practice-timer/**. On a phone, open it and use Share > Add to Home Screen.
 

@@ -569,8 +569,8 @@ function frame(t) {
 const SKINS = ['classic', 'rocket', 'city', 'dash'], SKIN_NAMES = ['Classic', 'Rocket', 'City', 'Dash'], PANELS = ['pClassic', 'pRocket', 'pCity', 'pDash'], stage = $('stage'), track = $('track');
 let skin = Math.max(0, SKINS.indexOf(S.skin)), dragging = false, drag = null, peek = -1;   // peek: the theme a swipe is pulling into view
 /* Whether a theme can be chosen yet. Every theme is open for now; to hold one back until a condition is met, return false for it here
-   and call refreshSkins() when the condition changes. A locked theme keeps its dot in the indicator (drawn hollow) but leaves the swipe
-   track, so swipes, arrow keys and the dots all skip it. Classic is always open, so there is somewhere to land. */
+   and call refreshSkins() when the condition changes. A locked theme keeps its icon in the theme bar (faint, with a padlock) but leaves the swipe
+   track, so swipes, arrow keys and the bar all skip it. Classic is always open, so there is somewhere to land. */
 function skinOpen(i) { return true; }
 let open = [];   // indices of the open themes, in swipe order
 function refreshSkins() {
@@ -588,14 +588,16 @@ function setSkin(i, animate) {
   track.style.transition = animate && !reduceMotion ? 'transform .3s cubic-bezier(.2,.8,.2,1)' : 'none';
   track.style.transform = 'translateX(' + (-open.indexOf(i) * 100 / open.length) + '%)';
   PANELS.forEach((id, j) => { $(id).inert = j !== i; });
-  paintSkinDots();
+  paintSkinBar();
   layoutChanged();
 }
-/* The theme indicator: one dot per theme, the current one drawn long. Tapping a dot goes to that theme. */
-const skinDots = $('skinDots');
-SKINS.forEach((_, i) => { const b = document.createElement('button'); b.type = 'button'; b.onclick = () => { if (open.includes(i) && i !== skin) setSkin(i, true); }; skinDots.appendChild(b); });
-function paintSkinDots() {
-  [...skinDots.children].forEach((b, i) => {
+/* The theme bar: each theme's icon (the #ico-<theme> symbols in the page), the current one lit. Tapping an icon goes to that theme. */
+const skinBar = $('skinBar');
+SKINS.forEach((id, i) => { const b = document.createElement('button'); b.type = 'button';
+  b.innerHTML = '<svg class="ic" aria-hidden="true"><use href="#ico-' + id + '"/></svg><svg class="lk" aria-hidden="true"><use href="#ico-lock"/></svg>';
+  b.onclick = () => { if (open.includes(i) && i !== skin) setSkin(i, true); }; skinBar.appendChild(b); });
+function paintSkinBar() {
+  [...skinBar.children].forEach((b, i) => {
     const locked = !open.includes(i), on = i === skin;
     b.disabled = locked; b.dataset.state = locked ? 'locked' : on ? 'on' : 'off';
     if (on) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current');
