@@ -1,5 +1,5 @@
 {
-  "name": "music-timer",
+  "name": "practice-timer",
   "version": "1.0.0",
   "private": true,
   "description": "Instrument practice timer that only runs while an instrument is heard.",
