@@ -58,3 +58,8 @@ For a custom domain, build with `CNAME=timer.example.com npm run build` and set 
     scripts/build.js    joins them into one file
     test/run.js         unit tests
     test/smoke.js       checks the built page
+
+## License
+
+MIT; see [LICENSE](LICENSE). The trackpad test data in `src/core.js` comes from
+[wheel-gestures](https://github.com/xiel/wheel-gestures), also MIT, with its notice kept in place.
