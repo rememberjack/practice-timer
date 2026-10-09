@@ -53,6 +53,10 @@ Run only some tests by filtering on the test name:
   around the scene (controls bar, demo bar, notice) at every screen size. If one theme's padding differs, every swipe
   resizes all the scenes (City refits its camera and reallocates its WebGL buffer) and the page jumps. Check the
   scene height (`#stage`) in each theme after changing theme CSS.
+- On a tablet (a screen at least 700 x 600 px; the "tablet layout" block in `template.html`) all four themes share one frame:
+  the page edge `--edge`, the title row, demo bar, theme bar and buttons at the same heights, and read-outs on top with the
+  picture below. Rocket, City and Dash use one read-out card with the same size and grid (a strip in landscape), and their
+  event banners sit under it via `--hud-b`. Change the three together. Phones keep their own layout.
 - Engine power is practice efficiency. The rocket lifts off once it holds `LIFTOFF` (50%) for 3 s, and falls if it
   drops below 50% before reaching space.
 

@@ -86,7 +86,7 @@ function makeDashView(cv, hud, sim, MT) {
     if (!W && !resize()) return null;
     clock += dt;
     const free = H - top, gy0 = Math.round(top + free * 0.74), a = sim.arc;
-    U = Math.max(18, Math.min(46, free / 8.5));
+    U = Math.max(18, Math.min(W >= 700 ? 60 : 46, free / 8.5));   // a larger course on a tablet, the same on a phone
     // the camera climbs with the cube on high ground, and keeps it clear of the read-outs on the biggest leaps
     camY += (Math.max(0, (a ? Math.min(sim.y, a.y1) : sim.y) - 1.2) - camY) * Math.min(1, dt * 3);
     camY = Math.max(camY, sim.y - ((gy0 - top) / U - 1.8));
