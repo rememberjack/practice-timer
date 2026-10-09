@@ -20,7 +20,7 @@ function makeCityView(host) {
       .catch(e => { view.failed = true; view.loading = false; view.error = String(e && e.message || e); });
     return promise;
   };
-  view.reset = () => { view.used = false; view.events.length = 0; if (api) api.reset(); };
+  view.reset = () => { view.events.length = 0; if (api) api.reset(); };
   view.resize = () => { if (api) api.resize(); };
   view.frame = (dt, inp) => { if (api) api.frame(dt, inp); };
   view.simulate = (sec, inp) => api ? api.simulate(sec, inp) : null;
@@ -736,7 +736,7 @@ function makeCityView(host) {
       if (host.clientWidth !== W || host.clientHeight !== H) resize();
       armed = !!(inp.running && inp.music); power = Math.max(0, Math.min(1, inp.power || 0));
       mats.lamp.color.setHex(armed ? 0x6ff0ff : 0x3a4048);
-      if (inp.running && dt > 0) { for (let left = dt; left > 1e-4; left -= 0.05) step(Math.min(0.05, left)); view.used = true; }   // slow frames still keep real time
+      if (inp.running && dt > 0) { for (let left = dt; left > 1e-4; left -= 0.05) step(Math.min(0.05, left)); }   // slow frames still keep real time
       updateCam(Math.min(0.05, dt));
       renderer.render(scene, camera);
       const st = view.stats; st.down = stats.down; st.imp = stats.imp; st.rebuilt = stats.rebuilt;
