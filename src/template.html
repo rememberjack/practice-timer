@@ -236,8 +236,6 @@ dialog::backdrop{background:rgba(4,8,14,.66)}
 .sh-head h2{font-weight:800; font-size:22px; letter-spacing:-.01em; margin:0; line-height:1.1}
 .sh-body{flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; padding:0 16px 14px}
 .sh-foot{flex:none; display:grid; gap:8px; padding:10px 16px 14px; border-top:1px solid var(--rule)}
-.sh-foot .two{display:grid; grid-template-columns:1fr 1fr; gap:8px}
-.x-btn{flex:none; width:40px; height:40px; border-radius:12px; border:1px solid var(--rule); background:var(--surface); font-size:24px; line-height:1; padding:0 0 3px}
 .field{padding:12px 0; border-top:1px solid var(--rule)}
 .sh-body > .field:first-child{border-top:0; padding-top:2px}
 .field > label, .field > .lab{display:block; font-weight:700; font-size:15px}
@@ -273,9 +271,6 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 .sum > div{padding:8px 0; border-bottom:1px solid var(--rule); min-width:0}
 .sum dt{color:var(--mute); font-size:13px}
 .sum dd{margin:1px 0 0; font-weight:700; font-size:16px; line-height:1.25; font-variant-numeric:tabular-nums; overflow-wrap:anywhere}
-details.rep{margin-top:10px}
-details.rep summary{cursor:pointer; padding:8px 0; color:var(--mute); font-size:14px}
-#reportText{display:block; width:100%; height:150px; padding:10px; border:1px solid var(--rule); border-radius:12px; background:var(--surface); color:inherit; font:13px/1.4 ui-monospace,Menlo,Consolas,monospace; resize:none}
 #recBox{margin-top:12px}
 #recBox audio{display:block; width:100%; margin-bottom:8px}
 #recBox .btn{width:100%}
@@ -693,7 +688,7 @@ details.rep summary{cursor:pointer; padding:8px 0; color:var(--mute); font-size:
     </div>
     <div class="field">
       <label for="nameIn">Student name</label>
-      <p class="hint">Shown on the report you send to the instructor.</p>
+      <p class="hint">Shown on the session summary.</p>
       <input type="text" id="nameIn" maxlength="40" autocomplete="off">
     </div>
     <div class="field">
@@ -726,7 +721,7 @@ details.rep summary{cursor:pointer; padding:8px 0; color:var(--mute); font-size:
 </dialog>
 
 <dialog id="dlgSummary" aria-labelledby="sumH">
-  <div class="sh-head"><h2 id="sumH">Session summary</h2><button class="x-btn" id="sumClose" aria-label="Close">&times;</button></div>
+  <div class="sh-head"><h2 id="sumH">Session summary</h2></div>
   <div class="sh-body">
     <div class="hero">
       <div><p class="sum-big" id="sPlay">00:00</p><p class="sum-cap" id="sCap">of playing</p></div>
@@ -747,11 +742,9 @@ details.rep summary{cursor:pointer; padding:8px 0; color:var(--mute); font-size:
       <audio id="recAudio" controls></audio>
       <button class="btn" id="btnSaveRec">Save recording</button>
     </div>
-    <details class="rep" id="repDetails"><summary>Report text</summary><textarea id="reportText" readonly aria-label="Report text"></textarea></details>
   </div>
   <div class="sh-foot">
-    <button class="btn solid" id="btnShare">Send to instructor</button>
-    <div class="two"><button class="btn" id="btnCopy">Copy report</button><button class="btn" id="btnSaveRep">Save as file</button></div>
+    <button class="btn solid" id="sumClose">Close</button>
   </div>
 </dialog>
 
