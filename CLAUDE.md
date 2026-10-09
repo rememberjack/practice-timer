@@ -1,7 +1,7 @@
 # CLAUDE.md
 
-Music Timer: a practice timer that only counts time while an instrument is heard through the microphone, with four
-themes (Classic, Rocket, City, Dash). It ships as one self-contained HTML page on GitHub Pages:
+Music Timer: a practice timer that only counts time while an instrument is heard through the microphone, with several
+swipeable visual themes. It ships as one self-contained HTML page on GitHub Pages:
 https://rememberjack.github.io/practice-timer/.
 
 ## Purpose
@@ -20,11 +20,11 @@ Node 20+, no dependencies to install.
 
 ## Layout
 
-- `scripts/build.js` inlines `src/core.js` and the theme and app scripts into `src/template.html`.
+- `scripts/build.js` inlines `src/core.js`, the theme renderers and `src/app.js` into `src/template.html`.
 - `src/core.js` is pure logic with no DOM (detection, `Session`, the theme sims, swipe handling) and holds the tests,
   which also run in the page from Settings. Behaviour belongs here, with a test.
-- `rocket.js`, `city.js` and `dash.js` only draw; `src/app.js` wires everything together. City uses three.js r128
-  from cdnjs.
+- Theme renderers in `src/` only draw; `src/app.js` wires everything together. Some themes load three.js r128 from
+  cdnjs.
 - `window.claude` and the "framed" checks support running inside a Claude artifact view; on GitHub Pages everything
   falls back to plain browser APIs.
 
@@ -32,12 +32,13 @@ Node 20+, no dependencies to install.
 
 - Only the theme on screen (and the one a swipe is revealing) is drawn; drawing hidden themes made swipes lag on phones.
 - Any scroll area inside a theme needs `touch-action:pan-y pinch-zoom`, or Android Chrome cancels sideways swipes.
-- Rocket, City and Dash must keep the same scene height (`#stage`) at every screen size, or swipes make the page jump.
+- Themes sharing the pixel chrome (`data-chrome="pixel"`) must keep the same scene height (`#stage`) at every screen
+  size, or swipes make the page jump.
 
 ## Testing
 
 The app is mainly used on an iPhone. Playwright with Chromium is installed globally in cloud sessions. cdnjs is not
-reachable from the sandbox, so for the City theme serve three.js from `npm pack three@0.128.0` via `page.route`.
+reachable from the sandbox, so for themes that use three.js serve it from `npm pack three@0.128.0` via `page.route`.
 
 ## Workflow
 
