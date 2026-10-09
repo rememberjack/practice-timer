@@ -623,9 +623,11 @@ stage.addEventListener('pointerup', endDrag); stage.addEventListener('pointercan
 stage.addEventListener('dragstart', e => e.preventDefault());   // a native drag would cancel the pointer stream mid-swipe
 const wheel = new MT.WheelSwipe();   // a two-finger trackpad swipe arrives as horizontal wheel events: one theme per swipe, however quickly they follow
 document.addEventListener('wheel', e => {   // the whole page: on a computer the pointer is often over the theme bar or beside the column
-  if (e.ctrlKey || document.querySelector('dialog[open]') || e.target.closest && e.target.closest('#demoClips')) return;   // pinch zoom, open sheets and the sideways row of demo sounds scroll as usual
-  if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;   // mostly vertical: Classic scrolls
-  e.preventDefault();   // also stops the browser reading it as back/forward
+  if (e.ctrlKey || Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;   // pinch zoom; mostly vertical: Classic and the sheets scroll
+  const row = e.target.closest && e.target.closest('#demoClips');
+  if (row && (e.deltaX > 0 ? row.scrollLeft + row.clientWidth < row.scrollWidth - 1 : row.scrollLeft > 0)) return;   // the row of demo sounds scrolls sideways while it can
+  e.preventDefault();   // also stops the browser reading it as back/forward, which would leave the page and lose the session
+  if (row || document.querySelector('dialog[open]')) return;   // no theme change over the demo sounds or behind an open sheet
   const now = performance.now(), d = wheel.feed({ t: e.timeStamp || now, now: now, drawn: lastF, dx: e.deltaX * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? stage.clientWidth : 1) });
   if (d) setSkin(stepSkin(d), true);
 }, { passive: false });
