@@ -49,6 +49,9 @@ Run only some tests by filtering on the test name:
 - A trackpad swipe arrives as horizontal wheel events, and momentum keeps them coming for a second or two after the
   fingers lift, so a quick next swipe starts with no pause between. `WheelSwipe` tells a new swipe from momentum; its
   tests replay wheel events recorded on real Macs and a Windows laptop (`WHEEL_TRACES`).
+- `#stage` has `touch-action:pan-y` so a sideways touch swipe reaches the page, but a scroll area inside it does not
+  inherit that: give every scroller in a theme its own `touch-action:pan-y pinch-zoom` (as `.classic` has), or
+  Android Chrome takes the swipe for itself and cancels it.
 - Rocket, City and Dash share the "pixel" chrome (`data-chrome="pixel"`) and must keep the same vertical spacing
   around the scene (controls bar, demo bar, notice) at every screen size. If one theme's padding differs, every swipe
   resizes all the scenes (City refits its camera and reallocates its WebGL buffer) and the page jumps. Check the
