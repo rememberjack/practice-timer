@@ -1,3 +1,38 @@
+# Build output (npm run build writes dist/index.html; it is built in CI, not committed)
 dist/
+
+# Dependencies and npm
 node_modules/
+npm-debug.log*
+.npm/
+*.tgz
+# Unpacked by `npm pack three@0.128.0` when testing the City theme
+package/
+
+# Browser testing (Playwright)
+test-results/
+playwright-report/
+playwright/.cache/
+
+# Logs and temporary files
+*.log
+*.tmp
+*.swp
+*~
+.cache/
+tmp/
+
+# Local environment
+.env
+.env.*
+
+# Editors
+.vscode/
+.idea/
+*.sublime-workspace
+
+# Operating systems
 .DS_Store
+._*
+Thumbs.db
+Desktop.ini
