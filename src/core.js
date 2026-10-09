@@ -590,23 +590,21 @@ function detectionTests(sr) {
   list.push({ name: 'Summary: where the time went', run: () => {
     const s = new Session(), step = (sec, m) => { for (let i = 0; i < sec * 10; i++) s.tick(0.1, m); };
     s.start(); step(60, true); step(3, false); step(60, true); step(40, false); step(30, true); s.pause(); step(20, true); s.resume(); step(10, false); s.stop();
-    const R = sessionReport(s.runs), near = (a, b) => Math.abs(a - b) < 0.05, c = R.columns, line = reportSentence(R);
+    const R = sessionReport(s.runs), near = (a, b) => Math.abs(a - b) < 0.05, c = R.columns;
     const ok = near(R.total, 223) && near(R.play, 150) && near(R.quiet, 53) && near(R.paused, 20) && R.pauses === 1 && R.breaks === 1 && near(R.breakTime, 40)
-      && near(R.longest.a, 0) && near(R.longest.b, 123) && R.bin === 60 && c.length === 4 && near(c[0].play, 60) && near(c[1].play, 57) && near(c[3].t, 43) && near(c[3].paused, 20) && near(c[3].play, 13) && R.best === null
-      && line === 'The clock ran for 3:43. Of the 0:53 of quiet, 0:40 came from 1 break longer than 30 seconds. You paused once, for 20 seconds.';
+      && near(R.longest.a, 0) && near(R.longest.b, 123) && R.bin === 60 && c.length === 4 && near(c[0].play, 60) && near(c[1].play, 57) && near(c[3].t, 43) && near(c[3].paused, 20) && near(c[3].play, 13) && R.best === null;
     return { name: 'Summary: where the time went', expect: 'total 223 s: play 150, quiet 53, paused 20; 1 break; longest stretch 0 to 123 s across a 3 s gap; 4 minute columns',
-      got: 'total ' + R.total.toFixed(1) + ', play ' + R.play.toFixed(1) + ', quiet ' + R.quiet.toFixed(1) + ', paused ' + R.paused.toFixed(1) + ', ' + R.breaks + ' break, longest ' + R.longest.a.toFixed(1) + ' to ' + R.longest.b.toFixed(1) + ' s, ' + c.length + ' columns | ' + line, pass: ok }; } });
+      got: 'total ' + R.total.toFixed(1) + ', play ' + R.play.toFixed(1) + ', quiet ' + R.quiet.toFixed(1) + ', paused ' + R.paused.toFixed(1) + ', ' + R.breaks + ' break, longest ' + R.longest.a.toFixed(1) + ' to ' + R.longest.b.toFixed(1) + ' s, ' + c.length + ' columns', pass: ok }; } });
   list.push({ name: 'Summary: start, middle, end and the best 10 minutes', run: () => {
     const s = new Session(); s.start();
     for (let i = 0; i < 600; i++) s.tick(1, true);                       // the first 10 minutes all playing
     for (let i = 0; i < 600; i++) s.tick(1, Math.floor(i / 10) % 2 === 0);   // then 10 s on, 10 s off
     for (let i = 0; i < 600; i++) s.tick(1, Math.floor(i / 10) % 4 === 0);   // then 10 s on, 30 s off
     s.stop();
-    const R = sessionReport(s.runs), th = R.thirds.map(x => Math.round(x * 100)), line = reportSentence(R);
-    const ok = th.join() === '100,50,25' && R.best && R.best.a === 0 && R.best.len === 600 && R.best.eff === 1 && R.longest.a === 0 && R.longest.b === 610 && R.breaks === 0 && R.columns.length === 30
-      && line === 'The clock ran for 30:00. Of the 12:30 of quiet, most was short gaps of under 30 seconds, such as page turns and restarting a phrase.';
+    const R = sessionReport(s.runs), th = R.thirds.map(x => Math.round(x * 100));
+    const ok = th.join() === '100,50,25' && R.best && R.best.a === 0 && R.best.len === 600 && R.best.eff === 1 && R.longest.a === 0 && R.longest.b === 610 && R.breaks === 0 && R.columns.length === 30;
     return { name: 'Summary: start, middle, end and the best 10 minutes', expect: 'thirds 100%, 50%, 25%; best 10 minutes from 0:00 at 100%; longest stretch 0:00 to 10:10',
-      got: 'thirds ' + th.join('%, ') + '%; best from ' + (R.best ? clockText(R.best.a) + ' at ' + Math.round(R.best.eff * 100) + '%' : 'none') + '; longest ' + clockText(R.longest.a) + ' to ' + clockText(R.longest.b) + ' | ' + line, pass: ok }; } });
+      got: 'thirds ' + th.join('%, ') + '%; best from ' + (R.best ? clockText(R.best.a) + ' at ' + Math.round(R.best.eff * 100) + '%' : 'none') + '; longest ' + clockText(R.longest.a) + ' to ' + clockText(R.longest.b), pass: ok }; } });
   // rocket timeline
   list.push({ name: 'Rocket: timeline from ignition to Moon orbit', run: () => {
     const sim = new RocketSim(), s = new Session(), at = {}; s.start();
@@ -787,21 +785,6 @@ function sessionReport(runs) {
 /* 75 -> "1:15", 3725 -> "1:02:05" */
 function clockText(s) { s = Math.max(0, Math.round(s)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = String(s % 60).padStart(2, '0');
   return h ? h + ':' + String(m).padStart(2, '0') + ':' + x : m + ':' + x; }
-/* 75 -> "1 minute and 15 seconds" */
-function spokenTime(s) { s = Math.max(0, Math.round(s)); const m = Math.floor(s / 60), x = s % 60, unit = (v, w) => v + ' ' + w + (v === 1 ? '' : 's');
-  return !m ? unit(x, 'second') : unit(m, 'minute') + (x && m < 10 ? ' and ' + unit(x, 'second') : ''); }
-/* the sentence under "Where the time went" */
-function reportSentence(R) {
-  if (R.total <= 0) return '';
-  if (R.active < 1) return 'The timer was paused the whole time.';
-  let s = 'The clock ran for ' + clockText(R.total) + '. ';
-  if (R.play < 1) s += 'No playing was heard while the timer ran.';
-  else if (R.quiet <= R.active * 0.05) s += 'Almost all of the running time was playing.';
-  else if (R.breakTime <= R.gapTime) s += 'Of the ' + clockText(R.quiet) + ' of quiet, most was short gaps of under 30 seconds, such as page turns and restarting a phrase.';
-  else s += 'Of the ' + clockText(R.quiet) + ' of quiet, ' + clockText(R.breakTime) + ' came from ' + (R.breaks === 1 ? '1 break' : R.breaks + ' breaks') + ' longer than 30 seconds.';
-  if (R.pauses) s += ' You paused ' + (R.pauses === 1 ? 'once, for ' : R.pauses + ' times, for ') + spokenTime(R.paused) + (R.pauses === 1 ? '.' : ' in all.');
-  return s;
-}
 
 /* ---------- Rocket flight model ---------- */
 function pchip(xs, ys, m0, mn) {
@@ -1156,6 +1139,6 @@ class DashSim {
 }
 
 const api = { LIFTOFF, OnsetTracker, WheelSwipe, DashSim, DASH, dashSpeed, MusicDetector, Session, RocketSim, WORLD, MILESTONES, SENSITIVITY, CLIPS, DETECTION_CASES,
-  detectionTests, runDetectionTests, analyzeClip, sessionReport, reportSentence, clockText, spokenTime, fraction, heardAs, noteOf, smooth, pchip, clamp01 };
+  detectionTests, runDetectionTests, analyzeClip, sessionReport, clockText, fraction, heardAs, noteOf, smooth, pchip, clamp01 };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.MT = api;
 })(typeof self !== 'undefined' ? self : this);

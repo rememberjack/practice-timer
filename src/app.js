@@ -708,7 +708,6 @@ function openSummary() {
   // where the time went
   for (const [k, v] of [['P', R.play], ['Q', R.quiet], ['X', R.paused]]) { const i = $('sSplit' + k); i.hidden = v < 0.5; i.style.flexGrow = String(v); }
   for (const [k, v] of [['Play', R.play], ['Quiet', R.quiet], ['Paused', R.paused]]) { $('sT' + k).textContent = dur(v); $('sP' + k).textContent = pct(v / T); }
-  $('sRead').textContent = MT.reportSentence(R);
   // minute by minute: one column per step, filled with how much of it was playing, quiet and paused
   const strip = R.total >= 120, min = R.bin / 60, len = R.longest.b - R.longest.a;
   $('sStrip').hidden = !strip;
