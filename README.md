@@ -26,7 +26,8 @@ Each push to `main` runs the tests, builds `dist/index.html`, and publishes it t
 (`.github/workflows/deploy.yml`). If the tests fail nothing is published. Pull requests run the tests without
 publishing.
 
-The page is a single self-contained file; the City theme fetches three.js from cdnjs the first time it is shown.
+The page keeps its scripts and header icon embedded in one HTML file; the build also exports browser and
+home-screen icons. The City theme fetches three.js from cdnjs the first time it is shown.
 The microphone works because the page is served over https. The page shows its version (commit and date) at the
 bottom of Settings, so you can tell which build you are on.
 
@@ -44,6 +45,7 @@ For a custom domain, build with `CNAME=timer.example.com npm run build` and set 
 ## Layout
 
     src/template.html   page, styles and markup
+    src/assets/         Music Timer icon, favicon and iPhone home-screen icon
     src/core.js         detector, session timer, rocket flight model, dash course (tested)
     src/rocket.js       rocket theme renderer
     src/city.js         city defence theme (three.js, loaded from cdnjs the first time the theme is shown)

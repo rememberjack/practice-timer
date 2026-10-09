@@ -6,9 +6,12 @@ if (!sha) { try { sha = cp.execSync('git rev-parse --short HEAD', { cwd: root, s
 const build = sha + ' ' + new Date().toISOString().slice(0, 10);
 const parts = { core: src('core.js'), rocket: src('rocket.js'), city: src('city.js'), dash: src('dash.js'), app: src('app.js') };
 for (const n in parts) if (/<\/script/i.test(parts[n])) throw new Error('"</script" found in ' + n + '.js; it would end the inline script early');
-const out = src('template.html').replace('__BUILD__', build).replace('/*__CORE__*/', () => parts.core).replace('/*__APP__*/', () => parts.rocket + '\n' + parts.city + '\n' + parts.dash + '\n' + parts.app);
+const icon = 'data:image/png;base64,' + fs.readFileSync(path.join(root, 'src/assets/app-icon.png')).toString('base64');
+const out = src('template.html').replace('__BUILD__', build).replace('__APP_ICON__', () => icon).replace('/*__CORE__*/', () => parts.core).replace('/*__APP__*/', () => parts.rocket + '\n' + parts.city + '\n' + parts.dash + '\n' + parts.app);
 const dist = path.join(root, 'dist'); fs.rmSync(dist, { recursive: true, force: true }); fs.mkdirSync(dist);
 fs.writeFileSync(path.join(dist, 'index.html'), out);
 fs.writeFileSync(path.join(dist, '.nojekyll'), '');
+for (const name of ['favicon.ico', 'favicon.png', 'apple-touch-icon.png', 'icon.png'])
+  fs.copyFileSync(path.join(root, 'src/assets', name), path.join(dist, name));
 if (process.env.CNAME) fs.writeFileSync(path.join(dist, 'CNAME'), process.env.CNAME + '\n');   // optional custom domain
 console.log('built dist/index.html, ' + (out.length / 1024).toFixed(0) + ' KB, version ' + build);

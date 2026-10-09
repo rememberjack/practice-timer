@@ -24,7 +24,8 @@ Run only some tests by filtering on the test name:
 
 - `scripts/build.js` substitutes `src/core.js` into `/*__CORE__*/` and `rocket.js`, `city.js`, `dash.js`, `app.js`
   (concatenated, in that order) into `/*__APP__*/` in `src/template.html`, and the build id into `__BUILD__`. The
-  build fails if any source contains `</script`.
+  build fails if any source contains `</script`. It also embeds `src/assets/app-icon.png` into `__APP_ICON__` (the
+  header icon) and copies the favicons and home-screen icons from `src/assets/` next to the page.
 - `src/core.js` is pure logic with no DOM, loaded in Node by the tests and exposed as `window.MT` in the page: the
   FFT and `MusicDetector` (music vs. not-music, pitch and instrument), the synthetic test clips (`CLIPS`), `Session`
   (play / active / total time), `RocketSim`, `DashSim`, `OnsetTracker` and `WheelSwipe` (trackpad swipes). Anything

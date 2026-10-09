@@ -693,26 +693,13 @@ $('btnTests').onclick = async () => {
   sum.textContent = pass + ' of ' + tests.length + ' passed'; testing = false; paintControls();
 };
 
-/* ---------- summary and report ---------- */
+/* ---------- summary ---------- */
 function topInstrument() { let best = '', t = 0; for (const k in instTime) if (instTime[k] > t) { t = instTime[k]; best = k; } return best; }
 function cityResult() { const c = city.stats; return c.down + ' shot down, ' + c.imp + (c.imp === 1 ? ' impact, ' : ' impacts, ') + c.standing + ' of ' + c.total + ' buildings standing'; }
 function rocketResult() {
   if (sim.mode === 'orbit') return 'Reached Moon orbit';
   if (bestKm <= 0) return 'Stayed on the pad';
   return 'Highest point ' + fmtKm(bestKm) + (sim.stage === 2 ? ', on the way to the Moon' : sim.inSpace ? ', in space' : '');
-}
-function buildReport() {
-  const s = session, when = new Date(s.startedAt || Date.now()), reached = s.play >= s.goal, inst = topInstrument();
-  const lines = ['Practice report' + (S.name ? ' for ' + S.name : ''),
-    when.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) + ', started ' + when.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }), '',
-    'Play time: ' + fmt(s.play), 'Efficiency: ' + Math.round(s.efficiency * 100) + '% (play time / active session time)', 'Active session time: ' + fmt(s.active),
-    'Practice goal: ' + fmt(s.goal) + ' of play time' + (reached ? ' (reached, trophy earned)' : ' (not reached)'), 'Total session time: ' + fmt(s.total), 'Pauses: ' + s.pauses];
-  if (inst) lines.push('Mostly heard: ' + inst.toLowerCase() + ' (app estimate)');
-  lines.push('Rocket: ' + rocketResult());
-  if (city.used) lines.push('City defense: ' + cityResult());
-  if (dashSeen) lines.push('Dash: ' + dashResult());
-  lines.push('', 'Sent from Music Timer');
-  return lines.join('\n');
 }
 function showRecording() { if (!rec.blob) return; $('recBox').hidden = false;
   try { rec.url = URL.createObjectURL(rec.blob); const a = $('recAudio'); a.hidden = false; a.onerror = () => { a.hidden = true; }; a.src = rec.url; } catch (e) { $('recAudio').hidden = true; } }
@@ -723,22 +710,10 @@ function openSummary() {
   $('sGoal').textContent = fmt(s.goal) + (reached ? ' reached' : ' not reached'); $('sTotal').textContent = fmt(s.total); $('sPauses').textContent = String(s.pauses);
   $('sInst').textContent = inst ? inst + ' (estimate)' : 'No instrument'; $('sRocket').textContent = rocketResult(); $('sCityRow').hidden = !city.used; $('sCity').textContent = city.used ? cityResult() : ''; $('sDashRow').hidden = !dashSeen; $('sDash').textContent = dashSeen ? dashResult() : '';
   $('sTrophy').hidden = !reached; $('sTrophyText').textContent = 'Trophy earned for reaching the ' + goalText(s.goal) + ' practice goal';
-  $('reportText').value = buildReport(); $('recBox').hidden = !rec.blob; $('repDetails').open = false;
+  $('recBox').hidden = !rec.blob;
   if (!$('dlgSummary').open) $('dlgSummary').showModal();
 }
 $('sumClose').onclick = () => $('dlgSummary').close();
-async function copyReport() {
-  const ta = $('reportText');
-  try { await navigator.clipboard.writeText(ta.value); toast('Report copied. Paste it into a message to the instructor.'); return; } catch (e) {}
-  $('repDetails').open = true; ta.focus(); ta.select(); let ok = false; try { ok = document.execCommand('copy'); } catch (e) {}
-  if (ok) $('repDetails').open = false; else ta.scrollIntoView({ block: 'nearest' });
-  toast(ok ? 'Report copied. Paste it into a message to the instructor.' : 'Press and hold the report text to copy it');
-}
-$('btnCopy').onclick = copyReport;
-$('btnShare').onclick = async () => {
-  if (navigator.share) { try { await navigator.share({ title: 'Practice report', text: $('reportText').value }); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
-  copyReport();
-};
 async function saveFile(filename, data) {
   if (downloads) { try { await downloads.save({ filename: filename, data: data }); } catch (e) { if (!e || e.code !== 'declined') toast('The file could not be saved here'); } return; }
   try { const blob = data instanceof Blob ? data : new Blob([data], { type: 'text/plain' }), a = document.createElement('a'), u = URL.createObjectURL(blob);
@@ -746,7 +721,6 @@ async function saveFile(filename, data) {
   catch (e) { toast('The file could not be saved here'); }
 }
 function stamp() { const d = new Date(session.startedAt || Date.now()), p = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes()); }
-$('btnSaveRep').onclick = () => saveFile('practice-report-' + stamp() + '.txt', $('reportText').value);
 $('btnSaveRec').onclick = () => { if (rec.blob) saveFile('practice-recording-' + stamp() + '.' + rec.ext, rec.blob); };
 
 /* ---------- go ---------- */

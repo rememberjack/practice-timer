@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Music Timer</title>
 <meta name="build" content="__BUILD__">
+<link rel="icon" href="favicon.ico" sizes="16x16 32x32 48x48">
+<link rel="icon" type="image/png" href="favicon.png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png" sizes="180x180">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
@@ -38,8 +41,8 @@ body:has(> #app[data-skin="dash"]){background:#07071F}
 /* ---------- chrome (classic look; the rocket theme overrides it below) ---------- */
 #top{display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:12px; padding:12px 0 12px; margin:0 auto 6px; max-width:560px; width:calc(100% - 36px); border-bottom:1px solid var(--rule)}
 .brand{min-width:0}
-.app-icon{width:34px; height:34px; border-radius:10px; background:var(--accent); color:var(--on-accent); display:grid; place-items:center}
-.app-icon svg{width:20px; height:20px}
+.app-icon{width:34px; height:34px; border-radius:10px; overflow:hidden; display:grid; place-items:center}
+.app-icon img{width:100%; height:100%; display:block}
 #top h1{font-size:20px; font-weight:800; letter-spacing:-.01em; line-height:1.1; margin:0; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .tagline{display:block; color:var(--mute); font-size:13px; line-height:1.25; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .icon-btn{display:flex; align-items:center; justify-content:center; min-height:44px; padding:0 16px; border:1px solid var(--rule); border-radius:14px; background:var(--surface); font-size:15px; font-weight:500}
@@ -236,8 +239,6 @@ dialog::backdrop{background:rgba(4,8,14,.66)}
 .sh-head h2{font-weight:800; font-size:22px; letter-spacing:-.01em; margin:0; line-height:1.1}
 .sh-body{flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; padding:0 16px 14px}
 .sh-foot{flex:none; display:grid; gap:8px; padding:10px 16px 14px; border-top:1px solid var(--rule)}
-.sh-foot .two{display:grid; grid-template-columns:1fr 1fr; gap:8px}
-.x-btn{flex:none; width:40px; height:40px; border-radius:12px; border:1px solid var(--rule); background:var(--surface); font-size:24px; line-height:1; padding:0 0 3px}
 .field{padding:12px 0; border-top:1px solid var(--rule)}
 .sh-body > .field:first-child{border-top:0; padding-top:2px}
 .field > label, .field > .lab{display:block; font-weight:700; font-size:15px}
@@ -273,9 +274,6 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 .sum > div{padding:8px 0; border-bottom:1px solid var(--rule); min-width:0}
 .sum dt{color:var(--mute); font-size:13px}
 .sum dd{margin:1px 0 0; font-weight:700; font-size:16px; line-height:1.25; font-variant-numeric:tabular-nums; overflow-wrap:anywhere}
-details.rep{margin-top:10px}
-details.rep summary{cursor:pointer; padding:8px 0; color:var(--mute); font-size:14px}
-#reportText{display:block; width:100%; height:150px; padding:10px; border:1px solid var(--rule); border-radius:12px; background:var(--surface); color:inherit; font:13px/1.4 ui-monospace,Menlo,Consolas,monospace; resize:none}
 #recBox{margin-top:12px}
 #recBox audio{display:block; width:100%; margin-bottom:8px}
 #recBox .btn{width:100%}
@@ -414,7 +412,7 @@ details.rep summary{cursor:pointer; padding:8px 0; color:var(--mute); font-size:
   #top{background:linear-gradient(var(--rule), var(--rule)) center bottom / calc(100% - 2 * var(--edge)) 1px no-repeat}
   #app[data-chrome="pixel"] #top{background:none}
   #top .brand{flex:1}
-  .app-icon{width:42px; height:42px; border-radius:12px} .app-icon svg{width:24px; height:24px}
+  .app-icon{width:42px; height:42px; border-radius:12px}
   #top h1{font-size:24px} .tagline{font-size:14px}
   #app[data-chrome="pixel"] #top h1{font-size:18px}
   #app[data-skin="dash"][data-chrome="pixel"] #top h1{font-size:24px}
@@ -548,7 +546,7 @@ details.rep summary{cursor:pointer; padding:8px 0; color:var(--mute); font-size:
 </svg>
 <div id="app" data-skin="classic" data-state="idle" data-music="0">
   <header id="top">
-    <span class="app-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M10 4.4v9.9a3.4 3.4 0 1 0 2 3.1V8.1l5-1.5V4.1a1 1 0 0 0-1.3-1l-4.6 1.4a1.5 1.5 0 0 0-1.1 1.4z" transform="translate(-.6 .4)"/></svg></span>
+    <span class="app-icon" aria-hidden="true"><img src="__APP_ICON__" alt="" width="84" height="84"></span>
     <div class="brand"><h1>Music Timer</h1><span class="tagline">Instrument practice timer</span></div>
     <button class="icon-btn" id="btnSettings" aria-label="Settings">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>
@@ -693,7 +691,7 @@ details.rep summary{cursor:pointer; padding:8px 0; color:var(--mute); font-size:
     </div>
     <div class="field">
       <label for="nameIn">Student name</label>
-      <p class="hint">Shown on the report you send to the instructor.</p>
+      <p class="hint">Shown on the session summary.</p>
       <input type="text" id="nameIn" maxlength="40" autocomplete="off">
     </div>
     <div class="field">
@@ -726,7 +724,7 @@ details.rep summary{cursor:pointer; padding:8px 0; color:var(--mute); font-size:
 </dialog>
 
 <dialog id="dlgSummary" aria-labelledby="sumH">
-  <div class="sh-head"><h2 id="sumH">Session summary</h2><button class="x-btn" id="sumClose" aria-label="Close">&times;</button></div>
+  <div class="sh-head"><h2 id="sumH">Session summary</h2></div>
   <div class="sh-body">
     <div class="hero">
       <div><p class="sum-big" id="sPlay">00:00</p><p class="sum-cap" id="sCap">of playing</p></div>
@@ -747,11 +745,9 @@ details.rep summary{cursor:pointer; padding:8px 0; color:var(--mute); font-size:
       <audio id="recAudio" controls></audio>
       <button class="btn" id="btnSaveRec">Save recording</button>
     </div>
-    <details class="rep" id="repDetails"><summary>Report text</summary><textarea id="reportText" readonly aria-label="Report text"></textarea></details>
   </div>
   <div class="sh-foot">
-    <button class="btn solid" id="btnShare">Send to instructor</button>
-    <div class="two"><button class="btn" id="btnCopy">Copy report</button><button class="btn" id="btnSaveRep">Save as file</button></div>
+    <button class="btn solid" id="sumClose">Close</button>
   </div>
 </dialog>
 
