@@ -69,7 +69,7 @@ body:has(> #app[data-skin="dash"]){background:#07071F}
 .keep{flex-basis:100%; margin:0; color:var(--mute); font-size:13px}
 
 /* ---------- classic theme ---------- */
-.classic{height:100%; max-width:596px; margin:0 auto; padding:6px 18px 0; display:flex; flex-direction:column; overflow-y:auto; scrollbar-width:none}
+.classic{height:100%; max-width:596px; margin:0 auto; padding:6px 18px 0; display:flex; flex-direction:column; overflow-y:auto; scrollbar-width:none; touch-action:pan-y pinch-zoom}   /* a scroll area does not inherit #stage's pan-y, so without this Android Chrome takes a sideways swipe on Classic and cancels it */
 .classic > *{flex:none}
 .status, .mon-state{display:flex; align-items:center; gap:10px; font-size:13px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--mute-2)}
 .status{min-height:22px}
