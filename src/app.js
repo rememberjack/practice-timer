@@ -5,7 +5,6 @@ const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: r
 
 function fmt(s) { s = Math.max(0, Math.floor(s)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60;
   return (h ? h + ':' : '') + String(m).padStart(2, '0') + ':' + String(x).padStart(2, '0'); }
-function fmtKm(km) { return km < 1 ? Math.round(km * 1000) + ' m' : km < 100 ? km.toFixed(1) + ' km' : Math.round(km).toLocaleString('en-US') + ' km'; }
 const cache = new Map();
 function text(el, s) { if (cache.get(el) !== s) { cache.set(el, s); el.textContent = s; } }
 function width(el, f) { const s = Math.round(Math.max(0, Math.min(1, f)) * 1000) / 10 + '%'; if (cache.get(el) !== s) { cache.set(el, s); el.style.width = s; } }
@@ -26,11 +25,11 @@ const sim = new MT.RocketSim();
 const rocket = makeRocketView($('rk'), $('hud'), sim, MT);
 const city = makeCityView($('pCity'));
 const dash = new MT.DashSim(), dashView = makeDashView($('dashCv'), $('dashHud'), dash, MT), onsets = new MT.OnsetTracker();
-let pendingOnsets = 0, onsetN = 0, dashAt = 0, dashSeen = false;      // note starts waiting to be used; a running count for followers; when the course last moved; was the theme looked at this session
+let pendingOnsets = 0, onsetN = 0, dashAt = 0;      // note starts waiting to be used; a running count for followers; when the course last moved
 const NB = 44, bars = new Float32Array(NB), shown = new Float32Array(NB);
 const heard = { label: '', detail: '', note: '', midi: null };      // midi: the pitch heard, as a (fractional) piano key number
 let mode = 'local';            // 'local' | 'follow'
-let music = false, goalHit = false, bestKm = 0, instTime = {}, vote = {}, kbInst = S.inst;
+let music = false, goalHit = false, vote = {}, kbInst = S.inst;
 /* what the screen shows, filled from the local session or from the device being followed */
 const V = { st: 'idle', play: 0, active: 0, total: 0, pauses: 0, goal: session.goal, eff: 0, pw: 0, music: false, label: '', detail: '', note: '', midi: null, inst: '' };
 
@@ -180,8 +179,8 @@ async function start() {
     showNotice('mic', micMessage(e), 'Use demo sound', () => { useDemoAction(); start(); }); return; }
   busy = false; hideNotice();
   session.goal = S.goalMin * 60; session.start(); sim.reset(); rocket.reset(); city.reset(); cityBannerAt = 0;
-  dash.reset(); dashView.reset(); onsets.reset(); pendingOnsets = 0; dashSeen = skin === 3;
-  music = false; goalHit = false; bestKm = 0; instTime = {}; vote = {}; bars.fill(0); hideAward();
+  dash.reset(); dashView.reset(); onsets.reset(); pendingOnsets = 0;
+  music = false; goalHit = false; vote = {}; bars.fill(0); hideAward();
   heard.label = 'Listening'; heard.detail = 'Play your instrument to start the clock'; heard.note = ''; heard.midi = null;
   startRecording();
   lastT = performance.now(); clearInterval(timer); timer = setInterval(tick, 46);
@@ -206,7 +205,7 @@ function tick() {
       heard.label = r.label; heard.detail = r.detail; heard.note = r.note; heard.midi = r.pitch > 0 ? 69 + 12 * Math.log2(r.pitch / 440) : null; levelBars();
       if (onsets.feed(dt, { music: m, midi: heard.midi, levelDb: r.levelDb })) { pendingOnsets++; onsetN++; }
       if (A.kind === 'mic' && A.ctx && A.ctx.state !== 'running') { m = false; heard.label = 'The microphone is asleep'; heard.detail = 'Press Pause, then Resume to wake it'; heard.note = ''; heard.midi = null; }
-      if (m && r.instrument) { instTime[r.instrument] = (instTime[r.instrument] || 0) + dt * w; vote[r.instrument] = (vote[r.instrument] || 0) + dt; } }
+      if (m && r.instrument) vote[r.instrument] = (vote[r.instrument] || 0) + dt; }
     let best = '', bs = 0; for (const k in vote) { vote[k] *= Math.exp(-dt / 25); if (vote[k] > bs) { bs = vote[k]; best = k; } }
     if (best && best !== kbInst && bs >= 1.2 && bs > (vote[kbInst] || 0) * 1.25 + 0.4) { kbInst = best; S.inst = best; saveS(); }
   }
@@ -214,7 +213,6 @@ function tick() {
   session.tick(dt * w, m);
   const pw = S.rocketEff === 'recent' ? session.recentEfficiency : session.efficiency;
   sim.update(dt * w, { running: session.state === 'running', playing: m, eff: pw, rdt: dt });
-  if (sim.mode !== 'pad') { const km = sim.kmAt(sim.l); if (km > bestKm) bestKm = km; }
   if (!goalHit && session.play >= session.goal) { goalHit = true; award(session.goal); }
   if (now - dashAt > 250) dashStep(dt, session.state === 'running', m, pw, session.goal > 0 ? session.play / session.goal : 0);   // frames are not being drawn (tab in the background): keep the course moving
   if (now - lastPush > 330) push(false);
@@ -567,7 +565,7 @@ function frame(t) {
   if (visible(2)) drawCity(dt);
   dashStep(dt, V.st === 'running', V.music, V.pw, V.goal > 0 ? V.play / V.goal : 0);
   let geo = null;
-  if (visible(3)) { let lv = 0; for (let i = 0; i < NB; i++) lv += bars[i]; geo = dashView.draw({ running: V.st === 'running', music: V.music, level: Math.min(1, lv / NB * 2.2) }, dt); if (V.st === 'running') dashSeen = true; }
+  if (visible(3)) { let lv = 0; for (let i = 0; i < NB; i++) lv += bars[i]; geo = dashView.draw({ running: V.st === 'running', music: V.music, level: Math.min(1, lv / NB * 2.2) }, dt); }
   while (dash.events.length) { const e = dash.events.shift(); if (geo) dashView.event(e, geo); if (e === 'complete' && skin === 3) dashBanner('Level complete!'); }
   requestAnimationFrame(frame);
 }
@@ -694,21 +692,13 @@ $('btnTests').onclick = async () => {
 };
 
 /* ---------- summary ---------- */
-function topInstrument() { let best = '', t = 0; for (const k in instTime) if (instTime[k] > t) { t = instTime[k]; best = k; } return best; }
-function cityResult() { const c = city.stats; return c.down + ' shot down, ' + c.imp + (c.imp === 1 ? ' impact, ' : ' impacts, ') + c.standing + ' of ' + c.total + ' buildings standing'; }
-function rocketResult() {
-  if (sim.mode === 'orbit') return 'Reached Moon orbit';
-  if (bestKm <= 0) return 'Stayed on the pad';
-  return 'Highest point ' + fmtKm(bestKm) + (sim.stage === 2 ? ', on the way to the Moon' : sim.inSpace ? ', in space' : '');
-}
 function showRecording() { if (!rec.blob) return; $('recBox').hidden = false;
   try { rec.url = URL.createObjectURL(rec.blob); const a = $('recAudio'); a.hidden = false; a.onerror = () => { a.hidden = true; }; a.src = rec.url; } catch (e) { $('recAudio').hidden = true; } }
 function openSummary() {
-  const s = session, reached = s.play >= s.goal, inst = topInstrument();
+  const s = session, reached = s.play >= s.goal;
   $('sPlay').textContent = fmt(s.play); $('sCap').textContent = 'of playing' + (S.name ? ', ' + S.name : '');
   $('sEff').textContent = Math.round(s.efficiency * 100) + '%'; $('sActive').textContent = fmt(s.active);
   $('sGoal').textContent = fmt(s.goal) + (reached ? ' reached' : ' not reached'); $('sTotal').textContent = fmt(s.total); $('sPauses').textContent = String(s.pauses);
-  $('sInst').textContent = inst ? inst + ' (estimate)' : 'No instrument'; $('sRocket').textContent = rocketResult(); $('sCityRow').hidden = !city.used; $('sCity').textContent = city.used ? cityResult() : ''; $('sDashRow').hidden = !dashSeen; $('sDash').textContent = dashSeen ? dashResult() : '';
   $('sTrophy').hidden = !reached; $('sTrophyText').textContent = 'Trophy earned for reaching the ' + goalText(s.goal) + ' practice goal';
   $('recBox').hidden = !rec.blob;
   if (!$('dlgSummary').open) $('dlgSummary').showModal();
