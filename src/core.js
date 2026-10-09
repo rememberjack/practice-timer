@@ -586,6 +586,27 @@ function detectionTests(sr) {
     const ok = Math.abs(s.total - 25) < 1e-6 && Math.abs(s.active - 20) < 1e-6 && Math.abs(s.play - 16) < 1e-6 && s.pauses === 1 && Math.abs(s.efficiency - 0.8) < 1e-6;
     return { name: 'Timer: pause is excluded, sound ignored while paused', expect: 'total 25 s, active 20 s, play 16 s, 80%',
       got: 'total ' + s.total.toFixed(0) + ' s, active ' + s.active.toFixed(0) + ' s, play ' + s.play.toFixed(0) + ' s, ' + Math.round(s.efficiency * 100) + '%', pass: ok }; } });
+  // the session summary
+  list.push({ name: 'Summary: where the time went', run: () => {
+    const s = new Session(), step = (sec, m) => { for (let i = 0; i < sec * 10; i++) s.tick(0.1, m); };
+    s.start(); step(60, true); step(3, false); step(60, true); step(40, false); step(30, true); s.pause(); step(20, true); s.resume(); step(10, false); s.stop();
+    const R = sessionReport(s.runs), near = (a, b) => Math.abs(a - b) < 0.05, c = R.columns, line = reportSentence(R);
+    const ok = near(R.total, 223) && near(R.play, 150) && near(R.quiet, 53) && near(R.paused, 20) && R.pauses === 1 && R.breaks === 1 && near(R.breakTime, 40)
+      && near(R.longest.a, 0) && near(R.longest.b, 123) && R.bin === 60 && c.length === 4 && near(c[0].play, 60) && near(c[1].play, 57) && near(c[3].t, 43) && near(c[3].paused, 20) && near(c[3].play, 13) && R.best === null
+      && line === 'The clock ran for 3:43. Of the 0:53 of quiet, 0:40 came from 1 break longer than 30 seconds. You paused once, for 20 seconds.';
+    return { name: 'Summary: where the time went', expect: 'total 223 s: play 150, quiet 53, paused 20; 1 break; longest stretch 0 to 123 s across a 3 s gap; 4 minute columns',
+      got: 'total ' + R.total.toFixed(1) + ', play ' + R.play.toFixed(1) + ', quiet ' + R.quiet.toFixed(1) + ', paused ' + R.paused.toFixed(1) + ', ' + R.breaks + ' break, longest ' + R.longest.a.toFixed(1) + ' to ' + R.longest.b.toFixed(1) + ' s, ' + c.length + ' columns | ' + line, pass: ok }; } });
+  list.push({ name: 'Summary: start, middle, end and the best 10 minutes', run: () => {
+    const s = new Session(); s.start();
+    for (let i = 0; i < 600; i++) s.tick(1, true);                       // the first 10 minutes all playing
+    for (let i = 0; i < 600; i++) s.tick(1, Math.floor(i / 10) % 2 === 0);   // then 10 s on, 10 s off
+    for (let i = 0; i < 600; i++) s.tick(1, Math.floor(i / 10) % 4 === 0);   // then 10 s on, 30 s off
+    s.stop();
+    const R = sessionReport(s.runs), th = R.thirds.map(x => Math.round(x * 100)), line = reportSentence(R);
+    const ok = th.join() === '100,50,25' && R.best && R.best.a === 0 && R.best.len === 600 && R.best.eff === 1 && R.longest.a === 0 && R.longest.b === 610 && R.breaks === 0 && R.columns.length === 30
+      && line === 'The clock ran for 30:00. Of the 12:30 of quiet, most was short gaps of under 30 seconds, such as page turns and restarting a phrase.';
+    return { name: 'Summary: start, middle, end and the best 10 minutes', expect: 'thirds 100%, 50%, 25%; best 10 minutes from 0:00 at 100%; longest stretch 0:00 to 10:10',
+      got: 'thirds ' + th.join('%, ') + '%; best from ' + (R.best ? clockText(R.best.a) + ' at ' + Math.round(R.best.eff * 100) + '%' : 'none') + '; longest ' + clockText(R.longest.a) + ' to ' + clockText(R.longest.b) + ' | ' + line, pass: ok }; } });
   // rocket timeline
   list.push({ name: 'Rocket: timeline from ignition to Moon orbit', run: () => {
     const sim = new RocketSim(), s = new Session(), at = {}; s.start();
@@ -701,15 +722,18 @@ function runDetectionTests(sr) { return detectionTests(sr).map(t => t.run()); }
 class Session {
   constructor() { this.goal = 1800; this.reset(); }
   reset() { this.state = 'idle'; this.total = 0; this.active = 0; this.play = 0; this.pauses = 0;
-    this.buckets = []; this.ba = 0; this.bp = 0; this.startedAt = 0; }
+    this.buckets = []; this.ba = 0; this.bp = 0; this.startedAt = 0; this.stoppedAt = 0;
+    this.runs = []; }   // the whole session as [kind, seconds, kind, seconds, ...]; kind 0 playing, 1 quiet while running, 2 paused
   start() { this.reset(); this.state = 'running'; this.startedAt = Date.now(); }
   pause() { if (this.state !== 'running') return false; this.state = 'paused'; this.pauses++; return true; }
   resume() { if (this.state !== 'paused') return false; this.state = 'running'; return true; }
-  stop() { if (this.state !== 'running' && this.state !== 'paused') return false; this.state = 'stopped'; return true; }
+  stop() { if (this.state !== 'running' && this.state !== 'paused') return false; this.state = 'stopped'; this.stoppedAt = Date.now(); return true; }
   /* dt seconds have passed; music = instrument heard during that time */
   tick(dt, music) {
     if (this.state !== 'running' && this.state !== 'paused') return;
     this.total += dt;
+    const k = this.state !== 'running' ? 2 : music ? 0 : 1, r = this.runs, n = r.length;
+    if (dt > 0) { if (n && r[n - 2] === k) r[n - 1] += dt; else r.push(k, dt); }
     if (this.state !== 'running') return;
     this.active += dt; const p = music ? dt : 0; this.play += p;
     this.ba += dt; this.bp += p;
@@ -717,6 +741,66 @@ class Session {
   }
   get efficiency() { return this.active > 0 ? Math.min(1, this.play / this.active) : 0; }
   get recentEfficiency() { let a = this.ba, p = this.bp; for (let i = 0; i < this.buckets.length; i += 2) { a += this.buckets[i]; p += this.buckets[i + 1]; } return a > 0 ? Math.min(1, p / a) : 0; }
+}
+
+/* ---------- Session report: where the time went, for the summary ---------- */
+const GAP_OK = 5, BREAK = 30;   // a quiet gap this short (a page turn) does not end a stretch of playing; a longer one than BREAK counts as a break
+function sessionReport(runs) {
+  const R = { total: 0, play: 0, quiet: 0, paused: 0, pauses: 0, breaks: 0, breakTime: 0, gaps: 0, gapTime: 0, longest: { a: 0, b: 0 } };
+  let t = 0, cur = null;
+  const close = () => { if (cur && cur.b - cur.a > R.longest.b - R.longest.a) R.longest = cur; cur = null; };
+  for (let i = 0; i < runs.length; i += 2) {
+    const k = runs[i], d = runs[i + 1];
+    if (k === 0) { R.play += d; if (cur) cur.b = t + d; else cur = { a: t, b: t + d }; }
+    else if (k === 1) { R.quiet += d; if (d > BREAK) { R.breaks++; R.breakTime += d; } else { R.gaps++; R.gapTime += d; } if (d > GAP_OK) close(); }
+    else { R.paused += d; R.pauses++; close(); }
+    t += d;
+  }
+  close(); R.total = t; R.active = R.play + R.quiet; R.efficiency = R.active > 0 ? Math.min(1, R.play / R.active) : 0;
+  // playing and running time up to each whole second, for the windows below
+  const n = Math.floor(t), P = new Float64Array(n + 1), A = new Float64Array(n + 1);
+  let i = 0, t0 = 0, p0 = 0, a0 = 0;
+  for (let s = 0; s <= n; s++) {
+    while (i < runs.length && t0 + runs[i + 1] < s) { if (runs[i] === 0) p0 += runs[i + 1]; if (runs[i] !== 2) a0 += runs[i + 1]; t0 += runs[i + 1]; i += 2; }
+    const into = i < runs.length ? s - t0 : 0;
+    P[s] = p0 + (runs[i] === 0 ? into : 0); A[s] = a0 + (i < runs.length && runs[i] !== 2 ? into : 0);
+  }
+  const eff = (a, b) => A[b] - A[a] >= 1 ? Math.min(1, (P[b] - P[a]) / (A[b] - A[a])) : null;
+  // start, middle and end: thirds of the clock
+  R.thirds = [0, 1, 2].map(k => eff(Math.round(n * k / 3), Math.round(n * (k + 1) / 3)));
+  // the best 10 minutes (5 in a shorter session): the window of clock time with the most playing
+  const W = t >= 1200 ? 600 : t >= 600 ? 300 : 0; R.best = null;
+  if (W) { let top = -1, at = 0; for (let s = 0; s + W <= n; s++) { const p = P[s + W] - P[s]; if (p > top + 1e-9) { top = p; at = s; } }
+    R.best = { a: at, b: at + W, len: W, eff: eff(at, at + W) || 0 }; }
+  // columns for the picture: one a minute, or wider steps so a long session still fits in about 45
+  const bin = [60, 120, 300, 600, 900, 1800].find(b => t / b <= 45) || 3600; R.bin = bin; R.columns = [];
+  for (let j = 0; j < Math.ceil(t / bin - 1e-9); j++) R.columns.push({ t: Math.min(bin, t - j * bin), play: 0, quiet: 0, paused: 0 });
+  t = 0;
+  for (let i = 0; i < runs.length; i += 2) {
+    const key = ['play', 'quiet', 'paused'][runs[i]]; let s = t; const e = t + runs[i + 1];
+    while (s < e && R.columns.length) { const j = Math.min(R.columns.length - 1, Math.floor(s / bin)), stop = j === R.columns.length - 1 ? e : Math.min(e, (j + 1) * bin);
+      R.columns[j][key] += stop - s; if (stop <= s) break; s = stop; }
+    t = e;
+  }
+  return R;
+}
+/* 75 -> "1:15", 3725 -> "1:02:05" */
+function clockText(s) { s = Math.max(0, Math.round(s)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = String(s % 60).padStart(2, '0');
+  return h ? h + ':' + String(m).padStart(2, '0') + ':' + x : m + ':' + x; }
+/* 75 -> "1 minute and 15 seconds" */
+function spokenTime(s) { s = Math.max(0, Math.round(s)); const m = Math.floor(s / 60), x = s % 60, unit = (v, w) => v + ' ' + w + (v === 1 ? '' : 's');
+  return !m ? unit(x, 'second') : unit(m, 'minute') + (x && m < 10 ? ' and ' + unit(x, 'second') : ''); }
+/* the sentence under "Where the time went" */
+function reportSentence(R) {
+  if (R.total <= 0) return '';
+  if (R.active < 1) return 'The timer was paused the whole time.';
+  let s = 'The clock ran for ' + clockText(R.total) + '. ';
+  if (R.play < 1) s += 'No playing was heard while the timer ran.';
+  else if (R.quiet <= R.active * 0.05) s += 'Almost all of the running time was playing.';
+  else if (R.breakTime <= R.gapTime) s += 'Of the ' + clockText(R.quiet) + ' of quiet, most was short gaps of under 30 seconds, such as page turns and restarting a phrase.';
+  else s += 'Of the ' + clockText(R.quiet) + ' of quiet, ' + clockText(R.breakTime) + ' came from ' + (R.breaks === 1 ? '1 break' : R.breaks + ' breaks') + ' longer than 30 seconds.';
+  if (R.pauses) s += ' You paused ' + (R.pauses === 1 ? 'once, for ' : R.pauses + ' times, for ') + spokenTime(R.paused) + (R.pauses === 1 ? '.' : ' in all.');
+  return s;
 }
 
 /* ---------- Rocket flight model ---------- */
@@ -1072,6 +1156,6 @@ class DashSim {
 }
 
 const api = { LIFTOFF, OnsetTracker, WheelSwipe, DashSim, DASH, dashSpeed, MusicDetector, Session, RocketSim, WORLD, MILESTONES, SENSITIVITY, CLIPS, DETECTION_CASES,
-  detectionTests, runDetectionTests, analyzeClip, fraction, heardAs, noteOf, smooth, pchip, clamp01 };
+  detectionTests, runDetectionTests, analyzeClip, sessionReport, reportSentence, clockText, spokenTime, fraction, heardAs, noteOf, smooth, pchip, clamp01 };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.MT = api;
 })(typeof self !== 'undefined' ? self : this);
