@@ -805,7 +805,8 @@ function sessionReport(runs) {
   return R;
 }
 /* 75 -> "1:15", 3725 -> "1:02:05" */
-function clockText(s) { s = Math.max(0, Math.round(s)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = String(s % 60).padStart(2, '0');
+function clockText(s) { s = Math.max(0, Math.floor(s));   // down to the second, as the running clock shows it
+  const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = String(s % 60).padStart(2, '0');
   return h ? h + ':' + String(m).padStart(2, '0') + ':' + x : m + ':' + x; }
 
 /* ---------- Practice log: saved sessions, the streak and the week ---------- */
@@ -814,7 +815,7 @@ const LOG_MAX = 400, KEEP_PLAY = 10;   // the log keeps the latest LOG_MAX sessi
 function sessionRecord(s, R, name) {
   const round = (k, v) => typeof v === 'number' ? Math.round(v * 1000) / 1000 : v;
   return { v: 1, id: s.startedAt, start: s.startedAt, end: s.stoppedAt || s.startedAt + Math.round(R.total * 1000), goal: s.goal,
-    play: Math.round(R.play * 10) / 10, eff: Math.round(R.efficiency * 1000) / 1000, name: name || '', R: JSON.parse(JSON.stringify(R, round)) };
+    play: Math.round(R.play * 1000) / 1000, eff: Math.round(R.efficiency * 1000) / 1000, name: name || '', R: JSON.parse(JSON.stringify(R, round)) };
 }
 const worthKeeping = R => R.play >= KEEP_PLAY;
 /* local calendar days */

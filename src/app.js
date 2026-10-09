@@ -713,16 +713,16 @@ function finishSession(demo) {
   return { rec: r, note: note };
 }
 function openSummary(r, past) {
-  const R = r.R, reached = r.play >= r.goal, T = R.total || 1, dur = MT.clockText;
+  const R = r.R, reached = R.play >= r.goal, T = R.total || 1, dur = MT.clockText;   // every time on the sheet comes from R, rounded down alike
   onSheet = r;
   const pct = x => Math.round(x * 100) + '%';
   $('sWhen').textContent = (past ? dayName(r.start) + ', ' : '') + at(r.start) + '\u2013' + at(r.end);
-  $('sPlay').textContent = fmt(r.play); $('sCap').textContent = 'of playing' + (r.name ? ', ' + r.name : '');
+  $('sPlay').textContent = fmt(R.play); $('sCap').textContent = 'of playing' + (r.name ? ', ' + r.name : '');
   $('sEff').textContent = pct(R.efficiency);
   // the goal
-  $('sGoalBox').classList.toggle('done', reached); width($('sGoalBar'), r.goal > 0 ? r.play / r.goal : 0);
+  $('sGoalBox').classList.toggle('done', reached); width($('sGoalBar'), r.goal > 0 ? R.play / r.goal : 0);
   $('sGoal').textContent = 'Goal ' + Math.round(r.goal / 60) + ' minutes'; $('sTrophy').toggleAttribute('hidden', !reached);   // an svg, which has no .hidden
-  $('sGoalLeft').textContent = reached ? 'Reached, trophy earned' : dur(r.goal - r.play) + ' to go';
+  $('sGoalLeft').textContent = reached ? 'Reached, trophy earned' : dur(Math.ceil(r.goal - R.play)) + ' to go';
   // was it saved to the practice log, and the streak it makes (only for the session just finished)
   const note = !past && current && current.rec === r ? current.note : null; $('sSaved').hidden = !note;
   if (note) $('sSaved').replaceChildren(...(note.lead ? [el('b', null, note.lead), ' '] : []), note.text);

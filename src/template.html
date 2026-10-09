@@ -483,6 +483,13 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
   #app[data-chrome="pixel"] #top{display:none}                                  /* the title row goes; Settings sits with the buttons */
   #app[data-chrome="pixel"] .ctl-set{display:grid; place-items:center; flex:none; width:50px; max-width:50px; padding:0}
   #app[data-chrome="pixel"] .ctl-set svg{width:22px; height:22px}
+  /* after a session the bar holds New session, Summary, the log and Settings: the longer label gets the room it needs, on one line */
+  #app[data-chrome="pixel"][data-state="stopped"] #controls button{padding-left:4px; padding-right:4px; white-space:nowrap}
+  #app[data-chrome="pixel"][data-state="stopped"] #btnStart{flex-grow:1.55}
+  #app[data-chrome="pixel"][data-state="stopped"] .ctl-set{width:46px; max-width:46px}
+  @media (max-width:419px){ #app[data-skin="dash"][data-chrome="pixel"][data-state="stopped"] #controls button{font-size:15px} }
+  @media (max-width:389px){ #app[data-chrome="pixel"][data-state="stopped"] #controls{gap:8px} #app[data-skin="city"][data-state="stopped"] #controls{gap:12px} }
+  @media (max-width:359px){ #app[data-chrome="pixel"][data-state="stopped"]:not([data-skin="city"]) #controls button{font-size:11px} #app[data-chrome="pixel"][data-state="stopped"] #btnStart{flex-grow:1.4} }   /* 320 px phones */
   #app[data-chrome="pixel"] #controls{padding:8px 12px 10px; gap:10px}
   #app[data-chrome="pixel"] #controls button{min-height:46px}
   #app[data-skin="city"] #controls{padding:8px 15px 10px; gap:14px}
