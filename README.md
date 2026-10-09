@@ -5,6 +5,10 @@ you are actually playing, and pauses itself in the silences. Four themes show yo
 and Dash. Swipe or use the arrow keys to change theme. Each theme has its own icon, and the row of icons under
 the scene shows which one you are on; tap an icon to jump to that theme.
 
+Every session you finish is saved on your device. The practice log (the calendar button at the top) shows your
+streak, this week against your goal, the last 12 weeks, and every session, whose summary you can open again.
+Recordings are not kept.
+
 Live at **https://rememberjack.github.io/practice-timer/**. On a phone, open it and use Share > Add to Home Screen.
 
 ## How it was made

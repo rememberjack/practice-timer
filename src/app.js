@@ -191,7 +191,9 @@ function resume() { if (!session.resume()) return; if (A.ctx && A.ctx.state !== 
 function stop() {
   if (!session.stop()) return;
   clearInterval(timer); timer = 0; music = false; recCall('stop'); rec.mr = null; hideAward();
-  closeAudio(); letSleep(); paintControls(); push(true); openSummary();
+  const demo = A.kind === 'demo';
+  closeAudio(); letSleep(); paintControls(); push(true);
+  current = finishSession(demo); openSummary(current.rec, false);
 }
 
 function tick() {
@@ -413,7 +415,7 @@ function paintControls() {
   $('btnTests').disabled = st === 'running' || testing;
 }
 $('btnStart').onclick = start; $('btnPause').onclick = pause; $('btnResume').onclick = resume; $('btnStop').onclick = stop;
-$('btnUnfollow').onclick = stopFollow; $('btnSummary').onclick = () => openSummary();
+$('btnUnfollow').onclick = stopFollow; $('btnSummary').onclick = () => { if (current) openSummary(current.rec, false); };
 
 /* ---------- classic sound pictures: tap the picture to change it ----------
    piano     - the notes you play rise as bars from a keyboard, the key under each one lit
@@ -692,19 +694,38 @@ $('btnTests').onclick = async () => {
 };
 
 /* ---------- summary ---------- */
+let current = null, onSheet = null;   // the session just finished { rec, note }, and the record on the summary sheet
+const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+const at = ms => new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+function dayName(ms) { const k = MT.dayKey(ms), now = new Date();
+  return k === MT.dayKey(now) ? 'Today' : k === MT.dayKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1)) ? 'Yesterday'
+    : new Date(ms).toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' }); }
 function showRecording() { if (!rec.blob) return; $('recBox').hidden = false;
   try { rec.url = URL.createObjectURL(rec.blob); const a = $('recAudio'); a.hidden = false; a.onerror = () => { a.hidden = true; }; a.src = rec.url; } catch (e) { $('recAudio').hidden = true; } }
-function openSummary() {
-  const s = session, R = MT.sessionReport(s.runs), reached = s.play >= s.goal, T = R.total || 1, dur = MT.clockText;
-  const pct = x => Math.round(x * 100) + '%', el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
-  const at = ms => new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-  $('sWhen').textContent = s.startedAt ? at(s.startedAt) + '\u2013' + at(s.stoppedAt || Date.now()) : '';
-  $('sPlay').textContent = fmt(s.play); $('sCap').textContent = 'of playing' + (S.name ? ', ' + S.name : '');
-  $('sEff').textContent = pct(s.efficiency);
+/* the session just stopped: keep it in the practice log unless it was a demo or too short */
+function finishSession(demo) {
+  const R = MT.sessionReport(session.runs), r = MT.sessionRecord(session, R, S.name);
+  let note;
+  if (demo) note = { text: 'Demo sessions are not saved to your practice log.' };
+  else if (!MT.worthKeeping(R)) note = { text: 'Sessions with less than 10 seconds of playing are not saved to your practice log.' };
+  else if (!addToLog(r)) note = { text: 'This session could not be saved on this device.' };
+  else { const P = MT.practiceStats(log, Date.now()); note = P.streak >= 2 ? { lead: 'Day ' + P.streak + ' in a row.', text: 'Saved to your practice log.' } : { text: 'Saved to your practice log. Come back tomorrow to start a streak.' }; }
+  return { rec: r, note: note };
+}
+function openSummary(r, past) {
+  const R = r.R, reached = r.play >= r.goal, T = R.total || 1, dur = MT.clockText;
+  onSheet = r;
+  const pct = x => Math.round(x * 100) + '%';
+  $('sWhen').textContent = (past ? dayName(r.start) + ', ' : '') + at(r.start) + '\u2013' + at(r.end);
+  $('sPlay').textContent = fmt(r.play); $('sCap').textContent = 'of playing' + (r.name ? ', ' + r.name : '');
+  $('sEff').textContent = pct(R.efficiency);
   // the goal
-  $('sGoalBox').classList.toggle('done', reached); width($('sGoalBar'), s.goal > 0 ? s.play / s.goal : 0);
-  $('sGoal').textContent = 'Goal ' + Math.round(s.goal / 60) + ' minutes'; $('sTrophy').toggleAttribute('hidden', !reached);   // an svg, which has no .hidden
-  $('sGoalLeft').textContent = reached ? 'Reached, trophy earned' : dur(s.goal - s.play) + ' to go';
+  $('sGoalBox').classList.toggle('done', reached); width($('sGoalBar'), r.goal > 0 ? r.play / r.goal : 0);
+  $('sGoal').textContent = 'Goal ' + Math.round(r.goal / 60) + ' minutes'; $('sTrophy').toggleAttribute('hidden', !reached);   // an svg, which has no .hidden
+  $('sGoalLeft').textContent = reached ? 'Reached, trophy earned' : dur(r.goal - r.play) + ' to go';
+  // was it saved to the practice log, and the streak it makes (only for the session just finished)
+  const note = !past && current && current.rec === r ? current.note : null; $('sSaved').hidden = !note;
+  if (note) $('sSaved').replaceChildren(...(note.lead ? [el('b', null, note.lead), ' '] : []), note.text);
   // where the time went
   for (const [k, v] of [['P', R.play], ['Q', R.quiet], ['X', R.paused]]) { const i = $('sSplit' + k); i.hidden = v < 0.5; i.style.flexGrow = String(v); }
   for (const [k, v] of [['Play', R.play], ['Quiet', R.quiet], ['Paused', R.paused]]) { $('sT' + k).textContent = dur(v); $('sP' + k).textContent = pct(v / T); }
@@ -736,7 +757,9 @@ function openSummary() {
     ['Paused', R.pauses ? dur(R.paused) : 'No pauses', R.pauses ? times(R.pauses) : '\u00a0'],
   ];
   $('sFacts').replaceChildren(...facts.map(f => { const d = el('div'), dd = el('dd', null, f[1]); dd.append(el('small', null, f[2])); d.append(el('dt', null, f[0]), dd); return d; }));
-  $('recBox').hidden = !rec.blob;
+  $('recBox').hidden = past || !rec.blob;                 // recordings are not kept with saved sessions
+  $('sumLog').hidden = !!past; $('sumDelete').hidden = !past; disarm($('sumDelete'), 'Delete session');
+  $('dlgSummary').querySelector('.sh-body').scrollTop = 0;
   if (!$('dlgSummary').open) $('dlgSummary').showModal();
 }
 $('sumClose').onclick = () => $('dlgSummary').close();
@@ -748,6 +771,86 @@ async function saveFile(filename, data) {
 }
 function stamp() { const d = new Date(session.startedAt || Date.now()), p = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes()); }
 $('btnSaveRec').onclick = () => { if (rec.blob) saveFile('practice-recording-' + stamp() + '.' + rec.ext, rec.blob); };
+
+/* ---------- practice log: finished sessions, kept on this device (no audio) ---------- */
+const LOG_KEY = 'musicTimer.log';
+let log = [], logShown = 30;
+try { const j = JSON.parse(localStorage.getItem(LOG_KEY) || '[]'); if (Array.isArray(j)) log = j.filter(r => r && r.v === 1 && r.R && r.start > 0).sort((a, b) => a.start - b.start); } catch (e) {}
+function writeLog() {
+  for (;;) { try { localStorage.setItem(LOG_KEY, JSON.stringify(log)); return true; }
+    catch (e) { const full = e && (e.name === 'QuotaExceededError' || e.code === 22 || e.code === 1014);   // storage full: drop the oldest fifth and try again
+      if (!full || log.length < 2) return false; log.splice(0, Math.ceil(log.length / 5)); } }
+}
+function addToLog(r) { log = log.filter(x => x.id !== r.id); log.push(r); log.sort((a, b) => a.start - b.start); if (log.length > MT.LOG_MAX) log.splice(0, log.length - MT.LOG_MAX); return writeLog(); }
+/* a destructive button asks twice: the first tap arms it for a few seconds */
+function disarm(b, label) { b.classList.remove('armed'); b.textContent = label; clearTimeout(b._t); }
+function twoTap(b, label, armedLabel, act) { b.onclick = () => {
+  if (!b.classList.contains('armed')) { b.classList.add('armed'); b.textContent = armedLabel; clearTimeout(b._t); b._t = setTimeout(() => disarm(b, label), 4000); return; }
+  disarm(b, label); act(); }; }
+twoTap($('sumDelete'), 'Delete session', 'Tap again to delete', () => {
+  const id = onSheet && onSheet.id; log = log.filter(x => x.id !== id); writeLog();
+  if (current && current.rec.id === id) current.note = { text: 'Deleted from your practice log.' };
+  $('dlgSummary').close(); if ($('dlgLog').open) renderLog(); toast('Session deleted');
+});
+twoTap($('logClear'), 'Delete all sessions', 'Tap again to delete all', () => { log = []; writeLog(); logShown = 30; renderLog(); toast('All sessions deleted'); });
+const compact = s => { if (s <= 0) return ''; const m = Math.round(s / 60); return m < 1 ? '<1m' : m < 60 ? m + 'm' : Math.floor(m / 60) + 'h' + (m % 60 ? String(m % 60).padStart(2, '0') : ''); };
+const TROPHY_SVG = '<svg class="trophy" viewBox="0 0 64 64" aria-hidden="true"><path d="M19 13H9c0 10 5 15 12 16M45 13h10c0 10-5 15-12 16" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/><path fill="currentColor" d="M18 7h28v15c0 10-6 17-14 17s-14-7-14-17zM29 38h6v9h-6zM20 49h24v9H20z"/></svg>';
+function renderLog() {
+  const P = MT.practiceStats(log, Date.now()), empty = !log.length, pct = x => Math.round(x * 100) + '%';
+  $('logEmpty').hidden = !empty; $('logMain').hidden = empty; $('logMore').hidden = empty;
+  const idle = mode === 'local' && (session.state === 'idle' || session.state === 'stopped');
+  $('logStart').hidden = !idle || P.practicedToday;
+  $('logStart').textContent = empty ? 'Start your first session' : P.streak >= 1 ? 'Practice now to keep your streak' : 'Start practicing';
+  if (empty) return;
+  // the streak
+  const thisWeek = P.week.filter(c => c.play > 0).length;          // with no streak running, count the good news of the week instead of a zero
+  $('logStreak').textContent = String(P.streak || thisWeek);
+  $('logStreakCap').textContent = P.streak ? (P.streak === 1 ? 'day in a row' : 'days in a row') : (thisWeek === 1 ? 'day practiced this week' : 'days practiced this week');
+  $('logBest').textContent = P.bestStreak + (P.bestStreak === 1 ? ' day' : ' days'); $('logNudge').textContent = MT.practiceNudge(P);
+  // this week, Monday to Sunday, each day's bar filled towards that day's goal
+  $('logWeek').replaceChildren(...P.week.map(c => { const d = el('div', 'd' + (c.today ? ' today' : '') + (c.future ? ' future' : '')), bar = el('div', 'bar');
+    if (c.play > 0) { const i = el('i', c.level === 4 ? 'met' : ''); i.style.height = Math.max(4, Math.min(1, c.goal ? c.play / c.goal : 1) * 100) + '%'; bar.append(i); }
+    d.append(el('span', 't', compact(c.play)), bar, el('span', null, c.date.toLocaleDateString([], { weekday: 'narrow' }))); return d; }));
+  $('logWeek').setAttribute('aria-label', 'This week: ' + P.week.filter(c => !c.future).map(c => c.date.toLocaleDateString([], { weekday: 'long' }) + ' ' + (c.play > 0 ? MT.durationText(c.play) : 'no practice')).join(', ') + '.');
+  $('logWeekLine').textContent = MT.weekLine(P);
+  // the last 12 weeks, one column a week, a month name where a month begins
+  const cells = [], months = []; let lastLabel = -9, lastMonth = -1;
+  P.grid.forEach((col, w) => { const m = col[0].date.getMonth();
+    if (m !== lastMonth && w - lastLabel >= 3) { const sp = el('span', null, col[0].date.toLocaleDateString([], { month: 'short' })); sp.style.gridColumn = String(w + 1); months.push(sp); lastLabel = w; }
+    lastMonth = m;
+    for (const c of col) { const i = el('i', (c.level ? 'lv' + c.level : '') + (c.today ? ' today' : '') + (c.future ? ' future' : ''));
+      if (!c.future) i.title = c.date.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' }) + ': ' + (c.play > 0 ? MT.durationText(c.play) : 'no practice'); cells.push(i); } });
+  $('logMonths').replaceChildren(...months); $('logCal').replaceChildren(...cells);
+  const all = P.grid.flat(), on = all.filter(c => c.play > 0).length, met = all.filter(c => c.level === 4).length;
+  $('logCal').setAttribute('aria-label', 'Practiced on ' + on + ' of the last ' + all.filter(c => !c.future).length + ' days, reaching the goal on ' + met + '.');
+  // all time
+  const first = log[0].start, facts = [
+    ['Sessions', String(P.sessions), 'since ' + new Date(first).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })],
+    ['Total playing', MT.durationText(P.totalPlay), 'on ' + P.daysPlayed + (P.daysPlayed === 1 ? ' day' : ' days')],
+    ['Longest session', MT.clockText(P.longest.play), dayName(P.longest.start)],
+    ['Average efficiency', pct(P.efficiency), 'playing while the timer ran'],
+  ];
+  $('logTotals').replaceChildren(...facts.map(f => { const d = el('div'), dd = el('dd', null, f[1]); dd.append(el('small', null, f[2])); d.append(el('dt', null, f[0]), dd); return d; }));
+  // the sessions, newest first, by day
+  const list = log.slice().reverse().slice(0, logShown), groups = [], dayPlay = {};
+  for (const r of log) { const k = MT.dayKey(r.start); dayPlay[k] = (dayPlay[k] || 0) + r.play; }
+  for (const r of list) { const k = MT.dayKey(r.start); if (!groups.length || groups[groups.length - 1].k !== k) groups.push({ k: k, recs: [] }); groups[groups.length - 1].recs.push(r); }
+  $('logList').replaceChildren(...groups.map(g => { const d = el('div', 'log-day'), h = el('h4', null, dayName(g.recs[0].start)); h.append(el('span', null, MT.durationText(dayPlay[g.k])));
+    d.append(h); for (const r of g.recs) { const b = el('button', 'log-row'), pl = el('div', 'pl'), big = el('b', null, MT.clockText(r.play)), mini = el('div', 'mini'), fill = el('i');
+      if (r.play >= r.goal) big.insertAdjacentHTML('beforeend', TROPHY_SVG);
+      fill.style.width = Math.min(100, r.goal ? r.play / r.goal * 100 : 0) + '%'; mini.append(fill); pl.append(big, mini);
+      b.append(el('span', 'tm', at(r.start)), pl, el('span', 'ef', pct(r.eff)));
+      b.insertAdjacentHTML('beforeend', '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>');
+      b.setAttribute('aria-label', dayName(r.start) + ' at ' + at(r.start) + ': ' + MT.durationText(r.play) + ' of playing, ' + pct(r.eff) + ' efficiency' + (r.play >= r.goal ? ', goal reached' : '') + '. Open its summary');
+      b.onclick = () => openSummary(r, true); d.append(b); } return d; }));
+  $('logOlder').hidden = log.length <= logShown;
+}
+function openLog() { logShown = 30; disarm($('logClear'), 'Delete all sessions'); renderLog(); $('dlgLog').querySelector('.sh-body').scrollTop = 0; if (!$('dlgLog').open) $('dlgLog').showModal(); }
+$('btnLog').onclick = openLog; $('btnLog2').onclick = openLog;
+$('logClose').onclick = () => $('dlgLog').close();
+$('logOlder').onclick = () => { logShown += 30; renderLog(); };
+$('logStart').onclick = () => { $('dlgLog').close(); if ($('dlgSummary').open) $('dlgSummary').close(); start(); };
+$('sumLog').onclick = () => { $('dlgSummary').close(); openLog(); };
 
 /* ---------- go ---------- */
 /* Rocket and City read-outs: tap them to fold them down to play time and power, leaving more of the scene in view */

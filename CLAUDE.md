@@ -29,7 +29,7 @@ Run only some tests by filtering on the test name:
 - `src/core.js` is pure logic with no DOM, loaded in Node by the tests and exposed as `window.MT` in the page: the
   FFT and `MusicDetector` (music vs. not-music, pitch and instrument), the synthetic test clips (`CLIPS`), `Session`
   (play / active / total time, and the whole session as runs of playing, quiet and paused), `sessionReport` (the figures in the
-  session summary), `RocketSim`, `DashSim`, `OnsetTracker` and `WheelSwipe` (trackpad swipes). Anything
+  session summary), `sessionRecord` and `practiceStats` (the practice log: saved sessions, streak, week, calendar), `RocketSim`, `DashSim`, `OnsetTracker` and `WheelSwipe` (trackpad swipes). Anything
   that decides behaviour belongs here, with a test.
 - The tests live in `core.js` too: `DETECTION_CASES` plus the `list.push(...)` entries in `detectionTests()`. A new
   test is a new entry there; `test/run.js` only runs the list. The same list runs in the page from Settings
@@ -38,7 +38,8 @@ Run only some tests by filtering on the test name:
   read the sims from the core and draw. City is three.js r128, loaded from cdnjs the first time the theme is shown.
 - `src/app.js` is one IIFE that wires everything together. Two loops run: `tick()` on a 46 ms interval advances the
   session and sims from the microphone (or demo clip), and `frame()` on requestAnimationFrame paints. Settings are
-  stored in localStorage under `musicTimer.settings`; `DEF.v` is the schema version used for migrations.
+  stored in localStorage under `musicTimer.settings`; `DEF.v` is the schema version used for migrations. Finished sessions
+  are kept in localStorage under `musicTimer.log` (a record per session with its report, `v: 1`, no audio), newest last.
 - `window.claude` (room, downloads) and the "framed" checks are for running inside a Claude artifact view, where
   the microphone is unavailable and other devices can follow a session. On GitHub Pages they are absent and
   everything falls back to plain browser APIs.

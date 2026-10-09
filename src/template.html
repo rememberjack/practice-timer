@@ -39,7 +39,7 @@ body:has(> #app[data-skin="city"]){background:#0E1130}
 body:has(> #app[data-skin="dash"]){background:#07071F}
 
 /* ---------- chrome (classic look; the rocket theme overrides it below) ---------- */
-#top{display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:12px; padding:12px 0 12px; margin:0 auto 6px; max-width:560px; width:calc(100% - 36px); border-bottom:1px solid var(--rule)}
+#top{display:grid; grid-template-columns:auto 1fr auto auto; align-items:center; gap:10px; padding:12px 0 12px; margin:0 auto 6px; max-width:560px; width:calc(100% - 36px); border-bottom:1px solid var(--rule)}
 .brand{min-width:0}
 .app-icon{width:34px; height:34px; border-radius:10px; overflow:hidden; display:grid; place-items:center}
 .app-icon img{width:100%; height:100%; display:block}
@@ -271,7 +271,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 /* summary: where the time went. Playing is the accent, quiet while running a dim slate, paused a hatched dark */
 #dlgSummary{--quiet:#4A5C78; --paused:#2A3546}
 .sum-when{color:var(--mute-2); font-size:13px; font-variant-numeric:tabular-nums; white-space:nowrap}
-.sh-head:has(.sum-when){align-items:baseline}
+.sh-head:has(.sum-when){align-items:baseline; flex-wrap:wrap; row-gap:2px}
 .sum-goal{display:grid; gap:6px; padding-bottom:4px}
 .sum-bar{height:8px; border-radius:4px; background:var(--paused); overflow:hidden}
 .sum-bar i{display:block; height:100%; width:0; border-radius:4px; background:var(--accent)}
@@ -317,6 +317,70 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 #recBox audio{display:block; width:100%}
 #recBox audio[hidden]{display:none}
 #recBox .btn{width:100%}
+@media (max-width:699px){ #btnLog{width:44px; padding:0} #btnLog svg{display:block} #btnLog .lbl{display:none} }   /* on phones the log is an icon, so the title row keeps its tagline */
+.sum-saved{margin:10px 0 0; font-size:13px; color:var(--mute)}
+.sum-saved b{color:var(--accent); font-weight:700}
+.sum-foot{grid-auto-flow:column; grid-auto-columns:1fr}
+#sumDelete.armed{background:var(--alert); border-color:var(--alert); color:#2B0F08}
+
+/* practice log: the streak, this week, a 12-week calendar and the sessions. Mint is practice, gold a reached goal, as on the summary */
+.log-hero{display:flex; align-items:flex-end; justify-content:space-between; gap:12px}
+.log-hero p{margin:0}
+.log-big{font-weight:800; font-size:clamp(46px, 15vw, 62px); letter-spacing:-.05em; line-height:1; font-variant-numeric:tabular-nums}
+.log-hero-r{text-align:right}
+.log-best{font-weight:800; font-size:clamp(24px, 8vw, 30px); letter-spacing:-.03em; line-height:1; color:var(--gold); font-variant-numeric:tabular-nums}
+.log-nudge{margin:12px 0 0; padding:10px 12px; border:1px solid var(--rule); border-radius:14px; background:var(--surface); font-size:15px; font-weight:600}
+.log-start{width:100%; margin-top:10px}
+.log-week{display:grid; grid-template-columns:repeat(7, minmax(0, 1fr)); gap:6px; align-items:end}
+.log-week .d{display:grid; gap:4px; justify-items:center; font-size:12px; color:var(--mute)}
+.log-week .bar{position:relative; width:100%; height:72px; border-radius:6px; background:var(--surface); overflow:hidden}
+.log-week .bar::after{content:""; position:absolute; left:0; right:0; top:0; border-top:1px dashed var(--rule)}
+.log-week .bar i{position:absolute; left:0; right:0; bottom:0; background:var(--accent); border-radius:6px 6px 0 0}
+.log-week .bar i.met{background:var(--gold)}
+.log-week .d.today{color:var(--ink); font-weight:700}
+.log-week .d.today .bar{box-shadow:inset 0 0 0 1.5px var(--ink)}
+.log-week .d.future .bar{opacity:.45}
+.log-week .t{font-size:11px; color:var(--mute-2); font-variant-numeric:tabular-nums; min-height:14px}
+.log-line{margin:0; font-size:14px}
+.log-cal-wrap{display:grid; grid-template-columns:14px minmax(0, 1fr); gap:6px}
+.log-cal-days{display:grid; grid-template-rows:16px repeat(7, minmax(0, 1fr)); gap:3px; font-size:10px; color:var(--mute-2); line-height:1}
+.log-cal-days::before{content:""}
+.log-cal-days span{display:flex; align-items:center}
+.log-cal-months{display:grid; grid-template-columns:repeat(12, minmax(0, 1fr)); gap:3px; height:16px; margin-bottom:3px; font-size:10px; color:var(--mute-2); white-space:nowrap}
+.log-cal{display:grid; grid-template-columns:repeat(12, minmax(0, 1fr)); grid-template-rows:repeat(7, auto); grid-auto-flow:column; gap:3px}
+.log-cal i, .log-key i{display:block; aspect-ratio:1; border-radius:4px; background:var(--surface)}
+.log-cal i.today{box-shadow:inset 0 0 0 1.5px var(--ink)}
+.log-cal i.future{background:transparent}
+.lv1{background:rgba(134,220,192,.32) !important}
+.lv2{background:rgba(134,220,192,.6) !important}
+.lv3{background:rgba(134,220,192,.88) !important}
+.lv4{background:var(--gold) !important}
+.log-key{display:flex; flex-wrap:wrap; justify-content:flex-end; gap:6px 16px; font-size:12px; color:var(--mute)}
+.log-key span{display:flex; align-items:center; gap:3px}
+.log-key i{width:11px; height:11px; border-radius:3px}
+.log-key span i:last-of-type{margin-right:4px}
+.log-list{display:grid; gap:14px}
+.log-day h4{display:flex; justify-content:space-between; margin:0 0 6px; font-size:13px; font-weight:700; color:var(--mute)}
+.log-day h4 span{font-weight:500; font-variant-numeric:tabular-nums}
+.log-row{display:grid; grid-template-columns:auto minmax(0, 1fr) auto 14px; align-items:center; gap:12px; width:100%; min-height:52px; margin-top:6px; padding:8px 12px;
+  border:1px solid var(--rule); border-radius:14px; background:var(--surface); text-align:left}
+.log-row:first-of-type{margin-top:0}
+.log-row .tm{font-size:13px; color:var(--mute); font-variant-numeric:tabular-nums}
+.log-row .pl{display:grid; gap:5px; min-width:0}
+.log-row .pl b{font-size:16px; font-weight:700; font-variant-numeric:tabular-nums; display:flex; align-items:center; gap:6px}
+.log-row .pl .trophy{width:15px; height:15px}
+.log-row .mini{height:5px; border-radius:3px; background:var(--rule); overflow:hidden}
+.log-row .mini i{display:block; height:100%; background:var(--accent)}
+.log-row .ef{font-size:15px; font-weight:700; color:var(--accent); font-variant-numeric:tabular-nums}
+.log-row svg.chev{width:14px; height:14px; color:var(--mute-2)}
+#logOlder{width:100%}
+.log-foot .hint{margin:0; font-size:13px; color:var(--mute)}
+#logClear.armed{background:var(--alert); border-color:var(--alert); color:#2B0F08}
+.log-empty{display:grid; justify-items:center; gap:8px; padding:28px 8px 8px; text-align:center}
+.log-empty-ic{width:44px; height:44px; color:var(--accent)}
+.log-empty p{margin:0}
+.log-empty-h{font-size:20px; font-weight:800}
+.log-empty-p{color:var(--mute); max-width:34ch}
 #toast{position:fixed; left:50%; bottom:calc(96px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%); background:var(--surface); color:var(--ink); border:1px solid var(--rule); padding:10px 14px; border-radius:14px; font-size:14px;
   opacity:0; transition:opacity .25s; pointer-events:none; max-width:90%; text-align:center; z-index:5}
 #toast.on{opacity:1}
@@ -588,6 +652,10 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
   <header id="top">
     <span class="app-icon" aria-hidden="true"><img src="__APP_ICON__" alt="" width="84" height="84"></span>
     <div class="brand"><h1>Music Timer</h1><span class="tagline">Instrument practice timer</span></div>
+    <button class="icon-btn" id="btnLog" aria-label="Practice log">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4M8 14h2M14 14h2M8 17h2"/></svg>
+      <span class="lbl">Log</span>
+    </button>
     <button class="icon-btn" id="btnSettings" aria-label="Settings">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>
       <span class="lbl">Settings</span>
@@ -716,6 +784,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
     <button id="btnResume" class="primary" hidden>Resume</button>
     <button id="btnStop" hidden>Stop</button>
     <button id="btnUnfollow" hidden>Stop following</button>
+    <button id="btnLog2" class="ctl-set" aria-label="Practice log"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4M8 14h2M14 14h2M8 17h2"/></svg></button>
     <button id="btnSettings2" class="ctl-set" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg></button>
     <p class="keep">Keep this page open while timing.</p>
   </footer>
@@ -774,6 +843,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
       <div class="sum-bar"><i id="sGoalBar"></i></div>
       <div class="sum-goal-row"><span id="sGoal"></span><b><svg class="trophy" id="sTrophy" viewBox="0 0 64 64" aria-hidden="true" hidden><path d="M19 13H9c0 10 5 15 12 16M45 13h10c0 10-5 15-12 16" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><path fill="currentColor" d="M18 7h28v15c0 10-6 17-14 17s-14-7-14-17zM29 38h6v9h-6zM22 47h20a2 2 0 0 1 2 2v3H20v-3a2 2 0 0 1 2-2zM17 52h30a2 2 0 0 1 2 2v4H15v-4a2 2 0 0 1 2-2z"/></svg><span id="sGoalLeft"></span></b></div>
     </div>
+    <p class="sum-saved" id="sSaved" hidden></p>
     <section class="sum-blk">
       <h3>Where the time went</h3>
       <div class="sum-split" aria-hidden="true"><i class="k-play" id="sSplitP"></i><i class="k-quiet" id="sSplitQ"></i><i class="k-paused" id="sSplitX"></i></div>
@@ -798,8 +868,57 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
       <button class="btn" id="btnSaveRec">Save recording</button>
     </section>
   </div>
-  <div class="sh-foot">
+  <div class="sh-foot sum-foot">
+    <button class="btn" id="sumLog">Practice log</button>
+    <button class="btn" id="sumDelete" hidden>Delete session</button>
     <button class="btn solid" id="sumClose">Close</button>
+  </div>
+</dialog>
+
+<dialog id="dlgLog" aria-labelledby="logH">
+  <div class="sh-head"><h2 id="logH">Practice log</h2><button class="btn solid" id="logClose">Done</button></div>
+  <div class="sh-body">
+    <div class="log-empty" id="logEmpty" hidden>
+      <svg class="log-empty-ic" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4M8 14h2M14 14h2M8 17h2"/></svg>
+      <p class="log-empty-h">No sessions yet</p>
+      <p class="log-empty-p">Each session you finish is saved here, with its summary. Your streak and your week fill in as you practice.</p>
+    </div>
+    <div id="logMain">
+      <div class="log-hero">
+        <div><p class="log-big" id="logStreak">0</p><p class="sum-cap" id="logStreakCap">days in a row</p></div>
+        <div class="log-hero-r"><p class="log-best" id="logBest"></p><p class="sum-cap">best streak</p></div>
+      </div>
+      <p class="log-nudge" id="logNudge"></p>
+    </div>
+    <button class="btn solid log-start" id="logStart" hidden>Start practicing</button>
+    <div id="logMore">
+      <section class="sum-blk">
+        <h3>This week</h3>
+        <div class="log-week" id="logWeek" role="img"></div>
+        <p class="log-line" id="logWeekLine"></p>
+      </section>
+      <section class="sum-blk">
+        <h3>Last 12 weeks</h3>
+        <div class="log-cal-wrap">
+          <div class="log-cal-days" aria-hidden="true"><span>M</span><span></span><span>W</span><span></span><span>F</span><span></span><span></span></div>
+          <div><div class="log-cal-months" id="logMonths" aria-hidden="true"></div><div class="log-cal" id="logCal" role="img"></div></div>
+        </div>
+        <div class="log-key" aria-hidden="true"><span><i class="lv1"></i><i class="lv2"></i><i class="lv3"></i>Some practice</span><span><i class="lv4"></i>Goal reached</span></div>
+      </section>
+      <section class="sum-blk">
+        <h3>All time</h3>
+        <dl class="sum-facts" id="logTotals"></dl>
+      </section>
+      <section class="sum-blk">
+        <h3>Sessions</h3>
+        <div class="log-list" id="logList"></div>
+        <button class="btn" id="logOlder" hidden>Show older sessions</button>
+      </section>
+      <section class="sum-blk log-foot">
+        <p class="hint">Sessions are saved on this device only, without their recordings. Demo sessions and sessions with less than 10 seconds of playing are not saved.</p>
+        <button class="btn" id="logClear">Delete all sessions</button>
+      </section>
+    </div>
   </div>
 </dialog>
 
