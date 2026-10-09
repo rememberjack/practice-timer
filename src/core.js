@@ -605,6 +605,28 @@ function detectionTests(sr) {
     const ok = th.join() === '100,50,25' && R.best && R.best.a === 0 && R.best.len === 600 && R.best.eff === 1 && R.longest.a === 0 && R.longest.b === 610 && R.breaks === 0 && R.columns.length === 30;
     return { name: 'Summary: start, middle, end and the best 10 minutes', expect: 'thirds 100%, 50%, 25%; best 10 minutes from 0:00 at 100%; longest stretch 0:00 to 10:10',
       got: 'thirds ' + th.join('%, ') + '%; best from ' + (R.best ? clockText(R.best.a) + ' at ' + Math.round(R.best.eff * 100) + '%' : 'none') + '; longest ' + clockText(R.longest.a) + ' to ' + clockText(R.longest.b), pass: ok }; } });
+  // the practice log
+  list.push({ name: 'Practice log: streak, week and calendar', run: () => {
+    const at = (d, h) => new Date(2026, 9, d, h).getTime(), now = at(9, 18);                // Friday 9 October 2026, 6 pm
+    const rec = (d, play, goal) => ({ start: at(d, 16), play: play, goal: goal || 1800, eff: 0.8, R: { active: play / 0.8 } });
+    const recs = [rec(9, 1200), rec(8, 1800), rec(8, 600), rec(7, 900), rec(6, 300), rec(3, 1800), rec(2, 1000), rec(1, 1000), rec(30 - 31, 500)];
+    const P = practiceStats(recs, now), wk = P.week.map(c => c.level).join('');
+    const P2 = practiceStats(recs.filter(r => r.start < at(9, 0)), now), P3 = practiceStats([rec(3, 1800)], now), P0 = practiceStats([], now);
+    const lines = [practiceNudge(P), practiceNudge(P2), practiceNudge(P3), weekLine(P)];
+    const ok = P.streak === 4 && P.bestStreak === 4 && P.practicedToday && P2.streak === 3 && !P2.practicedToday && P3.streak === 0 && P3.daysSince === 6 && P0.streak === 0 && practiceNudge(P0) === ''
+      && wk === '0124300' && P.week[4].today && P.week[5].future && P.weekPlay === 4800 && P.lastWeekPlay === 4300 && P.lastWeekSoFar === 2500
+      && P.grid.length === 12 && P.grid[11][0].key === '2026-10-05' && P.grid[10][3].level === 2 && P.sessions === 9 && P.longest.play === 1800 && Math.abs(P.efficiency - 0.8) < 1e-9
+      && lines[0] === 'You have practiced 4 days in a row. Come back tomorrow to make it 5.' && lines[1] === 'Practice today to keep your 3-day streak going.'
+      && lines[2] === 'Your last session was 6 days ago. A short session today starts a new streak.' && lines[3] === 'This week: 1 h 20 min of playing, 8 min more than all of last week.';
+    return { name: 'Practice log: streak, week and calendar', expect: 'streak 4 (3 before today\'s session), week levels 0124300, 1 h 20 min this week',
+      got: 'streak ' + P.streak + ' (' + P2.streak + '), best ' + P.bestStreak + ', week ' + wk + ', ' + durationText(P.weekPlay) + ' | ' + lines.join(' | '), pass: ok }; } });
+  list.push({ name: 'Practice log: saved record keeps the summary', run: () => {
+    const s = new Session(); s.start(); for (let i = 0; i < 400; i++) s.tick(0.5, i % 10 < 7); s.stop();
+    const R = sessionReport(s.runs), rec = JSON.parse(JSON.stringify(sessionRecord(s, R, 'Ana'))), Q = rec.R, short = new Session(); short.start(); for (let i = 0; i < 30; i++) short.tick(0.25, true); short.stop();
+    const ok = rec.id === s.startedAt && rec.end >= rec.start && Math.abs(rec.play - R.play) < 0.05 && Math.abs(Q.efficiency - R.efficiency) < 1e-3 && Q.columns.length === R.columns.length
+      && Math.abs(Q.longest.b - R.longest.b) < 1e-3 && Q.thirds.length === 3 && rec.name === 'Ana' && JSON.stringify(rec).length < 4000 && worthKeeping(R) && !worthKeeping(sessionReport(short.runs));
+    return { name: 'Practice log: saved record keeps the summary', expect: 'the stored report matches, under 4 KB; a session with 7.5 s of playing is not kept',
+      got: JSON.stringify(rec).length + ' bytes, play ' + rec.play + ' s, efficiency ' + Q.efficiency + ', ' + Q.columns.length + ' columns', pass: ok }; } });
   // rocket timeline
   list.push({ name: 'Rocket: timeline from ignition to Moon orbit', run: () => {
     const sim = new RocketSim(), s = new Session(), at = {}; s.start();
@@ -783,8 +805,77 @@ function sessionReport(runs) {
   return R;
 }
 /* 75 -> "1:15", 3725 -> "1:02:05" */
-function clockText(s) { s = Math.max(0, Math.round(s)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = String(s % 60).padStart(2, '0');
+function clockText(s) { s = Math.max(0, Math.floor(s));   // down to the second, as the running clock shows it
+  const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = String(s % 60).padStart(2, '0');
   return h ? h + ':' + String(m).padStart(2, '0') + ':' + x : m + ':' + x; }
+
+/* ---------- Practice log: saved sessions, the streak and the week ---------- */
+const LOG_MAX = 400, KEEP_PLAY = 10;   // the log keeps the latest LOG_MAX sessions; a session needs KEEP_PLAY seconds of playing to be saved
+/* what is saved for a finished session: its times and its report, rounded so the log stays small (no audio) */
+function sessionRecord(s, R, name) {
+  const round = (k, v) => typeof v === 'number' ? Math.round(v * 1000) / 1000 : v;
+  return { v: 1, id: s.startedAt, start: s.startedAt, end: s.stoppedAt || s.startedAt + Math.round(R.total * 1000), goal: s.goal,
+    play: Math.round(R.play * 1000) / 1000, eff: Math.round(R.efficiency * 1000) / 1000, name: name || '', R: JSON.parse(JSON.stringify(R, round)) };
+}
+const worthKeeping = R => R.play >= KEEP_PLAY;
+/* local calendar days */
+const dayKey = d => { d = new Date(d); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+const dayStart = d => { d = new Date(d); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); };
+const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+/* the figures on the practice log page, from saved records (any order) at time now */
+function practiceStats(records, now, weeks) {
+  weeks = weeks || 12;
+  const today = dayStart(now), days = new Map();
+  let totalPlay = 0, totalActive = 0, longest = null;
+  for (const r of records) {
+    const k = dayKey(r.start), d = days.get(k) || { play: 0, sessions: 0, goal: 0, last: 0 };
+    d.play += r.play; d.sessions++; if (r.start >= d.last) { d.last = r.start; d.goal = r.goal; } days.set(k, d);
+    totalPlay += r.play; totalActive += r.R && r.R.active > 0 ? r.R.active : r.eff > 0 ? r.play / r.eff : r.play;
+    if (!longest || r.play > longest.play) longest = r;
+  }
+  const played = d => { const x = days.get(dayKey(d)); return !!x && x.play > 0; };
+  // the streak runs back from today, or from yesterday while today is still open
+  const practicedToday = played(today); let streak = 0;
+  for (let d = practicedToday ? today : addDays(today, -1); played(d); d = addDays(d, -1)) streak++;
+  // best streak ever
+  let bestStreak = 0; for (const k of days.keys()) { const [y, m, dd] = k.split('-').map(Number), d = new Date(y, m - 1, dd);
+    if (played(addDays(d, -1))) continue; let n = 0; for (let e = d; played(e); e = addDays(e, 1)) n++; if (n > bestStreak) bestStreak = n; }
+  let lastStart = 0; for (const r of records) if (r.start > lastStart) lastStart = r.start;
+  const daysSince = lastStart ? Math.round((today - dayStart(lastStart)) / 864e5) : null;
+  const cell = d => { const x = days.get(dayKey(d)) || null, play = x ? x.play : 0, goal = x && x.goal > 0 ? x.goal : 0;
+    const f = goal ? play / goal : 0, level = play <= 0 ? 0 : goal && f >= 1 ? 4 : f >= 2 / 3 ? 3 : f >= 1 / 3 ? 2 : 1;
+    return { date: d, key: dayKey(d), play: play, goal: goal, sessions: x ? x.sessions : 0, level: level, today: d.getTime() === today.getTime(), future: d > today }; };
+  // this week, Monday to Sunday, and the week before
+  const monday = addDays(today, -((today.getDay() + 6) % 7)), week = [];
+  let weekPlay = 0, lastWeekPlay = 0, lastWeekSoFar = 0;
+  for (let i = 0; i < 7; i++) { const c = cell(addDays(monday, i)); week.push(c); weekPlay += c.play;
+    const p = cell(addDays(monday, i - 7)); lastWeekPlay += p.play; if (!c.future) lastWeekSoFar += p.play; }
+  // the calendar: whole weeks, the last one this week
+  const grid = []; for (let w = weeks - 1; w >= 0; w--) { const col = []; for (let i = 0; i < 7; i++) col.push(cell(addDays(monday, i - 7 * w))); grid.push(col); }
+  return { sessions: records.length, totalPlay: totalPlay, efficiency: totalActive > 0 ? Math.min(1, totalPlay / totalActive) : 0, longest: longest,
+    streak: streak, bestStreak: bestStreak, practicedToday: practicedToday, daysSince: daysSince, daysPlayed: days.size,
+    week: week, weekPlay: weekPlay, lastWeekPlay: lastWeekPlay, lastWeekSoFar: lastWeekSoFar, grid: grid };
+}
+/* 4500 -> "1 h 15 min", 600 -> "10 min", 40 -> "40 s" */
+function durationText(s) { s = Math.max(0, Math.round(s)); if (s < 60) return s + ' s'; const m = Math.round(s / 60), h = Math.floor(m / 60);
+  return h ? h + ' h' + (m % 60 ? ' ' + (m % 60) + ' min' : '') : m + ' min'; }
+/* the encouraging line on the practice log, and its partner about the week */
+function practiceNudge(P) {
+  if (!P.sessions) return '';
+  if (P.practicedToday) return P.streak >= 2 ? 'You have practiced ' + P.streak + ' days in a row. Come back tomorrow to make it ' + (P.streak + 1) + '.'
+    : 'You practiced today. Come back tomorrow to start a streak.';
+  if (P.streak >= 2) return 'Practice today to keep your ' + P.streak + '-day streak going.';
+  if (P.streak === 1) return 'You practiced yesterday. Practice today to start a streak.';
+  return 'Your last session was ' + P.daysSince + ' days ago. A short session today starts a new streak.';
+}
+function weekLine(P) {
+  let s = 'This week: ' + durationText(P.weekPlay) + ' of playing';
+  if (P.lastWeekPlay <= 0) return s + '.';
+  const d = P.weekPlay - P.lastWeekSoFar;
+  if (P.weekPlay >= P.lastWeekPlay) return s + ', ' + (P.weekPlay - P.lastWeekPlay >= 60 ? durationText(P.weekPlay - P.lastWeekPlay) + ' more than all of last week.' : 'as much as all of last week.');
+  if (d >= 60) return s + ', ' + durationText(d) + ' ahead of last week at this point.';
+  return s + '. Play ' + durationText(P.lastWeekPlay - P.weekPlay) + ' more to match last week.';
+}
 
 /* ---------- Rocket flight model ---------- */
 function pchip(xs, ys, m0, mn) {
@@ -1139,6 +1230,6 @@ class DashSim {
 }
 
 const api = { LIFTOFF, OnsetTracker, WheelSwipe, DashSim, DASH, dashSpeed, MusicDetector, Session, RocketSim, WORLD, MILESTONES, SENSITIVITY, CLIPS, DETECTION_CASES,
-  detectionTests, runDetectionTests, analyzeClip, sessionReport, clockText, fraction, heardAs, noteOf, smooth, pchip, clamp01 };
+  detectionTests, runDetectionTests, analyzeClip, sessionReport, clockText, sessionRecord, worthKeeping, practiceStats, practiceNudge, weekLine, durationText, dayKey, LOG_MAX, fraction, heardAs, noteOf, smooth, pchip, clamp01 };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.MT = api;
 })(typeof self !== 'undefined' ? self : this);
