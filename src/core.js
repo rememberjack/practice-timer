@@ -660,6 +660,36 @@ function detectionTests(sr) {
     return { name: 'Dash: silence anywhere on the course', expect: 'wherever the music stops (on the ground, up on a platform, in mid-air), a 2 s gap is survived and a long silence crashes once, ' + DASH.GRACE + ' s in; then it runs on with no touch',
       got: (at.ground + at.platform + at.air) + ' silences (' + at.ground + ' on the ground, ' + at.platform + ' on a platform, ' + at.air + ' in the air), crashes ' + lo.toFixed(1) + ' to ' + hi.toFixed(1) + ' s in' + (wrong.length ? '; wrong: ' + wrong.slice(0, 3).join('; ') : ''),
       pass: !wrong.length && at.platform > 0 && at.air > 0 }; } });
+  // trackpad swipes: recorded wheel events replayed as the page receives them, one theme step per swipe however quickly they follow
+  const steps = evs => { const w = new WheelSwipe(), got = [];
+    for (const e of evs) { if (Math.abs(e.dx) <= Math.abs(e.dy)) continue;   // mostly vertical: the page lets Classic scroll
+      const d = w.feed({ t: e.t, now: e.now != null ? e.now : e.t, drawn: e.drawn != null ? e.drawn : e.t - 8, dx: e.dx }); if (d) got.push(d > 0 ? 'next' : 'back'); }
+    return got.join(' ') || 'none'; };
+  const cut = (evs, ms) => evs.filter(e => e.t <= ms), flip = evs => evs.map(e => ({ t: e.t, dx: -e.dx, dy: e.dy }));
+  const then = (a, gap, b) => a.concat(b.map(e => ({ t: a[a.length - 1].t + gap + e.t, dx: e.dx, dy: e.dy })));   // fingers back on the pad: the momentum stops and the next swipe starts
+  const wheelTest = (name, expect, cases) => list.push({ name: name, run: () => {
+    const bad = cases.filter(c => steps(c[1]) !== c[2]);
+    return { name: name, expect: expect, got: bad.length ? bad.map(c => c[0] + ': ' + steps(c[1]) + ' (want ' + c[2] + ')').join('; ') : cases.length + ' of ' + cases.length + ' right', pass: !bad.length }; } });
+  wheelTest('Trackpad: one theme per swipe', 'one step for each recorded swipe: Chrome and Safari on a Mac trackpad, fast, slow, and a Windows touchpad', [
+    ['Mac', wheelTrace('mac'), 'back'], ['Mac, fast flick', wheelTrace('macFast'), 'back'], ['Safari', wheelTrace('safari'), 'next'],
+    ['Safari, slow drag', wheelTrace('safariSlow'), 'back'], ['Windows touchpad', wheelTrace('win'), 'back']]);
+  wheelTest('Trackpad: quick swipes in a row each count', 'each swipe steps once, even when it starts while the last one\'s momentum is still arriving', [
+    ['recorded double swipe', wheelTrace('macDouble'), 'back back'],
+    ['two swipes', then(cut(wheelTrace('mac'), 400), 40, wheelTrace('mac')), 'back back'],
+    ['three swipes', then(then(cut(wheelTrace('mac'), 400), 40, cut(wheelTrace('mac'), 400)), 40, wheelTrace('mac')), 'back back back'],
+    ['two on a Windows touchpad', then(cut(wheelTrace('win'), 400), 40, wheelTrace('win')), 'back back'],
+    ['there and back', then(cut(flip(wheelTrace('mac')), 400), 40, wheelTrace('mac')), 'next back'],
+    ['there and back in Safari', then(cut(wheelTrace('safari'), 400), 40, flip(wheelTrace('safari'))), 'next back']]);
+  // a page busy for a second (City's first frame) holds the events back: the first comes when it wakes, the rest merged into one a frame later
+  const busy = (evs, a, b) => { const out = [], held = evs.filter(e => e.t > a && e.t <= b);
+    if (held.length) { const m = held.slice(1); out.push({ t: held[0].t, dx: held[0].dx, dy: held[0].dy, now: b, drawn: a });
+      if (m.length) out.push({ t: m[m.length - 1].t, dx: m.reduce((s, e) => s + e.dx, 0), dy: m.reduce((s, e) => s + e.dy, 0), now: b + 16, drawn: b }); }
+    return evs.filter(e => e.t <= a).concat(out, evs.filter(e => e.t > b)); };
+  wheelTest('Trackpad: a busy page does not turn one swipe into two', 'one step when the page stops drawing for a second during the swipe', [
+    ['Mac', busy(wheelTrace('mac'), 100, 1100), 'back'], ['Mac, fast flick', busy(wheelTrace('macFast'), 700, 1700), 'back'], ['Windows touchpad', busy(wheelTrace('win'), 120, 1120), 'back']]);
+  const notches = (n, gap) => Array.from({ length: n }, (_, i) => ({ t: i * gap, dx: 100, dy: 0 }));
+  wheelTest('Mouse wheel: each sideways click moves one theme', 'a sideways wheel click every 260 or 400 ms steps each time; a quick spin steps once', [
+    ['every 400 ms', notches(3, 400), 'next next next'], ['every 260 ms', notches(3, 260), 'next next next'], ['a quick spin', notches(3, 100), 'next']]);
   return list;
 }
 function runDetectionTests(sr) { return detectionTests(sr).map(t => t.run()); }
@@ -825,6 +855,51 @@ class OnsetTracker {
     return hit;
   }
 }
+
+/* ---------- trackpad swipes: one theme per two-finger swipe, from the page's horizontal wheel events ----------
+   After the fingers lift, momentum events keep coming, ever slower, for a second or two, and a quick next swipe starts as soon as the fingers
+   touch again, with no pause between. So a swipe is new after a pause, when it goes the other way, or when it speeds up again after slowing
+   down; momentum does none of these. */
+class WheelSwipe {
+  constructor() { this.reset(); }
+  reset() { this.x = 0; this.dir = 0; this.t = -1e9; this.h = -1e9; this.s = -1e9; this.v = 0; this.peak = 0; this.low = 0; }   // dir: the way the last step went, while its momentum may still be arriving
+  /* e: {t: the event's own time, now: when it is handled, drawn: when the page last drew a frame (all ms), dx: px, + = fingers moving left}.
+     Feed only mostly-horizontal events. Returns 1 or -1 on the event that completes a swipe (a step that way), else 0. */
+  feed(e) {
+    const t = e.t, dt = t - this.t, dx = e.dx, s = Math.sign(dx);
+    this.v += (Math.abs(dx) / Math.max(8, dt) - this.v) * (1 - Math.exp(-Math.max(0, Math.min(dt, 1000)) / 16));   // px per ms by the events' own times, smoothed over ~16 ms: the same at 60 or 120 Hz and when events arrive merged
+    if (dt > 250 && e.now - this.h > 150 && e.now - e.drawn < 150) { this.dir = 0; this.x = 0; }   // a pause, in the events' own times and as they arrive, while the page kept drawing: events a busy page held back arrive late and bunched
+    this.t = t; this.h = e.now;
+    if (s === this.dir) {   // the way the last step went: that swipe's own momentum, unless it fell below half its peak and then sped up again
+      if (this.low < this.peak / 2 && (this.v > this.low * 2.5 + 0.25 || this.v > this.peak) && t - this.s > 200) { this.dir = 0; this.x = 0; }   // new fingers; not within 200 ms of a step, so one swipe that falters stays one
+      else { if (this.v > this.peak) this.peak = this.low = this.v; else if (this.v < this.low) this.low = this.v; return 0; }
+    }
+    if (s !== Math.sign(this.x)) this.x = 0;   // count one way only: a few px back as the fingers lift never add up to a swipe
+    this.x += dx; if (Math.abs(this.x) < 60) return 0;
+    this.dir = s; this.x = 0; this.peak = this.low = this.v; this.s = t;
+    return s;
+  }
+}
+
+/* Wheel events recorded on real devices, for the trackpad tests: per trace, a flat list of [ms since the previous event, deltaX, deltaY].
+   From the wheel-gestures project (https://github.com/xiel/wheel-gestures, src/test/fixtures). Copyright (c) 2020 Felix Leupold. MIT License:
+   Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the
+   "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish,
+   distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the
+   following conditions: The above copyright notice and this permission notice shall be included in all copies or substantial portions of the
+   Software. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+   CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+   SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
+const WHEEL_TRACES = {
+  mac: [0,-1,0,11,-7,0,11.3,-8,0,11.2,-11,0,11.6,-24,0,11,-12,0,11.7,-29,0,11,-24,0,11,-28,0,11.5,-52,0,11.3,-54,0,28.9,-83,0,15.6,-83,0,17.6,-84,0,15.7,-84,0,17.3,-82,0,16.3,-82,0,16.4,-75,0,16.8,-72,0,16.7,-67,0,17.1,-59,0,16.2,-54,0,16.6,-49,0,17.8,-45,0,15.5,-41,0,17,-37,0,16.6,-33,0,17,-30,0,16.1,-29,0,17.2,-26,0,16.3,-23,0,17,-23,0,16.5,-20,0,16.2,-18,0,16.7,-17,0,17.2,-15,0,16.1,-15,0,17.3,-13,0,16,-13,0,16.7,-11,0,16.7,-10,0,17.2,-9,0,16.2,-9,0,16.6,-8,0,16.6,-7,0,16.7,-7,0,16.7,-7,0,17.5,-6,0,15.8,-5,0,17.1,-4,0,16.3,-4,0,17.1,-4,0,16.5,-3,0,16.2,-3,0,16.6,-3,0,16.7,-2,0,16.7,-2,0,17.6,-2,0,15.7,-1,0,17.3,-1,0,16.4,-1,0,32.9,-1,0,17.4,-1,0,32.7,-1,0],   // Chrome, Mac trackpad, one swipe
+  macFast: [0,-3,0,16.8,-2,0,15.8,-2,0,16.9,-2,0,16.3,-1,0,16.8,-1,0,16.7,-1,0,33.3,-1,0,16.6,-1,0,34.5,-1,0,463.5,-1,0,10.9,-26,0,11.2,-39,0,11.4,-125,0,11.1,-156,0,11.4,-201,0,11.1,-371,0,11.2,-345,0,11.5,-450,0,11,-460,0,29.3,-662,0,15.7,-624,0,17.5,-590,0,16.7,-556,0,16.7,-526,0,15.5,-496,0,17.8,-471,0,15.8,-447,0,17.5,-430,0,16.5,-407,0,16,-389,0,17.6,-369,0,15.5,-348,0,16.6,-332,0,17.8,-314,0,16.7,-290,0,15.7,-271,0,17.6,-252,0,16.7,-237,0,15.8,-219,0,17.5,-205,0,16.6,-187,0,15.8,-173,0,17.6,-160,0,16.7,-147,0,15.7,-135,0,16.9,-122,0,17.4,-110,0,15.7,-102,0,17.6,-91,0,15.6,-84,0,16.7,-74,0,16.5,-68,0,17.8,-62,0,15.8,-57,0,17.6,-53,0,16.7,-48,0,16.7,-44,0,16.7,-40,0,16.7,-37,0,15.8,-33,0,17.6,-30,0,16.3,-27,0,16.1,-26,0,17.6,-23,0,15.5,-21,0,16.9,-20,0,17.6,-18,0,15.7,-15,0,16.7,-15,0,17.6,-13,0,16.7,-13,0,15.7,-11,0,17.5,-11,0,16.6,-10,0,15.9,-9,0,17.6,-9,0,16.7,-7,0,15.7,-7,0,17.6,-7,0,16.6,-6,0,15.8,-5,0,17.5,-5,0,16.7,-4,0,15.7,-4,0,17.6,-3,0,16.7,-3,0,15.8,-3,0,17.6,-2,0,16.2,-2,0,17.2,-2,0,16.7,-2,0,16.7,-1,0,15.7,-1,0,34.2,-1,0,15.7,-1,0,34.3,-1,0],   // Chrome, Mac trackpad, a pause then a fast flick
+  macDouble: [0,-1,0,7.9,-4,1,8,-5,0,15.5,-13,2,16.1,-25,2,15.4,-39,2,7.7,-24,1,25,-52,0,16.7,-56,0,17.3,-56,0,16.2,-56,0,17.2,-55,0,16.7,-51,0,16.3,-49,0,17,-48,0,16.7,-45,0,16.5,-41,0,16.8,-38,0,15.7,-35,0,17.5,-32,0,16.4,-30,0,17,-27,0,16.6,-24,0,15.8,-22,0,16.6,-20,0,17.2,-19,0,16.1,-17,0,17.3,-16,0,16.2,-14,0,17.5,-13,0,16.8,-12,0,16.4,-11,0,39,-2,0,8.1,-9,0,7.8,-8,0,8.1,-9,0,8.1,-10,0,16,-20,0,15.8,-37,-1,16.2,-48,-1,15.5,-65,0,7.5,-43,0,25.2,-86,0,16.6,-88,0,16.6,-86,0,16.6,-84,0,16.1,-82,0,17.3,-78,0,16.7,-74,0,16.7,-72,0,16.1,-66,0,17.3,-62,0,16.8,-58,0,15.6,-55,0,17.7,-51,0,16.7,-47,0,16.7,-43,0,15.8,-40,0,16.7,-37,0,16.7,-34,0,16.7,-31,0,16.7,-28,0,16.3,-26,0,17.2,-24,0,16.4,-22,0,17.2,-20,0,16,-19,0,17.1,-17,0,16.4,-16,0,17.3,-14,0,16.4,-13,0,17,-12,0,16.5,-11,0,16.6,-10,0,16.3,-9,0,17.2,-8,0,16.6,-8,0,16.7,-7,0,15.7,-6,0,17.6,-6,0,16.7,-5,0,16.4,-5,0,16.9,-5,0,16.1,-4,0,17.2,-4,0,16.8,-4,0,16.1,-3,0,17.3,-3,0,15.8,-3,0,16.6,-3,0,17.6,-2,0,16.1,-2,0,16.2,-2,0,16.7,-2,0,17.4,-1,0,16.9,-1,0,16.3,-1,0,16.4,-1,0,16.7,-1,0,16.5,-1,0,33.2,-1,0,16.8,-1,0,33.3,-1,0],   // Chrome, Mac trackpad, two quick swipes
+  safari: [0,3,0,8,6,0,8,8,-1,8,11,-1,8,12,-1,8,14,-1,8,24,-1,8,29,-1,8,41,-1,8,49,-1,8,55,-2,8,72,-2,8,54,-1,8,79,-1,7,58,-1,25,150,0,16,145,0,18,139,0,17,131,0,16,125,0,17,116,0,16,110,0,17,105,0,17,100,0,17,96,0,16,90,0,16,85,0,17,82,0,17,77,0,17,72,0,16,68,0,17,63,0,17,59,0,16,55,0,17,51,0,17,47,0,16,43,0,17,41,0,17,37,0,16,34,0,17,32,0,17,29,0,17,26,0,15,24,0,17,22,0,17,20,0,17,19,0,16,17,0,18,16,0,16,14,0,17,13,0,16,12,0,17,11,0,16,10,0,17,9,0,17,8,0,17,8,0,17,7,0,16,6,0,17,6,0,17,5,0,16,5,0,16,5,0,17,4,0,16,4,0,17,4,0,17,3,0,17,3,0,17,3,0,16,3,0,17,2,0,17,2,0,16,2,0,16,2,0,17,1,0,17,1,0,16,1,0,17,1,0,17,1,0,16,1,0,34,1,0,16,1,0,34,1,0],   // Safari, Mac trackpad, one swipe the other way
+  safariSlow: [0,-1,0,7,-2,0,9,-2,0,8,-2,0,8,-2,0,8,-2,0,7,-3,0,8,-3,0,9,-4,-1,8,-4,0,7,-4,0,8,-5,0,9,-5,-1,8,-5,0,8,-5,0,8,-5,0,8,-6,-1,7,-6,0,9,-6,0,7,-6,-1,9,-6,0,8,-6,0,7,-9,0,9,-4,0,7,-7,0,8,-7,0,8,-7,0,8,-7,0,8,-8,-1,8,-11,0,8,-6,0,8,-10,0,8,-9,0,9,-8,0,7,-9,0,8,-13,0,8,-8,0,9,-12,0,8,-11,0,8,-9,1,7,-13,1,8,-10,0,8,-15,1,8,-12,1,8,-11,1,8,-14,1,8,-13,1,9,-13,1,8,-14,1,7,-9,1,8,-17,1,8,-13,1,8,-13,1,9,-13,1,8,-11,1,7,-16,0,8,-13,1,8,-15,1,8,-13,1,8,-9,0,8,-17,1,8,-8,0,8,-17,1,8,-12,0,8,-10,0,8,-13,0,8,-7,0,8,-16,0,8,-11,0,8,-12,0,8,-7,0,8,-15,0,8,-8,0,8,-15,0,8,-11,1,8,-7,0,8,-15,0,8,-7,0,8,-13,0,8,-12,0,8,-10,0,8,-9,0,8,-14,0,8,-7,0,8,-10,0,8,-10,0,8,-10,0,8,-9,0,8,-9,0,8,-12,0,8,-5,0,8,-9,0,8,-9,-1,8,-9,0,8,-8,0,8,-10,-1,8,-7,0,8,-8,-1,8,-8,0,8,-9,0,8,-9,-1,8,-8,-1,8,-11,0,8,-5,-1,8,-9,-1,8,-9,0,8,-8,0,8,-9,-1,8,-11,0,8,-5,0,8,-8,0,8,-8,0,8,-9,0,8,-9,0,8,-8,0,7,-11,0,8,-6,0,8,-8,0,9,-8,0,7,-8,0,8,-8,0,8,-8,1,9,-11,0,8,-5,0,8,-8,0,8,-8,1,8,-8,0,8,-7,0,8,-6,0,7,-6,0,8,-8,0,8,-5,0,8,-6,1,9,-7,0,7,-7,0,8,-7,0,8,-7,0,8,-7,0,8,-7,0,8,-7,0,8,-6,0,8,-7,0,8,-7,0,8,-6,0,8,-6,0,8,-7,0,8,-5,0,8,-6,0,9,-5,0,7,-6,0,8,-5,0,8,-5,0,8,-5,0,8,-4,0,8,-4,0,8,-4,0,8,-6,0,8,-3,0,8,-5,0,8,-3,1,8,-5,0,8,-3,0,8,-4,0,8,-4,0,8,-3,0,8,-4,0,8,-4,0,8,-3,0,8,-3,0,8,-3,0,8,-4,0,8,-2,0,8,-3,0,8,-3,0,8,-2,0,8,-2,0,8,-2,0,8,-2,0,8,-2,0,8,-2,0,8,-1,0,8,-1,0,8,-1,0,8,-2,0,8,-1,0,8,-1,0,8,-1,-1,8,-1,0,8,-1,0,8,-1,0,8,-1,-1,7,-1,0,8,-1,1,9,-1,0],   // Safari, Mac trackpad, a slow drag
+  win: [0,-24,0,16.6,-78,0,16.8,-111,0,17.5,-186,0,16.2,-142.5,0,16.5,-123,0,17.8,-30,0,0.3,0,0,31.4,-93,0,17.4,-76.5,0,16.5,-63,0,16.3,-52.5,0,17.1,-48,0,16.4,-42,0,16.8,-39,0,17.1,-36,0,16.3,-31.5,0,16.9,-30,0,16.4,-28.5,0,16.8,-27,0,32.6,-46.5,0,34,-43.5,0,33.2,-39,0,16.4,-18,0,16.9,-16.5,0,16.9,-16.5,0,16.5,-15,0,16.8,-15,0,16.4,-13.5,0,17,-13.5,0,16.4,-13.5,0,16.8,-12,0,16.5,-12,0,16.9,-12,0,16.5,-10.5,0,16.1,-10.5,0,16.8,-10.5,0,16.7,-9,0,16.8,-9,0,16.8,-9,0,16.5,-9,0,16.5,-7.5,0,16.9,-9,0,16.7,-7.5,0,33.6,-15,0,16.7,-6,0,16.4,-7.5,0,16.3,-6,0,17.2,-6,0,16.5,-6,0,16.9,-6,0,16.7,-4.5,0,16.6,-6,0,16.9,-4.5,0,16.4,-4.5,0,16.8,-6,0,16.6,-4.5,0,16.8,-3,0,16.5,-4.5,0,17,-4.5,0,16.4,-3,0,16.8,-4.5,0,16.5,-3,0,16.7,-4.5,0,16.6,-3,0,17.3,-3,0,16.2,-3,0,17,-3,0,16.3,-3,0,17,-1.5,0,16.3,-3,0,17,-3,0,16.8,-1.5,0,16,-3,0,16.9,-1.5,0,16.9,-3,0,16.4,-1.5,0,17,-1.5,0,16.5,-1.5,0,16.8,-1.5,0,16.4,-1.5,0,16.9,-1.5,0,16.5,-1.5,0,16.8,-1.5,0,16.6,-1.5,0,16.8,-1.5,0,16.5,-1.5,0,16.9,-1.5,0,33.4,-1.5,0,33.3,-1.5,0,16.4,-1.5,0,33.4,-1.5,0,50.2,-1.5,0,49.7,-1.5,0,66.8,-1.5,0,116.5,-1.5,0],   // Chrome, Windows precision touchpad, one swipe
+};
+function wheelTrace(k) { const a = WHEEL_TRACES[k], out = []; let t = 0; for (let i = 0; i < a.length; i += 3) { t += a[i]; out.push({ t: t, dx: a[i + 1], dy: a[i + 2] }); } return out; }
 
 /* ---------- Dash theme: a cube runs a neon course while music is heard ----------
    Units are cube widths. The cube is centred at x, with its base at height y above the ground.
@@ -992,7 +1067,7 @@ class DashSim {
   }
 }
 
-const api = { LIFTOFF, OnsetTracker, DashSim, DASH, dashSpeed, MusicDetector, Session, RocketSim, WORLD, MILESTONES, SENSITIVITY, CLIPS, DETECTION_CASES,
+const api = { LIFTOFF, OnsetTracker, WheelSwipe, DashSim, DASH, dashSpeed, MusicDetector, Session, RocketSim, WORLD, MILESTONES, SENSITIVITY, CLIPS, DETECTION_CASES,
   detectionTests, runDetectionTests, analyzeClip, fraction, heardAs, noteOf, smooth, pchip, clamp01 };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.MT = api;
 })(typeof self !== 'undefined' ? self : this);
