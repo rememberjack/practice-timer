@@ -27,8 +27,8 @@ Run only some tests by filtering on the test name:
   build fails if any source contains `</script`.
 - `src/core.js` is pure logic with no DOM, loaded in Node by the tests and exposed as `window.MT` in the page: the
   FFT and `MusicDetector` (music vs. not-music, pitch and instrument), the synthetic test clips (`CLIPS`), `Session`
-  (play / active / total time), `RocketSim`, `DashSim` and `OnsetTracker`. Anything that decides behaviour belongs
-  here, with a test.
+  (play / active / total time), `RocketSim`, `DashSim`, `OnsetTracker` and `WheelSwipe` (trackpad swipes). Anything
+  that decides behaviour belongs here, with a test.
 - The tests live in `core.js` too: `DETECTION_CASES` plus the `list.push(...)` entries in `detectionTests()`. A new
   test is a new entry there; `test/run.js` only runs the list. The same list runs in the page from Settings
   (`btnTests`), so a test must also work in the browser.
@@ -46,6 +46,9 @@ Run only some tests by filtering on the test name:
 - The four themes are panels on one sliding `#track` in `SKINS` order; swipes, trackpad and arrow keys call
   `setSkin()`. Only the theme on screen is drawn, plus the one a swipe is revealing (`visible(i)` in `app.js`). Keep
   it that way: drawing hidden themes made swipes lag on phones.
+- A trackpad swipe arrives as horizontal wheel events, and momentum keeps them coming for a second or two after the
+  fingers lift, so a quick next swipe starts with no pause between. `WheelSwipe` tells a new swipe from momentum; its
+  tests replay wheel events recorded on real Macs and a Windows laptop (`WHEEL_TRACES`).
 - Rocket, City and Dash share the "pixel" chrome (`data-chrome="pixel"`) and must keep the same vertical spacing
   around the scene (controls bar, demo bar, notice) at every screen size. If one theme's padding differs, every swipe
   resizes all the scenes (City refits its camera and reallocates its WebGL buffer) and the page jumps. Check the

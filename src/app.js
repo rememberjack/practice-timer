@@ -621,15 +621,15 @@ function endDrag(e) {
 }
 stage.addEventListener('pointerup', endDrag); stage.addEventListener('pointercancel', () => endDrag(null));
 stage.addEventListener('dragstart', e => e.preventDefault());   // a native drag would cancel the pointer stream mid-swipe
-let wheelX = 0, wheelT = 0, wheelDone = false;   // a two-finger trackpad swipe arrives as horizontal wheel events: one theme per gesture
-stage.addEventListener('wheel', e => {
-  const now = performance.now(); if (now - wheelT > 250) { wheelX = 0; wheelDone = false; } wheelT = now;   // momentum keeps events coming, so a gap marks a new gesture
-  if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
-  e.preventDefault();   // also stops the browser reading it as back/forward
-  if (wheelDone) return;
-  wheelX += e.deltaX * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? stage.clientWidth : 1);
-  if (Math.abs(wheelX) < 60) return; wheelDone = true;
-  setSkin(stepSkin(Math.sign(wheelX)), true);
+const wheel = new MT.WheelSwipe();   // a two-finger trackpad swipe arrives as horizontal wheel events: one theme per swipe, however quickly they follow
+document.addEventListener('wheel', e => {   // the whole page: on a computer the pointer is often over the theme bar or beside the column
+  if (e.ctrlKey || Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;   // pinch zoom; mostly vertical: Classic and the sheets scroll
+  const row = e.target.closest && e.target.closest('#demoClips');
+  if (row && (e.deltaX > 0 ? row.scrollLeft + row.clientWidth < row.scrollWidth - 1 : row.scrollLeft > 0)) return;   // the row of demo sounds scrolls sideways while it can
+  e.preventDefault();   // also stops the browser reading it as back/forward, which would leave the page and lose the session
+  if (row || document.querySelector('dialog[open]')) return;   // no theme change over the demo sounds or behind an open sheet
+  const now = performance.now(), d = wheel.feed({ t: e.timeStamp || now, now: now, drawn: lastF, dx: e.deltaX * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? stage.clientWidth : 1) });
+  if (d) setSkin(stepSkin(d), true);
 }, { passive: false });
 document.addEventListener('keydown', e => { if (document.querySelector('dialog[open]') || /INPUT|TEXTAREA/.test(e.target.tagName)) return;
   if (e.key === 'ArrowRight') setSkin(stepSkin(1), true); else if (e.key === 'ArrowLeft') setSkin(stepSkin(-1), true); });
