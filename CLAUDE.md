@@ -28,7 +28,8 @@ Run only some tests by filtering on the test name:
   header icon) and copies the favicons and home-screen icons from `src/assets/` next to the page.
 - `src/core.js` is pure logic with no DOM, loaded in Node by the tests and exposed as `window.MT` in the page: the
   FFT and `MusicDetector` (music vs. not-music, pitch and instrument), the synthetic test clips (`CLIPS`), `Session`
-  (play / active / total time), `RocketSim`, `DashSim`, `OnsetTracker` and `WheelSwipe` (trackpad swipes). Anything
+  (play / active / total time, and the whole session as runs of playing, quiet and paused), `sessionReport` (the figures in the
+  session summary), `RocketSim`, `DashSim`, `OnsetTracker` and `WheelSwipe` (trackpad swipes). Anything
   that decides behaviour belongs here, with a test.
 - The tests live in `core.js` too: `DETECTION_CASES` plus the `list.push(...)` entries in `detectionTests()`. A new
   test is a new entry there; `test/run.js` only runs the list. The same list runs in the page from Settings

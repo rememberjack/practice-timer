@@ -695,11 +695,47 @@ $('btnTests').onclick = async () => {
 function showRecording() { if (!rec.blob) return; $('recBox').hidden = false;
   try { rec.url = URL.createObjectURL(rec.blob); const a = $('recAudio'); a.hidden = false; a.onerror = () => { a.hidden = true; }; a.src = rec.url; } catch (e) { $('recAudio').hidden = true; } }
 function openSummary() {
-  const s = session, reached = s.play >= s.goal;
+  const s = session, R = MT.sessionReport(s.runs), reached = s.play >= s.goal, T = R.total || 1, dur = MT.clockText;
+  const pct = x => Math.round(x * 100) + '%', el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+  const at = ms => new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  $('sWhen').textContent = s.startedAt ? at(s.startedAt) + '\u2013' + at(s.stoppedAt || Date.now()) : '';
   $('sPlay').textContent = fmt(s.play); $('sCap').textContent = 'of playing' + (S.name ? ', ' + S.name : '');
-  $('sEff').textContent = Math.round(s.efficiency * 100) + '%'; $('sActive').textContent = fmt(s.active);
-  $('sGoal').textContent = fmt(s.goal) + (reached ? ' reached' : ' not reached'); $('sTotal').textContent = fmt(s.total); $('sPauses').textContent = String(s.pauses);
-  $('sTrophy').hidden = !reached; $('sTrophyText').textContent = 'Trophy earned for reaching the ' + goalText(s.goal) + ' practice goal';
+  $('sEff').textContent = pct(s.efficiency);
+  // the goal
+  $('sGoalBox').classList.toggle('done', reached); width($('sGoalBar'), s.goal > 0 ? s.play / s.goal : 0);
+  $('sGoal').textContent = 'Goal ' + Math.round(s.goal / 60) + ' minutes'; $('sTrophy').toggleAttribute('hidden', !reached);   // an svg, which has no .hidden
+  $('sGoalLeft').textContent = reached ? 'Reached, trophy earned' : dur(s.goal - s.play) + ' to go';
+  // where the time went
+  for (const [k, v] of [['P', R.play], ['Q', R.quiet], ['X', R.paused]]) { const i = $('sSplit' + k); i.hidden = v < 0.5; i.style.flexGrow = String(v); }
+  for (const [k, v] of [['Play', R.play], ['Quiet', R.quiet], ['Paused', R.paused]]) { $('sT' + k).textContent = dur(v); $('sP' + k).textContent = pct(v / T); }
+  // minute by minute: one column per step, filled with how much of it was playing, quiet and paused
+  const strip = R.total >= 120, min = R.bin / 60, len = R.longest.b - R.longest.a;
+  $('sStrip').hidden = !strip;
+  $('sStripH').textContent = !strip ? 'Stretches and breaks' : min === 1 ? 'Minute by minute' : 'Every ' + min + ' minutes';
+  if (strip) {
+    $('sCols').replaceChildren(...R.columns.map(c => { const d = el('div'); d.style.flexGrow = String(c.t);
+      for (const k of ['play', 'quiet', 'paused']) if (c[k] > 0) { const i = el('i', 'k-' + k); i.style.height = (c[k] / c.t * 100) + '%'; d.append(i); } return d; }));
+    $('sCols').setAttribute('aria-label', 'Playing time ' + (min === 1 ? 'in each minute' : 'in every ' + min + ' minutes') + '. Efficiency ' +
+      ['at the start', 'in the middle', 'at the end'].map((w, i) => w + ' ' + (R.thirds[i] == null ? 'not measured' : pct(R.thirds[i]))).join(', ') + '.');
+    const st = $('sStretch'), sl = $('sStretchL'), a = R.longest.a / T * 100, b = R.longest.b / T * 100;
+    st.hidden = sl.hidden = len < 1;
+    st.style.left = a + '%'; st.style.width = Math.max(0.5, b - a) + '%'; sl.textContent = 'Longest stretch ' + dur(len);
+    if (a < 50) { sl.style.left = a + '%'; sl.style.right = ''; } else { sl.style.left = ''; sl.style.right = (100 - b) + '%'; }
+    const totalMin = R.total / 60, step = [1, 2, 5, 10, 15, 20, 30, 60].find(m => totalMin / m <= 5) || 120, ticks = [];
+    for (let m = 0; m * 60 / T <= 0.94; m += step) ticks.push(m);
+    $('sAxis').replaceChildren(...ticks.map((m, i) => { const x = el('span', null, i ? String(m) : '0 min'); x.style.left = (m * 60 / T * 100) + '%'; return x; }));
+    const first = R.thirds[0];
+    $('sThirds').replaceChildren(...['Start', 'Middle', 'End'].map((w, i) => { const v = R.thirds[i], d = el('div', v != null && first != null && first - v >= 0.2 ? 'low' : '');
+      d.append(el('b', null, v == null ? '\u2013' : pct(v)), w); return d; }));
+  }
+  const times = n => n === 1 ? 'once' : n + ' times', facts = [
+    ['Longest stretch', len >= 1 ? dur(len) : 'None', len >= 1 ? 'from ' + dur(R.longest.a) + ' to ' + dur(R.longest.b) : 'No playing heard'],
+    R.best ? ['Best ' + R.best.len / 60 + ' minutes', pct(R.best.eff) + ' playing', 'from ' + dur(R.best.a) + ' to ' + dur(R.best.b)]
+           : ['Short gaps', R.gaps ? String(R.gaps) : 'None', R.gaps ? dur(R.gapTime) + ' in all' : '\u00a0'],
+    ['Quiet breaks over 30 s', R.breaks ? String(R.breaks) : 'None', R.breaks ? dur(R.breakTime) + ' in all' : '\u00a0'],
+    ['Paused', R.pauses ? dur(R.paused) : 'No pauses', R.pauses ? times(R.pauses) : '\u00a0'],
+  ];
+  $('sFacts').replaceChildren(...facts.map(f => { const d = el('div'), dd = el('dd', null, f[1]); dd.append(el('small', null, f[2])); d.append(el('dt', null, f[0]), dd); return d; }));
   $('recBox').hidden = !rec.blob;
   if (!$('dlgSummary').open) $('dlgSummary').showModal();
 }
