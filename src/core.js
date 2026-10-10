@@ -33,11 +33,17 @@ function noteOf(f) {
 }
 const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
 
+/* minDb: the quietest sound that is listened to at all (frame level, dBFS). Soft playing from across a room comes in around
+   -70 dB on a phone, so only Strict leaves it out; what is not an instrument is told apart by its pitch, not by its loudness */
 const SENSITIVITY = {
-  strict:  { on: 0.70, off: 0.40, minDb: -52 },
-  normal:  { on: 0.60, off: 0.32, minDb: -58 },
-  lenient: { on: 0.50, off: 0.25, minDb: -64 }
+  strict:  { on: 0.70, off: 0.40, minDb: -55 },
+  normal:  { on: 0.60, off: 0.32, minDb: -80 },
+  lenient: { on: 0.50, off: 0.25, minDb: -95 }
 };
+/* How much a tonal frame counts, by how its pitch behaves (see MusicDetector). A pitch that holds, or swings either side of one
+   note (vibrato), counts in full. A frame with no single pitch (a chord), the first frame of a new note, or a pitch that drifts
+   counts for less, unless most of the pitched sound in the last couple of seconds held its notes (ctx), as an instrument's does */
+const NOTE = { none: 0.7, step: 0.9, fresh: 0.5, drift: 0.15, lifted: 0.95, ctxT: 2, ctx0: 0.35, ctxW: 0.25, ctxStart: 0.45 };
 
 const INSTRUMENTS = {
   piano:    { name: 'Piano',    detail: 'Struck strings: each note rings, then fades' },
@@ -51,7 +57,8 @@ const INSTRUMENTS = {
    Feed it one frame of raw samples (latest N samples) plus the time since the previous frame.
    It decides, frame by frame, whether the sound is a musical instrument:
    1. spectrum -> sharp, stable partials (tonal energy ratio) separate instruments from noise
-   2. pitch track -> gliding pitch and short broken-up voiced bursts separate talking from playing
+   2. pitch track -> an instrument holds each note (or swings either side of it, with vibrato) and steps to the next;
+      a voice glides, wanders and jumps about, even in a room whose echo joins its syllables up
    3. slow per-bin floor absorbs constant hums (fridge, fan, mains)
    4. smoothed score with hysteresis gives the on/off decision */
 class MusicDetector {
@@ -74,7 +81,7 @@ class MusicDetector {
     this.hp = new Float64Array(17);
     this.pf = new Float64Array(4); this.pd = new Float64Array(4);
     this.lh = new Float64Array(6); this.lp = new Float64Array(6); this.lpf = new Float64Array(6); this.lt = new Uint8Array(6); this.fq = new Int8Array(6);
-    this.hist = new Float32Array(128);
+    this.hist = new Float32Array(128); this.ch = new Float64Array(8); this.seg = new Float64Array(8);
     this.setSensitivity(opts.sensitivity || 'normal');
     this.out = { levelDb: -120, active: false, tonal: false, ter: 0, pitch: 0, note: '', score: 0,
       isMusic: false, kind: 'quiet', label: 'Quiet', detail: '', instrument: '' };
@@ -83,8 +90,8 @@ class MusicDetector {
   setSensitivity(name) { this.sens = SENSITIVITY[name] || SENSITIVITY.normal; }
   reset() {
     this.floor.fill(1e-9); this.pf.fill(0); this.pd.fill(0.05);
-    this.score = 0; this.isMusic = false; this.run = 0; this.glideHold = 0; this.flat = 0; this.bridge = 0;
-    this.lh.fill(-120); this.lp.fill(0); this.lpf.fill(0); this.lt.fill(0); this.fq.fill(-1); this.P0.fill(0); this.hist.fill(0);
+    this.score = 0; this.isMusic = false; this.glideHold = 0; this.flat = 0; this.bridge = 0;
+    this.ch.fill(NaN); this.held = false; this.ctx = NOTE.ctxStart; this.lh.fill(-120); this.lp.fill(0); this.lpf.fill(0); this.lt.fill(0); this.fq.fill(-1); this.P0.fill(0); this.hist.fill(0);
     this.duty = 0; this.trans = 0; this.prevLevel = -120; this.prevLevel2 = -120;
     this.lm = -80; this.lv = 0;
     // what the instrument sounds like: averages that start from a guess worth three frames, then keep a 2.5 s memory (vibrato: 5 s, no guess)
@@ -187,7 +194,7 @@ class MusicDetector {
     }
 
     const active = level > this.sens.minDb;
-    const tonal = active && ter >= 0.3 && np >= 1 && maxPk > 1e-7;
+    const tonal = active && ter >= 0.3 && np >= 1 && maxPk > Math.pow(10, (this.sens.minDb - 15) / 10);   // the strongest partial clears the floor too
     const pitch = tonal && harm >= 0.6 ? f0 : 0;
 
     // pitch glide: talking slides, instruments hold or step (vibrato reverses too fast to count)
@@ -208,15 +215,40 @@ class MusicDetector {
     if (glide) this.glideHold = 0.25; else this.glideHold -= dt;
 
     // frame quality and smoothed decision
-    // a burst that holds one pitch (a detached note) earns full credit and carries over a short gap
+    // a burst that holds one pitch (a detached note) carries over a short gap
     if (pf[3] > 0 && pf[2] > 0 && Math.abs(1200 * Math.log2(pf[3] / pf[2]) / dt) < 150) this.flat++; else if (pf[3] > 0 || !tonal) this.flat = 0;
+    // Does the pitch hold like a played note? It is followed back to the last step to another note, up to 8 frames
+    // (an octave jump is the pitch tracker's mistake, not a step): within 3 cents plus 4 a frame it holds; vibrato swings
+    // either side of one pitch, so the average of the later half stays near that of the earlier half; talking wanders off
+    const ch = this.ch, seg = this.seg; for (let i = 0; i < 7; i++) ch[i] = ch[i + 1];
+    ch[7] = pitch > 0 && fine > 0 ? 1200 * Math.log2(fine / 440) : NaN;
+    let L = 0, lo = 0, hi = 0, turns = 0;
+    if (ch[7] === ch[7]) { L = 1; seg[7] = lo = hi = ch[7];
+      for (let i = 6; i >= 0; i--) { if (!(ch[i] === ch[i])) break;
+        let d = ch[i] - ch[i + 1]; d -= 1200 * Math.round(d / 1200); if (Math.abs(d) >= 80) break;
+        const v = seg[i] = seg[i + 1] + d; L++; if (v < lo) lo = v; if (v > hi) hi = v;
+        if (i < 6 && (seg[i + 1] - v) * (seg[i + 2] - seg[i + 1]) < 0) turns++; } }
+    let note = 0;
+    if (tonal) {
+      if (!L) note = NOTE.none;
+      else if (L === 1) note = this.held ? NOTE.step : NOTE.fresh;
+      else if (hi - lo <= 3 + 4 * L) note = 1;
+      else if (L >= 5 && turns >= 2 && hi - lo <= 100) {
+        const h = L >> 1; let m1 = 0, m2 = 0; for (let i = 0; i < h; i++) { m1 += seg[8 - L + i]; m2 += seg[7 - i]; }
+        note = Math.abs(m2 - m1) / h <= 15 ? 1 : NOTE.drift;
+      } else note = NOTE.drift;
+    }
+    this.held = note === 1;
+    // the share of the pitched sound lately that held its notes: most of it while an instrument plays, little while talking.
+    // While it is high, the frames in between count almost fully too, and a step between notes is not taken for a glide
+    if (L) this.ctx += ((note === 1 ? 1 : 0) - this.ctx) * (1 - Math.exp(-dt / NOTE.ctxT));
+    const lift = clamp01((this.ctx - NOTE.ctx0) / NOTE.ctxW);
+    if (tonal && note < 1) note += (NOTE.lifted - note) * lift;
     let q = 0;
     if (tonal) {
-      this.run += dt;
-      q = clamp01((ter - 0.3) / 0.3) * (this.flat >= 2 ? 1 : Math.min(1, Math.max(0.5, this.run / 0.2)));
-      if (this.glideHold > 0) { q *= 0.1; this.bridge = 0; } else if (this.flat >= 2) this.bridge = 0.2;
+      q = clamp01((ter - 0.3) / 0.3) * note;
+      if (this.glideHold > 0) { q *= 0.1 + 0.9 * lift; if (lift < 0.5) this.bridge = 0; } else if (this.flat >= 2) this.bridge = 0.2;
     } else {
-      this.run = 0;
       if (this.bridge > 0 && this.glideHold <= 0) { q = 0.6; this.bridge -= dt; }
     }
     this.score += (q - this.score) * (1 - Math.exp(-dt / 0.8));
@@ -475,6 +507,31 @@ function synthNoise(sr, total, kind, level, seed) {
   } else for (let i = 0; i < out.length; i++) out[i] = 0.0004 * (R() * 2 - 1);
   return out;
 }
+/* A sound played across a room from the phone. The direct sound falls off with distance (dist metres, 1 m as recorded); the
+   echo (rt60: seconds to die away, the highs sooner) fills the room evenly, as strong as the direct sound at 0.9 m.
+   gainDb sets how loud the playing is, and the room has a quiet hum of its own (noiseDb, dBFS: ventilation, traffic). */
+function inRoom(sr, x, o) {
+  const R = rng(o.seed || 61), rt = o.rt60 || 0.5, n = Math.floor(rt * 1.2 * sr), h = new Float64Array(n), g0 = Math.pow(10, (o.gainDb || 0) / 20);
+  let lp = 0, e = 0;
+  for (let i = 0; i < n; i++) { const t = i / sr, w = R() * 2 - 1; lp += 0.2 * (w - lp);
+    h[i] = Math.min(1, t / 0.005) * (2 * lp * Math.exp(-6.9 * t / (rt * 1.15)) + w * Math.exp(-6.9 * t / (rt * 0.6))); e += h[i] * h[i]; }
+  const B = 16384; let M = 1; while (M < B + n) M <<= 1;
+  const Hr = new Float64Array(M), Hi = new Float64Array(M), re = new Float64Array(M), im = new Float64Array(M), out = new Float32Array(x.length);
+  for (let i = 0; i < n; i++) Hr[i] = h[i] * g0 / (0.9 * Math.sqrt(e)); fft(Hr, Hi);
+  for (let p = 0; p < x.length; p += B) {                                  // the echo, by FFT, a block at a time
+    re.fill(0); im.fill(0); for (let i = 0; i < B && p + i < x.length; i++) re[i] = x[p + i];
+    fft(re, im);
+    for (let k = 0; k < M; k++) { const a = re[k] * Hr[k] - im[k] * Hi[k], b = re[k] * Hi[k] + im[k] * Hr[k]; re[k] = a; im[k] = -b; }
+    fft(re, im);                                                             // the inverse, by way of the conjugate
+    for (let i = 0; i < M && p + i < out.length; i++) out[p + i] += re[i] / M;
+  }
+  const d = g0 / (o.dist || 1), nz = Math.pow(10, (o.noiseDb == null ? -80 : o.noiseDb) / 20) * 2.4;
+  let b0 = 0, b1 = 0, b2 = 0, rum = 0;
+  for (let i = 0; i < x.length; i++) { const w = R() * 2 - 1;
+    b0 = 0.99765 * b0 + w * 0.0990460; b1 = 0.96300 * b1 + w * 0.2965164; b2 = 0.57000 * b2 + w * 1.0526913; rum += 0.015 * ((R() * 2 - 1) - rum);
+    out[i] += x[i] * d + nz * (0.1 * (b0 + b1 + b2 + w * 0.1848) + 2 * rum); }
+  return out;
+}
 function mix(a, b, gainB) { const out = new Float32Array(Math.max(a.length, b.length));
   for (let i = 0; i < out.length; i++) out[i] = (a[i] || 0) + gainB * (b[i] || 0); return out; }
 function concat(list) { let n = 0; for (const a of list) n += a.length; const out = new Float32Array(n);
@@ -510,7 +567,16 @@ const CLIPS = {
   fluteLow:     sr => synthPlayed(sr, 'flute', mel([60, 62, 64, 65, 67, 69, 67, 65, 64, 62, 60, 64], 0.5), { seed: 47 }),
   fluteHigh:    sr => synthPlayed(sr, 'flute', mel([81, 83, 84, 86, 88, 89, 91, 89, 88, 86, 84, 83], 0.45), { seed: 48 }),
   pianoTune:    sr => synthPiano(sr, [67, 64, 64, 65, 62, 62, 60, 62, 64, 65, 67, 67, 67, 64, 64, 65, 62, 62].map((m, i) => [0.1 + i * 0.32, m, 0.3]), 6.2, 0.18, 50),
-  pianoScale:   sr => synthPiano(sr, [48, 50, 52, 53, 55, 57, 59, 60, 62, 64, 65, 67, 65, 64, 62, 60, 59, 57, 55, 53, 52, 50, 48, 50, 52].map((m, i) => [0.1 + i * 0.25, m, 0.24]), 6.6, 0.18, 51)
+  pianoScale:   sr => synthPiano(sr, [48, 50, 52, 53, 55, 57, 59, 60, 62, 64, 65, 67, 65, 64, 62, 60, 59, 57, 55, 53, 52, 50, 48, 50, 52].map((m, i) => [0.1 + i * 0.25, m, 0.24]), 6.6, 0.18, 51),
+  // played softly, with the phone across the room: about -70 dB at the phone, mostly echo, over the room's own hum
+  roomViolin:   sr => inRoom(sr, synthPlayed(sr, 'violin', mel([67, 69, 71, 74, 76, 74, 72, 71, 69, 67, 71, 74], 0.5), { seed: 52 }), { gainDb: -58, dist: 3, seed: 62 }),
+  roomFlute:    sr => inRoom(sr, synthPlayed(sr, 'flute', mel([72, 74, 76, 77, 79, 77, 76, 74, 72, 76, 79, 77], 0.5), { seed: 53, level: 0.1 }), { gainDb: -52, dist: 4, seed: 63 }),
+  roomCello:    sr => inRoom(sr, synthPlayed(sr, 'cello', mel([43, 45, 47, 48, 50, 52, 50, 48, 47, 45, 43, 50], 0.55), { seed: 54 }), { gainDb: -56, dist: 3, rt60: 0.7, seed: 64 }),
+  roomPiano:    sr => inRoom(sr, synthPiano(sr, [60, 64, 67, 72, 71, 67, 64, 62, 60, 65, 69, 72, 67, 64, 60, 62].map((m, i) => [0.1 + i * 0.36, m, 0.34]), 6.2, 0.18, 55), { gainDb: -54, dist: 4, seed: 65 }),
+  // talking near the phone in a room whose echo joins up the syllables, and talking quietly across the room
+  roomTalk:     sr => inRoom(sr, synthSpeech(sr, 6, 120, 56), { gainDb: -12, dist: 1, seed: 66 }),
+  roomTalkHigh: sr => inRoom(sr, synthSpeech(sr, 6, 230, 57), { gainDb: -12, dist: 1, seed: 67 }),
+  roomTalkFar:  sr => inRoom(sr, synthSpeech(sr, 6, 150, 58), { gainDb: -30, dist: 3, seed: 68 })
 };
 
 /* Run a clip through the detector exactly as the live app does and return a timeline. */
@@ -549,6 +615,11 @@ const DETECTION_CASES = [
   { name: 'Flute, high register', clip: 'fluteHigh', music: true, inst: 'Flute' },
   { name: 'Piano tune, one note at a time', clip: 'pianoTune', music: true, inst: 'Piano' },
   { name: 'Piano scale, no chords', clip: 'pianoScale', music: true, inst: 'Piano' },
+  // soft playing with the phone across a room: the echo is louder than the playing itself
+  { name: 'Soft violin, phone across the room', clip: 'roomViolin', music: true, inst: 'Violin' },
+  { name: 'Soft flute, phone across the room', clip: 'roomFlute', music: true, inst: 'Flute' },
+  { name: 'Soft cello in an echoing room', clip: 'roomCello', music: true, inst: 'Cello' },
+  { name: 'Quiet piano, phone across the room', clip: 'roomPiano', music: true, inst: 'Piano' },
   { name: 'Talking, low voice', clip: 'talk', music: false },
   { name: 'Talking, high voice', clip: 'talkHigh', music: false },
   { name: 'Talking, flat monotone', clip: 'talkFlat', music: false },
@@ -556,7 +627,10 @@ const DETECTION_CASES = [
   { name: 'Fan-like rumble (pink noise)', clip: 'pink', music: false },
   { name: 'Clapping', clip: 'claps', music: false },
   { name: 'Quiet room', clip: 'quiet', music: false },
-  { name: 'Constant mains hum (after it settles)', clip: 'hum', music: false, from: 18 }
+  { name: 'Constant mains hum (after it settles)', clip: 'hum', music: false, from: 18 },
+  { name: 'Talking in a room with an echo', clip: 'roomTalk', music: false },
+  { name: 'Talking in a high voice, room with an echo', clip: 'roomTalkHigh', music: false },
+  { name: 'Talking quietly across the room', clip: 'roomTalkFar', music: false }
 ];
 /* One function per test, so a page can run them one at a time without freezing. */
 function detectionTests(sr) {
