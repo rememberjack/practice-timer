@@ -647,6 +647,46 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
   #yMsg{font-size:15px; padding:14px 20px}
   #dBanner{font-size:19px; padding:10px 18px}
 }
+/* ---------- Home Screen: always in the Classic colours, whatever theme is chosen; calm, with one accent ---------- */
+#home{position:fixed; inset:0; z-index:4; background:var(--paper); color:var(--ink); font-family:var(--sans); padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px)}
+.hm{height:100%; max-width:560px; margin:0 auto; display:flex; flex-direction:column; padding:0 22px}
+.hm-top{flex:none; display:flex; align-items:center; gap:10px; padding:12px 0}
+.hm-icon{width:30px; height:30px; border-radius:9px; display:block}
+.hm-name{flex:1; font-size:17px; font-weight:700; letter-spacing:-.01em}
+.hm-ib{width:44px; height:44px; display:grid; place-items:center; border:0; border-radius:12px; background:none; color:var(--mute)}
+.hm-ib svg{width:22px; height:22px}
+.hm-main{flex:1; min-height:0; display:flex; flex-direction:column; justify-content:center; gap:28px; overflow-y:auto; scrollbar-width:none}
+.hm-main > *{flex:none}
+.hm-hello{margin:0; color:var(--mute); font-size:16px}
+.hm-head{margin:6px 0 0; font-size:34px; line-height:1.12; font-weight:800; letter-spacing:-.03em}
+.hm-lede{margin:10px 0 0; color:var(--mute); font-size:16px; line-height:1.45; max-width:30ch}
+.hm-week{padding-top:18px; border-top:1px solid var(--rule)}
+.hm-big{display:flex; align-items:baseline; flex-wrap:wrap; gap:0 8px; margin:0}
+.hm-big b{font-size:28px; font-weight:800; letter-spacing:-.02em}
+.hm-big span{color:var(--mute); font-size:15px}
+.hm-dots{display:grid; grid-template-columns:repeat(7, 1fr); gap:6px; margin-top:14px; max-width:320px}
+.hm-dots div{display:grid; justify-items:center; align-content:end; gap:6px; height:32px; font-size:11px; color:var(--mute-2)}
+.hm-dots i{width:5px; height:5px; margin:3.5px 0; border-radius:50%; background:var(--rule)}   /* a day without playing is just a quiet dot, not an empty box */
+.hm-dots i.on{width:12px; height:12px; margin:0; background:var(--accent)}
+.hm-dots .t{color:var(--ink); font-weight:700}
+.hm-note{margin:12px 0 0; color:var(--mute); font-size:14px; line-height:1.4}
+.hm-note:first-child{margin-top:0}
+.hm-note b{color:var(--ink); font-weight:600}
+.hm-first{display:grid; gap:12px; margin:0; padding:0; list-style:none}
+.hm-first li{display:grid; grid-template-columns:22px 1fr; gap:10px; color:var(--mute); font-size:15px; line-height:1.4}
+.hm-first li svg{width:22px; height:22px; color:var(--accent); margin-top:-1px}
+.hm-first li b{color:var(--ink); font-weight:600}
+.hm-with{display:flex; align-items:center; flex-wrap:wrap; gap:10px; color:var(--mute); font-size:14px}
+.hm-with b{color:var(--ink); font-weight:600}
+.hm-chips{display:flex; gap:6px}
+.hm-chips button{width:44px; height:44px; border-radius:12px; display:grid; place-items:center; color:var(--mute-2); background:none; border:0; box-shadow:inset 0 0 0 1px var(--rule)}
+.hm-chips svg{width:20px; height:20px}
+.hm-chips button[aria-pressed="true"]{color:var(--on-accent); background:var(--accent); box-shadow:none}
+.hm-foot{flex:none; padding:10px 0 16px}
+.hm-go{width:100%; min-height:58px; border:0; border-radius:18px; background:var(--accent); color:var(--on-accent); font-size:19px; font-weight:800}
+.hm-go:active{transform:translateY(1px)}
+@media (max-height:600px){ .hm-main{gap:18px} .hm-head{font-size:28px} }
+@media (min-width:700px) and (min-height:600px){ .hm{max-width:600px} .hm-head{font-size:46px} .hm-lede{font-size:18px} .hm-big b{font-size:34px} .hm-main{gap:40px} }
 @media (prefers-reduced-motion: reduce){ *{transition-duration:.01ms !important} }
 </style>
 </head>
@@ -800,6 +840,34 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
     <p class="keep">Keep this page open while timing.</p>
   </footer>
 </div>
+
+<!-- Home Screen: shown when the app opens and after a session's summary is closed. Low pressure: what was played, never what was missed -->
+<section id="home" hidden aria-labelledby="homeHead">
+  <div class="hm">
+    <header class="hm-top">
+      <img class="hm-icon" id="homeIcon" alt="" width="84" height="84">
+      <span class="hm-name">Music Timer</span>
+      <button class="hm-ib" id="homeLog" aria-label="Practice log"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4M8 14h2M14 14h2M8 17h2"/></svg></button>
+      <button class="hm-ib" id="homeSet" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg></button>
+    </header>
+    <div class="hm-main">
+      <div><p class="hm-hello" id="homeHello"></p><h2 class="hm-head" id="homeHead"></h2><p class="hm-lede" id="homeLede"></p></div>
+      <ul class="hm-first" id="homeFirst" hidden>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.6L16 9.6"/></svg><span><b>Play anything you like.</b> Scales, songs, or just noodling around.</span></li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.6L16 9.6"/></svg><span><b>Pauses never count against you.</b> The timer simply waits.</span></li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.6L16 9.6"/></svg><span><b>Your playing adds up</b> here, week by week.</span></li>
+      </ul>
+      <div class="hm-week" id="homeWeek" hidden>
+        <p class="hm-big" id="homeBig"><b id="homeTime"></b> <span>of music this week</span></p>
+        <p class="hm-note" id="homeFresh"></p>
+        <div class="hm-dots" id="homeDots" role="img"></div>
+        <p class="hm-note" id="homeNote"></p>
+      </div>
+      <div class="hm-with"><div class="hm-chips" id="homeThemes" role="group" aria-label="Theme"></div><span>Playing with <b id="homeTheme"></b></span></div>
+    </div>
+    <div class="hm-foot"><button class="hm-go" id="homeGo">Start playing</button></div>
+  </div>
+</section>
 
 <dialog id="dlgSettings" aria-labelledby="setH">
   <div class="sh-head"><h2 id="setH">Settings</h2><button class="btn solid" id="setClose">Done</button></div>

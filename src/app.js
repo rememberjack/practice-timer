@@ -410,6 +410,7 @@ function paintControls() {
   $('btnSummary').hidden = st !== 'stopped';
   $('btnPause').hidden = st !== 'running'; $('btnResume').hidden = st !== 'paused'; $('btnStop').hidden = !(st === 'running' || st === 'paused');
   $('btnUnfollow').hidden = st !== 'follow';
+  if (st === 'running' || st === 'paused' || st === 'follow') hideHome();
   const lock = st === 'running' || st === 'paused' || st === 'follow';
   for (const b of $('segSource').children) b.disabled = lock;
   $('btnTests').disabled = st === 'running' || testing;
@@ -647,15 +648,17 @@ function refreshSkins() {
   setSkin(open.includes(skin) ? skin : 0, false);
 }
 function stepSkin(d) { const p = open.indexOf(skin) + d; return open[Math.max(0, Math.min(open.length - 1, p))]; }   // the next open theme that way, or the same one at either end
-/* Only the theme on screen is drawn, plus the one a swipe is revealing. Each scene is costly (City is WebGL), so drawing every theme while a finger is down made swipes lag. */
-function visible(i) { return i === skin || (dragging && i === peek); }
+/* Only the theme on screen is drawn, plus the one a swipe is revealing. Each scene is costly (City is WebGL), so drawing every theme while a finger is down made swipes lag.
+   Nothing is drawn while the Home Screen covers the themes. */
+let homeOn = false;
+function visible(i) { return !homeOn && (i === skin || (dragging && i === peek)); }
 function setSkin(i, animate) {
   skin = i; app.dataset.skin = SKINS[i]; app.dataset.chrome = i === 0 ? 'clean' : 'pixel'; S.skin = SKINS[i]; saveS();
   if (i === 2) city.ensure();
   track.style.transition = animate && !reduceMotion ? 'transform .3s cubic-bezier(.2,.8,.2,1)' : 'none';
   track.style.transform = 'translateX(' + (-open.indexOf(i) * 100 / open.length) + '%)';
   PANELS.forEach((id, j) => { $(id).inert = j !== i; });
-  paintSkinBar();
+  paintSkinBar(); if (homeOn) paintHomeThemes();
   layoutChanged();
 }
 /* The theme bar: each theme's icon (the #ico-<theme> symbols in the page), the current one lit. Tapping an icon goes to that theme. */
@@ -911,6 +914,45 @@ $('logOlder').onclick = () => { logShown += 30; renderLog(); };
 $('logStart').onclick = () => { $('dlgLog').close(); if ($('dlgSummary').open) $('dlgSummary').close(); start(); };
 $('sumLog').onclick = () => { $('dlgSummary').close(); openLog(); };
 
+/* ---------- Home Screen: shown when the app opens and after a finished session's summary is closed. Start playing goes into the chosen theme ---------- */
+const homeEl = $('home');
+$('homeIcon').src = document.querySelector('#top .app-icon img').src;     // the same embedded icon as the title row
+const homeChips = SKINS.map((id, i) => { const b = el('button'); b.type = 'button'; b.setAttribute('aria-label', SKIN_NAMES[i]);
+  b.innerHTML = '<svg aria-hidden="true"><use href="#ico-' + id + '"/></svg>'; b.onclick = () => { if (open.includes(i)) setSkin(i, false); }; $('homeThemes').append(b); return b; });
+function paintHomeThemes() {
+  homeChips.forEach((b, i) => { b.hidden = !open.includes(i); b.setAttribute('aria-pressed', String(i === skin)); });
+  $('homeTheme').textContent = SKIN_NAMES[skin];
+}
+function renderHome() {
+  const now = Date.now(), P = MT.practiceStats(log, now), c = MT.homeCopy(P, log.length ? log[log.length - 1] : null, now);
+  $('homeHello').textContent = c.hello + (S.name ? ', ' + S.name : '');
+  $('homeHead').textContent = c.head; $('homeLede').textContent = c.lede;
+  $('homeFirst').hidden = c.kind !== 'first'; $('homeWeek').hidden = c.kind === 'first';
+  if (c.kind !== 'first') {
+    const week = P.weekPlay > 0;
+    $('homeBig').hidden = !week; $('homeTime').textContent = MT.durationText(P.weekPlay);
+    $('homeFresh').hidden = week; $('homeFresh').textContent = c.fresh || '';
+    $('homeDots').hidden = !week;
+    $('homeDots').replaceChildren(...P.week.map(d => { const w = el('div', d.today ? 't' : ''); w.append(el('i', d.play > 0 ? 'on' : ''), d.date.toLocaleDateString([], { weekday: 'narrow' })); return w; }));
+    $('homeDots').setAttribute('aria-label', 'Days with music this week: ' + (P.week.filter(d => d.play > 0).map(d => d.date.toLocaleDateString([], { weekday: 'long' })).join(', ') || 'none yet') + '.');
+    $('homeNote').textContent = c.note || '';
+  }
+  $('homeGo').textContent = c.kind === 'today' ? 'Play again' : 'Start playing';
+  paintHomeThemes();
+}
+function showHome() {
+  if (mode === 'follow' || session.state === 'running' || session.state === 'paused') return;
+  renderHome(); homeEl.hidden = false; homeOn = true; app.inert = true;
+}
+function hideHome() { if (!homeOn) return; homeEl.hidden = true; homeOn = false; app.inert = false; layoutChanged(); }
+$('homeGo').onclick = () => { hideHome(); start(); };
+$('homeLog').onclick = openLog;
+$('homeSet').onclick = () => $('btnSettings').click();
+// back to the Home Screen once a finished session's summary is put away (not when going on to the practice log)
+$('dlgSummary').addEventListener('close', () => { if (session.state === 'stopped' && !$('dlgLog').open) showHome(); });
+$('dlgSettings').addEventListener('close', () => { if (homeOn) renderHome(); });   // a new name shows in the greeting
+$('dlgLog').addEventListener('close', () => { if (homeOn) renderHome(); });       // sessions deleted from the log
+
 /* ---------- go ---------- */
 /* Rocket and City read-outs: tap them to fold them down to play time and power, leaving more of the scene in view */
 function setHudCompact(on) { S.hudCompact = on; saveS();
@@ -922,7 +964,7 @@ for (const el of [$('hud'), $('cityHud'), $('dashHud')]) {
   el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setHudCompact(!S.hudCompact); } });
 }
 setHudCompact(!!S.hudCompact);
-refreshSkins(); paintGoal(); paintControls(); paintDemoBar();
+refreshSkins(); paintGoal(); paintControls(); paintDemoBar(); showHome();
 try { const b = document.querySelector('meta[name="build"]'); $('ver').textContent = 'Version ' + (b && b.content && b.content.indexOf('__') < 0 ? b.content : 'dev'); } catch (e) {}
 if (S.source === 'mic' && (micPolicyBlocked() || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia))
   showNotice('mic', framed ? MIC_FRAMED : micMessage({ name: window.isSecureContext === false ? 'Insecure' : 'Unsupported' }), 'Use demo sound', useDemoAction);
