@@ -29,6 +29,9 @@ Node 20+, no dependencies to install.
   totals, calendar) come from `practiceStats` in `src/core.js`, which also works out a streak that is not shown for now.
 - A day can hold several sessions. The calendar, week bars and Home Screen add up the whole day; `dayRecap` and `dayLine` give the
   summary's "Today" block (each session of the day, and the day's goal, which is that of its latest session).
+- Each saved session keeps where the rocket got to if it is in space or Moon orbit (`RocketSim.save`); the next session
+  that day carries on from it (`rocketCarry`). Below space, and on a new day, it starts on the pad. Demo and unsaved
+  sessions never move the carried flight.
 - The Home Screen (`#home`) shows when the app opens and after a finished session's summary is closed; its words come
   from `homeCopy` in `src/core.js`. No theme scene is drawn while it covers them.
 - Theme renderers in `src/` only draw; `src/app.js` wires everything together. Some themes load three.js r128 from
@@ -44,6 +47,9 @@ Node 20+, no dependencies to install.
   size, or swipes make the page jump.
 - Opened from an iPhone Home Screen, the page gets a solid black status bar (`apple-mobile-web-app-status-bar-style`).
   With a see-through one, iOS blurs whatever the page draws behind it, which blurred the title.
+- Detection must count soft playing with the phone across a room (about -70 dB at the microphone, mostly echo) and must not
+  count talking in a room whose echo joins the syllables up. The room tests in `DETECTION_CASES` cover both; talking is told
+  apart by how its pitch moves (`NOTE` in `src/core.js`), not by its loudness, so raising `minDb` is not the fix for it.
 
 ## Testing
 
