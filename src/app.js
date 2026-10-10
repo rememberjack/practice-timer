@@ -92,7 +92,7 @@ async function openMic(ctx) {
   try {
     if (ctx.state === 'suspended') await Promise.race([ctx.resume().catch(() => {}), new Promise(r => setTimeout(r, 1200))]);
     const track = stream.getAudioTracks()[0];
-    if (track) track.onended = () => { if (session.state === 'running' || session.state === 'paused') showNotice('mic', 'The microphone stopped. Stop the session and start again to reconnect it.', '', null); };
+    if (track) track.onended = () => { if (session.state === 'running' || session.state === 'paused') showNotice('mic', 'The microphone stopped. End the session and start again to reconnect it.', '', null); };
     setDetector(ctx.sampleRate);
     const src = ctx.createMediaStreamSource(stream), an = ctx.createAnalyser();
     an.fftSize = A.det.N; an.smoothingTimeConstant = 0; src.connect(an);
