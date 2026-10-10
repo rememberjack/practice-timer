@@ -515,15 +515,15 @@ function drawTrail(w, h) {
 }
 
 /* spectrogram: one column per detector frame (46 ms), taken from the detector's full power spectrum, about 11 Hz per bin.
-   Rows run from 60 Hz to 6 kHz on a log scale, so each octave gets the same height, like the keyboard. Brightness follows the
+   Rows run from 60 Hz to 6 kHz on a log scale, so each octave gets the same height, like the keyboard. Colour follows the
    loudest recent sound over a 70 dB range, so a quiet microphone still shows its overtones while silence stays dark.
    A device following a session has no spectrum, only the 44 shared level bands, so it draws its columns from those. */
 const SG_ROWS = 192, SG_COLS = 150, SG_LO = 60, SG_HI = 6000, SG_DT = 0.046, SG_RANGE = 70;
 const sgCv = document.createElement('canvas'); sgCv.width = SG_COLS; sgCv.height = SG_ROWS;
 const sgG = sgCv.getContext('2d'), sgCol = sgG.createImageData(1, SG_ROWS), sgV = new Float32Array(SG_ROWS);
 let sgAt = 0, sgAcc = 0, sgRef = -40, sgInit = false;
-const SG_LUT = (function () {                                   // dark navy, blue, teal, the theme's mint, then nearly white
-  const stops = [[0, 0x080D15], [0.28, 0x15305A], [0.52, 0x1D7C8E], [0.78, 0x86DCC0], [1, 0xF4FFF9]], lut = new Uint8Array(256 * 3);
+const SG_LUT = (function () {                                   // near black, violet, magenta, orange, yellow, then pale yellow: each step louder is a new colour
+  const stops = [[0, 0x080D15], [0.18, 0x2A1260], [0.38, 0x7A1FA2], [0.56, 0xD8327E], [0.72, 0xFF6A3D], [0.87, 0xFFC23A], [1, 0xFFF6C8]], lut = new Uint8Array(256 * 3);
   for (let i = 0; i < 256; i++) { const t = i / 255; let j = 0; while (j < stops.length - 2 && t > stops[j + 1][0]) j++;
     const [t0, c0] = stops[j], [t1, c1] = stops[j + 1], u = Math.min(1, Math.max(0, (t - t0) / (t1 - t0)));
     for (let k = 0; k < 3; k++) { const sh = 16 - 8 * k, a = (c0 >> sh) & 255, b = (c1 >> sh) & 255; lut[i * 3 + k] = Math.round(a + (b - a) * u); } }
@@ -540,7 +540,7 @@ function sgColumn(live) {
       else { p = 0; for (let k = Math.floor(x0), e = Math.min(top, Math.ceil(x1)); k <= e; k++) if (P[k] > p) p = P[k]; }          // high notes: the strongest bin in the row
       const d = 10 * Math.log10(p + 1e-20); sgV[r] = d; if (d > peak) peak = d; }
     sgRef = Math.max(peak, sgRef - 0.15, -40);                      // follows a louder sound at once and a quieter one by about 3 dB a second
-    for (let r = 0; r < SG_ROWS; r++) { const v = (sgV[r] - sgRef + SG_RANGE) / SG_RANGE; sgV[r] = v <= 0 ? 0 : v >= 1 ? 1 : Math.pow(v, 1.5); }
+    for (let r = 0; r < SG_ROWS; r++) { const v = (sgV[r] - sgRef + SG_RANGE) / SG_RANGE; sgV[r] = v <= 0 ? 0 : v >= 1 ? 1 : Math.pow(v, 1.25); }
   } else {
     const L = Math.log(5000 / 70), step = Math.pow(SG_HI / SG_LO, 1 / SG_ROWS);
     for (let r = 0, f = SG_LO * Math.sqrt(step); r < SG_ROWS; r++, f *= step) {
