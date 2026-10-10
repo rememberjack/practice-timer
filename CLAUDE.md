@@ -45,6 +45,9 @@ Node 20+, no dependencies to install.
   size, or swipes make the page jump.
 - Opened from an iPhone Home Screen, the page gets a solid black status bar (`apple-mobile-web-app-status-bar-style`).
   With a see-through one, iOS blurs whatever the page draws behind it, which blurred the title.
+- Detection must count soft playing with the phone across a room (about -70 dB at the microphone, mostly echo) and must not
+  count talking in a room whose echo joins the syllables up. The room tests in `DETECTION_CASES` cover both; talking is told
+  apart by how its pitch moves (`NOTE` in `src/core.js`), not by its loudness, so raising `minDb` is not the fix for it.
 
 ## Testing
 
