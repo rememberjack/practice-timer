@@ -196,7 +196,12 @@ async function start() {
   keepAwake(); paintControls(); push(true);
 }
 function pause() { if (!session.pause()) return; dash.mark(); music = false; recCall('pause'); paintControls(); push(true); }
-function resume() { if (!session.resume()) return; if (A.ctx && A.ctx.state !== 'running') A.ctx.resume().catch(() => {}); if (A.det) { A.det.score = 0; A.det.isMusic = false; } recCall('resume'); lastT = performance.now(); paintControls(); push(true); }
+/* opening the practice log or Settings pauses a running session, so nothing counts while you look; closing it carries on,
+   unless the session was already paused by hand */
+let sheetPaused = false;
+function pauseForSheet() { if (mode === 'local' && session.state === 'running') { pause(); sheetPaused = true; } }
+function resumeAfterSheet() { if (!sheetPaused || $('dlgSettings').open || $('dlgLog').open) return; sheetPaused = false; if (session.state === 'paused') resume(); }
+function resume() { sheetPaused = false; if (!session.resume()) return; if (A.ctx && A.ctx.state !== 'running') A.ctx.resume().catch(() => {}); if (A.det) { A.det.score = 0; A.det.isMusic = false; } recCall('resume'); lastT = performance.now(); paintControls(); push(true); }
 function stop() {
   if (!session.stop()) return;
   clearInterval(timer); timer = 0; music = false; recCall('stop'); rec.mr = null; hideAward();
@@ -745,7 +750,7 @@ function bumpGoal(d) { S.goalMin = Math.max(5, Math.min(180, S.goalMin + d)); sa
 $('goalDn').onclick = () => bumpGoal(-5); $('goalUp').onclick = () => bumpGoal(5);
 $('nameIn').value = S.name; $('nameIn').oninput = () => { S.name = $('nameIn').value.replace(/[\u0000-\u001F\u007F-\u009F\u200B-\u200F\u2028-\u202F\u2060-\u206F\uFEFF]/g, '').slice(0, 40); saveS(); };
 $('recIn').checked = S.record; $('recIn').onchange = () => { S.record = $('recIn').checked; saveS(); };
-$('btnSettings').onclick = () => { paintGoal(); paintControls(); paintDbg(); $('dlgSettings').showModal(); };
+$('btnSettings').onclick = () => { pauseForSheet(); paintGoal(); paintControls(); paintDbg(); $('dlgSettings').showModal(); };
 $('btnSettings2').onclick = () => $('btnSettings').click();          // on phones the Rocket and City themes keep Settings beside the buttons
 $('setClose').onclick = () => $('dlgSettings').close();
 for (const d of document.querySelectorAll('dialog')) d.addEventListener('click', e => { if (e.target === d) d.close(); });
@@ -938,7 +943,7 @@ function renderLog() {
       b.onclick = () => openSummary(r, true); d.append(b); } return d; }));
   $('logOlder').hidden = log.length <= logShown;
 }
-function openLog() { logShown = 30; disarm($('logClear'), 'Delete all sessions'); renderLog(); $('dlgLog').querySelector('.sh-body').scrollTop = 0; if (!$('dlgLog').open) $('dlgLog').showModal(); }
+function openLog() { pauseForSheet(); logShown = 30; disarm($('logClear'), 'Delete all sessions'); renderLog(); $('dlgLog').querySelector('.sh-body').scrollTop = 0; if (!$('dlgLog').open) $('dlgLog').showModal(); }
 $('btnLog').onclick = openLog; $('btnLog2').onclick = openLog;
 $('logClose').onclick = () => $('dlgLog').close();
 $('logOlder').onclick = () => { logShown += 30; renderLog(); };
@@ -985,8 +990,8 @@ $('homeLog').onclick = openLog;
 $('homeSet').onclick = () => $('btnSettings').click();
 // back to the Home Screen once a finished session's summary is put away (not when going on to the practice log)
 $('dlgSummary').addEventListener('close', () => { if (homeOn) renderHome(); else if (session.state === 'stopped' && !$('dlgLog').open) showHome(); });   // a session deleted from its summary
-$('dlgSettings').addEventListener('close', () => { if (homeOn) renderHome(); });   // a new name shows in the greeting
-$('dlgLog').addEventListener('close', () => { if (homeOn) renderHome(); });       // sessions deleted from the log
+$('dlgSettings').addEventListener('close', () => { if (homeOn) renderHome(); resumeAfterSheet(); });   // a new name shows in the greeting
+$('dlgLog').addEventListener('close', () => { if (homeOn) renderHome(); resumeAfterSheet(); });     // sessions deleted from the log
 
 /* ---------- debug tools, for the developer only: sample data, a detector read-out, where the rocket starts, and shortcuts ---------- */
 let verTaps = 0, verAt = 0, dbgAt = 0;
