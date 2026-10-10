@@ -606,19 +606,20 @@ function detectionTests(sr) {
     return { name: 'Summary: start, middle, end and the best 10 minutes', expect: 'thirds 100%, 50%, 25%; best 10 minutes from 0:00 at 100%; longest stretch 0:00 to 10:10',
       got: 'thirds ' + th.join('%, ') + '%; best from ' + (R.best ? clockText(R.best.a) + ' at ' + Math.round(R.best.eff * 100) + '%' : 'none') + '; longest ' + clockText(R.longest.a) + ' to ' + clockText(R.longest.b), pass: ok }; } });
   // the practice log
-  list.push({ name: 'Practice log: streak, week and calendar', run: () => {
+  list.push({ name: 'Practice log: week, calendar and encouraging lines', run: () => {
     const at = (d, h) => new Date(2026, 9, d, h).getTime(), now = at(9, 18);                // Friday 9 October 2026, 6 pm
     const rec = (d, play, goal) => ({ start: at(d, 16), play: play, goal: goal || 1800, eff: 0.8, R: { active: play / 0.8 } });
     const recs = [rec(9, 1200), rec(8, 1800), rec(8, 600), rec(7, 900), rec(6, 300), rec(3, 1800), rec(2, 1000), rec(1, 1000), rec(30 - 31, 500)];
     const P = practiceStats(recs, now), wk = P.week.map(c => c.level).join('');
     const P2 = practiceStats(recs.filter(r => r.start < at(9, 0)), now), P3 = practiceStats([rec(3, 1800)], now), P0 = practiceStats([], now);
-    const lines = [practiceNudge(P), practiceNudge(P2), practiceNudge(P3), weekLine(P)];
+    const lines = [practiceNudge(P), practiceNudge(P2), practiceNudge(P3), weekLine(P), weekLine({ weekPlay: 600, lastWeekPlay: 4300, lastWeekSoFar: 2500 })];
     const ok = P.streak === 4 && P.bestStreak === 4 && P.practicedToday && P2.streak === 3 && !P2.practicedToday && P3.streak === 0 && P3.daysSince === 6 && P0.streak === 0 && practiceNudge(P0) === ''
       && wk === '0124300' && P.week[4].today && P.week[5].future && P.weekPlay === 4800 && P.lastWeekPlay === 4300 && P.lastWeekSoFar === 2500
       && P.grid.length === 12 && P.grid[11][0].key === '2026-10-05' && P.grid[10][3].level === 2 && P.sessions === 9 && P.longest.play === 1800 && Math.abs(P.efficiency - 0.8) < 1e-9
-      && lines[0] === 'You have practiced 4 days in a row. Come back tomorrow to make it 5.' && lines[1] === 'Practice today to keep your 3-day streak going.'
-      && lines[2] === 'Your last session was 6 days ago. A short session today starts a new streak.' && lines[3] === 'This week: 1 h 20 min of playing, 8 min more than all of last week.';
-    return { name: 'Practice log: streak, week and calendar', expect: 'streak 4 (3 before today\'s session), week levels 0124300, 1 h 20 min this week',
+      && lines[0] === 'Lovely playing today. Come back whenever you feel like it.' && lines[1] === 'You have played on 3 days this week. Nice work.'
+      && lines[2] === 'Welcome back. Even a few minutes of playing is worth it.' && lines[3] === 'This week: 1 h 20 min of playing, 8 min more than all of last week.'
+      && lines[4] === 'This week: 10 min of playing.' && !lines.some(l => /streak|in a row|ago|match/.test(l));
+    return { name: 'Practice log: week, calendar and encouraging lines', expect: 'week levels 0124300, 1 h 20 min this week, no streak or days-missed wording',
       got: 'streak ' + P.streak + ' (' + P2.streak + '), best ' + P.bestStreak + ', week ' + wk + ', ' + durationText(P.weekPlay) + ' | ' + lines.join(' | '), pass: ok }; } });
   list.push({ name: 'Practice log: saved record keeps the summary', run: () => {
     const s = new Session(); s.start(); for (let i = 0; i < 400; i++) s.tick(0.5, i % 10 < 7); s.stop();
@@ -809,7 +810,7 @@ function clockText(s) { s = Math.max(0, Math.floor(s));   // down to the second,
   const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = String(s % 60).padStart(2, '0');
   return h ? h + ':' + String(m).padStart(2, '0') + ':' + x : m + ':' + x; }
 
-/* ---------- Practice log: saved sessions, the streak and the week ---------- */
+/* ---------- Practice log: saved sessions and the week (the streak is worked out but not shown for now) ---------- */
 const LOG_MAX = 400, KEEP_PLAY = 10;   // the log keeps the latest LOG_MAX sessions; a session needs KEEP_PLAY seconds of playing to be saved
 /* what is saved for a finished session: its times and its report, rounded so the log stays small (no audio) */
 function sessionRecord(s, R, name) {
@@ -859,14 +860,14 @@ function practiceStats(records, now, weeks) {
 /* 4500 -> "1 h 15 min", 600 -> "10 min", 40 -> "40 s" */
 function durationText(s) { s = Math.max(0, Math.round(s)); if (s < 60) return s + ' s'; const m = Math.round(s / 60), h = Math.floor(m / 60);
   return h ? h + ' h' + (m % 60 ? ' ' + (m % 60) + ' min' : '') : m + ' min'; }
-/* the encouraging line on the practice log, and its partner about the week */
+/* the encouraging line on the practice log, and its partner about the week. Low pressure: they only ever count what was played,
+   never days missed or a streak to keep, so coming back after a break reads as good news rather than something lost */
 function practiceNudge(P) {
   if (!P.sessions) return '';
-  if (P.practicedToday) return P.streak >= 2 ? 'You have practiced ' + P.streak + ' days in a row. Come back tomorrow to make it ' + (P.streak + 1) + '.'
-    : 'You practiced today. Come back tomorrow to start a streak.';
-  if (P.streak >= 2) return 'Practice today to keep your ' + P.streak + '-day streak going.';
-  if (P.streak === 1) return 'You practiced yesterday. Practice today to start a streak.';
-  return 'Your last session was ' + P.daysSince + ' days ago. A short session today starts a new streak.';
+  if (P.practicedToday) return 'Lovely playing today. Come back whenever you feel like it.';
+  const n = P.week.filter(c => c.play > 0).length;
+  if (n) return 'You have played ' + (n === 1 ? 'once' : 'on ' + n + ' days') + ' this week. Nice work.';
+  return 'Welcome back. Even a few minutes of playing is worth it.';
 }
 function weekLine(P) {
   let s = 'This week: ' + durationText(P.weekPlay) + ' of playing';
@@ -874,7 +875,7 @@ function weekLine(P) {
   const d = P.weekPlay - P.lastWeekSoFar;
   if (P.weekPlay >= P.lastWeekPlay) return s + ', ' + (P.weekPlay - P.lastWeekPlay >= 60 ? durationText(P.weekPlay - P.lastWeekPlay) + ' more than all of last week.' : 'as much as all of last week.');
   if (d >= 60) return s + ', ' + durationText(d) + ' ahead of last week at this point.';
-  return s + '. Play ' + durationText(P.lastWeekPlay - P.weekPlay) + ' more to match last week.';
+  return s + '.';                                                   // behind last week: no catching up to do, just this week's playing
 }
 
 /* ---------- Rocket flight model ---------- */

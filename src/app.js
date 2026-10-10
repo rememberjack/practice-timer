@@ -769,7 +769,7 @@ function finishSession(demo) {
   if (demo) note = { text: 'Demo sessions are not saved to your practice log.' };
   else if (!MT.worthKeeping(R)) note = { text: 'Sessions with less than 10 seconds of playing are not saved to your practice log.' };
   else if (!addToLog(r)) note = { text: 'This session could not be saved on this device.' };
-  else { const P = MT.practiceStats(log, Date.now()); note = P.streak >= 2 ? { lead: 'Day ' + P.streak + ' in a row.', text: 'Saved to your practice log.' } : { text: 'Saved to your practice log. Come back tomorrow to start a streak.' }; }
+  else { const P = MT.practiceStats(log, Date.now()); note = { lead: MT.durationText(P.weekPlay) + ' of music this week.', text: 'Saved to your practice log.' }; }
   return { rec: r, note: note };
 }
 function openSummary(r, past) {
@@ -783,7 +783,7 @@ function openSummary(r, past) {
   $('sGoalBox').classList.toggle('done', reached); width($('sGoalBar'), r.goal > 0 ? R.play / r.goal : 0);
   $('sGoal').textContent = 'Goal ' + Math.round(r.goal / 60) + ' minutes'; $('sTrophy').toggleAttribute('hidden', !reached);   // an svg, which has no .hidden
   $('sGoalLeft').textContent = reached ? 'Reached, trophy earned' : dur(Math.ceil(r.goal - R.play)) + ' to go';
-  // was it saved to the practice log, and the streak it makes (only for the session just finished)
+  // was it saved to the practice log, and the week it adds to (only for the session just finished)
   const note = !past && current && current.rec === r ? current.note : null; $('sSaved').hidden = !note;
   if (note) $('sSaved').replaceChildren(...(note.lead ? [el('b', null, note.lead), ' '] : []), note.text);
   // where the time went
@@ -859,14 +859,13 @@ function renderLog() {
   const P = MT.practiceStats(log, Date.now()), empty = !log.length, pct = x => Math.round(x * 100) + '%';
   $('logEmpty').hidden = !empty; $('logMain').hidden = empty; $('logMore').hidden = empty;
   const idle = mode === 'local' && (session.state === 'idle' || session.state === 'stopped');
-  $('logStart').hidden = !idle || P.practicedToday;
-  $('logStart').textContent = empty ? 'Start your first session' : P.streak >= 1 ? 'Practice now to keep your streak' : 'Start practicing';
+  $('logStart').hidden = !idle;
+  $('logStart').textContent = empty ? 'Start your first session' : P.practicedToday ? 'Play again' : 'Start playing';
   if (empty) return;
-  // the streak
-  const thisWeek = P.week.filter(c => c.play > 0).length;          // with no streak running, count the good news of the week instead of a zero
-  $('logStreak').textContent = String(P.streak || thisWeek);
-  $('logStreakCap').textContent = P.streak ? (P.streak === 1 ? 'day in a row' : 'days in a row') : (thisWeek === 1 ? 'day practiced this week' : 'days practiced this week');
-  $('logBest').textContent = P.bestStreak + (P.bestStreak === 1 ? ' day' : ' days'); $('logNudge').textContent = MT.practiceNudge(P);
+  // what has been played: this week, and all together. Only totals that grow, nothing that can be lost by missing a day
+  const week = P.weekPlay > 0;
+  $('logBig').textContent = MT.durationText(week ? P.weekPlay : P.totalPlay); $('logBigCap').textContent = week ? 'of music this week' : 'of music so far';
+  $('logTotalBox').hidden = !week; $('logTotal').textContent = MT.durationText(P.totalPlay); $('logNudge').textContent = MT.practiceNudge(P);
   // this week, Monday to Sunday, each day's bar filled towards that day's goal
   $('logWeek').replaceChildren(...P.week.map(c => { const d = el('div', 'd' + (c.today ? ' today' : '') + (c.future ? ' future' : '')), bar = el('div', 'bar');
     if (c.play > 0) { const i = el('i', c.level === 4 ? 'met' : ''); i.style.height = Math.max(4, Math.min(1, c.goal ? c.play / c.goal : 1) * 100) + '%'; bar.append(i); }
