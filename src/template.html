@@ -49,6 +49,7 @@ body:has(> #app[data-skin="dash"]){background:#07071F}
 .tagline{display:block; color:var(--mute); font-size:13px; line-height:1.25; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .icon-btn{display:flex; align-items:center; justify-content:center; min-height:44px; padding:0 16px; border:1px solid var(--rule); border-radius:14px; background:var(--surface); font-size:15px; font-weight:500}
 .icon-btn svg{display:none; width:20px; height:20px}
+#btnSettings{width:44px; padding:0} #btnSettings svg{display:block} #btnSettings .lbl{display:none}   /* Settings is an icon in every theme */
 
 #notice, #demoBar{margin:0 18px 8px; padding:10px 14px; border:1px solid var(--rule); border-radius:16px; background:var(--surface); font-size:14px; max-width:560px; width:calc(100% - 36px); align-self:center}
 #notice{display:flex; flex-wrap:wrap; align-items:center; gap:8px 10px}
@@ -530,6 +531,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
   #app[data-chrome="pixel"] #top h1{font-size:18px}
   #app[data-skin="dash"][data-chrome="pixel"] #top h1{font-size:24px}
   .icon-btn{min-height:44px}
+  #btnSettings svg{width:22px; height:22px}
   #app[data-chrome="pixel"] .icon-btn{width:44px; height:44px}
   #app[data-chrome="pixel"] .icon-btn svg{width:22px; height:22px}
 
@@ -791,7 +793,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
     <button id="btnSummary" hidden>Summary</button>
     <button id="btnPause" hidden>Pause</button>
     <button id="btnResume" class="primary" hidden>Resume</button>
-    <button id="btnStop" hidden>Stop</button>
+    <button id="btnStop" hidden>End</button>
     <button id="btnUnfollow" hidden>Stop following</button>
     <button id="btnLog2" class="ctl-set" aria-label="Practice log"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4M8 14h2M14 14h2M8 17h2"/></svg></button>
     <button id="btnSettings2" class="ctl-set" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg></button>
