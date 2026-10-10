@@ -27,6 +27,8 @@ Node 20+, no dependencies to install.
   which also run in the page from Settings. Behaviour belongs here, with a test.
 - Finished sessions are saved in localStorage under `musicTimer.log` (no audio); the practice log's figures (week,
   totals, calendar) come from `practiceStats` in `src/core.js`, which also works out a streak that is not shown for now.
+- The Home Screen (`#home`) shows when the app opens and after a finished session's summary is closed; its words come
+  from `homeCopy` in `src/core.js`. No theme scene is drawn while it covers them.
 - Theme renderers in `src/` only draw; `src/app.js` wires everything together. Some themes load three.js r128 from
   cdnjs.
 - `window.claude` and the "framed" checks support running inside a Claude artifact view; on GitHub Pages everything

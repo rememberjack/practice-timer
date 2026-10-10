@@ -605,6 +605,20 @@ function detectionTests(sr) {
     const ok = th.join() === '100,50,25' && R.best && R.best.a === 0 && R.best.len === 600 && R.best.eff === 1 && R.longest.a === 0 && R.longest.b === 610 && R.breaks === 0 && R.columns.length === 30;
     return { name: 'Summary: start, middle, end and the best 10 minutes', expect: 'thirds 100%, 50%, 25%; best 10 minutes from 0:00 at 100%; longest stretch 0:00 to 10:10',
       got: 'thirds ' + th.join('%, ') + '%; best from ' + (R.best ? clockText(R.best.a) + ' at ' + Math.round(R.best.eff * 100) + '%' : 'none') + '; longest ' + clockText(R.longest.a) + ' to ' + clockText(R.longest.b), pass: ok }; } });
+  // the Home Screen
+  list.push({ name: 'Home Screen: the words for each moment', run: () => {
+    const at = (d, h) => new Date(2026, 9, d, h).getTime(), now = at(9, 18);                // Friday 9 October 2026, 6 pm
+    const rec = (d, play) => ({ start: at(d, 16), play: play, goal: 1800, eff: 0.8, R: { active: play / 0.8 } });
+    const week = [rec(6, 900), rec(8, 600)], all = [rec(1, 1500)].concat(week), stats = rs => practiceStats(rs, now);
+    const first = homeCopy(stats([]), null, at(9, 9)), today = homeCopy(stats(all.concat([rec(9, 1200)])), rec(9, 1200), now);
+    const yest = homeCopy(stats(all), rec(8, 600), now), tue = homeCopy(stats([rec(6, 900)]), rec(6, 900), now), back = homeCopy(stats([rec(1, 1500)]), rec(1, 1500), at(9, 14));
+    const all5 = [first, today, yest, tue, back], words = all5.map(c => [c.hello, c.head, c.lede, c.note || '', c.fresh || ''].join(' '));
+    const ok = first.kind === 'first' && first.hello === 'Good morning' && today.kind === 'today' && today.lede === 'You played for 20 min today. Come back whenever you feel like it.'
+      && today.note === 'All together: 1 h 10 min of music.' && yest.kind === 'week' && yest.note === 'Your last session was yesterday, 10 min.'
+      && tue.note === 'Your last session was on Tuesday, 15 min.' && back.kind === 'back' && back.hello === 'Good afternoon' && back.note === 'So far you have made 25 min of music with Music Timer.'
+      && !words.some(w => /streak|in a row|ago|miss|lost|keep/i.test(w));
+    return { name: 'Home Screen: the words for each moment', expect: 'first time, played today, played this week, back after a break; nothing about streaks or days missed',
+      got: all5.map(c => c.kind + ': ' + c.head + ' ' + (c.note || c.lede)).join(' | '), pass: ok }; } });
   // the practice log
   list.push({ name: 'Practice log: week, calendar and encouraging lines', run: () => {
     const at = (d, h) => new Date(2026, 9, d, h).getTime(), now = at(9, 18);                // Friday 9 October 2026, 6 pm
@@ -868,6 +882,21 @@ function practiceNudge(P) {
   const n = P.week.filter(c => c.play > 0).length;
   if (n) return 'You have played ' + (n === 1 ? 'once' : 'on ' + n + ' days') + ' this week. Nice work.';
   return 'Welcome back. Even a few minutes of playing is worth it.';
+}
+/* the Home Screen's words for this moment: a greeting, a headline and a line or two. Low pressure, like the practice log: they speak
+   of what was played, never of days missed, so opening the app after a break feels welcoming. last is the latest session, or null */
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+function homeCopy(P, last, now) {
+  const h = new Date(now).getHours(), hello = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+  if (!P.sessions || !last) return { kind: 'first', hello: hello, head: 'Let\u2019s make some music.', lede: 'Music Timer counts the time you spend playing, and nothing else.' };
+  if (P.practicedToday) { const t = P.week.find(c => c.today);
+    return { kind: 'today', hello: hello, head: 'Lovely playing today.', lede: 'You played for ' + durationText(t ? t.play : last.play) + ' today. Come back whenever you feel like it.',
+      note: 'All together: ' + durationText(P.totalPlay) + ' of music.' }; }
+  if (P.weekPlay > 0) { const days = Math.round((dayStart(now) - dayStart(last.start)) / 864e5);
+    return { kind: 'week', hello: hello, head: 'Ready when you are.', lede: 'Pick up your instrument and play for as long as feels good.',
+      note: 'Your last session was ' + (days <= 1 ? 'yesterday' : 'on ' + WEEKDAYS[new Date(last.start).getDay()]) + ', ' + durationText(last.play) + '.' }; }
+  return { kind: 'back', hello: hello, head: 'Welcome back.', lede: 'Nice to see you. Even a few minutes of playing is worth it.',
+    fresh: 'A fresh week. Whenever you play, it shows up here.', note: 'So far you have made ' + durationText(P.totalPlay) + ' of music with Music Timer.' };
 }
 function weekLine(P) {
   let s = 'This week: ' + durationText(P.weekPlay) + ' of playing';
@@ -1231,6 +1260,6 @@ class DashSim {
 }
 
 const api = { LIFTOFF, OnsetTracker, WheelSwipe, DashSim, DASH, dashSpeed, MusicDetector, Session, RocketSim, WORLD, MILESTONES, SENSITIVITY, CLIPS, DETECTION_CASES,
-  detectionTests, runDetectionTests, analyzeClip, sessionReport, clockText, sessionRecord, worthKeeping, practiceStats, practiceNudge, weekLine, durationText, dayKey, LOG_MAX, fraction, heardAs, noteOf, smooth, pchip, clamp01 };
+  detectionTests, runDetectionTests, analyzeClip, sessionReport, clockText, sessionRecord, worthKeeping, practiceStats, practiceNudge, homeCopy, weekLine, durationText, dayKey, LOG_MAX, fraction, heardAs, noteOf, smooth, pchip, clamp01 };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.MT = api;
 })(typeof self !== 'undefined' ? self : this);
