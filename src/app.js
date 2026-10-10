@@ -179,9 +179,10 @@ async function start() {
   catch (e) { busy = false; if (ctx) { try { ctx.close(); } catch (er) {} }
     showNotice('mic', micMessage(e), 'Use demo sound', () => { useDemoAction(); start(); }); return; }
   busy = false; hideNotice();
-  session.goal = S.goalMin * 60; session.hold = +S.hold; session.start(); sim.reset(); rocket.reset(); city.reset(); cityBannerAt = 0;
+  session.goal = S.goalMin * 60; session.hold = +S.hold; session.start(); const carried = carryRocket(); rocket.reset(); city.reset(); cityBannerAt = 0;
   dash.reset(); dashView.reset(); onsets.reset(); pendingOnsets = 0;
   music = false; goalHit = false; vote = {}; bars.fill(0); hideAward();
+  if (carried) banner('Carrying on from earlier today');
   heard.label = 'Listening'; heard.detail = 'Play your instrument to start the clock'; heard.note = ''; heard.midi = null;
   startRecording();
   lastT = performance.now(); clearInterval(timer); timer = setInterval(tick, 46);
@@ -286,7 +287,7 @@ function startFollow(peer) {
   onPeers({ peers: room.peers() }); if (!R) { stopFollow(); return; }
   paintControls(); paintDemoBar();
 }
-function stopFollow() { hideAward(); mode = 'local'; followPeer = ''; R = null; sim.reset(); rocket.reset(); city.reset(); dash.reset(); dashView.reset(); bars.fill(0); session.reset(); paintControls(); paintDemoBar(); }
+function stopFollow() { hideAward(); mode = 'local'; followPeer = ''; R = null; carryRocket(); rocket.reset(); city.reset(); dash.reset(); dashView.reset(); bars.fill(0); session.reset(); paintControls(); paintDemoBar(); }
 function followStep(dt) {
   if (!R) return;
   if (R.st === 'running') { R.total += dt; R.active += dt; if (R.music) R.play += dt; } else if (R.st === 'paused') R.total += dt;
@@ -342,7 +343,7 @@ function paint() {
   text($('rPwN'), Math.round(V.pw * 100) + '%');
   text($('rHeard'), st === 'running' ? label : st === 'paused' ? 'Paused: not listening' : st === 'idle' ? 'Press Start, then play' : 'Session finished');
   let next = '';
-  if (st === 'idle') next = 'Power follows efficiency';
+  if (st === 'idle') next = sim.mode !== 'pad' ? 'Carrying on from earlier today' : 'Power follows efficiency';
   else if (sim.mode === 'pad') next = sim.down > 0 ? 'Rolling out a new rocket' : !fol && sim.ignited && sim.hold > 0 ? 'Lift-off in ' + Math.max(1, Math.ceil(3 - sim.hold)) : 'Lift-off at ' + Math.round(MT.LIFTOFF * 100) + '% engine power';
   else if (sim.mode === 'fall') next = 'Falling back to Earth';
   else if (sim.mode === 'orbit') next = sim.spinUp > 0 ? 'In Moon orbit, module spinning' : 'In orbit around the Moon';
@@ -770,7 +771,7 @@ function showRecording() { if (!rec.blob) return; $('recBox').hidden = false;
   try { rec.url = URL.createObjectURL(rec.blob); const a = $('recAudio'); a.hidden = false; a.onerror = () => { a.hidden = true; }; a.src = rec.url; } catch (e) { $('recAudio').hidden = true; } }
 /* the session just stopped: keep it in the practice log unless it was a demo or too short */
 function finishSession(demo) {
-  const R = MT.sessionReport(session.runs), r = MT.sessionRecord(session, R, S.name);
+  const R = MT.sessionReport(session.runs), r = MT.sessionRecord(session, R, S.name, sim.save());
   let note;
   if (demo) note = { text: 'Demo sessions are not saved to your practice log.' };
   else if (!MT.worthKeeping(R)) note = { text: 'Sessions with less than 10 seconds of playing are not saved to your practice log.' };
@@ -847,6 +848,9 @@ function writeLog() {
     catch (e) { const full = e && (e.name === 'QuotaExceededError' || e.code === 22 || e.code === 1014);   // storage full: drop the oldest fifth and try again
       if (!full || log.length < 2) return false; log.splice(0, Math.ceil(log.length / 5)); } }
 }
+/* the rocket carries on from where the day's latest saved session left it, and starts on the pad each new day */
+function carryRocket() { return sim.restore(mode === 'local' ? MT.rocketCarry(log, Date.now()) : null); }
+function rocketAfterDelete() { if (mode === 'local' && (session.state === 'idle' || session.state === 'stopped')) { carryRocket(); rocket.reset(); } }
 function addToLog(r) { log = log.filter(x => x.id !== r.id); log.push(r); log.sort((a, b) => a.start - b.start); if (log.length > MT.LOG_MAX) log.splice(0, log.length - MT.LOG_MAX); return writeLog(); }
 /* a destructive button asks twice: the first tap arms it for a few seconds */
 function disarm(b, label) { b.classList.remove('armed'); b.textContent = label; clearTimeout(b._t); }
@@ -856,9 +860,9 @@ function twoTap(b, label, armedLabel, act) { b.onclick = () => {
 twoTap($('sumDelete'), 'Delete session', 'Tap again to delete', () => {
   const id = onSheet && onSheet.id; log = log.filter(x => x.id !== id); writeLog();
   if (current && current.rec.id === id) current.note = { text: 'Deleted from your practice log.' };
-  $('dlgSummary').close(); if ($('dlgLog').open) renderLog(); toast('Session deleted');
+  rocketAfterDelete(); $('dlgSummary').close(); if ($('dlgLog').open) renderLog(); toast('Session deleted');
 });
-twoTap($('logClear'), 'Delete all sessions', 'Tap again to delete all', () => { log = []; writeLog(); logShown = 30; renderLog(); toast('All sessions deleted'); });
+twoTap($('logClear'), 'Delete all sessions', 'Tap again to delete all', () => { log = []; writeLog(); rocketAfterDelete(); logShown = 30; renderLog(); toast('All sessions deleted'); });
 const compact = s => { if (s <= 0) return ''; const m = Math.round(s / 60); return m < 1 ? '<1m' : m < 60 ? m + 'm' : Math.floor(m / 60) + 'h' + (m % 60 ? String(m % 60).padStart(2, '0') : ''); };
 const TROPHY_SVG = '<svg class="trophy" viewBox="0 0 64 64" aria-hidden="true"><path d="M19 13H9c0 10 5 15 12 16M45 13h10c0 10-5 15-12 16" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/><path fill="currentColor" d="M18 7h28v15c0 10-6 17-14 17s-14-7-14-17zM29 38h6v9h-6zM20 49h24v9H20z"/></svg>';
 function renderLog() {
@@ -967,7 +971,7 @@ for (const el of [$('hud'), $('cityHud'), $('dashHud')]) {
   el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setHudCompact(!S.hudCompact); } });
 }
 setHudCompact(!!S.hudCompact);
-refreshSkins(); paintGoal(); paintControls(); paintDemoBar(); showHome();
+carryRocket(); refreshSkins(); paintGoal(); paintControls(); paintDemoBar(); showHome();
 try { const b = document.querySelector('meta[name="build"]'); $('ver').textContent = 'Version ' + (b && b.content && b.content.indexOf('__') < 0 ? b.content : 'dev'); } catch (e) {}
 if (S.source === 'mic' && (micPolicyBlocked() || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia))
   showNotice('mic', framed ? MIC_FRAMED : micMessage({ name: window.isSecureContext === false ? 'Insecure' : 'Unsupported' }), 'Use demo sound', useDemoAction);
