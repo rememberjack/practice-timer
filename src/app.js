@@ -10,13 +10,14 @@ function text(el, s) { if (cache.get(el) !== s) { cache.set(el, s); el.textConte
 function width(el, f) { const s = Math.round(Math.max(0, Math.min(1, f)) * 1000) / 10 + '%'; if (cache.get(el) !== s) { cache.set(el, s); el.style.width = s; } }
 
 /* ---------- settings ---------- */
-const DEF = { v: 2, goalMin: 30, name: '', sens: 'normal', rocketEff: 'session', record: false, source: 'mic', skin: 'classic', viz: 'piano', inst: '', hudCompact: false };
+const DEF = { v: 2, goalMin: 30, name: '', sens: 'normal', hold: '5', rocketEff: 'session', record: false, source: 'mic', skin: 'classic', viz: 'piano', inst: '', hudCompact: false };
 const S = Object.assign({}, DEF);
 try { const j = JSON.parse(localStorage.getItem('musicTimer.settings') || 'null');
   if (j && typeof j === 'object') { for (const k in DEF) if (typeof j[k] === typeof DEF[k]) S[k] = j[k];
     if (j.v !== 2 && S.goalMin === 20) S.goalMin = 30; }          // settings saved before the default changed: the old default of 20 moves to 30 once
   S.v = 2; } catch (e) {}
 if (!(S.goalMin >= 5 && S.goalMin <= 180)) S.goalMin = 30;
+if (['0', '5', '10', '20'].indexOf(S.hold) < 0) S.hold = DEF.hold;
 function saveS() { try { localStorage.setItem('musicTimer.settings', JSON.stringify(S)); } catch (e) {} }
 
 /* ---------- model ---------- */
@@ -31,7 +32,7 @@ const heard = { label: '', detail: '', note: '', midi: null };      // midi: the
 let mode = 'local';            // 'local' | 'follow'
 let music = false, goalHit = false, vote = {}, kbInst = S.inst;
 /* what the screen shows, filled from the local session or from the device being followed */
-const V = { st: 'idle', play: 0, active: 0, total: 0, pauses: 0, goal: session.goal, eff: 0, pw: 0, music: false, label: '', detail: '', note: '', midi: null, inst: '' };
+const V = { st: 'idle', play: 0, active: 0, total: 0, pauses: 0, goal: session.goal, eff: 0, pw: 0, music: false, hold: false, label: '', detail: '', note: '', midi: null, inst: '' };
 
 /* ---------- platform capabilities (all optional) ---------- */
 let room = null, downloads = null;
@@ -178,7 +179,7 @@ async function start() {
   catch (e) { busy = false; if (ctx) { try { ctx.close(); } catch (er) {} }
     showNotice('mic', micMessage(e), 'Use demo sound', () => { useDemoAction(); start(); }); return; }
   busy = false; hideNotice();
-  session.goal = S.goalMin * 60; session.start(); sim.reset(); rocket.reset(); city.reset(); cityBannerAt = 0;
+  session.goal = S.goalMin * 60; session.hold = +S.hold; session.start(); sim.reset(); rocket.reset(); city.reset(); cityBannerAt = 0;
   dash.reset(); dashView.reset(); onsets.reset(); pendingOnsets = 0;
   music = false; goalHit = false; vote = {}; bars.fill(0); hideAward();
   heard.label = 'Listening'; heard.detail = 'Play your instrument to start the clock'; heard.note = ''; heard.midi = null;
@@ -204,6 +205,7 @@ function tick() {
     const f = getFrame(dt);
     if (f) { const r = A.det.process(f, Math.min(dt, 1));
       m = r.isMusic && dt < 1.5;                 // a long gap means the page was asleep: no credit
+      if (dt >= 1.5) session.quietFor = Infinity;   // and no hold across it
       heard.label = r.label; heard.detail = r.detail; heard.note = r.note; heard.midi = r.pitch > 0 ? 69 + 12 * Math.log2(r.pitch / 440) : null; levelBars();
       if (onsets.feed(dt, { music: m, midi: heard.midi, levelDb: r.levelDb })) { pendingOnsets++; onsetN++; }
       if (A.kind === 'mic' && A.ctx && A.ctx.state !== 'running') { m = false; heard.label = 'The microphone is asleep'; heard.detail = 'Press Pause, then Resume to wake it'; heard.note = ''; heard.midi = null; }
@@ -211,8 +213,8 @@ function tick() {
     let best = '', bs = 0; for (const k in vote) { vote[k] *= Math.exp(-dt / 25); if (vote[k] > bs) { bs = vote[k]; best = k; } }
     if (best && best !== kbInst && bs >= 1.2 && bs > (vote[kbInst] || 0) * 1.25 + 0.4) { kbInst = best; S.inst = best; saveS(); }
   }
-  music = m;
-  session.tick(dt * w, m);
+  music = session.tick(dt * w, m);             // a short quiet after playing still counts (the hold set in Settings)
+  if (session.holdLeft > 0) heard.detail = 'Short pauses still count as playing';
   const pw = S.rocketEff === 'recent' ? session.recentEfficiency : session.efficiency;
   sim.update(dt * w, { running: session.state === 'running', playing: m, eff: pw, rdt: dt });
   if (!goalHit && session.play >= session.goal) { goalHit = true; award(session.goal); }
@@ -309,17 +311,17 @@ function clock(t) {
 const NEXT = [['tower', 'Clearing the tower'], ['stage1', 'Stage 1 separation'], ['space', 'Leaving the atmosphere'], ['stage2', 'Stage 2 separation'], ['orbit', 'Moon orbit']];
 function paint() {
   if (mode === 'follow' && R) { V.st = R.st; V.play = R.play; V.active = R.active; V.total = R.total; V.pauses = R.pauses; V.goal = R.goal;
-    V.eff = R.active > 0 ? Math.min(1, R.play / R.active) : 0; V.pw = R.pw; V.music = R.music && R.st === 'running'; V.label = R.label; V.detail = R.detail; V.note = R.note; V.midi = R.midi; V.inst = R.inst; }
+    V.eff = R.active > 0 ? Math.min(1, R.play / R.active) : 0; V.pw = R.pw; V.music = R.music && R.st === 'running'; V.hold = false; V.label = R.label; V.detail = R.detail; V.note = R.note; V.midi = R.midi; V.inst = R.inst; }
   else { V.st = session.state; V.play = session.play; V.active = session.active; V.total = session.total; V.pauses = session.pauses;
     V.goal = session.state === 'idle' ? S.goalMin * 60 : session.goal; V.eff = session.efficiency;
-    V.pw = S.rocketEff === 'recent' ? session.recentEfficiency : session.efficiency; V.music = music; V.label = heard.label; V.detail = heard.detail; V.note = heard.note; V.midi = heard.midi; V.inst = kbInst; }
+    V.pw = S.rocketEff === 'recent' ? session.recentEfficiency : session.efficiency; V.music = music; V.hold = session.holdLeft > 0; V.label = heard.label; V.detail = heard.detail; V.note = heard.note; V.midi = heard.midi; V.inst = kbInst; }
   const st = V.st, fol = mode === 'follow';
   if (app.dataset.music !== (V.music ? '1' : '0')) app.dataset.music = V.music ? '1' : '0';
   const won = V.st !== 'idle' && V.play >= V.goal ? '1' : '0'; if (app.dataset.goal !== won) app.dataset.goal = won;
 
   let status, label = V.label, detail = V.detail, note = st === 'running' ? V.note : '';
   if (st === 'idle') { status = 'Ready when you are'; label = 'Press Start, then play'; detail = 'The timer only counts while an instrument is heard.'; }
-  else if (st === 'running') status = V.music ? 'Counting: music heard' : 'Waiting for music';
+  else if (st === 'running') status = V.hold ? 'Counting: a short pause' : V.music ? 'Counting: music heard' : 'Waiting for music';
   else if (st === 'paused') { status = 'Paused'; label = 'Not listening'; detail = 'Sound is ignored until you resume.'; }
   else { status = 'Session finished'; label = fol ? 'The session has ended' : 'Nicely done'; detail = fol ? '' : 'Start again whenever you like.'; }
   if (fol) status = 'Following live' + (R && R.name ? ' (' + R.name + ')' : '') + ': ' + status.toLowerCase();
@@ -728,6 +730,7 @@ function seg(id, key, after) {
 const updSource = seg('segSource', 'source', () => { hideNotice('mic'); paintDemoBar(); });
 function setSource(v) { S.source = v; saveS(); updSource(); paintDemoBar(); }
 seg('segSens', 'sens', () => { if (A.det) A.det.setSensitivity(S.sens); });
+seg('segHold', 'hold', () => { session.hold = +S.hold; });
 seg('segEff', 'rocketEff');
 function paintGoal() { $('goalOut').textContent = S.goalMin + ' min'; }
 function bumpGoal(d) { S.goalMin = Math.max(5, Math.min(180, S.goalMin + d)); saveS(); paintGoal(); if (session.state === 'running' || session.state === 'paused') { session.goal = S.goalMin * 60; if (session.play < session.goal) { goalHit = false; hideAward(); } } }

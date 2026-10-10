@@ -586,6 +586,16 @@ function detectionTests(sr) {
     const ok = Math.abs(s.total - 25) < 1e-6 && Math.abs(s.active - 20) < 1e-6 && Math.abs(s.play - 16) < 1e-6 && s.pauses === 1 && Math.abs(s.efficiency - 0.8) < 1e-6;
     return { name: 'Timer: pause is excluded, sound ignored while paused', expect: 'total 25 s, active 20 s, play 16 s, 80%',
       got: 'total ' + s.total.toFixed(0) + ' s, active ' + s.active.toFixed(0) + ' s, play ' + s.play.toFixed(0) + ' s, ' + Math.round(s.efficiency * 100) + '%', pass: ok }; } });
+  list.push({ name: 'Timer: short pauses keep counting', run: () => {
+    const s = new Session(), step = (sec, m) => { for (let i = 0; i < sec * 10; i++) s.tick(0.1, m); }, near = (a, b) => Math.abs(a - b) < 0.15;
+    s.hold = 5; s.start();
+    step(4, false); const before = s.play;                                    // quiet before the first note is not counted
+    step(10, true); step(1, false); const left = s.holdLeft, still = s.playing; step(2, false);   // a 3 s page turn counts
+    step(10, true); step(20, false); const long = s.play;                     // a long quiet counts its first 5 s, then the clock stops
+    step(5, true); step(2, false); s.pause(); step(5, true); s.resume(); step(3, false); s.stop();   // a pause ends the hold
+    const ok = before === 0 && near(left, 4) && still && near(long, 28) && near(s.play, 35) && near(s.active, 57) && !s.playing;
+    return { name: 'Timer: short pauses keep counting', expect: 'with a 5 s hold: a 3 s gap counts, a 20 s quiet counts its first 5 s, nothing before the first note or after a pause; 35 s of play',
+      got: 'before the first note ' + before.toFixed(1) + ' s, 1 s into a gap ' + left.toFixed(1) + ' s of hold left, after the long quiet ' + long.toFixed(1) + ' s, play ' + s.play.toFixed(1) + ' s of ' + s.active.toFixed(1) + ' s', pass: ok }; } });
   // the session summary
   list.push({ name: 'Summary: where the time went', run: () => {
     const s = new Session(), step = (sec, m) => { for (let i = 0; i < sec * 10; i++) s.tick(0.1, m); };
@@ -755,24 +765,32 @@ function runDetectionTests(sr) { return detectionTests(sr).map(t => t.run()); }
 
 /* ---------- Session clock ---------- */
 class Session {
-  constructor() { this.goal = 1800; this.reset(); }
+  /* hold: seconds of quiet after playing that still count as playing (a long soft note, a page turn, a cough), so a short
+     pause never stops the clock; a longer quiet stops it once the hold runs out, and the seconds already counted stay */
+  constructor() { this.goal = 1800; this.hold = 0; this.reset(); }
   reset() { this.state = 'idle'; this.total = 0; this.active = 0; this.play = 0; this.pauses = 0;
-    this.buckets = []; this.ba = 0; this.bp = 0; this.startedAt = 0; this.stoppedAt = 0;
+    this.buckets = []; this.ba = 0; this.bp = 0; this.startedAt = 0; this.stoppedAt = 0; this.quietFor = Infinity; this.playing = false;
     this.runs = []; }   // the whole session as [kind, seconds, kind, seconds, ...]; kind 0 playing, 1 quiet while running, 2 paused
   start() { this.reset(); this.state = 'running'; this.startedAt = Date.now(); }
-  pause() { if (this.state !== 'running') return false; this.state = 'paused'; this.pauses++; return true; }
+  pause() { if (this.state !== 'running') return false; this.state = 'paused'; this.pauses++; this.quietFor = Infinity; this.playing = false; return true; }
   resume() { if (this.state !== 'paused') return false; this.state = 'running'; return true; }
-  stop() { if (this.state !== 'running' && this.state !== 'paused') return false; this.state = 'stopped'; this.stoppedAt = Date.now(); return true; }
-  /* dt seconds have passed; music = instrument heard during that time */
-  tick(dt, music) {
-    if (this.state !== 'running' && this.state !== 'paused') return;
+  stop() { if (this.state !== 'running' && this.state !== 'paused') return false; this.state = 'stopped'; this.playing = false; this.stoppedAt = Date.now(); return true; }
+  /* how much of a hold is left, in seconds (0 when playing is heard or the clock has stopped) */
+  get holdLeft() { return this.playing && this.quietFor > 0 ? Math.max(0, this.hold - this.quietFor) : 0; }
+  /* dt seconds have passed; heard = instrument heard during that time. Returns whether the time counted as playing */
+  tick(dt, heard) {
+    if (this.state !== 'running' && this.state !== 'paused') return false;
+    let music = false;
+    if (this.state === 'running') { this.quietFor = heard ? 0 : this.quietFor + dt; music = heard || this.quietFor <= this.hold; }
+    this.playing = music;
     this.total += dt;
     const k = this.state !== 'running' ? 2 : music ? 0 : 1, r = this.runs, n = r.length;
     if (dt > 0) { if (n && r[n - 2] === k) r[n - 1] += dt; else r.push(k, dt); }
-    if (this.state !== 'running') return;
+    if (this.state !== 'running') return false;
     this.active += dt; const p = music ? dt : 0; this.play += p;
     this.ba += dt; this.bp += p;
     if (this.ba >= 1) { this.buckets.push(this.ba, this.bp); if (this.buckets.length > 120) this.buckets.splice(0, 2); this.ba = 0; this.bp = 0; }
+    return music;
   }
   get efficiency() { return this.active > 0 ? Math.min(1, this.play / this.active) : 0; }
   get recentEfficiency() { let a = this.ba, p = this.bp; for (let i = 0; i < this.buckets.length; i += 2) { a += this.buckets[i]; p += this.buckets[i + 1]; } return a > 0 ? Math.min(1, p / a) : 0; }
