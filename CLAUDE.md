@@ -32,6 +32,8 @@ Node 20+, no dependencies to install.
 - Each saved session keeps where the rocket got to if it is in space or Moon orbit (`RocketSim.save`); the next session
   that day carries on from it (`rocketCarry`). Below space, and on a new day, it starts on the pad. Demo and unsaved
   sessions never move the carried flight.
+- Opening the practice log or Settings pauses a running session (`pauseForSheet` in `src/app.js`); closing it resumes, unless
+  the session had been paused by hand.
 - The Home Screen (`#home`) shows when the app opens and after a finished session's summary is closed; its words come
   from `homeCopy` in `src/core.js`. No theme scene is drawn while it covers them.
 - Debug tools (for the developer only) sit at the bottom of Settings, hidden until the version line is tapped seven times
