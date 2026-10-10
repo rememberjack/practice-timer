@@ -36,6 +36,8 @@ Node 20+, no dependencies to install.
 - Any scroll area inside a theme needs `touch-action:pan-y pinch-zoom`, or Android Chrome cancels sideways swipes.
 - Themes sharing the pixel chrome (`data-chrome="pixel"`) must keep the same scene height (`#stage`) at every screen
   size, or swipes make the page jump.
+- Opened from an iPhone Home Screen, the page gets a solid black status bar (`apple-mobile-web-app-status-bar-style`).
+  With a see-through one, iOS blurs whatever the page draws behind it, which blurred the title.
 
 ## Testing
 
