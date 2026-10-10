@@ -8,6 +8,8 @@ https://rememberjack.github.io/practice-timer/.
 
 Develop every feature to encourage future instrument practice; that is the primary goal. When choosing what to build
 or how it should behave, prefer what makes someone want to pick up their instrument again tomorrow.
+Keep it low pressure and encouraging: show what was played (time this week, time all together), never a streak, days
+missed or anything that can be lost by skipping a day.
 
 ## Commands
 
@@ -23,8 +25,8 @@ Node 20+, no dependencies to install.
 - `scripts/build.js` inlines `src/core.js`, the theme renderers and `src/app.js` into `src/template.html`.
 - `src/core.js` is pure logic with no DOM (detection, `Session`, the theme sims, swipe handling) and holds the tests,
   which also run in the page from Settings. Behaviour belongs here, with a test.
-- Finished sessions are saved in localStorage under `musicTimer.log` (no audio); the practice log's figures (streak,
-  week, calendar) come from `practiceStats` in `src/core.js`.
+- Finished sessions are saved in localStorage under `musicTimer.log` (no audio); the practice log's figures (week,
+  totals, calendar) come from `practiceStats` in `src/core.js`, which also works out a streak that is not shown for now.
 - Theme renderers in `src/` only draw; `src/app.js` wires everything together. Some themes load three.js r128 from
   cdnjs.
 - `window.claude` and the "framed" checks support running inside a Claude artifact view; on GitHub Pages everything
