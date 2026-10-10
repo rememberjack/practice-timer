@@ -789,6 +789,18 @@ function openSummary(r, past) {
   // was it saved to the practice log, and the week it adds to (only for the session just finished)
   const note = !past && current && current.rec === r ? current.note : null; $('sSaved').hidden = !note;
   if (note) $('sSaved').replaceChildren(...(note.lead ? [el('b', null, note.lead), ' '] : []), note.text);
+  // the rest of its day, when it had more than one session: each session a block, this one bright, and the day's goal
+  const D = MT.dayRecap(log, r), L = MT.dayLine(D, Date.now()), box = $('sDayBox'); box.hidden = !L;
+  if (L) {
+    const today = D.key === MT.dayKey(Date.now()), scale = Math.max(D.play, D.goal) || 1;
+    $('sDayH').textContent = today ? 'Today' : 'That day'; box.classList.toggle('done', D.met);
+    $('sDaySegs').replaceChildren(...D.sessions.map(x => { const i = el('i', x.id === r.id ? 'me' : ''); i.style.flexGrow = String(x.play); return i; }));
+    $('sDaySegs').style.width = (D.play / scale * 100) + '%';
+    $('sDayGoal').hidden = !(D.goal > 0); $('sDayGoal').style.left = (D.goal / scale * 100) + '%';
+    $('sDayBar').setAttribute('aria-label', D.count + ' sessions ' + (today ? 'today' : 'that day') + ': ' + D.sessions.map(x => MT.durationText(x.play)).join(', ') + '.');
+    $('sDayN').textContent = (today ? 'Today\u2019s' : 'That day\u2019s') + ' goal ' + Math.round(D.goal / 60) + ' minutes'; $('sDayLeft').textContent = D.met ? 'Reached' : '';
+    $('sDay').replaceChildren(el('b', null, L.lead), ' ', L.text);
+  }
   // where the time went
   for (const [k, v] of [['P', R.play], ['Q', R.quiet], ['X', R.paused]]) { const i = $('sSplit' + k); i.hidden = v < 0.5; i.style.flexGrow = String(v); }
   for (const [k, v] of [['Play', R.play], ['Quiet', R.quiet], ['Paused', R.paused]]) { $('sT' + k).textContent = dur(v); $('sP' + k).textContent = pct(v / T); }
@@ -871,9 +883,11 @@ function renderLog() {
   $('logTotalBox').hidden = !week; $('logTotal').textContent = MT.durationText(P.totalPlay); $('logNudge').textContent = MT.practiceNudge(P);
   // this week, Monday to Sunday, each day's bar filled towards that day's goal
   $('logWeek').replaceChildren(...P.week.map(c => { const d = el('div', 'd' + (c.today ? ' today' : '') + (c.future ? ' future' : '')), bar = el('div', 'bar');
-    if (c.play > 0) { const i = el('i', c.level === 4 ? 'met' : ''); i.style.height = Math.max(4, Math.min(1, c.goal ? c.play / c.goal : 1) * 100) + '%'; bar.append(i); }
+    if (c.play > 0) { const i = el('i', (c.level === 4 ? 'met' : '') + (c.plays.length > 1 ? ' segs' : '')); i.style.height = Math.max(4, Math.min(1, c.goal ? c.play / c.goal : 1) * 100) + '%';
+      if (c.plays.length > 1) for (const p of c.plays) { const b = el('b'); b.style.flexGrow = String(p); i.append(b); }
+      bar.append(i); }
     d.append(el('span', 't', compact(c.play)), bar, el('span', null, c.date.toLocaleDateString([], { weekday: 'narrow' }))); return d; }));
-  $('logWeek').setAttribute('aria-label', 'This week: ' + P.week.filter(c => !c.future).map(c => c.date.toLocaleDateString([], { weekday: 'long' }) + ' ' + (c.play > 0 ? MT.durationText(c.play) : 'no practice')).join(', ') + '.');
+  $('logWeek').setAttribute('aria-label', 'This week: ' + P.week.filter(c => !c.future).map(c => c.date.toLocaleDateString([], { weekday: 'long' }) + ' ' + (c.play > 0 ? MT.durationText(c.play) + (c.sessions > 1 ? ' in ' + c.sessions + ' sessions' : '') : 'no practice')).join(', ') + '.');
   $('logWeekLine').textContent = MT.weekLine(P);
   // the last 12 weeks, one column a week, a month name where a month begins
   const cells = [], months = []; let lastLabel = -9, lastMonth = -1;
@@ -881,7 +895,7 @@ function renderLog() {
     if (m !== lastMonth && w - lastLabel >= 3) { const sp = el('span', null, col[0].date.toLocaleDateString([], { month: 'short' })); sp.style.gridColumn = String(w + 1); months.push(sp); lastLabel = w; }
     lastMonth = m;
     for (const c of col) { const i = el('i', (c.level ? 'lv' + c.level : '') + (c.today ? ' today' : '') + (c.future ? ' future' : ''));
-      if (!c.future) i.title = c.date.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' }) + ': ' + (c.play > 0 ? MT.durationText(c.play) : 'no practice'); cells.push(i); } });
+      if (!c.future) i.title = c.date.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' }) + ': ' + (c.play > 0 ? MT.durationText(c.play) + (c.sessions > 1 ? ' in ' + c.sessions + ' sessions' : '') : 'no practice'); cells.push(i); } });
   $('logMonths').replaceChildren(...months); $('logCal').replaceChildren(...cells);
   const all = P.grid.flat(), on = all.filter(c => c.play > 0).length, met = all.filter(c => c.level === 4).length;
   $('logCal').setAttribute('aria-label', 'Practiced on ' + on + ' of the last ' + all.filter(c => !c.future).length + ' days, reaching the goal on ' + met + '.');
@@ -894,10 +908,10 @@ function renderLog() {
   ];
   $('logTotals').replaceChildren(...facts.map(f => { const d = el('div'), dd = el('dd', null, f[1]); dd.append(el('small', null, f[2])); d.append(el('dt', null, f[0]), dd); return d; }));
   // the sessions, newest first, by day
-  const list = log.slice().reverse().slice(0, logShown), groups = [], dayPlay = {};
-  for (const r of log) { const k = MT.dayKey(r.start); dayPlay[k] = (dayPlay[k] || 0) + r.play; }
+  const list = log.slice().reverse().slice(0, logShown), groups = [], dayPlay = {}, dayN = {};
+  for (const r of log) { const k = MT.dayKey(r.start); dayPlay[k] = (dayPlay[k] || 0) + r.play; dayN[k] = (dayN[k] || 0) + 1; }
   for (const r of list) { const k = MT.dayKey(r.start); if (!groups.length || groups[groups.length - 1].k !== k) groups.push({ k: k, recs: [] }); groups[groups.length - 1].recs.push(r); }
-  $('logList').replaceChildren(...groups.map(g => { const d = el('div', 'log-day'), h = el('h4', null, dayName(g.recs[0].start)); h.append(el('span', null, MT.durationText(dayPlay[g.k])));
+  $('logList').replaceChildren(...groups.map(g => { const d = el('div', 'log-day'), h = el('h4', null, dayName(g.recs[0].start)); h.append(el('span', null, (dayN[g.k] > 1 ? dayN[g.k] + ' sessions, ' : '') + MT.durationText(dayPlay[g.k])));
     d.append(h); for (const r of g.recs) { const b = el('button', 'log-row'), pl = el('div', 'pl'), big = el('b', null, MT.clockText(r.play)), mini = el('div', 'mini'), fill = el('i');
       if (r.play >= r.goal) big.insertAdjacentHTML('beforeend', TROPHY_SVG);
       fill.style.width = Math.min(100, r.goal ? r.play / r.goal * 100 : 0) + '%'; mini.append(fill); pl.append(big, mini);
@@ -933,6 +947,10 @@ function renderHome() {
     $('homeBig').hidden = !week; $('homeTime').textContent = MT.durationText(P.weekPlay);
     $('homeFresh').hidden = week; $('homeFresh').textContent = c.fresh || '';
     $('homeDots').hidden = !week;
+    // today's sessions, when there has been more than one: each opens its summary
+    const todays = log.filter(r => MT.dayKey(r.start) === P.today.key); $('homeToday').hidden = todays.length < 2;
+    $('homeSess').replaceChildren(...(todays.length < 2 ? [] : todays.map(r => { const b = el('button', null, at(r.start)); b.type = 'button'; b.append(el('b', null, MT.durationText(r.play)));
+      b.setAttribute('aria-label', 'Session at ' + at(r.start) + ', ' + MT.durationText(r.play) + ' of playing. Open its summary'); b.onclick = () => openSummary(r, true); return b; })));
     $('homeDots').replaceChildren(...P.week.map(d => { const w = el('div', d.today ? 't' : ''); w.append(el('i', d.play > 0 ? 'on' : ''), d.date.toLocaleDateString([], { weekday: 'narrow' })); return w; }));
     $('homeDots').setAttribute('aria-label', 'Days with music this week: ' + (P.week.filter(d => d.play > 0).map(d => d.date.toLocaleDateString([], { weekday: 'long' })).join(', ') || 'none yet') + '.');
     $('homeNote').textContent = c.note || '';
@@ -949,7 +967,7 @@ $('homeGo').onclick = () => { hideHome(); start(); };
 $('homeLog').onclick = openLog;
 $('homeSet').onclick = () => $('btnSettings').click();
 // back to the Home Screen once a finished session's summary is put away (not when going on to the practice log)
-$('dlgSummary').addEventListener('close', () => { if (session.state === 'stopped' && !$('dlgLog').open) showHome(); });
+$('dlgSummary').addEventListener('close', () => { if (homeOn) renderHome(); else if (session.state === 'stopped' && !$('dlgLog').open) showHome(); });   // a session deleted from its summary
 $('dlgSettings').addEventListener('close', () => { if (homeOn) renderHome(); });   // a new name shows in the greeting
 $('dlgLog').addEventListener('close', () => { if (homeOn) renderHome(); });       // sessions deleted from the log
 
