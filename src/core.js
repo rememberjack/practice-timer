@@ -586,6 +586,16 @@ function detectionTests(sr) {
     const ok = Math.abs(s.total - 25) < 1e-6 && Math.abs(s.active - 20) < 1e-6 && Math.abs(s.play - 16) < 1e-6 && s.pauses === 1 && Math.abs(s.efficiency - 0.8) < 1e-6;
     return { name: 'Timer: pause is excluded, sound ignored while paused', expect: 'total 25 s, active 20 s, play 16 s, 80%',
       got: 'total ' + s.total.toFixed(0) + ' s, active ' + s.active.toFixed(0) + ' s, play ' + s.play.toFixed(0) + ' s, ' + Math.round(s.efficiency * 100) + '%', pass: ok }; } });
+  list.push({ name: 'Timer: short pauses keep counting', run: () => {
+    const s = new Session(), step = (sec, m) => { for (let i = 0; i < sec * 10; i++) s.tick(0.1, m); }, near = (a, b) => Math.abs(a - b) < 0.15;
+    s.hold = 5; s.start();
+    step(4, false); const before = s.play;                                    // quiet before the first note is not counted
+    step(10, true); step(1, false); const left = s.holdLeft, still = s.playing; step(2, false);   // a 3 s page turn counts
+    step(10, true); step(20, false); const long = s.play;                     // a long quiet counts its first 5 s, then the clock stops
+    step(5, true); step(2, false); s.pause(); step(5, true); s.resume(); step(3, false); s.stop();   // a pause ends the hold
+    const ok = before === 0 && near(left, 4) && still && near(long, 28) && near(s.play, 35) && near(s.active, 57) && !s.playing;
+    return { name: 'Timer: short pauses keep counting', expect: 'with a 5 s hold: a 3 s gap counts, a 20 s quiet counts its first 5 s, nothing before the first note or after a pause; 35 s of play',
+      got: 'before the first note ' + before.toFixed(1) + ' s, 1 s into a gap ' + left.toFixed(1) + ' s of hold left, after the long quiet ' + long.toFixed(1) + ' s, play ' + s.play.toFixed(1) + ' s of ' + s.active.toFixed(1) + ' s', pass: ok }; } });
   // the session summary
   list.push({ name: 'Summary: where the time went', run: () => {
     const s = new Session(), step = (sec, m) => { for (let i = 0; i < sec * 10; i++) s.tick(0.1, m); };
@@ -656,16 +666,16 @@ function detectionTests(sr) {
   list.push({ name: 'Rocket: carries on from earlier the same day', run: () => {
     const fly = (sim, secs, eff, playing) => { for (let t = 0; t < secs; t += 0.1) sim.update(0.1, { running: true, playing: playing !== false, eff: eff }); };
     const a = new RocketSim(); fly(a, 130, 1); const low = a.save(); fly(a, 300, 1); const high = a.save(); fly(a, 1500, 1); const orb = a.save();
-    const b = new RocketSim(), c = new RocketSim(), d = new RocketSim(), pad = new RocketSim();
-    b.restore(low); const l0 = b.l; b.events.length = 0; fly(b, 10, 0.2, false); const held = b.mode === 'ascent' && b.l === l0 && !b.ignited;
-    fly(b, 5, 1); const relit = b.mode === 'ascent' && b.fp > low.fp && b.events.indexOf('ignition') >= 0 && b.events.indexOf('fall') < 0;
-    c.restore(high); fly(c, 5, 0.2, false); d.restore(orb); fly(d, 1, 1);
+    const f = new RocketSim(); fly(f, 60, 1); fly(f, 1, 0.2, false); const falling = f.mode === 'fall' && f.save() === null;
+    const c = new RocketSim(), d = new RocketSim(), pad = new RocketSim(), forged = new RocketSim();
+    const carriedHigh = c.restore(high) && c.mode === 'ascent' && c.fp === high.fp; fly(c, 5, 0.2, false); d.restore(orb); fly(d, 1, 1);
+    const below = !forged.restore({ mode: 'ascent', fp: 130, l: 0.02, stage: 0, inSpace: false, th: 0, tOrb: 0 }) && forged.mode === 'pad' && forged.fp === 0;
     const at = (dd, h) => new Date(2026, 9, dd, h).getTime(), now = at(9, 18), rec = (dd, h, rk) => ({ start: at(dd, h), rocket: rk });
-    const carry = [rocketCarry([rec(9, 8, low), rec(9, 12, high)], now) === high, rocketCarry([rec(8, 20, orb)], now) === null, rocketCarry([rec(9, 12, high), rec(9, 15, null)], now) === null];
-    const ok = low && low.mode === 'ascent' && !low.inSpace && held && relit && high.inSpace && c.mode === 'ascent' && c.events.indexOf('fall') < 0 && orb.mode === 'orbit'
+    const carry = [rocketCarry([rec(9, 8, orb), rec(9, 12, high)], now) === high, rocketCarry([rec(8, 20, orb)], now) === null, rocketCarry([rec(9, 12, high), rec(9, 15, null)], now) === null];
+    const ok = low === null && falling && below && high && high.inSpace && carriedHigh && c.mode === 'ascent' && c.events.indexOf('fall') < 0 && orb.mode === 'orbit'
       && d.mode === 'orbit' && d.spinUp === 1 && d.events.indexOf('spin') < 0 && pad.save() === null && !pad.restore({ mode: 'pad' }) && !pad.restore(null) && carry.every(Boolean);
-    return { name: 'Rocket: carries on from earlier the same day', expect: 'holds below space until lit, then climbs on without falling; in space and in orbit it carries on; a new day starts on the pad',
-      got: 'below space ' + (held ? 'held' : 'not held') + ', ' + (relit ? 'relit and climbing' : 'not climbing') + '; in space ' + c.mode + '; orbit ' + d.mode + ' spin ' + d.spinUp + '; carry ' + carry.join(','), pass: ok }; } });
+    return { name: 'Rocket: carries on from earlier the same day', expect: 'in space and in Moon orbit it carries on; below the edge of space, falling, or on a new day it starts on the pad',
+      got: 'below space ' + (low === null && below ? 'back to the pad' : 'carried') + ', falling ' + (falling ? 'back to the pad' : 'carried') + '; in space ' + c.mode + '; orbit ' + d.mode + ' spin ' + d.spinUp + '; carry ' + carry.join(','), pass: ok }; } });
   list.push({ name: 'Rocket: lifts off at 50% engine power', run: () => {
     const fly = eff => { const sim = new RocketSim(); let at = -1; for (let t = 0; t < 30; t += 0.1) { sim.update(0.1, { running: true, playing: true, eff: eff }); if (at < 0 && sim.events.indexOf('liftoff') >= 0) at = t + 0.1; sim.events.length = 0; } return at; };
     const a = fly(0.55), b = fly(0.45), ok = Math.abs(a - 3) <= 0.3 && b < 0;
@@ -768,24 +778,32 @@ function runDetectionTests(sr) { return detectionTests(sr).map(t => t.run()); }
 
 /* ---------- Session clock ---------- */
 class Session {
-  constructor() { this.goal = 1800; this.reset(); }
+  /* hold: seconds of quiet after playing that still count as playing (a long soft note, a page turn, a cough), so a short
+     pause never stops the clock; a longer quiet stops it once the hold runs out, and the seconds already counted stay */
+  constructor() { this.goal = 1800; this.hold = 0; this.reset(); }
   reset() { this.state = 'idle'; this.total = 0; this.active = 0; this.play = 0; this.pauses = 0;
-    this.buckets = []; this.ba = 0; this.bp = 0; this.startedAt = 0; this.stoppedAt = 0;
+    this.buckets = []; this.ba = 0; this.bp = 0; this.startedAt = 0; this.stoppedAt = 0; this.quietFor = Infinity; this.playing = false;
     this.runs = []; }   // the whole session as [kind, seconds, kind, seconds, ...]; kind 0 playing, 1 quiet while running, 2 paused
   start() { this.reset(); this.state = 'running'; this.startedAt = Date.now(); }
-  pause() { if (this.state !== 'running') return false; this.state = 'paused'; this.pauses++; return true; }
+  pause() { if (this.state !== 'running') return false; this.state = 'paused'; this.pauses++; this.quietFor = Infinity; this.playing = false; return true; }
   resume() { if (this.state !== 'paused') return false; this.state = 'running'; return true; }
-  stop() { if (this.state !== 'running' && this.state !== 'paused') return false; this.state = 'stopped'; this.stoppedAt = Date.now(); return true; }
-  /* dt seconds have passed; music = instrument heard during that time */
-  tick(dt, music) {
-    if (this.state !== 'running' && this.state !== 'paused') return;
+  stop() { if (this.state !== 'running' && this.state !== 'paused') return false; this.state = 'stopped'; this.playing = false; this.stoppedAt = Date.now(); return true; }
+  /* how much of a hold is left, in seconds (0 when playing is heard or the clock has stopped) */
+  get holdLeft() { return this.playing && this.quietFor > 0 ? Math.max(0, this.hold - this.quietFor) : 0; }
+  /* dt seconds have passed; heard = instrument heard during that time. Returns whether the time counted as playing */
+  tick(dt, heard) {
+    if (this.state !== 'running' && this.state !== 'paused') return false;
+    let music = false;
+    if (this.state === 'running') { this.quietFor = heard ? 0 : this.quietFor + dt; music = heard || this.quietFor <= this.hold; }
+    this.playing = music;
     this.total += dt;
     const k = this.state !== 'running' ? 2 : music ? 0 : 1, r = this.runs, n = r.length;
     if (dt > 0) { if (n && r[n - 2] === k) r[n - 1] += dt; else r.push(k, dt); }
-    if (this.state !== 'running') return;
+    if (this.state !== 'running') return false;
     this.active += dt; const p = music ? dt : 0; this.play += p;
     this.ba += dt; this.bp += p;
     if (this.ba >= 1) { this.buckets.push(this.ba, this.bp); if (this.buckets.length > 120) this.buckets.splice(0, 2); this.ba = 0; this.bp = 0; }
+    return music;
   }
   get efficiency() { return this.active > 0 ? Math.min(1, this.play / this.active) : 0; }
   get recentEfficiency() { let a = this.ba, p = this.bp; for (let i = 0; i < this.buckets.length; i += 2) { a += this.buckets[i]; p += this.buckets[i + 1]; } return a > 0 ? Math.min(1, p / a) : 0; }
@@ -983,23 +1001,22 @@ class RocketSim {
   }
   reset() { this.mode = 'pad'; this.l = 0; this.v = 0; this.hold = 0; this.stage = 0; this.inSpace = false; this.cleared = false;
     this.ignited = false; this.lit0 = false; this.fp = 0; this.power = 0; this.g = 0; this.prevT = 0; this.down = 0;
-    this.th = this.th0; this.tOrb = 0; this.spinUp = 0; this.spinA = 0; this.coast = false; this.events.length = 0; }
-  /* where the flight has got to, to carry on in the day's next session; null on the pad or falling, which start again from the pad */
+    this.th = this.th0; this.tOrb = 0; this.spinUp = 0; this.spinA = 0; this.events.length = 0; }
+  /* where the flight has got to, to carry on in the day's next session. Only a rocket in space or in Moon orbit carries on:
+     anywhere below the edge of space (on the pad, climbing or falling) is null, and the next session starts on the pad */
   save() {
-    if (this.mode !== 'ascent' && this.mode !== 'orbit') return null;
+    if (this.mode !== 'orbit' && !(this.mode === 'ascent' && this.inSpace)) return null;
     const r = (v, k) => Math.round(v * k) / k;
     return { mode: this.mode, fp: r(this.fp, 1e3), l: r(this.l, 1e7), stage: this.stage, inSpace: this.inSpace, cleared: this.cleared, th: r(this.th, 1e4), tOrb: r(Math.min(this.tOrb, 60), 1e3) };
   }
-  /* carry on from save(). Below the edge of space the rocket holds where it is, engines off, until they are lit again,
-     so a new session's slow start does not bring it down. False (and on the pad) for anything that is not a saved flight */
+  /* carry on from save(). False, and on the pad, for anything that is not a saved flight in space or in orbit */
   restore(x) {
     this.reset();
     const n = (v, lo, hi) => typeof v === 'number' && isFinite(v) && v >= lo && v <= hi;
-    if (!x || (x.mode !== 'ascent' && x.mode !== 'orbit') || !n(x.fp, HOLD, 1e6) || !n(x.l, 0, this.L) || !n(x.stage, 0, 2) || !n(x.th, -4, 4) || !n(x.tOrb, 0, 1e6)) return false;
+    if (!x || (x.mode !== 'orbit' && !(x.mode === 'ascent' && x.inSpace)) || !n(x.fp, HOLD, 1e6) || !n(x.l, 0, this.L) || !n(x.stage, 0, 2) || !n(x.th, -4, 4) || !n(x.tOrb, 0, 1e6)) return false;
     this.mode = x.mode; this.fp = x.fp; this.l = x.l; this.prevT = this.target(x.fp); this.stage = Math.round(x.stage); this.lit0 = true;
-    this.inSpace = !!x.inSpace; this.cleared = !!x.cleared;
-    if (x.mode === 'orbit') { this.l = this.L; this.inSpace = true; this.stage = 2; this.th = x.th; this.tOrb = x.tOrb; this.spinUp = smooth(SPIN_AT, SPIN_AT + SPIN_UP, x.tOrb); }
-    else this.coast = !this.inSpace;
+    this.inSpace = true; this.cleared = true;
+    if (x.mode === 'orbit') { this.l = this.L; this.stage = 2; this.th = x.th; this.tOrb = x.tOrb; this.spinUp = smooth(SPIN_AT, SPIN_AT + SPIN_UP, x.tOrb); }
     return true;
   }
   target(fp) { return this.lenAt(Math.min(MILESTONES.orbit, fp)); }
@@ -1016,7 +1033,6 @@ class RocketSim {
       if (this.lit0 && inp.playing) this.fp = Math.min(HOLD, this.fp + dt);                        // the clock waits at lift-off
       if (this.ignited && this.hold >= HOLD) { this.mode = 'ascent'; this.prevT = this.target(this.fp); this.v = 0; this.events.push('liftoff'); }
     } else if (this.mode === 'ascent') {
-      if (this.coast) { if (eff < 0.5) { this.ignited = false; return; } this.coast = false; this.v = 0; this.events.push('ignition'); }   // carried on from earlier today: wait for the engines
       if (eff < 0.5 && !this.inSpace) { this.mode = 'fall'; this.ignited = false; this.g = Math.max(this.l / 8, 2e-5); this.events.push('fall'); return; }
       this.ignited = eff >= 0.5;
       if (inp.playing) this.fp += dt;

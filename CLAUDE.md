@@ -27,8 +27,9 @@ Node 20+, no dependencies to install.
   which also run in the page from Settings. Behaviour belongs here, with a test.
 - Finished sessions are saved in localStorage under `musicTimer.log` (no audio); the practice log's figures (week,
   totals, calendar) come from `practiceStats` in `src/core.js`, which also works out a streak that is not shown for now.
-- Each saved session keeps where the rocket got to (`RocketSim.save`); the next session that day carries on from it
-  (`rocketCarry`), and a new day starts on the pad. Demo and unsaved sessions never move the carried flight.
+- Each saved session keeps where the rocket got to if it is in space or Moon orbit (`RocketSim.save`); the next session
+  that day carries on from it (`rocketCarry`). Below space, and on a new day, it starts on the pad. Demo and unsaved
+  sessions never move the carried flight.
 - The Home Screen (`#home`) shows when the app opens and after a finished session's summary is closed; its words come
   from `homeCopy` in `src/core.js`. No theme scene is drawn while it covers them.
 - Theme renderers in `src/` only draw; `src/app.js` wires everything together. Some themes load three.js r128 from
