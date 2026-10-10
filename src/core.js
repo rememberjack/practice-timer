@@ -653,6 +653,19 @@ function detectionTests(sr) {
     for (const k in want) if (!(Math.abs(at[k] - want[k]) <= 2)) ok = false;
     return { name: 'Rocket: timeline from ignition to Moon orbit', expect: 'lift-off 3 s, tower 10 s, stage 1 3:10, space 6:10, stage 2 10:10, orbit 30:10, module spinning 3 s later, then keeps orbiting',
       got: Object.keys(want).map(k => k + ' ' + (at[k] == null ? 'never' : Math.round(at[k]) + ' s')).join(', ') + (sim.mode === 'orbit' && sim.th !== th1 ? ', orbiting' : ', not orbiting'), pass: ok }; } });
+  list.push({ name: 'Rocket: carries on from earlier the same day', run: () => {
+    const fly = (sim, secs, eff, playing) => { for (let t = 0; t < secs; t += 0.1) sim.update(0.1, { running: true, playing: playing !== false, eff: eff }); };
+    const a = new RocketSim(); fly(a, 130, 1); const low = a.save(); fly(a, 300, 1); const high = a.save(); fly(a, 1500, 1); const orb = a.save();
+    const b = new RocketSim(), c = new RocketSim(), d = new RocketSim(), pad = new RocketSim();
+    b.restore(low); const l0 = b.l; b.events.length = 0; fly(b, 10, 0.2, false); const held = b.mode === 'ascent' && b.l === l0 && !b.ignited;
+    fly(b, 5, 1); const relit = b.mode === 'ascent' && b.fp > low.fp && b.events.indexOf('ignition') >= 0 && b.events.indexOf('fall') < 0;
+    c.restore(high); fly(c, 5, 0.2, false); d.restore(orb); fly(d, 1, 1);
+    const at = (dd, h) => new Date(2026, 9, dd, h).getTime(), now = at(9, 18), rec = (dd, h, rk) => ({ start: at(dd, h), rocket: rk });
+    const carry = [rocketCarry([rec(9, 8, low), rec(9, 12, high)], now) === high, rocketCarry([rec(8, 20, orb)], now) === null, rocketCarry([rec(9, 12, high), rec(9, 15, null)], now) === null];
+    const ok = low && low.mode === 'ascent' && !low.inSpace && held && relit && high.inSpace && c.mode === 'ascent' && c.events.indexOf('fall') < 0 && orb.mode === 'orbit'
+      && d.mode === 'orbit' && d.spinUp === 1 && d.events.indexOf('spin') < 0 && pad.save() === null && !pad.restore({ mode: 'pad' }) && !pad.restore(null) && carry.every(Boolean);
+    return { name: 'Rocket: carries on from earlier the same day', expect: 'holds below space until lit, then climbs on without falling; in space and in orbit it carries on; a new day starts on the pad',
+      got: 'below space ' + (held ? 'held' : 'not held') + ', ' + (relit ? 'relit and climbing' : 'not climbing') + '; in space ' + c.mode + '; orbit ' + d.mode + ' spin ' + d.spinUp + '; carry ' + carry.join(','), pass: ok }; } });
   list.push({ name: 'Rocket: lifts off at 50% engine power', run: () => {
     const fly = eff => { const sim = new RocketSim(); let at = -1; for (let t = 0; t < 30; t += 0.1) { sim.update(0.1, { running: true, playing: true, eff: eff }); if (at < 0 && sim.events.indexOf('liftoff') >= 0) at = t + 0.1; sim.events.length = 0; } return at; };
     const a = fly(0.55), b = fly(0.45), ok = Math.abs(a - 3) <= 0.3 && b < 0;
@@ -827,10 +840,16 @@ function clockText(s) { s = Math.max(0, Math.floor(s));   // down to the second,
 /* ---------- Practice log: saved sessions and the week (the streak is worked out but not shown for now) ---------- */
 const LOG_MAX = 400, KEEP_PLAY = 10;   // the log keeps the latest LOG_MAX sessions; a session needs KEEP_PLAY seconds of playing to be saved
 /* what is saved for a finished session: its times and its report, rounded so the log stays small (no audio) */
-function sessionRecord(s, R, name) {
+function sessionRecord(s, R, name, rocket) {
   const round = (k, v) => typeof v === 'number' ? Math.round(v * 1000) / 1000 : v;
   return { v: 1, id: s.startedAt, start: s.startedAt, end: s.stoppedAt || s.startedAt + Math.round(R.total * 1000), goal: s.goal,
-    play: Math.round(R.play * 1000) / 1000, eff: Math.round(R.efficiency * 1000) / 1000, name: name || '', R: JSON.parse(JSON.stringify(R, round)) };
+    play: Math.round(R.play * 1000) / 1000, eff: Math.round(R.efficiency * 1000) / 1000, name: name || '', R: JSON.parse(JSON.stringify(R, round)), rocket: rocket || null };
+}
+/* the rocket flight to carry on today: where the day's latest saved session left it (null to start on the pad, as on a new day) */
+function rocketCarry(records, now) {
+  const k = dayKey(now); let last = null;
+  for (const r of records) if (dayKey(r.start) === k && (!last || r.start > last.start)) last = r;
+  return last && last.rocket || null;
 }
 const worthKeeping = R => R.play >= KEEP_PLAY;
 /* local calendar days */
@@ -964,7 +983,25 @@ class RocketSim {
   }
   reset() { this.mode = 'pad'; this.l = 0; this.v = 0; this.hold = 0; this.stage = 0; this.inSpace = false; this.cleared = false;
     this.ignited = false; this.lit0 = false; this.fp = 0; this.power = 0; this.g = 0; this.prevT = 0; this.down = 0;
-    this.th = this.th0; this.tOrb = 0; this.spinUp = 0; this.spinA = 0; this.events.length = 0; }
+    this.th = this.th0; this.tOrb = 0; this.spinUp = 0; this.spinA = 0; this.coast = false; this.events.length = 0; }
+  /* where the flight has got to, to carry on in the day's next session; null on the pad or falling, which start again from the pad */
+  save() {
+    if (this.mode !== 'ascent' && this.mode !== 'orbit') return null;
+    const r = (v, k) => Math.round(v * k) / k;
+    return { mode: this.mode, fp: r(this.fp, 1e3), l: r(this.l, 1e7), stage: this.stage, inSpace: this.inSpace, cleared: this.cleared, th: r(this.th, 1e4), tOrb: r(Math.min(this.tOrb, 60), 1e3) };
+  }
+  /* carry on from save(). Below the edge of space the rocket holds where it is, engines off, until they are lit again,
+     so a new session's slow start does not bring it down. False (and on the pad) for anything that is not a saved flight */
+  restore(x) {
+    this.reset();
+    const n = (v, lo, hi) => typeof v === 'number' && isFinite(v) && v >= lo && v <= hi;
+    if (!x || (x.mode !== 'ascent' && x.mode !== 'orbit') || !n(x.fp, HOLD, 1e6) || !n(x.l, 0, this.L) || !n(x.stage, 0, 2) || !n(x.th, -4, 4) || !n(x.tOrb, 0, 1e6)) return false;
+    this.mode = x.mode; this.fp = x.fp; this.l = x.l; this.prevT = this.target(x.fp); this.stage = Math.round(x.stage); this.lit0 = true;
+    this.inSpace = !!x.inSpace; this.cleared = !!x.cleared;
+    if (x.mode === 'orbit') { this.l = this.L; this.inSpace = true; this.stage = 2; this.th = x.th; this.tOrb = x.tOrb; this.spinUp = smooth(SPIN_AT, SPIN_AT + SPIN_UP, x.tOrb); }
+    else this.coast = !this.inSpace;
+    return true;
+  }
   target(fp) { return this.lenAt(Math.min(MILESTONES.orbit, fp)); }
   /* Advance by dt seconds. inp: {running, playing, eff (0..1), rdt (real seconds, when dt is sped up)}.
      fp is the flight clock: seconds of playing since ignition. */
@@ -979,6 +1016,7 @@ class RocketSim {
       if (this.lit0 && inp.playing) this.fp = Math.min(HOLD, this.fp + dt);                        // the clock waits at lift-off
       if (this.ignited && this.hold >= HOLD) { this.mode = 'ascent'; this.prevT = this.target(this.fp); this.v = 0; this.events.push('liftoff'); }
     } else if (this.mode === 'ascent') {
+      if (this.coast) { if (eff < 0.5) { this.ignited = false; return; } this.coast = false; this.v = 0; this.events.push('ignition'); }   // carried on from earlier today: wait for the engines
       if (eff < 0.5 && !this.inSpace) { this.mode = 'fall'; this.ignited = false; this.g = Math.max(this.l / 8, 2e-5); this.events.push('fall'); return; }
       this.ignited = eff >= 0.5;
       if (inp.playing) this.fp += dt;
@@ -1260,6 +1298,6 @@ class DashSim {
 }
 
 const api = { LIFTOFF, OnsetTracker, WheelSwipe, DashSim, DASH, dashSpeed, MusicDetector, Session, RocketSim, WORLD, MILESTONES, SENSITIVITY, CLIPS, DETECTION_CASES,
-  detectionTests, runDetectionTests, analyzeClip, sessionReport, clockText, sessionRecord, worthKeeping, practiceStats, practiceNudge, homeCopy, weekLine, durationText, dayKey, LOG_MAX, fraction, heardAs, noteOf, smooth, pchip, clamp01 };
+  detectionTests, runDetectionTests, analyzeClip, sessionReport, clockText, sessionRecord, worthKeeping, rocketCarry, practiceStats, practiceNudge, homeCopy, weekLine, durationText, dayKey, LOG_MAX, fraction, heardAs, noteOf, smooth, pchip, clamp01 };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.MT = api;
 })(typeof self !== 'undefined' ? self : this);
