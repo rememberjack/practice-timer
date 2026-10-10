@@ -780,7 +780,7 @@ function showRecording() { if (!rec.blob) return; $('recBox').hidden = false;
 function finishSession(demo) {
   const R = MT.sessionReport(session.runs), r = MT.sessionRecord(session, R, S.name, sim.save());
   let note;
-  if (demo) note = { text: 'Demo sessions are not saved to your practice log.' };
+  if (demo) note = null;                    // not saved, and nothing said about it
   else if (!MT.worthKeeping(R)) note = { text: 'Sessions with less than 10 seconds of playing are not saved to your practice log.' };
   else if (!addToLog(r)) note = { text: 'This session could not be saved on this device.' };
   else if (DBG.sample) note = { text: 'Sample data is on, so this session was added to the sample log only. Your practice log is unchanged.' };
