@@ -635,6 +635,23 @@ function detectionTests(sr) {
       && lines[4] === 'This week: 10 min of playing.' && !lines.some(l => /streak|in a row|ago|match/.test(l));
     return { name: 'Practice log: week, calendar and encouraging lines', expect: 'week levels 0124300, 1 h 20 min this week, no streak or days-missed wording',
       got: 'streak ' + P.streak + ' (' + P2.streak + '), best ' + P.bestStreak + ', week ' + wk + ', ' + durationText(P.weekPlay) + ' | ' + lines.join(' | '), pass: ok }; } });
+  list.push({ name: 'Several sessions in a day: the day adds up', run: () => {
+    const at = (d, h, m) => new Date(2026, 9, d, h, m || 0).getTime(), now = at(9, 20);                // Friday 9 October 2026, 8 pm
+    const rec = (d, h, play) => ({ id: at(d, h), start: at(d, h), play: play, goal: 1800, eff: 0.8, R: { active: play / 0.8 } });
+    const a = rec(9, 8, 600), b = rec(9, 13, 900), c = rec(9, 18, 420), y1 = rec(8, 9, 300), y2 = rec(8, 17, 1200), recs = [c, y2, a, b, y1];
+    const P = practiceStats(recs, now), D = dayRecap(recs, c), D1 = dayRecap(recs, a), Y = dayRecap(recs, y1), one = dayRecap([y1], y1);
+    const L = dayLine(D, now), L1 = dayLine(D1, now), LY = dayLine(Y, now), H = homeCopy(P, c, now), HW = homeCopy(practiceStats([y1, y2], now), y2, now);
+    const words = [L.lead, L.text, L1.text, LY.lead, LY.text, H.lede, HW.note].join(' ');
+    const ok = P.today.sessions === 3 && P.today.play === 1920 && P.today.plays.join() === '600,900,420' && P.week[3].plays.join() === '300,1200' && P.today.level === 4
+      && D.n === 3 && D.count === 3 && D.before === 1500 && D.upTo === 1920 && D.together && D1.n === 1 && D1.upTo === 600 && !Y.together && dayRecap(recs, rec(9, 21, 60)) === null
+      && one.count === 1 && dayLine(one, now) === null
+      && L.lead === '32 min of music today.' && L.text === 'This was your third session today. Together, today\u2019s sessions reached your 30-minute goal.'
+      && L1.text === 'This was session 1 of 3 today. Together, today\u2019s sessions reached your 30-minute goal.'
+      && LY.lead === '25 min of music that day.' && LY.text === 'This was session 1 of 2 that day.'
+      && H.lede === 'You played for 32 min today, in 3 sessions. Come back whenever you feel like it.' && HW.note === 'You last played yesterday, 25 min in 2 sessions.'
+      && !/streak|in a row|ago|miss|lost|keep/i.test(words);
+    return { name: 'Several sessions in a day: the day adds up', expect: 'three sessions today make 32 min and reach the goal together; the Home Screen and summary count every session of the day',
+      got: 'today ' + durationText(P.today.play) + ' in ' + P.today.sessions + ' (' + P.today.plays.join(', ') + ') | ' + (L ? L.lead + ' ' + L.text : 'no line') + ' | ' + (LY ? LY.text : '') + ' | ' + H.lede + ' | ' + HW.note, pass: ok }; } });
   list.push({ name: 'Practice log: saved record keeps the summary', run: () => {
     const s = new Session(); s.start(); for (let i = 0; i < 400; i++) s.tick(0.5, i % 10 < 7); s.stop();
     const R = sessionReport(s.runs), rec = JSON.parse(JSON.stringify(sessionRecord(s, R, 'Ana'))), Q = rec.R, short = new Session(); short.start(); for (let i = 0; i < 30; i++) short.tick(0.25, true); short.stop();
@@ -843,8 +860,8 @@ function practiceStats(records, now, weeks) {
   const today = dayStart(now), days = new Map();
   let totalPlay = 0, totalActive = 0, longest = null;
   for (const r of records) {
-    const k = dayKey(r.start), d = days.get(k) || { play: 0, sessions: 0, goal: 0, last: 0 };
-    d.play += r.play; d.sessions++; if (r.start >= d.last) { d.last = r.start; d.goal = r.goal; } days.set(k, d);
+    const k = dayKey(r.start), d = days.get(k) || { play: 0, sessions: 0, goal: 0, last: 0, recs: [] };
+    d.play += r.play; d.sessions++; d.recs.push(r); if (r.start >= d.last) { d.last = r.start; d.goal = r.goal; } days.set(k, d);
     totalPlay += r.play; totalActive += r.R && r.R.active > 0 ? r.R.active : r.eff > 0 ? r.play / r.eff : r.play;
     if (!longest || r.play > longest.play) longest = r;
   }
@@ -859,7 +876,8 @@ function practiceStats(records, now, weeks) {
   const daysSince = lastStart ? Math.round((today - dayStart(lastStart)) / 864e5) : null;
   const cell = d => { const x = days.get(dayKey(d)) || null, play = x ? x.play : 0, goal = x && x.goal > 0 ? x.goal : 0;
     const f = goal ? play / goal : 0, level = play <= 0 ? 0 : goal && f >= 1 ? 4 : f >= 2 / 3 ? 3 : f >= 1 / 3 ? 2 : 1;
-    return { date: d, key: dayKey(d), play: play, goal: goal, sessions: x ? x.sessions : 0, level: level, today: d.getTime() === today.getTime(), future: d > today }; };
+    const plays = x ? x.recs.slice().sort((a, b) => a.start - b.start).map(r => r.play) : [];   // each session's playing that day, earliest first
+    return { date: d, key: dayKey(d), play: play, goal: goal, sessions: x ? x.sessions : 0, plays: plays, level: level, today: d.getTime() === today.getTime(), future: d > today }; };
   // this week, Monday to Sunday, and the week before
   const monday = addDays(today, -((today.getDay() + 6) % 7)), week = [];
   let weekPlay = 0, lastWeekPlay = 0, lastWeekSoFar = 0;
@@ -868,8 +886,27 @@ function practiceStats(records, now, weeks) {
   // the calendar: whole weeks, the last one this week
   const grid = []; for (let w = weeks - 1; w >= 0; w--) { const col = []; for (let i = 0; i < 7; i++) col.push(cell(addDays(monday, i - 7 * w))); grid.push(col); }
   return { sessions: records.length, totalPlay: totalPlay, efficiency: totalActive > 0 ? Math.min(1, totalPlay / totalActive) : 0, longest: longest,
-    streak: streak, bestStreak: bestStreak, practicedToday: practicedToday, daysSince: daysSince, daysPlayed: days.size,
+    streak: streak, bestStreak: bestStreak, practicedToday: practicedToday, daysSince: daysSince, daysPlayed: days.size, today: cell(today),
     week: week, weekPlay: weekPlay, lastWeekPlay: lastWeekPlay, lastWeekSoFar: lastWeekSoFar, grid: grid };
+}
+/* one saved session among the others played the same day: its number that day, the day's playing up to it and in all, and whether the
+   day's sessions reached the goal together when none did alone. null when rec is not in records (a demo or a session too short to keep) */
+function dayRecap(records, rec) {
+  if (!rec || !records.some(r => r.id === rec.id)) return null;
+  const k = dayKey(rec.start), day = records.filter(r => dayKey(r.start) === k).sort((a, b) => a.start - b.start);
+  const n = day.findIndex(r => r.id === rec.id) + 1, goal = day[day.length - 1].goal;   // the day's goal is its latest session's, as on the calendar
+  let before = 0, play = 0; day.forEach((r, i) => { play += r.play; if (i < n - 1) before += r.play; });
+  return { key: k, n: n, count: day.length, sessions: day, before: before, upTo: before + rec.play, play: play, goal: goal,
+    met: goal > 0 && play >= goal, together: day.length > 1 && goal > 0 && play >= goal && day.every(r => r.play < goal) };
+}
+/* the words for a day of several sessions on the summary: { lead, text }, or null for a day with one session */
+const ORDINALS = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth', 'ninth', 'tenth'];
+function dayLine(D, now) {
+  if (!D || D.count < 2) return null;
+  const today = D.key === dayKey(now), when = today ? 'today' : 'that day', latest = D.n === D.count;
+  const text = (today && latest ? 'This was your ' + (ORDINALS[D.n - 1] || D.n + 'th') + ' session today.' : 'This was session ' + D.n + ' of ' + D.count + ' ' + when + '.')
+    + (D.together ? ' Together, ' + (today ? 'today\u2019s' : 'that day\u2019s') + ' sessions reached your ' + Math.round(D.goal / 60) + '-minute goal.' : '');
+  return { lead: durationText(D.play) + ' of music ' + when + '.', text: text };
 }
 /* 4500 -> "1 h 15 min", 600 -> "10 min", 40 -> "40 s" */
 function durationText(s) { s = Math.max(0, Math.round(s)); if (s < 60) return s + ' s'; const m = Math.round(s / 60), h = Math.floor(m / 60);
@@ -889,12 +926,13 @@ const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frida
 function homeCopy(P, last, now) {
   const h = new Date(now).getHours(), hello = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
   if (!P.sessions || !last) return { kind: 'first', hello: hello, head: 'Let\u2019s make some music.', lede: 'Music Timer counts the time you spend playing, and nothing else.' };
-  if (P.practicedToday) { const t = P.week.find(c => c.today);
-    return { kind: 'today', hello: hello, head: 'Lovely playing today.', lede: 'You played for ' + durationText(t ? t.play : last.play) + ' today. Come back whenever you feel like it.',
+  if (P.practicedToday) { const t = P.today, n = t.sessions;
+    return { kind: 'today', hello: hello, head: 'Lovely playing today.', lede: 'You played for ' + durationText(t.play) + ' today' + (n > 1 ? ', in ' + n + ' sessions' : '') + '. Come back whenever you feel like it.',
       note: 'All together: ' + durationText(P.totalPlay) + ' of music.' }; }
-  if (P.weekPlay > 0) { const days = Math.round((dayStart(now) - dayStart(last.start)) / 864e5);
+  if (P.weekPlay > 0) { const days = Math.round((dayStart(now) - dayStart(last.start)) / 864e5), when = days <= 1 ? 'yesterday' : 'on ' + WEEKDAYS[new Date(last.start).getDay()];
+    const d = P.week.find(c => c.key === dayKey(last.start)), n = d ? d.sessions : 1;   // every session that day, not only the last
     return { kind: 'week', hello: hello, head: 'Ready when you are.', lede: 'Pick up your instrument and play for as long as feels good.',
-      note: 'Your last session was ' + (days <= 1 ? 'yesterday' : 'on ' + WEEKDAYS[new Date(last.start).getDay()]) + ', ' + durationText(last.play) + '.' }; }
+      note: n > 1 ? 'You last played ' + when + ', ' + durationText(d.play) + ' in ' + n + ' sessions.' : 'Your last session was ' + when + ', ' + durationText(last.play) + '.' }; }
   return { kind: 'back', hello: hello, head: 'Welcome back.', lede: 'Nice to see you. Even a few minutes of playing is worth it.',
     fresh: 'A fresh week. Whenever you play, it shows up here.', note: 'So far you have made ' + durationText(P.totalPlay) + ' of music with Music Timer.' };
 }
@@ -1260,6 +1298,6 @@ class DashSim {
 }
 
 const api = { LIFTOFF, OnsetTracker, WheelSwipe, DashSim, DASH, dashSpeed, MusicDetector, Session, RocketSim, WORLD, MILESTONES, SENSITIVITY, CLIPS, DETECTION_CASES,
-  detectionTests, runDetectionTests, analyzeClip, sessionReport, clockText, sessionRecord, worthKeeping, practiceStats, practiceNudge, homeCopy, weekLine, durationText, dayKey, LOG_MAX, fraction, heardAs, noteOf, smooth, pchip, clamp01 };
+  detectionTests, runDetectionTests, analyzeClip, sessionReport, clockText, sessionRecord, worthKeeping, practiceStats, dayRecap, dayLine, practiceNudge, homeCopy, weekLine, durationText, dayKey, LOG_MAX, fraction, heardAs, noteOf, smooth, pchip, clamp01 };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.MT = api;
 })(typeof self !== 'undefined' ? self : this);
