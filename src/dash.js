@@ -110,8 +110,8 @@ function makeDashView(cv, hud, sim, MT) {
     g.fillStyle = '#FFFFFF'; g.fillRect(0, gy - 1, W, 3); g.fillStyle = hsl(hue, 100, 70, 0.35 + beat * 0.3); g.fillRect(0, gy + 2, W, 5);
     // checkpoints left by pauses
     for (const m of sim.marks) { const x = sx(m.x); if (x < -U || x > W + U) continue; g.save(); g.translate(x, gy - (m.y + 1.5) * U); g.rotate(Math.PI / 4); g.fillStyle = '#7CFF4F'; g.strokeStyle = '#06210A'; g.lineWidth = 2; g.fillRect(-U * 0.24, -U * 0.24, U * 0.48, U * 0.48); g.strokeRect(-U * 0.24, -U * 0.24, U * 0.48, U * 0.48); g.restore(); }
-    // the attempt number stands in the level where each run begins
-    { const x = sx(sim.respawnX + 1.1); if (x > -W && x < W * 1.6) { g.font = '800 ' + Math.round(U * 0.86) + 'px Inter, system-ui, sans-serif'; g.textAlign = 'left'; g.textBaseline = 'alphabetic'; g.lineJoin = 'round';
+    // the attempt number stands in the level where each run begins, centred on the screen until the cube sets off
+    { const x = sx(sim.respawnX) + W / 2 - cx; if (x > -W && x < W * 1.6) { g.font = '800 ' + Math.round(U * 0.86) + 'px Inter, system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'alphabetic'; g.lineJoin = 'round';
       g.lineWidth = Math.max(3, U * 0.14); g.strokeStyle = 'rgba(5,5,26,.9)'; g.fillStyle = '#FFFFFF'; const txt = 'Attempt ' + sim.attempts, ty = gy - (sim.respawnY + 3.4) * U; g.strokeText(txt, x, ty); g.fillText(txt, x, ty); } }
     // the course: blocks first, then what stands on them; nothing shows below the ground (saws are half buried)
     if (sim.vanished !== gone) { gone = sim.vanished; for (const o of gone) fades.push({ o: o, t: 0 }); if (fades.length > 60) fades.splice(0, fades.length - 60); }
