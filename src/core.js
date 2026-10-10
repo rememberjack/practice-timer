@@ -743,6 +743,21 @@ function detectionTests(sr) {
       && Math.abs(Q.longest.b - R.longest.b) < 1e-3 && Q.thirds.length === 3 && rec.name === 'Ana' && JSON.stringify(rec).length < 4000 && worthKeeping(R) && !worthKeeping(sessionReport(short.runs));
     return { name: 'Practice log: saved record keeps the summary', expect: 'the stored report matches, under 4 KB; a session with 7.5 s of playing is not kept',
       got: JSON.stringify(rec).length + ' bytes, play ' + rec.play + ' s, efficiency ' + Q.efficiency + ', ' + Q.columns.length + ' columns', pass: ok }; } });
+  list.push({ name: 'Debug tools: sample practice logs', run: () => {
+    const now = new Date(2026, 9, 9, 18).getTime(), want = { first: 'first', today: 'today', week: 'week', back: 'back', months: 'today' }, got = [];   // Friday 9 October 2026, 6 pm
+    let ok = SAMPLE_LOGS.length === 5;
+    for (const [k] of SAMPLE_LOGS) {
+      const log = sampleLog(k, now), P = practiceStats(log, now), c = homeCopy(P, log.length ? log[log.length - 1] : null, now), ids = new Set(log.map(r => r.id));
+      const fine = log.every((r, i) => r.v === 1 && r.R && r.R.columns && r.start > 0 && r.start <= now && r.end > r.start && r.play > 0 && (!i || log[i - 1].start <= r.start));
+      if (c.kind !== want[k] || !fine || ids.size !== log.length || log.length > LOG_MAX || JSON.stringify(log) !== JSON.stringify(sampleLog(k, now))) ok = false;
+      got.push(k + ' ' + log.length + ' sessions, ' + c.kind);
+    }
+    const T = practiceStats(sampleLog('today', now), now), carried = new RocketSim().restore(rocketCarry(sampleLog('today', now), now));
+    const space = new RocketSim(), orbit = new RocketSim(), months = sampleLog('months', now).length, back = practiceStats(sampleLog('back', now), now);
+    ok = ok && T.today.sessions === 2 && T.today.level === 4 && carried && months > 30 && back.daysSince >= 21 && rocketAt(MILESTONES.space - 1) === null
+      && space.restore(rocketAt(MILESTONES.space)) && space.mode === 'ascent' && orbit.restore(rocketAt(MILESTONES.orbit)) && orbit.mode === 'orbit';
+    return { name: 'Debug tools: sample practice logs', expect: 'each sample log is valid and the same every time, and opens the Home Screen it is for; today’s sessions reach the goal and the rocket carries on',
+      got: got.join(', ') + '; today ' + durationText(T.today.play) + ', rocket ' + (carried ? 'carried on' : 'on the pad'), pass: ok }; } });
   // rocket timeline
   list.push({ name: 'Rocket: timeline from ignition to Moon orbit', run: () => {
     const sim = new RocketSim(), s = new Session(), at = {}; s.start();
@@ -1054,6 +1069,53 @@ function weekLine(P) {
   if (P.weekPlay >= P.lastWeekPlay) return s + ', ' + (P.weekPlay - P.lastWeekPlay >= 60 ? durationText(P.weekPlay - P.lastWeekPlay) + ' more than all of last week.' : 'as much as all of last week.');
   if (d >= 60) return s + ', ' + durationText(d) + ' ahead of last week at this point.';
   return s + '.';                                                   // behind last week: no catching up to do, just this week's playing
+}
+
+/* ---------- Sample practice logs for the debug tools: made-up sessions, never saved, to see each page as it looks after some use ---------- */
+const SAMPLE_LOGS = [['first', 'First visit'], ['today', 'Played today'], ['week', 'Played this week'], ['back', 'Back after a break'], ['months', 'Three months']];
+/* a saved rocket flight fp seconds of playing in (as RocketSim.save gives it), or null below the edge of space, where it would start on the pad */
+function rocketAt(fp) {
+  if (!(fp >= MILESTONES.space)) return null;
+  const sim = new RocketSim();
+  if (fp < MILESTONES.orbit) return { mode: 'ascent', fp: fp, l: Math.round(sim.lenAt(fp) * 1e7) / 1e7, stage: fp >= MILESTONES.stage2 ? 2 : 1, inSpace: true, cleared: true, th: Math.round(sim.th0 * 1e4) / 1e4, tOrb: 0 };
+  return { mode: 'orbit', fp: fp, l: sim.L, stage: 2, inSpace: true, cleared: true, th: Math.round(sim.th0 * 1e4) / 1e4, tOrb: 60 };
+}
+/* a session's runs (as Session keeps them) with about play seconds of playing: stretches of playing, short gaps, now and then a break or a pause */
+function sampleRuns(play, rnd) {
+  const runs = [1, 5 + rnd() * 20]; let left = play;      // a little quiet before the first note
+  for (;;) {
+    const p = Math.min(left, 40 + rnd() * 300); runs.push(0, p); left -= p;
+    if (left <= 0) return runs;
+    const x = rnd(); if (x < 0.08) runs.push(2, 30 + rnd() * 120); else if (x < 0.25) runs.push(1, 35 + rnd() * 80); else runs.push(1, 1 + rnd() * 12);
+  }
+}
+/* the made-up practice log for one of SAMPLE_LOGS at time now, oldest first, as the app keeps it. The same kind and day give the same log */
+function sampleLog(kind, now) {
+  const plan = { today: [1, 83, 0.45], week: [1, 83, 0.5], back: [21, 75, 0.55], months: [0, 83, 0.7] }[kind];   // days ago from, to, and how often a day has playing
+  if (!plan) return [];
+  const rnd = rng(11), today = dayStart(now), out = [];
+  const add = (ago, start, play, goal) => {
+    const R = sessionReport(sampleRuns(play, rnd));
+    out.push(sessionRecord({ startedAt: start, stoppedAt: start + Math.round(R.total * 1000), goal: goal }, R, '', null));
+  };
+  const day = (ago, plays) => {
+    const d = addDays(today, -ago), goal = kind === 'months' && ago > 42 ? 1200 : 1800;
+    plays.forEach((p, i) => {
+      let start = new Date(d.getFullYear(), d.getMonth(), d.getDate(), [8, 13, 18][i], Math.floor(rnd() * 50)).getTime();
+      if (ago === 0) start = Math.max(today.getTime() + i * 6e5, Math.min(start, now - (plays.length - i) * 5400e3));   // today's sessions start before now
+      add(ago, start, p, goal);
+    });
+  };
+  for (let ago = plan[1]; ago >= plan[0]; ago--) {
+    const yes = rnd() < plan[2], n = rnd(), plays = [];
+    for (let i = 0; i < (n < 0.7 ? 1 : n < 0.92 ? 2 : 3); i++) plays.push(Math.round(480 + rnd() * 1800));
+    if (yes || (kind === 'week' && ago === 1)) day(ago, plays);             // played this week: yesterday at least (on a Monday that is last week, so it reads as a break)
+  }
+  if (kind === 'today') day(0, [840, 1140]);                                // two sessions today that reach the goal together
+  out.sort((a, b) => a.start - b.start);
+  // the rocket of each day's sessions, as if every session that day carried the flight on
+  const flown = {}; for (const r of out) { const k = dayKey(r.start); flown[k] = (flown[k] || 0) + r.play; r.rocket = rocketAt(flown[k]); }
+  return out;
 }
 
 /* ---------- Rocket flight model ---------- */
@@ -1426,6 +1488,6 @@ class DashSim {
 }
 
 const api = { LIFTOFF, OnsetTracker, WheelSwipe, DashSim, DASH, dashSpeed, MusicDetector, Session, RocketSim, WORLD, MILESTONES, SENSITIVITY, CLIPS, DETECTION_CASES,
-  detectionTests, runDetectionTests, analyzeClip, sessionReport, clockText, sessionRecord, worthKeeping, rocketCarry, practiceStats, dayRecap, dayLine, practiceNudge, homeCopy, weekLine, durationText, dayKey, LOG_MAX, fraction, heardAs, noteOf, smooth, pchip, clamp01 };
+  detectionTests, runDetectionTests, analyzeClip, sessionReport, clockText, sessionRecord, worthKeeping, rocketCarry, practiceStats, dayRecap, dayLine, practiceNudge, homeCopy, weekLine, durationText, dayKey, LOG_MAX, SAMPLE_LOGS, sampleLog, rocketAt, fraction, heardAs, noteOf, smooth, pchip, clamp01 };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.MT = api;
 })(typeof self !== 'undefined' ? self : this);

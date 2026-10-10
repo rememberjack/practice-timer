@@ -19,6 +19,12 @@ try { const j = JSON.parse(localStorage.getItem('musicTimer.settings') || 'null'
 if (!(S.goalMin >= 5 && S.goalMin <= 180)) S.goalMin = 30;
 if (['0', '5', '10', '20'].indexOf(S.hold) < 0) S.hold = DEF.hold;
 function saveS() { try { localStorage.setItem('musicTimer.settings', JSON.stringify(S)); } catch (e) {} }
+/* debug tools, for the developer only: hidden until the version line in Settings is tapped seven times (or the page is opened with ?debug).
+   sample: the sample practice log in use instead of the real one, never saved and gone on reload; rocket: where the next session's rocket starts ('pad', 'space', 'orbit'), if set */
+const DBG = { on: false, readout: false, sample: '', rocket: '', r: null, fps: 0 };
+try { const j = JSON.parse(localStorage.getItem('musicTimer.debug') || 'null'); if (j && j.on === true) { DBG.on = true; DBG.readout = j.readout === true; } } catch (e) {}
+try { const q = new URLSearchParams(location.search).get('debug'); if (q != null) DBG.on = q !== '0'; } catch (e) {}
+function saveDbg() { try { if (DBG.on) localStorage.setItem('musicTimer.debug', JSON.stringify({ on: true, readout: DBG.readout })); else localStorage.removeItem('musicTimer.debug'); } catch (e) {} }
 
 /* ---------- model ---------- */
 const session = new MT.Session(); session.goal = S.goalMin * 60;
@@ -179,7 +185,8 @@ async function start() {
   catch (e) { busy = false; if (ctx) { try { ctx.close(); } catch (er) {} }
     showNotice('mic', micMessage(e), 'Use demo sound', () => { useDemoAction(); start(); }); return; }
   busy = false; hideNotice();
-  session.goal = S.goalMin * 60; session.hold = +S.hold; session.start(); const carried = carryRocket(); rocket.reset(); city.reset(); cityBannerAt = 0;
+  const forced = !!DBG.rocket;
+  session.goal = S.goalMin * 60; session.hold = +S.hold; session.start(); const carried = carryRocket() && !forced; DBG.rocket = ''; rocket.reset(); city.reset(); cityBannerAt = 0;
   dash.reset(); dashView.reset(); onsets.reset(); pendingOnsets = 0;
   music = false; goalHit = false; vote = {}; bars.fill(0); hideAward();
   if (carried) banner('Carrying on from earlier today');
@@ -204,7 +211,7 @@ function tick() {
   let m = false;
   if (session.state === 'running') {
     const f = getFrame(dt);
-    if (f) { const r = A.det.process(f, Math.min(dt, 1));
+    if (f) { const r = A.det.process(f, Math.min(dt, 1)); DBG.r = r;
       m = r.isMusic && dt < 1.5;                 // a long gap means the page was asleep: no credit
       if (dt >= 1.5) session.quietFor = Infinity;   // and no hold across it
       heard.label = r.label; heard.detail = r.detail; heard.note = r.note; heard.midi = r.pitch > 0 ? 69 + 12 * Math.log2(r.pitch / 440) : null; levelBars();
@@ -622,7 +629,7 @@ function drawViz(dt) {
 
 let lastF = 0;
 function frame(t) {
-  const dt = Math.min(0.1, Math.max(0, (t - lastF) / 1000)); lastF = t;
+  const dt = Math.min(0.1, Math.max(0, (t - lastF) / 1000)); if (DBG.readout) dbgFrame(t - lastF); lastF = t;
   if (mode === 'follow') followStep(dt);
   while (sim.events.length) fire(sim.events.shift());
   paint();
@@ -738,7 +745,7 @@ function bumpGoal(d) { S.goalMin = Math.max(5, Math.min(180, S.goalMin + d)); sa
 $('goalDn').onclick = () => bumpGoal(-5); $('goalUp').onclick = () => bumpGoal(5);
 $('nameIn').value = S.name; $('nameIn').oninput = () => { S.name = $('nameIn').value.replace(/[\u0000-\u001F\u007F-\u009F\u200B-\u200F\u2028-\u202F\u2060-\u206F\uFEFF]/g, '').slice(0, 40); saveS(); };
 $('recIn').checked = S.record; $('recIn').onchange = () => { S.record = $('recIn').checked; saveS(); };
-$('btnSettings').onclick = () => { paintGoal(); paintControls(); $('dlgSettings').showModal(); };
+$('btnSettings').onclick = () => { paintGoal(); paintControls(); paintDbg(); $('dlgSettings').showModal(); };
 $('btnSettings2').onclick = () => $('btnSettings').click();          // on phones the Rocket and City themes keep Settings beside the buttons
 $('setClose').onclick = () => $('dlgSettings').close();
 for (const d of document.querySelectorAll('dialog')) d.addEventListener('click', e => { if (e.target === d) d.close(); });
@@ -776,6 +783,7 @@ function finishSession(demo) {
   if (demo) note = { text: 'Demo sessions are not saved to your practice log.' };
   else if (!MT.worthKeeping(R)) note = { text: 'Sessions with less than 10 seconds of playing are not saved to your practice log.' };
   else if (!addToLog(r)) note = { text: 'This session could not be saved on this device.' };
+  else if (DBG.sample) note = { text: 'Sample data is on, so this session was added to the sample log only. Your practice log is unchanged.' };
   else { const P = MT.practiceStats(log, Date.now()); note = { lead: MT.durationText(P.weekPlay) + ' of music this week.', text: 'Saved to your practice log.' }; }
   return { rec: r, note: note };
 }
@@ -853,15 +861,17 @@ $('btnSaveRec').onclick = () => { if (rec.blob) saveFile('practice-recording-' +
 
 /* ---------- practice log: finished sessions, kept on this device (no audio) ---------- */
 const LOG_KEY = 'musicTimer.log';
-let log = [], logShown = 30;
-try { const j = JSON.parse(localStorage.getItem(LOG_KEY) || '[]'); if (Array.isArray(j)) log = j.filter(r => r && r.v === 1 && r.R && r.start > 0).sort((a, b) => a.start - b.start); } catch (e) {}
+function readLog() { try { const j = JSON.parse(localStorage.getItem(LOG_KEY) || '[]'); if (Array.isArray(j)) return j.filter(r => r && r.v === 1 && r.R && r.start > 0).sort((a, b) => a.start - b.start); } catch (e) {} return []; }
+let log = readLog(), logShown = 30;
 function writeLog() {
+  if (DBG.sample) return true;                // a sample log lives only in memory; the real one stays as it was
   for (;;) { try { localStorage.setItem(LOG_KEY, JSON.stringify(log)); return true; }
     catch (e) { const full = e && (e.name === 'QuotaExceededError' || e.code === 22 || e.code === 1014);   // storage full: drop the oldest fifth and try again
       if (!full || log.length < 2) return false; log.splice(0, Math.ceil(log.length / 5)); } }
 }
 /* the rocket carries on from where the day's latest saved session left it, and starts on the pad each new day */
-function carryRocket() { return sim.restore(mode === 'local' ? MT.rocketCarry(log, Date.now()) : null); }
+function carryRocket() { if (mode === 'local' && DBG.rocket) return sim.restore(DBG.rocket === 'pad' ? null : MT.rocketAt(MT.MILESTONES[DBG.rocket]));
+  return sim.restore(mode === 'local' ? MT.rocketCarry(log, Date.now()) : null); }
 function rocketAfterDelete() { if (mode === 'local' && (session.state === 'idle' || session.state === 'stopped')) { carryRocket(); rocket.reset(); } }
 function addToLog(r) { log = log.filter(x => x.id !== r.id); log.push(r); log.sort((a, b) => a.start - b.start); if (log.length > MT.LOG_MAX) log.splice(0, log.length - MT.LOG_MAX); return writeLog(); }
 /* a destructive button asks twice: the first tap arms it for a few seconds */
@@ -978,6 +988,42 @@ $('dlgSummary').addEventListener('close', () => { if (homeOn) renderHome(); else
 $('dlgSettings').addEventListener('close', () => { if (homeOn) renderHome(); });   // a new name shows in the greeting
 $('dlgLog').addEventListener('close', () => { if (homeOn) renderHome(); });       // sessions deleted from the log
 
+/* ---------- debug tools, for the developer only: sample data, a detector read-out, where the rocket starts, and shortcuts ---------- */
+let verTaps = 0, verAt = 0, dbgAt = 0;
+$('ver').addEventListener('click', () => {           // seven quick taps on the version line turn them on
+  if (DBG.on) return; const t = performance.now(); verTaps = t - verAt < 1500 ? verTaps + 1 : 1; verAt = t;
+  if (verTaps >= 7) { verTaps = 0; DBG.on = true; saveDbg(); paintDbg(); $('dbg').scrollIntoView({ block: 'start', behavior: reduceMotion ? 'auto' : 'smooth' }); }
+});
+function paintDbg() {
+  $('dbg').hidden = !DBG.on; $('dbgBadge').hidden = !DBG.sample; $('dbgRead').hidden = !(DBG.on && DBG.readout);
+  if (!DBG.on) return;
+  const c = $('dbgSample'), r = $('dbgRocket'); c.textContent = ''; r.textContent = '';
+  chip(c, 'My log', !DBG.sample, () => setSample(''));
+  for (const [k, label] of MT.SAMPLE_LOGS) chip(c, label, DBG.sample === k, () => setSample(k));
+  for (const [k, label] of [['', 'As usual'], ['pad', 'On the pad'], ['space', 'In space'], ['orbit', 'In Moon orbit']])
+    chip(r, label, DBG.rocket === k, () => { DBG.rocket = k; rocketAfterDelete(); paintDbg(); });   // shown at once while no session is on
+  $('dbgReadIn').checked = DBG.readout;
+}
+function setSample(k) { DBG.sample = k; log = k ? MT.sampleLog(k, Date.now()) : readLog(); logShown = 30; rocketAfterDelete(); paintDbg(); }
+function dbgFrame(ms) {
+  if (ms > 0 && ms < 1000) DBG.fps = DBG.fps ? DBG.fps * 0.9 + 100 / ms : 1000 / ms;
+  const now = performance.now(); if (now - dbgAt < 250) return; dbgAt = now;
+  const r = session.state === 'running' && A.det ? DBG.r : null, f1 = v => (+v).toFixed(1);
+  $('dbgRead').textContent = [
+    Math.round(DBG.fps) + ' fps  ' + (A.kind || 'no input') + (A.det ? ' ' + A.det.sr + ' Hz' : '') + '  ' + session.state + (mode === 'follow' ? ' (following)' : ''),
+    r ? 'level ' + f1(r.levelDb) + ' dB' + (r.active ? '' : ' (too soft)') + '  pitch ' + (r.pitch > 0 ? Math.round(r.pitch) + ' Hz ' + r.note : 'none') : 'not listening',
+    r ? 'score ' + f1(r.score) + '  ' + (r.isMusic ? 'music, ' + r.instrument : r.kind) : '',
+    'play ' + fmt(session.play) + ' of ' + fmt(session.active) + (session.holdLeft > 0 ? '  hold ' + f1(session.holdLeft) + ' s' : ''),
+    'rocket ' + sim.mode + ', ' + Math.round(sim.fp) + ' s flown, power ' + Math.round(sim.power * 100) + '%' + (DBG.sample ? '  sample: ' + DBG.sample : ''),
+  ].filter(Boolean).join('\n');
+}
+$('dbgReadIn').onchange = () => { DBG.readout = $('dbgReadIn').checked; saveDbg(); paintDbg(); };
+$('dbgTrophy').onclick = () => { $('dlgSettings').close(); hideHome(); award(session.goal || S.goalMin * 60); };
+$('dbgHome').onclick = () => { $('dlgSettings').close(); showHome(); };
+$('dbgSave').onclick = () => { const d = new Date(), p = n => String(n).padStart(2, '0');
+  saveFile('music-timer-log-' + d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + '.json', JSON.stringify(readLog())); };
+$('dbgOff').onclick = () => { DBG.on = false; DBG.readout = false; DBG.rocket = ''; if (DBG.sample) setSample(''); saveDbg(); paintDbg(); rocketAfterDelete(); };
+
 /* ---------- go ---------- */
 /* Rocket and City read-outs: tap them to fold them down to play time and power, leaving more of the scene in view */
 function setHudCompact(on) { S.hudCompact = on; saveS();
@@ -989,7 +1035,7 @@ for (const el of [$('hud'), $('cityHud'), $('dashHud')]) {
   el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setHudCompact(!S.hudCompact); } });
 }
 setHudCompact(!!S.hudCompact);
-carryRocket(); refreshSkins(); paintGoal(); paintControls(); paintDemoBar(); showHome();
+carryRocket(); refreshSkins(); paintGoal(); paintControls(); paintDemoBar(); paintDbg(); showHome();
 try { const b = document.querySelector('meta[name="build"]'); $('ver').textContent = 'Version ' + (b && b.content && b.content.indexOf('__') < 0 ? b.content : 'dev'); } catch (e) {}
 if (S.source === 'mic' && (micPolicyBlocked() || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia))
   showNotice('mic', framed ? MIC_FRAMED : micMessage({ name: window.isSecureContext === false ? 'Insecure' : 'Unsupported' }), 'Use demo sound', useDemoAction);

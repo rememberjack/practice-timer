@@ -402,6 +402,12 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 #toast{position:fixed; left:50%; bottom:calc(96px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%); background:var(--surface); color:var(--ink); border:1px solid var(--rule); padding:10px 14px; border-radius:14px; font-size:14px;
   opacity:0; transition:opacity .25s; pointer-events:none; max-width:90%; text-align:center; z-index:5}
 #toast.on{opacity:1}
+/* debug tools (developer only) */
+.dbg-k{display:block; font-weight:700; font-size:13px; margin-top:12px}
+.dbg-chips{margin-top:6px}
+.dbg-sw{margin-top:14px}
+#dbgBadge{position:fixed; top:calc(env(safe-area-inset-top,0px) + 4px); left:50%; transform:translateX(-50%); z-index:6; pointer-events:none; background:#C2410C; color:#fff; font:700 11px/1 system-ui,sans-serif; padding:4px 9px; border-radius:999px}
+#dbgRead{position:fixed; left:6px; bottom:calc(env(safe-area-inset-bottom,0px) + 120px); z-index:6; pointer-events:none; margin:0; background:rgba(0,0,0,.6); color:#B6F5B6; font:10px/1.4 ui-monospace,Menlo,monospace; padding:6px 8px; border-radius:8px; white-space:pre; max-width:calc(100% - 12px); overflow:hidden}
 .sr{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap}
 @media (max-width:359px){ #top{gap:10px; width:calc(100% - 28px)} #top h1{font-size:18px} .icon-btn{padding:0 12px} .classic{padding-left:14px; padding-right:14px} .stats{gap:8px 14px}
   #notice, #demoBar{margin-left:14px; margin-right:14px; width:calc(100% - 28px)} #controls{padding-left:14px; padding-right:14px} .hud{padding-left:10px; padding-right:10px; font-size:11px} .hud-stats span{font-size:8px} .hud-stats b{font-size:11px} }
@@ -933,7 +939,18 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
       <div class="btn-row"><button class="btn" id="btnTests">Run tests</button><span id="testSum" style="align-self:center;font-size:14px"></span></div>
       <ul id="tests"></ul>
     </div>
-    <p class="hint" id="ver" style="margin:14px 0 0;font-size:12px;color:var(--mute-2)"></p>
+    <div class="field" id="dbg" hidden>
+      <span class="lab">Debug tools</span>
+      <p class="hint">These stay hidden until the version line below is tapped seven times, and only on this device.</p>
+      <span class="dbg-k">Sample data</span>
+      <div class="chips dbg-chips" id="dbgSample" role="group" aria-label="Sample data"></div>
+      <p class="hint">Made-up sessions, to see the Home Screen and practice log after some use. They are not saved and are gone when the page reloads. Your own practice log is not changed, and sessions played meanwhile go to the sample log only.</p>
+      <span class="dbg-k">The next session&rsquo;s rocket starts</span>
+      <div class="chips dbg-chips" id="dbgRocket" role="group" aria-label="Where the next session's rocket starts"></div>
+      <label class="switch dbg-sw" for="dbgReadIn"><span>Show the detector read-out</span><input type="checkbox" id="dbgReadIn"></label>
+      <div class="btn-row"><button class="btn" id="dbgTrophy">Show the trophy</button><button class="btn" id="dbgHome">Show the Home Screen</button><button class="btn" id="dbgSave">Save my practice log as a file</button><button class="btn" id="dbgOff">Turn off debug tools</button></div>
+    </div>
+    <p class="hint" id="ver" style="margin:14px 0 0;font-size:12px;color:var(--mute-2);touch-action:manipulation;-webkit-user-select:none;user-select:none"></p>
   </div>
 </dialog>
 
@@ -1034,6 +1051,8 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 </dialog>
 
 <div id="toast" role="status"></div>
+<div id="dbgBadge" hidden>Sample data</div>
+<pre id="dbgRead" hidden aria-hidden="true"></pre>
 
 <script>
 /*__CORE__*/
