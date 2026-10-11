@@ -1060,10 +1060,18 @@ function paintHomeThemes() {
 }
 $('homeFlightGo').onclick = () => askFlight(true);
 let homeSeed = 0;                                                     // which playful words: new each time the Home Screen shows, the same while it stays
+let homeTurn = 0;                                                     // which greeting: the next in turn each time it shows, so none repeats until all have had a go
+function nextHomeTurn() {
+  let t = NaN; try { t = parseInt(localStorage.getItem('musicTimer.greet'), 10); } catch (e) { /* no storage: a random turn each time */ }
+  if (!Number.isFinite(t)) t = Math.floor(Math.random() * 1000);       // a new device starts somewhere in the round
+  try { localStorage.setItem('musicTimer.greet', String(t + 1)); } catch (e) { /* the greeting may repeat, nothing else */ }
+  return t + 1;
+}
 function renderHome() {
-  const now = Date.now(), P = MT.practiceStats(log, now), c = MT.homeCopy(P, log.length ? log[log.length - 1] : null, now, { seed: homeSeed, name: S.name });
-  $('homeHello').textContent = c.hello;
-  $('homeName').hidden = !!S.name;
+  const now = Date.now(), P = MT.practiceStats(log, now), c = MT.homeCopy(P, log.length ? log[log.length - 1] : null, now, { seed: homeSeed, turn: homeTurn, name: S.name });
+  // without a name, the friendly word in the greeting ("Hi there, friend") is the link to add one
+  const a = c.ask; $('homeHello').textContent = a ? a.pre : c.hello; $('homeHelloEnd').textContent = a ? a.post : '';
+  $('homeName').hidden = !a; $('homeName').textContent = a ? a.word : ''; if (a) $('homeName').setAttribute('aria-label', a.word + '. Add your name');
   $('homeHead').textContent = c.head; $('homeLede').textContent = c.lede;
   $('homeFirst').hidden = c.kind !== 'first'; $('homeWeek').hidden = c.kind === 'first';
   if (c.kind !== 'first') {
@@ -1084,7 +1092,7 @@ function renderHome() {
 }
 function showHome() {
   if (mode === 'follow' || session.state === 'running' || session.state === 'paused') return;
-  homeSeed = 1 + Math.floor(Math.random() * 2e9); renderHome(); homeEl.hidden = false; homeOn = true; app.inert = true; checkVersion();
+  homeSeed = 1 + Math.floor(Math.random() * 2e9); homeTurn = nextHomeTurn(); renderHome(); homeEl.hidden = false; homeOn = true; app.inert = true; checkVersion();
 }
 function hideHome() { if (!homeOn) return; homeEl.hidden = true; homeOn = false; app.inert = false; layoutChanged(); }
 $('homeGo').onclick = () => { hideHome(); start(); };
