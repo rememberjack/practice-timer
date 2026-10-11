@@ -727,14 +727,13 @@ function detectionTests(sr) {
     const L = dayLine(D, now), L1 = dayLine(D1, now), LY = dayLine(Y, now), H = homeCopy(P, c, now), HW = homeCopy(practiceStats([y1, y2], now), y2, now);
     const words = [L.lead, L.text, L1.text, LY.lead, LY.text, H.lede, HW.note].join(' ');
     const ok = P.today.sessions === 3 && P.today.play === 1920 && P.today.plays.join() === '600,900,420' && P.week[3].plays.join() === '300,1200' && P.today.level === 4
-      && D.n === 3 && D.count === 3 && D.before === 1500 && D.upTo === 1920 && D.together && D1.n === 1 && D1.upTo === 600 && !Y.together && dayRecap(recs, rec(9, 21, 60)) === null
+      && D.n === 3 && D.count === 3 && D.before === 1500 && D.upTo === 1920 && D1.n === 1 && D1.upTo === 600 && dayRecap(recs, rec(9, 21, 60)) === null
       && one.count === 1 && dayLine(one, now) === null
-      && L.lead === '32 min of music today.' && L.text === 'This was your third session today. Together, today\u2019s sessions reached your 30-minute goal.'
-      && L1.text === 'This was session 1 of 3 today. Together, today\u2019s sessions reached your 30-minute goal.'
+      && L.lead === '32 min of music today.' && L.text === 'This was your third session today.' && L1.text === 'This was session 1 of 3 today.'
       && LY.lead === '25 min of music that day.' && LY.text === 'This was session 1 of 2 that day.'
       && H.lede === 'You played for 32 min today, in 3 sessions. Come back whenever you feel like it.' && HW.note === 'You last played yesterday, 25 min in 2 sessions.'
-      && !/streak|in a row|ago|miss|lost|keep/i.test(words);
-    return { name: 'Several sessions in a day: the day adds up', expect: 'three sessions today make 32 min and reach the goal together; the Home Screen and summary count every session of the day',
+      && !/streak|in a row|ago|miss|lost|keep|goal/i.test(words) && !('goal' in D);
+    return { name: 'Several sessions in a day: the day adds up', expect: 'three sessions today make 32 min; the Home Screen and summary count every session of the day, without measuring the day against the session goal',
       got: 'today ' + durationText(P.today.play) + ' in ' + P.today.sessions + ' (' + P.today.plays.join(', ') + ') | ' + (L ? L.lead + ' ' + L.text : 'no line') + ' | ' + (LY ? LY.text : '') + ' | ' + H.lede + ' | ' + HW.note, pass: ok }; } });
   list.push({ name: 'Practice log: saved record keeps the summary', run: () => {
     const s = new Session(); s.start(); for (let i = 0; i < 400; i++) s.tick(0.5, i % 10 < 7); s.stop();
@@ -1015,23 +1014,22 @@ function practiceStats(records, now, weeks) {
     streak: streak, bestStreak: bestStreak, practicedToday: practicedToday, daysSince: daysSince, daysPlayed: days.size, today: cell(today),
     week: week, weekPlay: weekPlay, lastWeekPlay: lastWeekPlay, lastWeekSoFar: lastWeekSoFar, grid: grid };
 }
-/* one saved session among the others played the same day: its number that day, the day's playing up to it and in all, and whether the
-   day's sessions reached the goal together when none did alone. null when rec is not in records (a demo or a session too short to keep) */
+/* one saved session among the others played the same day: its number that day, and the day's playing up to it and in all.
+   The practice goal is for each session, so nothing here measures the day against it.
+   null when rec is not in records (a demo or a session too short to keep) */
 function dayRecap(records, rec) {
   if (!rec || !records.some(r => r.id === rec.id)) return null;
   const k = dayKey(rec.start), day = records.filter(r => dayKey(r.start) === k).sort((a, b) => a.start - b.start);
-  const n = day.findIndex(r => r.id === rec.id) + 1, goal = day[day.length - 1].goal;   // the day's goal is its latest session's, as on the calendar
+  const n = day.findIndex(r => r.id === rec.id) + 1;
   let before = 0, play = 0; day.forEach((r, i) => { play += r.play; if (i < n - 1) before += r.play; });
-  return { key: k, n: n, count: day.length, sessions: day, before: before, upTo: before + rec.play, play: play, goal: goal,
-    met: goal > 0 && play >= goal, together: day.length > 1 && goal > 0 && play >= goal && day.every(r => r.play < goal) };
+  return { key: k, n: n, count: day.length, sessions: day, before: before, upTo: before + rec.play, play: play };
 }
 /* the words for a day of several sessions on the summary: { lead, text }, or null for a day with one session */
 const ORDINALS = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth', 'ninth', 'tenth'];
 function dayLine(D, now) {
   if (!D || D.count < 2) return null;
   const today = D.key === dayKey(now), when = today ? 'today' : 'that day', latest = D.n === D.count;
-  const text = (today && latest ? 'This was your ' + (ORDINALS[D.n - 1] || D.n + 'th') + ' session today.' : 'This was session ' + D.n + ' of ' + D.count + ' ' + when + '.')
-    + (D.together ? ' Together, ' + (today ? 'today\u2019s' : 'that day\u2019s') + ' sessions reached your ' + Math.round(D.goal / 60) + '-minute goal.' : '');
+  const text = today && latest ? 'This was your ' + (ORDINALS[D.n - 1] || D.n + 'th') + ' session today.' : 'This was session ' + D.n + ' of ' + D.count + ' ' + when + '.';
   return { lead: durationText(D.play) + ' of music ' + when + '.', text: text };
 }
 /* 4500 -> "1 h 15 min", 600 -> "10 min", 40 -> "40 s" */
@@ -1111,7 +1109,7 @@ function sampleLog(kind, now) {
     for (let i = 0; i < (n < 0.7 ? 1 : n < 0.92 ? 2 : 3); i++) plays.push(Math.round(480 + rnd() * 1800));
     if (yes || (kind === 'week' && ago === 1)) day(ago, plays);             // played this week: yesterday at least (on a Monday that is last week, so it reads as a break)
   }
-  if (kind === 'today') day(0, [840, 1140]);                                // two sessions today that reach the goal together
+  if (kind === 'today') day(0, [840, 1140]);                                // two sessions today
   out.sort((a, b) => a.start - b.start);
   // the rocket of each day's sessions, as if every session that day carried the flight on
   const flown = {}; for (const r of out) { const k = dayKey(r.start); flown[k] = (flown[k] || 0) + r.play; r.rocket = rocketAt(flown[k]); }
