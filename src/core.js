@@ -742,6 +742,18 @@ function detectionTests(sr) {
       && Math.abs(Q.longest.b - R.longest.b) < 1e-3 && Q.thirds.length === 3 && rec.name === 'Ana' && JSON.stringify(rec).length < 4000 && worthKeeping(R) && !worthKeeping(sessionReport(short.runs));
     return { name: 'Practice log: saved record keeps the summary', expect: 'the stored report matches, under 4 KB; a session with 7.5 s of playing is not kept',
       got: JSON.stringify(rec).length + ' bytes, play ' + rec.play + ' s, efficiency ' + Q.efficiency + ', ' + Q.columns.length + ' columns', pass: ok }; } });
+  list.push({ name: 'Session: time away counts like a pause', run: () => {
+    const s = new Session(); s.start(); for (let i = 0; i < 600; i++) s.tick(0.1, true); s.away(600); for (let i = 0; i < 150; i++) s.tick(0.1, true);
+    const R = sessionReport(s.runs), ok = Math.abs(s.efficiency - 1) < 1e-9 && Math.abs(s.recentEfficiency - 1) < 1e-9 && Math.abs(s.total - 675) < 1e-6 && Math.abs(s.active - 75) < 1e-6
+      && R.paused === 600 && R.pauses === 1 && s.pauses === 1 && Math.abs(R.efficiency - 1) < 1e-9;
+    return { name: 'Session: time away counts like a pause', expect: '10 min with the app away between playing leaves efficiency and the last minute at 100%, shown as one pause',
+      got: 'efficiency ' + Math.round(s.efficiency * 100) + '%, last minute ' + Math.round(s.recentEfficiency * 100) + '%, paused ' + R.paused + ' s', pass: ok }; } });
+  list.push({ name: 'Home Screen: a session past midnight counts as today', run: () => {
+    const mon = new Date(2026, 9, 12, 0, 30).getTime(), sun = new Date(2026, 9, 11, 23, 40).getTime(), r = { start: sun, end: sun + 2700e3, play: 2400, goal: 1800, eff: 0.9, R: { active: 2600 } };
+    const c = homeCopy(practiceStats([r], mon), r, mon), D = { key: '2026-10-12', n: 21, count: 21, play: 9000 };
+    const ok = c.kind === 'today' && c.lede === 'You played for 40 min today. Come back whenever you feel like it.' && dayLine(D, mon).text === 'This was session 21 today.';
+    return { name: 'Home Screen: a session past midnight counts as today', expect: 'Sunday 23:40 to Monday 00:25 reads as played today on Monday; the 21st session reads "session 21"',
+      got: c.kind + ': ' + c.lede + ' | ' + dayLine(D, mon).text, pass: ok }; } });
   list.push({ name: 'Debug tools: sample practice logs', run: () => {
     const now = new Date(2026, 9, 9, 18).getTime(), want = { first: 'first', today: 'today', week: 'week', back: 'back', months: 'today' }, got = [];   // Friday 9 October 2026, 6 pm
     let ok = SAMPLE_LOGS.length === 5;
@@ -913,6 +925,13 @@ class Session {
     if (this.ba >= 1) { this.buckets.push(this.ba, this.bp); if (this.buckets.length > 120) this.buckets.splice(0, 2); this.ba = 0; this.bp = 0; }
     return music;
   }
+  /* dt seconds when the app could not listen (the phone asleep, the app in the background): they count like a pause, so they do not
+     lower the efficiency or hold the last minute's power down afterwards */
+  away(dt) {
+    if ((this.state !== 'running' && this.state !== 'paused') || !(dt > 0)) return;
+    this.total += dt; this.quietFor = Infinity; this.playing = false; if (this.state === 'running') this.pauses++;
+    const r = this.runs, n = r.length; if (n && r[n - 2] === 2) r[n - 1] += dt; else r.push(2, dt);
+  }
   get efficiency() { return this.active > 0 ? Math.min(1, this.play / this.active) : 0; }
   get recentEfficiency() { let a = this.ba, p = this.bp; for (let i = 0; i < this.buckets.length; i += 2) { a += this.buckets[i]; p += this.buckets[i + 1]; } return a > 0 ? Math.min(1, p / a) : 0; }
 }
@@ -964,7 +983,7 @@ function clockText(s) { s = Math.max(0, Math.floor(s));   // down to the second,
   return h ? h + ':' + String(m).padStart(2, '0') + ':' + x : m + ':' + x; }
 
 /* ---------- Practice log: saved sessions and the week (the streak is worked out but not shown for now) ---------- */
-const LOG_MAX = 400, KEEP_PLAY = 10;   // the log keeps the latest LOG_MAX sessions; a session needs KEEP_PLAY seconds of playing to be saved
+const LOG_MAX = 2000, KEEP_PLAY = 10;   // the log keeps the latest LOG_MAX sessions (years of practice, about 2.5 MB); a session needs KEEP_PLAY seconds of playing to be saved
 /* what is saved for a finished session: its times and its report, rounded so the log stays small (no audio) */
 function sessionRecord(s, R, name, rocket) {
   const round = (k, v) => typeof v === 'number' ? Math.round(v * 1000) / 1000 : v;
@@ -1035,7 +1054,7 @@ const ORDINALS = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seven
 function dayLine(D, now) {
   if (!D || D.count < 2) return null;
   const today = D.key === dayKey(now), when = today ? 'today' : 'that day', latest = D.n === D.count;
-  const text = today && latest ? 'This was your ' + (ORDINALS[D.n - 1] || D.n + 'th') + ' session today.' : 'This was session ' + D.n + ' of ' + D.count + ' ' + when + '.';
+  const text = today && latest ? (ORDINALS[D.n - 1] ? 'This was your ' + ORDINALS[D.n - 1] + ' session today.' : 'This was session ' + D.n + ' today.') : 'This was session ' + D.n + ' of ' + D.count + ' ' + when + '.';
   return { lead: durationText(D.play) + ' of music ' + when + '.', text: text };
 }
 /* 4500 -> "1 h 15 min", 600 -> "10 min", 40 -> "40 s" */
@@ -1056,8 +1075,10 @@ const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frida
 function homeCopy(P, last, now) {
   const h = new Date(now).getHours(), hello = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
   if (!P.sessions || !last) return { kind: 'first', hello: hello, head: 'Let\u2019s make some music.', lede: 'It counts only the time the microphone hears you play.' };
-  if (P.practicedToday) { const t = P.today, n = t.sessions;
-    return { kind: 'today', hello: hello, head: 'Lovely playing today.', lede: 'You played for ' + durationText(t.play) + ' today' + (n > 1 ? ', in ' + n + ' sessions' : '') + '. Come back whenever you feel like it.',
+  // a session that started before midnight and ended today still counts as playing today here (it is filed under the day it started)
+  const lateLast = !P.practicedToday && dayKey(last.end || last.start) === dayKey(now);
+  if (P.practicedToday || lateLast) { const t = P.today, n = t.sessions, play = lateLast ? last.play : t.play;
+    return { kind: 'today', hello: hello, head: 'Lovely playing today.', lede: 'You played for ' + durationText(play) + ' today' + (!lateLast && n > 1 ? ', in ' + n + ' sessions' : '') + '. Come back whenever you feel like it.',
       note: 'All together: ' + durationText(P.totalPlay) + ' of music.' }; }
   if (P.weekPlay > 0) { const days = Math.round((dayStart(now) - dayStart(last.start)) / 864e5), when = days <= 1 ? 'yesterday' : 'on ' + WEEKDAYS[new Date(last.start).getDay()];
     const d = P.week.find(c => c.key === dayKey(last.start)), n = d ? d.sessions : 1;   // every session that day, not only the last
