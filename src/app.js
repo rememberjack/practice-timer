@@ -7,6 +7,20 @@ function fmt(s) { s = Math.max(0, Math.floor(s)); const h = Math.floor(s / 3600)
   return (h ? h + ':' : '') + String(m).padStart(2, '0') + ':' + String(x).padStart(2, '0'); }
 const cache = new Map();
 function text(el, s) { if (cache.get(el) !== s) { cache.set(el, s); el.textContent = s; } }
+function leftAt(el, f) { const s = Math.round(Math.max(0, Math.min(1, f)) * 1000) / 10 + '%'; if (cache.get(el) !== s) { cache.set(el, s); el.style.left = s; } }
+const acache = new WeakMap();
+function ariaLabel(el, s) { if (acache.get(el) !== s) { acache.set(el, s); el.setAttribute('aria-label', s); } }
+/* power read-outs: the bar is the last minute of playing, the mark the whole session, the arrow which of the two is ahead */
+const trendState = {};
+function trend(id, st) {
+  const t = st === 'running' || st === 'paused' ? MT.powerTrend(trendState[id] || '', V.pw, V.eff) : ''; trendState[id] = t;
+  const el = $(id), c = t ? 'trend ' + t : 'trend'; if (el.className !== c) el.className = c;
+}
+function gauge(p, what, st) {
+  const avg = $(p + 'Avg'), on = st !== 'idle', c = on ? 'avg' : 'avg off'; leftAt(avg, V.eff); if (avg.className !== c) avg.className = c;
+  trend(p + 'Tr', st);
+  ariaLabel($(p + 'Gauge'), on ? what + ' ' + Math.round(V.pw * 100) + '% over the last minute, session average ' + Math.round(V.eff * 100) + '%' : what);
+}
 function width(el, f) { const s = Math.round(Math.max(0, Math.min(1, f)) * 1000) / 10 + '%'; if (cache.get(el) !== s) { cache.set(el, s); el.style.width = s; } }
 
 /* ---------- settings ---------- */
@@ -366,10 +380,10 @@ function paint() {
   text($('rActive'), fmt(V.active)); text($('rGoal'), fmt(V.goal)); text($('rGoalLeft'), reached ? 'Reached' : fmt(Math.ceil(V.goal - V.play)) + ' left'); text($('rTotal'), fmt(V.total)); text($('rPauses'), String(V.pauses));
   const km = sim.kmAt(sim.l); text($('rAltK'), km < 1 ? 'Alt m' : 'Alt km'); text($('rAlt'), km < 1 ? String(Math.round(km * 1000)) : km < 100 ? km.toFixed(1) : Math.round(km).toLocaleString('en-US'));
   const pwEl = $('rPw'), cls = V.pw >= MT.LIFTOFF ? 'go' : ''; width(pwEl, V.pw); if (pwEl.className !== cls) pwEl.className = cls;
-  text($('rPwN'), Math.round(V.pw * 100) + '%');
+  text($('rPwN'), Math.round(V.pw * 100) + '%'); gauge('r', 'Engine power', st);
   text($('rHeard'), st === 'running' ? label : st === 'paused' ? 'Paused: not listening' : st === 'idle' ? 'Press Start, then play' : 'Session finished');
   let next = '';
-  if (st === 'idle') next = sim.mode !== 'pad' ? 'Carrying on from earlier today' : 'Power follows efficiency';
+  if (st === 'idle') next = sim.mode !== 'pad' ? 'Carrying on from earlier today' : 'Bar: last minute. Mark: session';
   else if (sim.mode === 'pad') next = sim.down > 0 ? 'Rolling out a new rocket' : !fol && sim.ignited && sim.hold > 0 ? 'Lift-off in ' + Math.max(1, Math.ceil(3 - sim.hold)) : 'Lift-off at ' + Math.round(MT.LIFTOFF * 100) + '% engine power';
   else if (sim.mode === 'fall') next = 'Falling back to Earth';
   else if (sim.mode === 'orbit') next = sim.spinUp > 0 ? 'In Moon orbit, module spinning' : 'In orbit around the Moon';
@@ -392,7 +406,7 @@ function paintDash(st, label) {
   text(el, playTxt); if (el.className !== cls) el.className = cls;
   width($('dBar'), p); text($('dPct'), Math.min(100, Math.floor(p * 100)) + '%');
   text($('dGoal'), fmt(V.goal)); text($('dGoalLeft'), reached ? 'Reached' : fmt(Math.ceil(V.goal - V.play)) + ' left'); text($('dPauses'), String(V.pauses));
-  text($('dAtt'), String(dash.attempts)); text($('dJumps'), String(dash.jumps)); text($('dSpeed'), dash.tag); text($('dPw'), Math.round(V.pw * 100) + '%');
+  text($('dAtt'), String(dash.attempts)); text($('dJumps'), String(dash.jumps)); text($('dSpeed'), dash.tag); text($('dPw'), Math.round(V.pw * 100) + '%'); trend('dTr', st);
   text($('dHeard'), st === 'running' ? label : st === 'paused' ? 'Paused: not listening' : st === 'idle' ? 'Press Start, then play' : 'Session finished');
   let hint;
   if (st === 'idle') hint = 'Play to run the course';
@@ -417,7 +431,7 @@ function paintCity(st, fol, label) {
   text($('yDown'), String(cs.down)); text($('yImp'), String(cs.imp));
   text($('yBld'), city.ready ? cs.standing + '/' + cs.total : '-');
   const can = $('yCan'), cc = cs.cannons === 3 ? 'ok' : cs.cannons === 0 ? 'bad' : ''; text(can, cs.cannons + '/3'); if (can.className !== cc) can.className = cc;
-  const pw = $('yPw'), pc = V.pw >= 0.8 ? 'go' : V.pw >= 0.5 ? 'ok' : ''; width(pw, V.pw); if (pw.className !== pc) pw.className = pc; text($('yPwN'), Math.round(V.pw * 100) + '%');
+  const pw = $('yPw'), pc = V.pw >= 0.8 ? 'go' : V.pw >= 0.5 ? 'ok' : ''; width(pw, V.pw); if (pw.className !== pc) pw.className = pc; text($('yPwN'), Math.round(V.pw * 100) + '%'); gauge('y', 'Cannon power', st);
   const reached = st !== 'idle' && V.play >= V.goal;
   text($('yGoal'), fmt(V.goal)); text($('yGoalLeft'), reached ? 'Reached' : fmt(Math.ceil(V.goal - V.play)) + ' left'); text($('yPauses'), String(V.pauses));
   text($('yHeard'), st === 'running' ? label : st === 'paused' ? 'Paused: not listening' : st === 'idle' ? 'Press Start, then play' : 'Session finished');

@@ -784,6 +784,17 @@ function detectionTests(sr) {
       && R.paused === 600 && R.pauses === 1 && s.pauses === 1 && Math.abs(R.efficiency - 1) < 1e-9;
     return { name: 'Session: time away counts like a pause', expect: '10 min with the app away between playing leaves efficiency and the last minute at 100%, shown as one pause',
       got: 'efficiency ' + Math.round(s.efficiency * 100) + '%, last minute ' + Math.round(s.recentEfficiency * 100) + '%, paused ' + R.paused + ' s', pass: ok }; } });
+  list.push({ name: 'Session: the last minute of playing, pauses left out', run: () => {
+    const s = new Session(), run = (sec, m) => { for (let t = 0; t < sec; t += 0.25) s.tick(0.25, m); }; s.start();
+    run(20, true); const early = s.recentEfficiency; run(100, true); run(30, false); const half = s.recentEfficiency, sess = s.efficiency;
+    s.pause(); run(50, true); s.resume(); const held = s.recentEfficiency; run(31, false); const gone = s.recentEfficiency;
+    const ok = early === 1 && Math.abs(half - 0.5) < 0.02 && Math.abs(sess - 0.8) < 1e-6 && held === half && gone < 0.02;
+    return { name: 'Session: the last minute of playing, pauses left out', expect: '100% in the first minute; 50% after 30 s of quiet (session 80%); a pause changes nothing; 0% after a quiet minute',
+      got: Math.round(early * 100) + '%, ' + Math.round(half * 100) + '% (session ' + Math.round(sess * 100) + '%), ' + Math.round(held * 100) + '% after the pause, ' + Math.round(gone * 100) + '%', pass: ok }; } });
+  list.push({ name: 'Power arrow: shows a 3-point gap and holds until it closes', run: () => {
+    let t = ''; const seq = [[0.82, 0.8], [0.84, 0.8], [0.815, 0.8], [0.805, 0.8], [0.76, 0.8], [0.785, 0.8], [0.795, 0.8], [0.8, 0.8]].map(x => (t = powerTrend(t, x[0], x[1])) || '-');
+    const want = ['-', 'up', 'up', '-', 'down', 'down', '-', '-'], ok = seq.join() === want.join();
+    return { name: 'Power arrow: shows a 3-point gap and holds until it closes', expect: want.join(' '), got: seq.join(' '), pass: ok }; } });
   list.push({ name: 'Home Screen: a session past midnight counts as today', run: () => {
     const mon = new Date(2026, 9, 12, 0, 30).getTime(), sun = new Date(2026, 9, 11, 23, 40).getTime(), r = { start: sun, end: sun + 2700e3, play: 2400, goal: 1800, eff: 0.9, R: { active: 2600 } };
     const c = homeCopy(practiceStats([r], mon), r, mon), D = { key: '2026-10-12', n: 21, count: 21, play: 9000 };
@@ -996,6 +1007,15 @@ class Session {
   }
   get efficiency() { return this.active > 0 ? Math.min(1, this.play / this.active) : 0; }
   get recentEfficiency() { let a = this.ba, p = this.bp; for (let i = 0; i < this.buckets.length; i += 2) { a += this.buckets[i]; p += this.buckets[i + 1]; } return a > 0 ? Math.min(1, p / a) : 0; }
+}
+
+/* The arrow beside a power read-out: 'up' when the last minute beats the session's efficiency by 3 points, 'down' when it trails
+   by 3, '' otherwise. Once shown it holds until the gap closes to 1 point, so it does not flicker around the line. */
+function powerTrend(prev, pw, eff) {
+  const d = pw - eff;
+  if (prev === 'up' && d >= 0.01) return 'up';
+  if (prev === 'down' && d <= -0.01) return 'down';
+  return d > 0.03 ? 'up' : d < -0.03 ? 'down' : '';
 }
 
 /* ---------- Session report: where the time went, for the summary ---------- */
@@ -1633,7 +1653,7 @@ class DashSim {
   }
 }
 
-const api = { LIFTOFF, OnsetTracker, DragSwipe, WheelSwipe, DashSim, DASH, dashSpeed, MusicDetector, Session, RocketSim, WORLD, MILESTONES, SENSITIVITY, CLIPS, DETECTION_CASES,
+const api = { LIFTOFF, OnsetTracker, DragSwipe, WheelSwipe, DashSim, DASH, dashSpeed, MusicDetector, Session, powerTrend, RocketSim, WORLD, MILESTONES, SENSITIVITY, CLIPS, DETECTION_CASES,
   detectionTests, runDetectionTests, analyzeClip, sessionReport, clockText, sessionRecord, worthKeeping, liveSnapshot, liveRecord, rocketCarry, buildOf, newerBuild, practiceStats, dayRecap, dayLine, practiceNudge, homeCopy, weekLine, durationText, dayKey, LOG_MAX, LEVEL_MIN, SAMPLE_LOGS, sampleLog, rocketAt, fraction, heardAs, noteOf, smooth, pchip, clamp01 };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.MT = api;
 })(typeof self !== 'undefined' ? self : this);
