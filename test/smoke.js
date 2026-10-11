@@ -10,6 +10,7 @@ check(new Set(ids).size === ids.length, 'element ids are unique');
 for (const id of ['app', 'btnStart', 'btnPause', 'btnResume', 'btnStop', 'cClock', 'vizBox', 'rk', 'hud', 'dlgSettings', 'dlgSummary', 'dlgLog', 'dlgEnd', 'award', 'ver', 'pCity', 'cityCv', 'cityHud', 'yPlay', 'pDash', 'dashCv', 'dashHud', 'dPlay', 'skinBar', 'ico-classic', 'ico-rocket', 'ico-city', 'ico-dash', 'ico-lock'])
   check(ids.includes(id), 'has #' + id);
 check(!html.includes('__BUILD__') && !html.includes('/*__CORE__*/') && !html.includes('/*__APP__*/'), 'no placeholders left');
+check(/<meta name="build" content="(\d+|dev)">/.test(html), 'the version is a plain number');
 check(!html.includes('__APP_ICON__') && /<img src="data:image\/png;base64,[^"]+" alt=""/.test(html), 'header icon is embedded');
 for (const [name, size] of [['favicon.png', 32], ['apple-touch-icon.png', 180], ['icon.png', 512]]) {
   const file = path.join(__dirname, '..', 'dist', name);

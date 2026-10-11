@@ -53,6 +53,8 @@ Node 20+, no dependencies to install.
   cdnjs.
 - `window.claude` and the "framed" checks support running inside a Claude artifact view; on GitHub Pages everything
   falls back to plain browser APIs.
+- The version shown in Settings is a plain number: the count of changes merged into `main` (`scripts/build.js`; the deploy checks
+  out the whole history for it).
 - New versions: between sessions (Home Screen shown, or the app coming back to the screen) the page fetches itself and reloads
   if the live build stamp differs (`newerBuild` in `src/core.js`, `checkVersion` in `src/app.js`); never during a session.
 - A session cut short (the app closed or discarded by iOS before End) is not lost: while it runs it is kept in `musicTimer.live`
