@@ -46,6 +46,7 @@ Node 20+, no dependencies to install.
   cdnjs.
 - `window.claude` and the "framed" checks support running inside a Claude artifact view; on GitHub Pages everything
   falls back to plain browser APIs.
+- While no name is set, a quiet "Add your name" link follows the Home Screen greeting and opens Settings at the name field.
 
 ## Things that are easy to break
 

@@ -734,6 +734,9 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 .hm-main{flex:1; min-height:0; display:flex; flex-direction:column; justify-content:center; gap:28px; overflow-y:auto; scrollbar-width:none}
 .hm-main > *{flex:none}
 .hm-hello{margin:0; color:var(--mute); font-size:16px}
+/* a quiet invitation to add a name, after the greeting, while there is none */
+.hm-invite{border:0; background:none; padding:0; margin:0; font:inherit; color:var(--accent); cursor:pointer; text-decoration:underline; text-decoration-thickness:1px; text-underline-offset:3px}
+.hm-invite::before{content:"\00B7"; display:inline-block; margin:0 .45em; color:var(--mute-2); text-decoration:none}
 .hm-head{margin:6px 0 0; font-size:34px; line-height:1.12; font-weight:800; letter-spacing:-.03em}
 .hm-lede{margin:10px 0 0; color:var(--mute); font-size:16px; line-height:1.45; max-width:30ch}
 .hm-week{padding-top:18px; border-top:1px solid var(--rule)}
@@ -932,7 +935,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
       <button class="hm-ib" id="homeSet" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg></button>
     </header>
     <div class="hm-main">
-      <div><p class="hm-hello" id="homeHello"></p><h2 class="hm-head" id="homeHead"></h2><p class="hm-lede" id="homeLede"></p></div>
+      <div><p class="hm-hello"><span id="homeHello"></span><button type="button" class="hm-invite" id="homeName" hidden>Add your name</button></p><h2 class="hm-head" id="homeHead"></h2><p class="hm-lede" id="homeLede"></p></div>
       <ul class="hm-first" id="homeFirst" hidden>
         <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.6L16 9.6"/></svg><span><b>Play anything you like.</b> Scales, songs, or just noodling around.</span></li>
         <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.6L16 9.6"/></svg><span><b>Pauses never count against you.</b> The timer simply waits.</span></li>
