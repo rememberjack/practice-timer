@@ -461,7 +461,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 .sh-head:has(#dbgBack:not([hidden])) h2{flex:1}
 /* Settings buttons: held down they open the debug tools, so no callout or text selection on a long press */
 #btnSettings, #btnSettings2, #homeSet{-webkit-touch-callout:none; -webkit-user-select:none; user-select:none}
-#dbgBadge{position:fixed; top:calc(env(safe-area-inset-top,0px) + 4px); left:50%; transform:translateX(-50%); z-index:6; pointer-events:none; background:#C2410C; color:#fff; font:700 11px/1 system-ui,sans-serif; padding:4px 9px; border-radius:999px}
+.dbg-chips button.armed{background:var(--alert); border-color:var(--alert); color:#2B0F08; font-weight:700}
 #dbgRead{position:fixed; left:6px; bottom:calc(env(safe-area-inset-bottom,0px) + 120px); z-index:6; pointer-events:none; margin:0; background:rgba(0,0,0,.6); color:#B6F5B6; font:10px/1.4 ui-monospace,Menlo,monospace; padding:6px 8px; border-radius:8px; white-space:pre; max-width:calc(100% - 12px); overflow:hidden}
 .sr{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap}
 @media (max-width:359px){ #top{gap:10px; width:calc(100% - 28px)} #top h1{font-size:18px} .icon-btn{padding:0 12px} .classic{padding-left:14px; padding-right:14px} .stats{gap:8px 14px}
@@ -970,9 +970,9 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
         <p class="hint">Demo sound feeds built-in test sounds to the detector (nothing is played aloud) and can run faster than real time to preview the rocket trip.</p>
       </div>
       <div class="field">
-        <span class="lab">Sample data</span>
-        <div class="chips dbg-chips" id="dbgSample" role="group" aria-label="Sample data"></div>
-        <p class="hint">Made-up sessions, to see the Home Screen and practice log after some use. They are not saved and are gone when the page reloads. Your own practice log is not changed, and sessions played meanwhile go to the sample log only.</p>
+        <span class="lab">Replace my practice log with sample data</span>
+        <div class="chips dbg-chips" id="dbgSample" role="group" aria-label="Replace my practice log with sample data"></div>
+        <p class="hint">Made-up sessions, to see the Home Screen and practice log after some use. Tap one twice to replace your practice log on this device with it. It then works like your own log: new sessions are added to it and the rocket carries on from it. Your own sessions are deleted, so save your practice log as a file first if you want to keep it.</p>
       </div>
       <div class="field">
         <span class="lab">The next session&rsquo;s rocket starts</span>
@@ -1093,7 +1093,6 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 </dialog>
 
 <div id="toast" role="status"></div>
-<div id="dbgBadge" hidden>Sample data</div>
 <pre id="dbgRead" hidden aria-hidden="true"></pre>
 
 <script>
