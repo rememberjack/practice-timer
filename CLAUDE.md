@@ -34,6 +34,8 @@ Node 20+, no dependencies to install.
   sessions never move the carried flight.
 - Opening the practice log or Settings pauses a running session (`pauseForSheet` in `src/app.js`); closing it resumes, unless
   the session had been paused by hand.
+- Settings takes the look and words of the theme it is opened from (`SET_SKIN` in `src/app.js`, `#dlgSettings[data-skin]` in the
+  template); Classic has no power setting, as it shows no power.
 - The Home Screen (`#home`) shows when the app opens and after a finished session's summary is closed; its words come
   from `homeCopy` in `src/core.js`. No theme scene is drawn while it covers them.
 - Debug tools (for the developer only) are their own sheet (`#dlgDebug`), opened by holding any Settings button for half a
