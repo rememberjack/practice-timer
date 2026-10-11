@@ -1051,7 +1051,7 @@ function practiceNudge(P) {
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 function homeCopy(P, last, now) {
   const h = new Date(now).getHours(), hello = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
-  if (!P.sessions || !last) return { kind: 'first', hello: hello, head: 'Let\u2019s make some music.', lede: 'Music Timer counts the time you spend playing, and nothing else.' };
+  if (!P.sessions || !last) return { kind: 'first', hello: hello, head: 'Let\u2019s make some music.', lede: 'It counts only the time the microphone hears you play.' };
   if (P.practicedToday) { const t = P.today, n = t.sessions;
     return { kind: 'today', hello: hello, head: 'Lovely playing today.', lede: 'You played for ' + durationText(t.play) + ' today' + (n > 1 ? ', in ' + n + ' sessions' : '') + '. Come back whenever you feel like it.',
       note: 'All together: ' + durationText(P.totalPlay) + ' of music.' }; }
