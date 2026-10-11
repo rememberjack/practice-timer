@@ -742,6 +742,24 @@ function detectionTests(sr) {
       && Math.abs(Q.longest.b - R.longest.b) < 1e-3 && Q.thirds.length === 3 && rec.name === 'Ana' && JSON.stringify(rec).length < 4000 && worthKeeping(R) && !worthKeeping(sessionReport(short.runs));
     return { name: 'Practice log: saved record keeps the summary', expect: 'the stored report matches, under 4 KB; a session with 7.5 s of playing is not kept',
       got: JSON.stringify(rec).length + ' bytes, play ' + rec.play + ' s, efficiency ' + Q.efficiency + ', ' + Q.columns.length + ' columns', pass: ok }; } });
+  list.push({ name: 'New versions: the live page is newer', run: () => {
+    const page = b => '<!doctype html><meta charset="utf-8"><meta name="build" content="' + b + '"><title>Music Timer</title>';
+    const UNBUILT = '__' + 'BUILD__';                                    // split, or the build would fill it in
+    const cases = [[newerBuild('bee9237 2026-10-11', page('c0ffee1 2026-10-12')), true], [newerBuild('bee9237 2026-10-11', page('bee9237 2026-10-11')), false],
+      [newerBuild('dev', page('c0ffee1 2026-10-12')), true], [newerBuild(UNBUILT, page('c0ffee1 2026-10-12')), false], [newerBuild('bee9237 2026-10-11', page(UNBUILT)), false],
+      [newerBuild('bee9237 2026-10-11', '<html>offline</html>'), false], [newerBuild('bee9237 2026-10-11', ''), false], [newerBuild('', page('c0ffee1 2026-10-12')), false]];
+    const ok = cases.every(c => c[0] === c[1]) && buildOf(page('c0ffee1 2026-10-12')) === 'c0ffee1 2026-10-12';
+    return { name: 'New versions: the live page is newer', expect: 'a different build stamp on the live page is newer; the same stamp, a missing one or an unbuilt page is not',
+      got: cases.map(c => c[0]).join(', '), pass: ok }; } });
+  list.push({ name: 'A session cut short is kept', run: () => {
+    const s = new Session(); s.start(); for (let i = 0; i < 900; i++) s.tick(0.5, i % 10 < 7); s.pause(); s.tick(30, false); s.resume(); for (let i = 0; i < 200; i++) s.tick(0.5, true);
+    const now = s.startedAt + 600e3, snap = JSON.parse(JSON.stringify(liveSnapshot(s, 'Sam', { mode: 'orbit' }, now))), rec = liveRecord(snap);
+    s.stoppedAt = now; const want = sessionRecord(s, sessionReport(s.runs), 'Sam', { mode: 'orbit' });
+    const bad = [null, {}, Object.assign({}, snap, { v: 2 }), Object.assign({}, snap, { runs: [0, 5, 1] }), Object.assign({}, snap, { runs: [7, 5] }), Object.assign({}, snap, { savedAt: snap.startedAt - 1 })];
+    const ok = rec && rec.id === s.startedAt && rec.end === now && Math.abs(rec.play - want.play) < 0.5 && Math.abs(rec.eff - want.eff) < 0.002 && rec.R.pauses === 1
+      && rec.name === 'Sam' && rec.rocket.mode === 'orbit' && worthKeeping(rec.R) && bad.every(x => liveRecord(x) === null) && JSON.stringify(snap).length < 8000;
+    return { name: 'A session cut short is kept', expect: 'the kept session turns back into the same record as ending it there; damaged ones are ignored',
+      got: rec ? 'play ' + rec.play + ' (' + want.play + '), efficiency ' + rec.eff + ' (' + want.eff + '), ' + JSON.stringify(snap).length + ' bytes kept' : 'no record', pass: !!ok }; } });
   list.push({ name: 'Session: time away counts like a pause', run: () => {
     const s = new Session(); s.start(); for (let i = 0; i < 600; i++) s.tick(0.1, true); s.away(600); for (let i = 0; i < 150; i++) s.tick(0.1, true);
     const R = sessionReport(s.runs), ok = Math.abs(s.efficiency - 1) < 1e-9 && Math.abs(s.recentEfficiency - 1) < 1e-9 && Math.abs(s.total - 675) < 1e-6 && Math.abs(s.active - 75) < 1e-6
@@ -896,6 +914,12 @@ function detectionTests(sr) {
 }
 function runDetectionTests(sr) { return detectionTests(sr).map(t => t.run()); }
 
+/* ---------- New versions: a page kept open (an iPhone Home Screen app) checks the live page's build stamp ---------- */
+/* the build stamp in a page's <meta name="build"> ('' when there is none, or it is still the unbuilt placeholder) */
+function buildOf(html) { const m = /<meta name="build" content="([^"]*)"/.exec(html || ''); return m && m[1].indexOf('__') < 0 ? m[1].trim() : ''; }
+/* is the live page (its html) a different build from the one running? Never for an unbuilt page */
+function newerBuild(running, html) { const b = buildOf(html); return !!running && running.indexOf('__') < 0 && !!b && b !== running; }
+
 /* ---------- Session clock ---------- */
 class Session {
   /* hold: seconds of quiet after playing that still count as playing (a long soft note, a page turn, a cough), so a short
@@ -998,6 +1022,17 @@ function rocketCarry(records, now, from) {
   return last && last.rocket || null;
 }
 const worthKeeping = R => R.play >= KEEP_PLAY;
+/* a session cut short: if the app is closed or iOS discards it mid-session, the session so far is still there next time.
+   liveSnapshot is what is kept while it runs (now: when, rocket: RocketSim.save()); liveRecord turns it back into a saved record, or null */
+function liveSnapshot(s, name, rocket, now) {
+  return { v: 1, startedAt: s.startedAt, savedAt: now, goal: s.goal, name: name || '', rocket: rocket || null, runs: s.runs.map((x, i) => i % 2 ? Math.round(x * 100) / 100 : x) };
+}
+function liveRecord(x) {
+  if (!x || x.v !== 1 || !(x.startedAt > 0) || !(x.savedAt >= x.startedAt) || !(x.goal > 0) || !Array.isArray(x.runs) || x.runs.length % 2) return null;
+  for (let i = 0; i < x.runs.length; i += 2) if ([0, 1, 2].indexOf(x.runs[i]) < 0 || !(x.runs[i + 1] >= 0)) return null;
+  const R = sessionReport(x.runs);
+  return sessionRecord({ startedAt: x.startedAt, stoppedAt: x.savedAt, goal: x.goal }, R, typeof x.name === 'string' ? x.name : '', x.rocket && typeof x.rocket === 'object' ? x.rocket : null);
+}
 /* local calendar days */
 const dayKey = d => { d = new Date(d); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
 const dayStart = d => { d = new Date(d); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); };
@@ -1513,6 +1548,6 @@ class DashSim {
 }
 
 const api = { LIFTOFF, OnsetTracker, WheelSwipe, DashSim, DASH, dashSpeed, MusicDetector, Session, RocketSim, WORLD, MILESTONES, SENSITIVITY, CLIPS, DETECTION_CASES,
-  detectionTests, runDetectionTests, analyzeClip, sessionReport, clockText, sessionRecord, worthKeeping, rocketCarry, practiceStats, dayRecap, dayLine, practiceNudge, homeCopy, weekLine, durationText, dayKey, LOG_MAX, LEVEL_MIN, SAMPLE_LOGS, sampleLog, rocketAt, fraction, heardAs, noteOf, smooth, pchip, clamp01 };
+  detectionTests, runDetectionTests, analyzeClip, sessionReport, clockText, sessionRecord, worthKeeping, liveSnapshot, liveRecord, rocketCarry, buildOf, newerBuild, practiceStats, dayRecap, dayLine, practiceNudge, homeCopy, weekLine, durationText, dayKey, LOG_MAX, LEVEL_MIN, SAMPLE_LOGS, sampleLog, rocketAt, fraction, heardAs, noteOf, smooth, pchip, clamp01 };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.MT = api;
 })(typeof self !== 'undefined' ? self : this);
