@@ -8,6 +8,7 @@ function fmt(s) { s = Math.max(0, Math.floor(s)); const h = Math.floor(s / 3600)
 const cache = new Map();
 function text(el, s) { if (cache.get(el) !== s) { cache.set(el, s); el.textContent = s; } }
 function width(el, f) { const s = Math.round(Math.max(0, Math.min(1, f)) * 1000) / 10 + '%'; if (cache.get(el) !== s) { cache.set(el, s); el.style.width = s; } }
+function left(el, f) { const s = Math.round(Math.max(0, Math.min(1, f)) * 1000) / 10 + '%'; if (cache.get(el) !== s) { cache.set(el, s); el.style.left = s; } }
 
 /* ---------- settings ---------- */
 const DEF = { v: 2, goalMin: 30, name: '', sens: 'normal', hold: '5', record: false, source: 'mic', skin: 'classic', viz: 'piano', inst: '' };
@@ -365,15 +366,14 @@ function paint() {
   const rp = $('rPlay'), rpc = play.length > 5 ? 'big long' : 'big'; text(rp, play); if (rp.className !== rpc) rp.className = rpc;
   text($('rActive'), fmt(V.active)); text($('rGoal'), fmt(V.goal)); text($('rGoalLeft'), reached ? 'Reached' : fmt(Math.ceil(V.goal - V.play)) + ' left'); text($('rTotal'), fmt(V.total)); text($('rPauses'), String(V.pauses));
   const km = sim.kmAt(sim.l); text($('rAltK'), km < 1 ? 'Alt m' : 'Alt km'); text($('rAlt'), km < 1 ? String(Math.round(km * 1000)) : km < 100 ? km.toFixed(1) : Math.round(km).toLocaleString('en-US'));
-  const pwEl = $('rPw'), cls = V.pw >= MT.LIFTOFF ? 'go' : ''; width(pwEl, V.pw); if (pwEl.className !== cls) pwEl.className = cls;
-  text($('rPwN'), Math.round(V.pw * 100) + '%');
+  powerBar('r', V.pw >= MT.LIFTOFF ? 'go' : '');
   text($('rHeard'), st === 'running' ? label : st === 'paused' ? 'Paused: not listening' : st === 'idle' ? 'Press Start, then play' : 'Session finished');
   let next = '';
-  if (st === 'idle') next = sim.mode !== 'pad' ? 'Carrying on from earlier today' : 'Power follows efficiency';
+  if (st === 'idle') next = sim.mode !== 'pad' ? 'Carrying on from earlier today' : 'Power follows your last minute';
   else if (sim.mode === 'pad') next = sim.down > 0 ? 'Rolling out a new rocket' : !fol && sim.ignited && sim.hold > 0 ? 'Lift-off in ' + Math.max(1, Math.ceil(3 - sim.hold)) : 'Lift-off at ' + Math.round(MT.LIFTOFF * 100) + '% engine power';
   else if (sim.mode === 'fall') next = 'Falling back to Earth';
   else if (sim.mode === 'orbit') next = sim.spinUp > 0 ? 'In Moon orbit, module spinning' : 'In orbit around the Moon';
-  else if (V.pw < 0.5) next = 'Engine below 50%: drifting';
+  else if (V.pw < 0.5) next = 'Power below 50%: drifting';
   else if (st === 'running' && !V.music && !sim.inSpace) next = 'Losing power: falls below 50%';
   else if (st === 'running' && !V.music) next = 'Losing power. Keep playing';
   else for (const n of NEXT) { const at = MT.MILESTONES[n[0]]; if (sim.fp < at) { next = n[1] + ' in ' + fmt(Math.ceil(at - sim.fp)); break; } }
@@ -381,6 +381,12 @@ function paint() {
   const nf = flying(); if ($('rFlight').hidden === nf) { $('rFlight').hidden = !nf; $('hud').classList.toggle('has-flight', nf); }   // New flight, once off the pad
   if (visible(2)) paintCity(st, fol, label);
   if (visible(3)) paintDash(st, label);
+}
+/* the Rocket and City power bars: the fill and Power are the last minute of playing, the tick and Efficiency the whole session */
+function powerBar(p, cls) {
+  const fill = $(p + 'Pw'), tick = $(p + 'Avg'), on = V.active > 0; width(fill, V.pw); if (fill.className !== cls) fill.className = cls;
+  text($(p + 'PwN'), Math.round(V.pw * 100) + '%'); text($(p + 'Eff'), Math.round(V.eff * 100) + '%');
+  if (tick.hidden === on) tick.hidden = !on; if (on) left(tick, V.eff);
 }
 /* dash theme */
 function dashStep(dt, running, mus, eff, progress) { const on = pendingOnsets; pendingOnsets = 0; dashAt = performance.now(); dash.update(Math.min(0.1, dt), { running: running, music: mus, eff: eff, onsets: on, progress: progress }); }
@@ -392,7 +398,7 @@ function paintDash(st, label) {
   text(el, playTxt); if (el.className !== cls) el.className = cls;
   width($('dBar'), p); text($('dPct'), Math.min(100, Math.floor(p * 100)) + '%');
   text($('dGoal'), fmt(V.goal)); text($('dGoalLeft'), reached ? 'Reached' : fmt(Math.ceil(V.goal - V.play)) + ' left'); text($('dPauses'), String(V.pauses));
-  text($('dAtt'), String(dash.attempts)); text($('dJumps'), String(dash.jumps)); text($('dSpeed'), dash.tag); text($('dPw'), Math.round(V.pw * 100) + '%');
+  text($('dAtt'), String(dash.attempts)); text($('dJumps'), String(dash.jumps)); text($('dSpeed'), dash.tag); text($('dPw'), Math.round(V.pw * 100) + '%'); text($('dEff'), Math.round(V.eff * 100) + '%');
   text($('dHeard'), st === 'running' ? label : st === 'paused' ? 'Paused: not listening' : st === 'idle' ? 'Press Start, then play' : 'Session finished');
   let hint;
   if (st === 'idle') hint = 'Play to run the course';
@@ -417,7 +423,7 @@ function paintCity(st, fol, label) {
   text($('yDown'), String(cs.down)); text($('yImp'), String(cs.imp));
   text($('yBld'), city.ready ? cs.standing + '/' + cs.total : '-');
   const can = $('yCan'), cc = cs.cannons === 3 ? 'ok' : cs.cannons === 0 ? 'bad' : ''; text(can, cs.cannons + '/3'); if (can.className !== cc) can.className = cc;
-  const pw = $('yPw'), pc = V.pw >= 0.8 ? 'go' : V.pw >= 0.5 ? 'ok' : ''; width(pw, V.pw); if (pw.className !== pc) pw.className = pc; text($('yPwN'), Math.round(V.pw * 100) + '%');
+  powerBar('y', V.pw >= 0.8 ? 'go' : V.pw >= 0.5 ? 'ok' : '');
   const reached = st !== 'idle' && V.play >= V.goal;
   text($('yGoal'), fmt(V.goal)); text($('yGoalLeft'), reached ? 'Reached' : fmt(Math.ceil(V.goal - V.play)) + ' left'); text($('yPauses'), String(V.pauses));
   text($('yHeard'), st === 'running' ? label : st === 'paused' ? 'Paused: not listening' : st === 'idle' ? 'Press Start, then play' : 'Session finished');
