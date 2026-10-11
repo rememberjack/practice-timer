@@ -212,9 +212,8 @@ function resume() { sheetPaused = false; if (!session.resume()) return; if (A.ct
 function stop() {
   if (!session.stop()) return;
   clearInterval(timer); timer = 0; music = false; recCall('stop'); rec.mr = null; hideAward();
-  const demo = A.kind === 'demo';
   closeAudio(); letSleep(); paintControls(); push(true);
-  current = finishSession(demo); openSummary(current.rec, false);
+  current = finishSession(); openSummary(current.rec, false);
 }
 
 function tick() {
@@ -804,12 +803,11 @@ function dayName(ms) { const k = MT.dayKey(ms), now = new Date();
     : new Date(ms).toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' }); }
 function showRecording() { if (!rec.blob) return; $('recBox').hidden = false;
   try { rec.url = URL.createObjectURL(rec.blob); const a = $('recAudio'); a.hidden = false; a.onerror = () => { a.hidden = true; }; a.src = rec.url; } catch (e) { $('recAudio').hidden = true; } }
-/* the session just stopped: keep it in the practice log unless it was a demo or too short */
-function finishSession(demo) {
+/* the session just stopped: keep it in the practice log unless it was too short. Demo sound sessions are kept like any other */
+function finishSession() {
   const R = MT.sessionReport(session.runs), r = MT.sessionRecord(session, R, S.name, sim.save());
   let note;
-  if (demo) note = null;                    // not saved, and nothing said about it
-  else if (!MT.worthKeeping(R)) note = { text: 'Sessions with less than 10 seconds of playing are not saved to your practice log.' };
+  if (!MT.worthKeeping(R)) note = { text: 'Sessions with less than 10 seconds of playing are not saved to your practice log.' };
   else if (!addToLog(r)) note = { text: 'This session could not be saved on this device.' };
   else { const P = MT.practiceStats(log, Date.now()); note = { lead: MT.durationText(P.weekPlay) + ' of music this week.', text: 'Saved to your practice log.' }; }
   return { rec: r, note: note };
