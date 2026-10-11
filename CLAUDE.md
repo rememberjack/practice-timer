@@ -36,7 +36,6 @@ Node 20+, no dependencies to install.
   the session had been paused by hand.
 - The Home Screen (`#home`) shows when the app opens and after a finished session's summary is closed; its words come
   from `homeCopy` in `src/core.js`. No theme scene is drawn while it covers them.
-  While no name is set, a quiet "Add your name" link follows its greeting and opens Settings at the name field.
 - Debug tools (for the developer only) sit at the bottom of Settings, hidden until the version line is tapped seven times
   or the page is opened with `?debug` (`?debug=0` hides them); the choice is kept in `musicTimer.debug`. Their sample data
   (`sampleLog` in `src/core.js`) replaces the practice log in memory only: it is never written, and the real log comes back on reload.
@@ -44,6 +43,7 @@ Node 20+, no dependencies to install.
   cdnjs.
 - `window.claude` and the "framed" checks support running inside a Claude artifact view; on GitHub Pages everything
   falls back to plain browser APIs.
+- While no name is set, a quiet "Add your name" link follows the Home Screen greeting and opens Settings at the name field.
 
 ## Things that are easy to break
 
