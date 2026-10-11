@@ -872,7 +872,7 @@ function detectionTests(sr) {
       got: (pieces.length ? 'never laid: ' + pieces.join(', ') : 'all pieces laid') + ', ' + (moves.length ? 'never taken: ' + moves.join(', ') : 'all moves taken') + ', ' + (d.attempts - 1) + ' crashes, ' + d.scrapes + ' touches, ' + d.floats + ' steps on air',
       pass: !pieces.length && !moves.length && d.attempts === 1 && d.scrapes === 0 && d.floats === 0 }; } });
   list.push({ name: 'Dash: silence crashes once after the grace time, short gaps do not', run: () => {
-    const d = new DashSim(), ev = []; let tCrash = -1, x1 = 0, x2 = 0;
+    const d = new DashSim(), ev = []; let tCrash = -1, x1, x2;
     const run = (sec, music) => { for (let t = 0; t < sec; t += 1 / 60) { d.update(1 / 60, { running: true, music: music, eff: 0.9, onsets: 0, progress: 0 }); while (d.events.length) { const e = d.events.shift(); if (e !== 'jump' && e !== 'land') ev.push(e); if (e === 'crash' && tCrash < 0) tCrash = clock; } clock += 1 / 60; } };
     let clock = 0; run(10, true); run(2, false); run(6, true); const mark = clock; run(12, false); const after = d.attempts; x1 = d.x; run(3, true); x2 = d.x;
     for (let t = 0; t < 5; t += 1 / 60) d.update(1 / 60, { running: false, music: true, eff: 0.9, onsets: 1, progress: 0 }); const frozen = d.x === x2;

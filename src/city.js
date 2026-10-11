@@ -2,6 +2,7 @@
    The cannons only fire while an instrument is heard, and reload faster the higher the power (efficiency). While nothing is
    played the asteroids get through. Playing pays for repairs: a lost cannon is rebuilt after 10 s of playing, and a fallen
    building rises again every 15 s of playing. The camera is fixed, and asteroids only fall where it can see them. The higher the power, the faster the reload and the steadier the aim. Pause freezes the sky. three.js is loaded the first time the theme is shown. */
+/* exported makeCityView */   // used by src/app.js, which the build puts after this file
 function makeCityView(host) {
   'use strict';
   const THREE_URL = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
@@ -369,7 +370,7 @@ function makeCityView(host) {
     // ---------- asteroids & shells ----------
     const asteroids = [], shells = [];
     const magmaMat = new THREE.MeshBasicMaterial({ color: 0xff7a1f });
-    const SHELL_SPEED = 80, MISS_CHANCE = 0.14, ENGAGE_Y = 118;
+    const SHELL_SPEED = 80, ENGAGE_Y = 118;
     const shellMat = new THREE.MeshBasicMaterial({ color: 0xfff4b0 });
     let heavy = false;
 

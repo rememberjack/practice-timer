@@ -13,11 +13,12 @@ missed or anything that can be lost by skipping a day.
 
 ## Commands
 
-Node 20+, no dependencies to install.
+Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev dependency only: the page itself has none).
 
+    npm run lint      ESLint over src/, scripts/ and test/ (eslint.config.js); catches names that are never declared
     npm test          unit tests (src/core.js)
     npm run build     joins src/ into dist/index.html (dist/ is not committed)
-    npm run ci        tests, build, a smoke check of the built page and swipes in a real browser; GitHub Actions runs this
+    npm run ci        lint, tests, build, a smoke check of the built page and swipes in a real browser; GitHub Actions runs this
     npm run serve     build and serve locally (the microphone works on localhost)
 
 ## Layout
@@ -90,3 +91,5 @@ reachable from the sandbox, so for themes that use three.js serve it from `npm p
 - Several sessions work in parallel: start each branch from a fresh `origin/main`.
 - One pull request per requested change; run `npm run ci` before pushing. Pushes to `main` deploy to the live site.
 - User-facing text is plain, complete sentences; on iOS, point microphone problems to the Settings app.
+- Lines here often hold several statements. A `//` comment runs to the end of the line, so when splitting a line, check that no code
+  ended up after one; `npm run lint` flags the names this leaves undeclared.
