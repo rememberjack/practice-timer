@@ -323,15 +323,11 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 @media (max-width:699px){ #btnLog{width:44px; padding:0} #btnLog svg{display:block} #btnLog .lbl{display:none} }   /* on phones the log is an icon, so the title row keeps its tagline */
 .sum-saved{margin:10px 0 0; font-size:13px; color:var(--mute)}
 .sum-saved b{color:var(--accent); font-weight:700}
-/* summary: the day this session belongs to, when it had more than one. Each block is a session, this one bright, the line the day's goal */
+/* summary: the day this session belongs to, when it had more than one. Each block is a session, this one bright */
 .sum-day{position:relative; height:14px; border-radius:5px; background:var(--paused)}
 .sum-day-segs{display:flex; gap:2px; height:100%; border-radius:5px; overflow:hidden}
 .sum-day-segs i{display:block; flex:0 1 0; min-width:3px; background:rgba(134,220,192,.4)}
 .sum-day-segs i.me{background:var(--accent)}
-.sum-day-goal{position:absolute; top:-3px; bottom:-3px; width:2px; margin-left:-1px; border-radius:1px; background:var(--ink)}
-.sum-day-goal[hidden]{display:none}
-#sDayBox.done .sum-day-goal{background:var(--gold)}
-#sDayBox.done .sum-goal-row b{color:var(--gold)}
 .sum-day-t{margin:0; font-size:14px; line-height:1.4}
 .sum-day-t b{color:var(--accent); font-weight:700}
 .sum-foot{grid-auto-flow:column; grid-auto-columns:1fr}
@@ -1010,8 +1006,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
     <p class="sum-saved" id="sSaved" hidden></p>
     <section class="sum-blk" id="sDayBox" hidden>
       <h3 id="sDayH">Today</h3>
-      <div class="sum-day" id="sDayBar" role="img"><div class="sum-day-segs" id="sDaySegs"></div><span class="sum-day-goal" id="sDayGoal"></span></div>
-      <div class="sum-goal-row"><span id="sDayN"></span><b id="sDayLeft"></b></div>
+      <div class="sum-day" id="sDayBar" role="img"><div class="sum-day-segs" id="sDaySegs"></div></div>
       <p class="sum-day-t" id="sDay"></p>
     </section>
     <section class="sum-blk">
