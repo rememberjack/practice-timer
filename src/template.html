@@ -482,7 +482,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 #app[data-music="1"] .dash-hud .big{color:#7CFF4F}
 .dh-side{flex:none; text-align:right; white-space:nowrap; color:#B9BCE8}
 .dh-side b{color:#FFFFFF; font-weight:800; font-variant-numeric:tabular-nums}
-.dh-stats{display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:0 4px; margin-top:6px; text-align:center}
+.dh-stats{display:grid; grid-template-columns:repeat(5, minmax(0, 1fr)); gap:0 4px; margin-top:6px; text-align:center}
 .dh-stats span{display:block; font-size:11px; color:#B9BCE8; white-space:nowrap}
 .dh-stats b{display:block; font-size:16px; line-height:1.2; font-weight:800; font-variant-numeric:tabular-nums; white-space:nowrap}
 .dh-line{margin-top:4px; min-height:17px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
@@ -540,7 +540,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
    - one page edge (--edge) for the title row, notice, demo bar, read-outs, sound monitor and buttons;
    - the same title row, demo bar, theme bar and button row, at the same heights;
    - read-outs on top and the picture underneath (the sound monitor in Classic, the scene in the others). Rocket, City and Dash put
-     their read-outs in a card of one shared size and grid: play time and goal, the power bar, four figures, two message lines;
+     their read-outs in a card of one shared size and grid: play time and goal, the power bar, a row of figures (five in Dash), two message lines;
      in landscape the card becomes one short strip. Event banners sit just under the card in all three.
    The three pixel themes still match every vertical measurement around the scene, so swiping never resizes a scene. */
 @media (min-width:700px) and (min-height:600px){
@@ -651,7 +651,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
   #dPct{font-weight:800}
   .hud-stats span, .ch-stats span{font-size:12px} .hud-stats b, .ch-stats b{font-size:18px}
   .dh-stats span{font-size:13px} .dh-stats b{font-size:21px}
-  /* landscape: the card becomes one strip. Play time on the left, goal on the right, the bar over the four figures between them */
+  /* landscape: the card becomes one strip. Play time on the left, goal on the right, the bar over the figures between them */
   @container (min-width:960px){
     .hud, .city-hud, .dash-hud{grid-template-columns:auto minmax(0, 1fr) auto; column-gap:36px; grid-template-rows:30px 44px 22px;
       grid-template-areas:"play bar side" "play stats side" "heard heard next"}
@@ -836,6 +836,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
             <div><span>Jumps</span><b id="dJumps">0</b></div>
             <div><span>Speed</span><b id="dSpeed">1&times;</b></div>
             <div><span>Power</span><b id="dPw">0%</b></div>
+            <div><span>Efficiency</span><b id="dEff">0%</b></div>
           </div>
           <div class="dh-line" id="dHeard">Press Start, then play</div>
           <div class="dh-line dim" id="dHint">Play to run the course</div>

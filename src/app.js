@@ -398,7 +398,7 @@ function paintDash(st, label) {
   text(el, playTxt); if (el.className !== cls) el.className = cls;
   width($('dBar'), p); text($('dPct'), Math.min(100, Math.floor(p * 100)) + '%');
   text($('dGoal'), fmt(V.goal)); text($('dGoalLeft'), reached ? 'Reached' : fmt(Math.ceil(V.goal - V.play)) + ' left'); text($('dPauses'), String(V.pauses));
-  text($('dAtt'), String(dash.attempts)); text($('dJumps'), String(dash.jumps)); text($('dSpeed'), dash.tag); text($('dPw'), Math.round(V.pw * 100) + '%');
+  text($('dAtt'), String(dash.attempts)); text($('dJumps'), String(dash.jumps)); text($('dSpeed'), dash.tag); text($('dPw'), Math.round(V.pw * 100) + '%'); text($('dEff'), Math.round(V.eff * 100) + '%');
   text($('dHeard'), st === 'running' ? label : st === 'paused' ? 'Paused: not listening' : st === 'idle' ? 'Press Start, then play' : 'Session finished');
   let hint;
   if (st === 'idle') hint = 'Play to run the course';
