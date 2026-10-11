@@ -877,6 +877,26 @@ function detectionTests(sr) {
     return { name: 'Dash: silence anywhere on the course', expect: 'wherever the music stops (on the ground, up on a platform, in mid-air), a 2 s gap is survived and a long silence crashes once, ' + DASH.GRACE + ' s in; then it runs on with no touch',
       got: (at.ground + at.platform + at.air) + ' silences (' + at.ground + ' on the ground, ' + at.platform + ' on a platform, ' + at.air + ' in the air), crashes ' + lo.toFixed(1) + ' to ' + hi.toFixed(1) + ' s in' + (wrong.length ? '; wrong: ' + wrong.slice(0, 3).join('; ') : ''),
       pass: !wrong.length && at.platform > 0 && at.air > 0 }; } });
+  // finger and mouse swipes on a 390 px scene: a press at 200,300, moved in even steps to (dx, dy) over ms, then let go there (or taken away by the browser)
+  const press = (dx, dy, ms, cancel) => { const s = new DragSwipe(), seen = []; s.down(1, 200, 300, 0, 390);
+    for (let k = 1; k <= 20; k++) { const m = s.move(200 + dx * k / 20, 300 + dy * k / 20); if (m != null) seen.push(m); }
+    const r = s.up(cancel ? null : 200 + dx, ms);
+    return { step: r == null ? 'none' : ['back', 'stay', 'next'][r + 1], follows: !seen.length || Math.abs(seen[seen.length - 1] - dx) < 1e-9, left: !s.has(1) }; };
+  const dragTest = (name, expect, cases) => list.push({ name: name, run: () => {
+    const bad = cases.filter(c => { const r = press(...c[1]); return r.step !== c[2] || !r.follows || !r.left; });
+    return { name: name, expect: expect, got: bad.length ? bad.map(c => { const r = press(...c[1]); return c[0] + ': ' + r.step + (r.follows ? '' : ', the themes did not follow') + (r.left ? '' : ', still held') + ' (want ' + c[2] + ')'; }).join('; ') : cases.length + ' of ' + cases.length + ' right', pass: !bad.length }; } });
+  dragTest('Swipe: a drag a quarter of the way across, or a flick, moves one theme', 'the themes follow the finger; letting go past a quarter of the scene, or after a quick flick, steps one theme that way, else they go back', [
+    ['slow drag left, half way', [-195, 4, 900], 'next'], ['slow drag right, half way', [195, -4, 900], 'back'], ['all the way across', [-390, 0, 600], 'next'],
+    ['slow drag left, a fifth of the way', [-78, 0, 900], 'stay'], ['quick flick left', [-60, 3, 200], 'next'], ['quick flick right', [60, 0, 200], 'back'],
+    ['taken away mid-swipe', [-195, 0, 300, true], 'stay']]);
+  dragTest('Swipe: taps and scrolls are not swipes', 'a press that hardly moves stays a tap (Classic\'s picture changes on a tap), and one that goes up or down first is left to scroll', [
+    ['tap', [3, 2, 120], 'none'], ['scroll down', [0, 200, 400], 'none'], ['scroll up, drifting sideways', [-40, -200, 400], 'none'],
+    ['steep diagonal', [-100, 90, 400], 'none'], ['shallow diagonal', [-200, 60, 500], 'next']]);
+  list.push({ name: 'Swipe: the themes give only a little past either end', run: () => {
+    const s = new DragSwipe(); s.down(1, 200, 300, 0, 390); const o = (dx, at) => Math.round(s.offset(dx, at, 4));
+    const got = [o(-100, 1), o(100, 0), o(-100, 3), o(0, 2)], want = [-490, 30, -1200, -780];
+    return { name: 'Swipe: the themes give only a little past either end', expect: 'mid-way the track moves with the finger; past Classic or Dash it moves 0.3 px per px (' + want.join(', ') + ')',
+      got: got.join(', '), pass: got.every((g, i) => g === want[i]) }; } });
   // trackpad swipes: recorded wheel events replayed as the page receives them, one theme step per swipe however quickly they follow
   const steps = evs => { const w = new WheelSwipe(), got = [];
     for (const e of evs) { if (Math.abs(e.dx) <= Math.abs(e.dy)) continue;   // mostly vertical: the page lets Classic scroll
@@ -1335,6 +1355,35 @@ class OnsetTracker {
   }
 }
 
+/* ---------- finger and mouse swipes: the themes follow the drag, and letting go lands on one ----------
+   A press becomes a swipe once it has gone 10 px sideways and more sideways than down; 14 px down first and it is left to scroll (a press that
+   goes nowhere stays a tap). Letting go a quarter of the way across, or after a quick 40 px flick, steps one theme that way. */
+class DragSwipe {
+  constructor() { this.d = null; }
+  down(id, x, y, t, w) { this.d = { id: id, x: x, y: y, t: t, w: w, lock: false }; }   // w: the scene's width, px
+  has(id) { return !!this.d && this.d.id === id; }
+  get locked() { return !!this.d && this.d.lock; }
+  /* Returns how far it has been dragged sideways (px, - = finger moving left, towards the next theme) once it is a swipe, else null */
+  move(x, y) {
+    const d = this.d; if (!d) return null;
+    const dx = x - d.x, dy = y - d.y;
+    if (!d.lock) { if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.3) d.lock = true; else { if (Math.abs(dy) > 14) this.d = null; return null; } }
+    return dx;
+  }
+  /* Let go at x (null: the browser took the pointer away). Returns 1 (next theme), -1 (the one before) or 0 (back to where it was) for a swipe, null for a tap or a scroll */
+  up(x, t) {
+    const d = this.d; this.d = null; if (!d || !d.lock) return null;
+    const dx = x == null ? 0 : x - d.x, fast = t - d.t < 350 && Math.abs(dx) > 40;
+    return dx < 0 && (dx < -d.w * 0.25 || fast) ? 1 : dx > 0 && (dx > d.w * 0.25 || fast) ? -1 : 0;
+  }
+  /* Where the track sits (px) while theme `at` of `n` is dragged dx: it follows the finger, and only gives a little past either end */
+  offset(dx, at, n) {
+    const w = this.d ? this.d.w : 0, end = -(n - 1) * w; let x = -at * w + dx;
+    if (x > 0) x *= 0.3; if (x < end) x = end + (x - end) * 0.3;
+    return x;
+  }
+}
+
 /* ---------- trackpad swipes: one theme per two-finger swipe, from the page's horizontal wheel events ----------
    After the fingers lift, momentum events keep coming, ever slower, for a second or two, and a quick next swipe starts as soon as the fingers
    touch again, with no pause between. So a swipe is new after a pause, when it goes the other way, or when it speeds up again after slowing
@@ -1547,7 +1596,7 @@ class DashSim {
   }
 }
 
-const api = { LIFTOFF, OnsetTracker, WheelSwipe, DashSim, DASH, dashSpeed, MusicDetector, Session, RocketSim, WORLD, MILESTONES, SENSITIVITY, CLIPS, DETECTION_CASES,
+const api = { LIFTOFF, OnsetTracker, DragSwipe, WheelSwipe, DashSim, DASH, dashSpeed, MusicDetector, Session, RocketSim, WORLD, MILESTONES, SENSITIVITY, CLIPS, DETECTION_CASES,
   detectionTests, runDetectionTests, analyzeClip, sessionReport, clockText, sessionRecord, worthKeeping, liveSnapshot, liveRecord, rocketCarry, buildOf, newerBuild, practiceStats, dayRecap, dayLine, practiceNudge, homeCopy, weekLine, durationText, dayKey, LOG_MAX, LEVEL_MIN, SAMPLE_LOGS, sampleLog, rocketAt, fraction, heardAs, noteOf, smooth, pchip, clamp01 };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.MT = api;
 })(typeof self !== 'undefined' ? self : this);
