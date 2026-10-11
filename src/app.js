@@ -10,7 +10,7 @@ function text(el, s) { if (cache.get(el) !== s) { cache.set(el, s); el.textConte
 function width(el, f) { const s = Math.round(Math.max(0, Math.min(1, f)) * 1000) / 10 + '%'; if (cache.get(el) !== s) { cache.set(el, s); el.style.width = s; } }
 
 /* ---------- settings ---------- */
-const DEF = { v: 2, goalMin: 30, name: '', sens: 'normal', hold: '5', rocketEff: 'session', record: false, source: 'mic', skin: 'classic', viz: 'piano', inst: '', hudCompact: false };
+const DEF = { v: 2, goalMin: 30, name: '', sens: 'normal', hold: '5', rocketEff: 'session', record: false, source: 'mic', skin: 'classic', viz: 'piano', inst: '' };
 const S = Object.assign({}, DEF);
 try { const j = JSON.parse(localStorage.getItem('musicTimer.settings') || 'null');
   if (j && typeof j === 'object') { for (const k in DEF) if (typeof j[k] === typeof DEF[k]) S[k] = j[k];
@@ -1079,16 +1079,6 @@ $('dbgOff').onclick = () => { DBG.on = false; DBG.readout = false; DBG.rocket = 
   saveDbg(); paintDbg(); rocketAfterDelete(); hideNotice('mic'); $('dlgDebug').close(); };
 
 /* ---------- go ---------- */
-/* Rocket and City read-outs: tap them to fold them down to play time and power, leaving more of the scene in view */
-function setHudCompact(on) { S.hudCompact = on; saveS();
-  for (const el of [$('hud'), $('cityHud'), $('dashHud')]) { el.classList.toggle('compact', on); el.setAttribute('aria-expanded', String(!on)); }
-  layoutChanged(); }
-for (const el of [$('hud'), $('cityHud'), $('dashHud')]) {
-  el.setAttribute('role', 'button'); el.tabIndex = 0; el.setAttribute('aria-label', 'Read-outs. Tap to show more or less');
-  el.addEventListener('click', () => { if (performance.now() - lastSwipe > 400) setHudCompact(!S.hudCompact); });
-  el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setHudCompact(!S.hudCompact); } });
-}
-setHudCompact(!!S.hudCompact);
 carryRocket(); refreshSkins(); paintGoal(); paintControls(); paintDemoBar(); paintDbg(); showHome();
 try { const b = document.querySelector('meta[name="build"]'); $('ver').textContent = 'Version ' + (b && b.content && b.content.indexOf('__') < 0 ? b.content : 'dev'); } catch (e) {}
 if (S.source === 'mic' && (micPolicyBlocked() || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia))

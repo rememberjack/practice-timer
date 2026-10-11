@@ -491,7 +491,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 #app[data-skin="dash"][data-chrome="pixel"] .award-card p{font-size:14px; color:#B9BCE8}
 #pDash{background:#07071F; color:#FFFFFF; font-family:var(--sans)}
 #dashCv{position:absolute; inset:0; width:100%; height:100%; display:block}
-.dash-hud{position:absolute; left:10px; right:10px; top:8px; padding:9px 12px 8px; font-size:12px; line-height:1.4; background:rgba(8,8,34,.78); border:2px solid rgba(255,255,255,.2); border-radius:16px; cursor:pointer}
+.dash-hud{position:absolute; left:10px; right:10px; top:8px; padding:9px 12px 8px; font-size:12px; line-height:1.4; background:rgba(8,8,34,.78); border:2px solid rgba(255,255,255,.2); border-radius:16px}
 .dash-hud .k{color:#B9BCE8}
 .dh-prog{display:flex; align-items:center; gap:8px}
 .dh-prog .k{display:none; flex:none}                                          /* shown on a tablet */
@@ -514,11 +514,6 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 #dBanner{position:absolute; left:50%; bottom:16px; transform:translateX(-50%); width:max-content; max-width:calc(100% - 40px); padding:8px 14px; background:#05051A; color:#7CFF4F; border:3px solid #7CFF4F; border-radius:14px;
   font-size:15px; font-weight:800; text-align:center; opacity:0; transition:opacity .25s; pointer-events:none}
 #dBanner.on{opacity:1}
-.dash-hud.compact{display:flex; align-items:center; gap:10px; padding:6px 24px 6px 12px}
-.dash-hud.compact .dh-top{order:-1; flex:none; margin:0}
-.dash-hud.compact .dh-prog{flex:1; min-width:0}
-.dash-hud.compact .dh-play .k, .dash-hud.compact .dh-side, .dash-hud.compact .dh-stats, .dash-hud.compact .dh-line{display:none}
-.dash-hud.compact .big, .dash-hud.compact .big.long{font-size:24px}
 @media (max-width:350px){ .dash-hud{font-size:11px; padding:8px 10px 7px} .dh-stats span{font-size:10px} .dh-stats b{font-size:14px} #app[data-skin="dash"][data-chrome="pixel"] #controls button{font-size:15px} }
 @media (max-height:620px){ .dh-line.dim{display:none} }
 
@@ -542,22 +537,6 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 
 /* ---------- more room for the Rocket and City scenes ---------- */
 .ctl-set{display:none}
-#hud, #cityHud{cursor:pointer}
-.fold{position:absolute; right:7px; bottom:5px; width:0; height:0; border-left:5px solid transparent; border-right:5px solid transparent; border-bottom:6px solid currentColor; opacity:.5; pointer-events:none}
-.compact > .fold{border-bottom:0; border-top:6px solid currentColor}
-/* read-outs folded away: play time and the power bar on one line (tap the read-outs to switch) */
-.hud.compact{display:flex; align-items:center; gap:10px; padding:5px 22px 6px 12px}
-.hud.compact .hud-row{flex:none}
-.hud.compact .hud-row .k, .hud.compact .hud-side, .hud.compact .hud-stats, .hud.compact .hud-line, .hud.compact .engine > .k{display:none}
-.hud.compact .big{font-size:26px; margin:0}
-.hud.compact .big.long{font-size:21px}
-.hud.compact .engine{flex:1; margin:0}
-.city-hud.compact{display:flex; align-items:center; gap:10px; padding:5px 22px 6px 12px}
-.city-hud.compact .ch-top{flex:none}
-.city-hud.compact .ch-play .k, .city-hud.compact .ch-side, .city-hud.compact .ch-stats, .city-hud.compact .ch-line, .city-hud.compact .engine > .k{display:none}
-.city-hud.compact .big, .city-hud.compact .big.long{font-size:24px; margin:0}
-.city-hud.compact .big.long{font-size:20px}
-.city-hud.compact .engine{flex:1; margin:0}
 @media (max-width:699px), (max-width:760px) and (max-height:599px){   /* phones; a tablet keeps the title row (see the tablet layout below) */
   #app[data-chrome="pixel"] #top{display:none}                                  /* the title row goes; Settings sits with the buttons */
   #app[data-chrome="pixel"] .ctl-set{display:grid; place-items:center; flex:none; width:50px; max-width:50px; padding:0}
@@ -708,14 +687,6 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
     .hud-side, .ch-side, .dh-side{align-self:center}
     #rNext, #yHint, #dHint{text-align:right}
   }
-  /* folded: play time and the bar on one line, the same height in all three */
-  .hud.compact, .city-hud.compact, .dash-hud.compact{display:flex; height:50px; padding:0 30px 0 16px}
-  .city-hud.compact{height:44px; padding:0 27px 0 15px}                                              /* plus its 3 px outline: 50 px */
-  .hud.compact .big, .city-hud.compact .big, .dash-hud.compact .big{font-size:30px}
-  .hud.compact .big.long, .city-hud.compact .big.long, .dash-hud.compact .big.long{font-size:24px}
-  .dash-hud.compact .dh-prog .k{display:none}
-  .hud.compact .hud-play, .city-hud.compact .ch-play, .dash-hud.compact .dh-play{align-self:center; flex:none}
-  .dash-hud.compact .dh-play{order:-1}
   /* event banners: just under the read-outs, in the middle, in all three */
   #rBanner, #yBanner, #dBanner{top:calc(var(--hud-b, 0px) + 14px); bottom:auto; margin:0}
   #rBanner{font-size:17px; padding:10px 16px}
@@ -846,7 +817,6 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
           </div>
           <div class="hud-line" id="rHeard">Press Start, then play</div>
           <div class="hud-line" id="rNext"></div>
-          <span class="fold" aria-hidden="true"></span>
         </div>
         <div id="rBanner" role="status"></div>
       </section>
@@ -870,7 +840,6 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
           </div>
           <div class="ch-line" id="yHeard">Press Start, then play</div>
           <div class="ch-line dim" id="yHint">Play to defend the city</div>
-          <span class="fold" aria-hidden="true"></span>
         </div>
         <div id="yBanner" class="bevel" role="status"></div>
         <div id="yMsg" class="bevel" hidden></div>
@@ -895,7 +864,6 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
           </div>
           <div class="dh-line" id="dHeard">Press Start, then play</div>
           <div class="dh-line dim" id="dHint">Play to run the course</div>
-          <span class="fold" aria-hidden="true"></span>
         </div>
         <div id="dBanner" role="status"></div>
       </section>
