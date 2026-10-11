@@ -402,6 +402,53 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 #toast{position:fixed; left:50%; bottom:calc(96px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%); background:var(--surface); color:var(--ink); border:1px solid var(--rule); padding:10px 14px; border-radius:14px; font-size:14px;
   opacity:0; transition:opacity .25s; pointer-events:none; max-width:90%; text-align:center; z-index:5}
 #toast.on{opacity:1}
+/* ---------- Settings in the look of the theme it is opened from (data-skin on the sheet) ---------- */
+#dlgSettings[data-skin="rocket"]{--sheet:#070A14; --surface:#1B2030; --ink:#F4F6FA; --mute:#A3ACC2; --mute-2:#7C86A0; --rule:#3A4258; --accent:#5DA831; --on-accent:#FFFFFF;
+  border:0; border-top:2px solid #FFD23F; border-radius:0}
+#dlgSettings[data-skin="rocket"] h2, #dlgSettings[data-skin="rocket"] .field > .lab, #dlgSettings[data-skin="rocket"] .field > label{font-family:var(--pixel); font-weight:400; letter-spacing:0}
+#dlgSettings[data-skin="rocket"] h2{font-size:20px; color:#FFD23F}
+#dlgSettings[data-skin="rocket"] .field > .lab, #dlgSettings[data-skin="rocket"] .field > label{font-size:14px}
+#dlgSettings[data-skin="rocket"] .seg, #dlgSettings[data-skin="rocket"] .seg button, #dlgSettings[data-skin="rocket"] .btn, #dlgSettings[data-skin="rocket"] .stepper button,
+#dlgSettings[data-skin="rocket"] input[type="text"]{border-radius:0}
+#dlgSettings[data-skin="rocket"] .btn, #dlgSettings[data-skin="rocket"] .seg button, #dlgSettings[data-skin="rocket"] .stepper output{font-family:var(--pixel); font-weight:400}
+#dlgSettings[data-skin="rocket"] .btn{border:2px solid #05070D; background:#7B8293; color:#fff; text-shadow:2px 2px 0 rgba(0,0,0,.45)}
+#dlgSettings[data-skin="rocket"] .btn.solid{background:#5DA831}
+#dlgSettings[data-skin="rocket"] .seg button[aria-pressed="true"]{text-shadow:1px 1px 0 rgba(0,0,0,.4)}
+
+#dlgSettings[data-skin="city"]{--sheet:#2E2E2E; --surface:#3A3A3A; --ink:#F4F4F4; --mute:#D9D2C6; --mute-2:#B5AE9F; --rule:#1C1C1C; --accent:#4E8B32; --on-accent:#FFFFFF;
+  border:0; border-radius:0; box-shadow:inset 4px 4px 0 #5A5A5A, inset -4px -4px 0 #161616, 0 0 0 3px #000}
+#dlgSettings[data-skin="city"] h2, #dlgSettings[data-skin="city"] .field > .lab, #dlgSettings[data-skin="city"] .field > label{font-family:var(--pixel); font-weight:400; letter-spacing:0; color:#F2C94C; text-shadow:2px 2px 0 #000}
+#dlgSettings[data-skin="city"] h2{font-size:20px}
+#dlgSettings[data-skin="city"] .field > .lab, #dlgSettings[data-skin="city"] .field > label{font-size:14px}
+#dlgSettings[data-skin="city"] .field{border-top:2px solid #1C1C1C; box-shadow:inset 0 2px 0 #4A4A4A}
+#dlgSettings[data-skin="city"] .sh-body > .field:first-child{border-top:0; box-shadow:none}
+#dlgSettings[data-skin="city"] .seg{border:0; border-radius:0; background:#232323; box-shadow:inset 3px 3px 0 #161616, inset -3px -3px 0 #4A4A4A}
+#dlgSettings[data-skin="city"] .seg button, #dlgSettings[data-skin="city"] .btn, #dlgSettings[data-skin="city"] .stepper button, #dlgSettings[data-skin="city"] input[type="text"]{border-radius:0}
+#dlgSettings[data-skin="city"] .seg button{font-family:var(--pixel); font-size:13px}
+#dlgSettings[data-skin="city"] .seg button[aria-pressed="true"]{background:#4E8B32; color:#fff; font-weight:400; text-shadow:1px 1px 0 #333; box-shadow:inset 3px 3px 0 #86D25A, inset -3px -3px 0 #2B5A1A}
+#dlgSettings[data-skin="city"] .btn{font-family:var(--pixel); font-weight:400; font-size:13px}
+#dlgSettings[data-skin="city"] .btn, #dlgSettings[data-skin="city"] .stepper button{border:0; background:#6B6B6B; color:#fff; text-shadow:1px 1px 0 #333;
+  box-shadow:inset 3px 3px 0 #A8A8A8, inset -3px -3px 0 #3B3B3B, 0 0 0 3px #000}
+#dlgSettings[data-skin="city"] .btn.solid{background:#4E8B32; box-shadow:inset 3px 3px 0 #86D25A, inset -3px -3px 0 #2B5A1A, 0 0 0 3px #000}
+#dlgSettings[data-skin="city"] .btn:active, #dlgSettings[data-skin="city"] .stepper button:active{box-shadow:inset -3px -3px 0 #A8A8A8, inset 3px 3px 0 #3B3B3B, 0 0 0 3px #000}
+#dlgSettings[data-skin="city"] .stepper output{font-family:var(--pixel); font-weight:400; color:#F2C94C; text-shadow:2px 2px 0 #000}
+#dlgSettings[data-skin="city"] input[type="text"]{background:#232323; border:0; box-shadow:inset 3px 3px 0 #161616, inset -3px -3px 0 #4A4A4A}
+#dlgSettings[data-skin="city"] .sh-head{margin:4px 4px 0}
+
+#dlgSettings[data-skin="dash"]{--sheet:#10103A; --surface:#17174A; --ink:#FFFFFF; --mute:#B9BCE8; --mute-2:#8F93CC; --rule:#34348A; --accent:#7CFF4F; --on-accent:#06210A;
+  border:3px solid #05051A; box-shadow:0 0 0 2px rgba(124,255,79,.35)}
+#dlgSettings[data-skin="dash"] h2{font-size:24px; font-weight:800; color:#7CFF4F}
+#dlgSettings[data-skin="dash"] .seg{border:3px solid #05051A; background:#0B0B2C; border-radius:16px}
+#dlgSettings[data-skin="dash"] .seg button{font-weight:800; border-radius:11px}
+#dlgSettings[data-skin="dash"] .btn, #dlgSettings[data-skin="dash"] .stepper button{border:3px solid #05051A; border-radius:16px; background:#2B2B7A; color:#fff; font-weight:800; box-shadow:0 4px 0 #05051A}
+#dlgSettings[data-skin="dash"] .btn.solid{background:#7CFF4F; color:#06210A}
+#dlgSettings[data-skin="dash"] .btn:active, #dlgSettings[data-skin="dash"] .stepper button:active{transform:translateY(3px); box-shadow:0 1px 0 #05051A}
+#dlgSettings[data-skin="dash"] input[type="text"]{border:3px solid #05051A; border-radius:16px; background:#0B0B2C}
+@media (max-width:560px){
+  #dlgSettings[data-skin="rocket"], #dlgSettings[data-skin="city"]{border-radius:0}
+  #dlgSettings[data-skin="dash"]{border-radius:24px 24px 0 0; border-width:3px 0 0}
+}
+
 /* debug tools (developer only) */
 .dbg-chips{margin-top:8px}
 .dbg-intro{font-size:13px; color:var(--mute); margin:0 0 4px}
@@ -909,7 +956,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
   <div class="sh-body">
     <div class="field">
       <span class="lab">Practice goal</span>
-      <p class="hint">The total play time to reach.</p>
+      <p class="hint" id="goalHint">The total play time to reach.</p>
       <div class="row stepper"><button id="goalDn" aria-label="Five minutes less">&minus;</button><output id="goalOut">30 min</output><button id="goalUp" aria-label="Five minutes more">+</button></div>
     </div>
     <div class="field">
@@ -927,10 +974,10 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
       <div class="seg" id="segHold"><button data-v="0">Off</button><button data-v="5">5 s</button><button data-v="10">10 s</button><button data-v="20">20 s</button></div>
       <p class="hint">A long soft note, a page turn or a short interruption keeps the clock running for this long. A longer quiet stops it.</p>
     </div>
-    <div class="field">
-      <span class="lab">Rocket, cannon and dash power follow</span>
+    <div class="field" id="fPower">
+      <span class="lab" id="effK">Rocket, cannon and dash power follow</span>
       <div class="seg" id="segEff"><button data-v="session">Whole session</button><button data-v="recent">Last minute</button></div>
-      <p class="hint">Whole session uses the efficiency shown on screen. Last minute reacts faster and lets a new rocket launch sooner after a crash. If your last session today left the rocket in space, the next one carries on from there. Otherwise, and on each new day, it starts on the launch pad.</p>
+      <p class="hint" id="effHint">Whole session uses the efficiency shown on screen. Last minute reacts faster.</p>
     </div>
     <div class="field">
       <label class="switch" for="recIn"><span>Record the playing</span><input type="checkbox" id="recIn"></label>

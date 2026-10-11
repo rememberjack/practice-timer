@@ -757,7 +757,22 @@ function bumpGoal(d) { S.goalMin = Math.max(5, Math.min(180, S.goalMin + d)); sa
 $('goalDn').onclick = () => bumpGoal(-5); $('goalUp').onclick = () => bumpGoal(5);
 $('nameIn').value = S.name; $('nameIn').oninput = () => { S.name = $('nameIn').value.replace(/[\u0000-\u001F\u007F-\u009F\u200B-\u200F\u2028-\u202F\u2060-\u206F\uFEFF]/g, '').slice(0, 40); saveS(); };
 $('recIn').checked = S.record; $('recIn').onchange = () => { S.record = $('recIn').checked; saveS(); };
-$('btnSettings').onclick = () => { if (heldOpen()) return; pauseForSheet(); paintGoal(); paintControls(); paintDbg(); $('dlgSettings').showModal(); };
+/* Settings in the look and words of the theme it is opened from. Classic shows no power, so it has no power setting */
+const SET_SKIN = {
+  classic: { goal: 'The total play time to reach.' },
+  rocket: { goal: 'The total play time to reach. The rocket gets to Moon orbit after about 30 minutes of playing.', power: ['Engine power follows',
+    'Whole session uses the efficiency shown on screen. Last minute reacts faster and lets a new rocket launch sooner after a crash. If your last session today left the rocket in space, the next one carries on from there. Otherwise, and on each new day, it starts on the launch pad.'] },
+  city: { goal: 'The total play time to reach.', power: ['Cannon power follows',
+    'Whole session uses the efficiency shown on screen. Last minute reacts faster, so the cannons reload quicker and aim steadier as soon as you play steadily.'] },
+  dash: { goal: 'The total play time to reach. It is also the length of the course.', power: ['Dash speed follows',
+    'Whole session uses the efficiency shown on screen. Last minute reacts faster, so the course speeds up as soon as you play steadily.'] },
+};
+function paintSettingsSkin() {
+  const k = SKINS[skin], c = SET_SKIN[k]; $('dlgSettings').dataset.skin = k;
+  $('goalHint').textContent = c.goal; $('fPower').hidden = !c.power;
+  if (c.power) { $('effK').textContent = c.power[0]; $('effHint').textContent = c.power[1]; }
+}
+$('btnSettings').onclick = () => { if (heldOpen()) return; pauseForSheet(); paintSettingsSkin(); paintGoal(); paintControls(); paintDbg(); $('dlgSettings').showModal(); $('dlgSettings').querySelector('.sh-body').scrollTop = 0; };
 $('btnSettings2').onclick = () => $('btnSettings').click();          // on phones the Rocket and City themes keep Settings beside the buttons
 $('setClose').onclick = () => $('dlgSettings').close();
 for (const d of document.querySelectorAll('dialog')) d.addEventListener('click', e => { if (e.target === d && !heldOpen()) d.close(); });   // not the lift of the finger that held Settings down
