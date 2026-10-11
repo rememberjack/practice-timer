@@ -962,6 +962,7 @@ function paintHomeThemes() {
 function renderHome() {
   const now = Date.now(), P = MT.practiceStats(log, now), c = MT.homeCopy(P, log.length ? log[log.length - 1] : null, now);
   $('homeHello').textContent = c.hello + (S.name ? ', ' + S.name : '');
+  $('homeName').hidden = !!S.name;
   $('homeHead').textContent = c.head; $('homeLede').textContent = c.lede;
   $('homeFirst').hidden = c.kind !== 'first'; $('homeWeek').hidden = c.kind === 'first';
   if (c.kind !== 'first') {
@@ -988,6 +989,7 @@ function hideHome() { if (!homeOn) return; homeEl.hidden = true; homeOn = false;
 $('homeGo').onclick = () => { hideHome(); start(); };
 $('homeLog').onclick = openLog;
 $('homeSet').onclick = () => $('btnSettings').click();
+$('homeName').onclick = () => { $('btnSettings').click(); const n = $('nameIn'); try { n.focus({ preventScroll: true }); } catch (e) { n.focus(); } n.scrollIntoView({ block: 'center' }); };   // straight to the name, keyboard up
 // back to the Home Screen once a finished session's summary is put away (not when going on to the practice log)
 $('dlgSummary').addEventListener('close', () => { if (homeOn) renderHome(); else if (session.state === 'stopped' && !$('dlgLog').open) showHome(); });   // a session deleted from its summary
 $('dlgSettings').addEventListener('close', () => { if (homeOn) renderHome(); resumeAfterSheet(); });   // a new name shows in the greeting
