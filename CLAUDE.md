@@ -32,8 +32,10 @@ Node 20+, no dependencies to install.
 - Each saved session keeps where the rocket got to if it is in space or Moon orbit (`RocketSim.save`); the next session
   that day carries on from it (`rocketCarry`). Below space, and on a new day, it starts on the pad. Sessions too short
   to save never move the carried flight; demo sound sessions are saved like any other.
-- Opening the practice log or Settings pauses a running session (`pauseForSheet` in `src/app.js`); closing it resumes, unless
-  the session had been paused by hand.
+- Opening Settings pauses a running session (`pauseForSheet` in `src/app.js`); closing it resumes, unless the session had been
+  paused by hand. The practice log opens only from the Home Screen.
+- Every theme keeps the title row with Settings at the top. During a session Pause (or Resume) is the big button and End the small
+  one, and End asks to confirm (`askEnd`, `#dlgEnd`).
 - Settings takes the look and words of the theme it is opened from (`SET_SKIN` in `src/app.js`, `#dlgSettings[data-skin]` in the
   template); Classic has no power setting, as it shows no power.
 - The Home Screen (`#home`) shows when the app opens and after a finished session's summary is closed; its words come

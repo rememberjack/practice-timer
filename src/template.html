@@ -41,7 +41,7 @@ body:has(> #app[data-skin="city"]){background:#0E1130}
 body:has(> #app[data-skin="dash"]){background:#07071F}
 
 /* ---------- chrome (classic look; the rocket theme overrides it below) ---------- */
-#top{display:grid; grid-template-columns:auto 1fr auto auto; align-items:center; gap:10px; padding:12px 0 12px; margin:0 auto 6px; max-width:560px; width:calc(100% - 36px); border-bottom:1px solid var(--rule)}
+#top{display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:10px; padding:12px 0 12px; margin:0 auto 6px; max-width:560px; width:calc(100% - 36px); border-bottom:1px solid var(--rule)}
 .brand{min-width:0}
 .app-icon{width:34px; height:34px; border-radius:10px; overflow:hidden; display:grid; place-items:center}
 .app-icon img{width:100%; height:100%; display:block}
@@ -72,6 +72,10 @@ body:has(> #app[data-skin="dash"]){background:#07071F}
 #controls button{flex:1; min-height:56px; border-radius:18px; border:1px solid var(--rule); background:var(--surface); color:var(--ink); font-size:18px; font-weight:700}
 #controls button.primary{background:var(--accent); border-color:var(--accent); color:var(--on-accent)}
 #controls button:active{transform:translateY(1px)}
+/* during a session Pause (or Resume) is the big button and End the small one, so End is harder to hit by mistake (it also asks first) */
+#app #controls #btnPause, #app #controls #btnResume{flex-grow:3; max-width:none}
+#app #controls #btnStop{flex-grow:1}
+.end-p{margin:0; font-size:16px; line-height:1.45; color:var(--mute)}
 .keep{flex-basis:100%; margin:0; color:var(--mute); font-size:13px}
 
 /* ---------- classic theme ---------- */
@@ -320,7 +324,6 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 #recBox audio{display:block; width:100%}
 #recBox audio[hidden]{display:none}
 #recBox .btn{width:100%}
-@media (max-width:699px){ #btnLog{width:44px; padding:0} #btnLog svg{display:block} #btnLog .lbl{display:none} }   /* on phones the log is an icon, so the title row keeps its tagline */
 .sum-saved{margin:10px 0 0; font-size:13px; color:var(--mute)}
 .sum-saved b{color:var(--accent); font-weight:700}
 /* summary: the day this session belongs to, when it had more than one. Each block is a session, this one bright */
@@ -452,7 +455,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 #dbgBack{min-height:36px; padding:6px 12px}
 .sh-head:has(#dbgBack:not([hidden])) h2{flex:1}
 /* Settings buttons: held down they open the debug tools, so no callout or text selection on a long press */
-#btnSettings, #btnSettings2, #homeSet{-webkit-touch-callout:none; -webkit-user-select:none; user-select:none}
+#btnSettings, #homeSet{-webkit-touch-callout:none; -webkit-user-select:none; user-select:none}
 .dbg-chips button.armed{background:var(--alert); border-color:var(--alert); color:#2B0F08; font-weight:700}
 #dbgRead{position:fixed; left:6px; bottom:calc(env(safe-area-inset-bottom,0px) + 120px); z-index:6; pointer-events:none; margin:0; background:rgba(0,0,0,.6); color:#B6F5B6; font:10px/1.4 ui-monospace,Menlo,monospace; padding:6px 8px; border-radius:8px; white-space:pre; max-width:calc(100% - 12px); overflow:hidden}
 .sr{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap}
@@ -528,15 +531,10 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 #app[data-skin="dash"] #skinBar{--tint:#7CFF4F}
 
 /* ---------- more room for the Rocket and City scenes ---------- */
-.ctl-set{display:none}
-@media (max-width:699px), (max-width:760px) and (max-height:599px){   /* phones; a tablet keeps the title row (see the tablet layout below) */
-  #app[data-chrome="pixel"] #top{display:none}                                  /* the title row goes; Settings sits with the buttons */
-  #app[data-chrome="pixel"] .ctl-set{display:grid; place-items:center; flex:none; width:50px; max-width:50px; padding:0}
-  #app[data-chrome="pixel"] .ctl-set svg{width:22px; height:22px}
-  /* after a session the bar holds New session, Summary, the log and Settings: the longer label gets the room it needs, on one line */
+@media (max-width:699px), (max-width:760px) and (max-height:599px){   /* phones: the title row with Settings stays at the top, as in Classic */
+  /* after a session the bar holds New session and Summary: the longer label gets the room it needs, on one line */
   #app[data-chrome="pixel"][data-state="stopped"] #controls button{padding-left:4px; padding-right:4px; white-space:nowrap}
   #app[data-chrome="pixel"][data-state="stopped"] #btnStart{flex-grow:1.55}
-  #app[data-chrome="pixel"][data-state="stopped"] .ctl-set{width:46px; max-width:46px}
   @media (max-width:419px){ #app[data-skin="dash"][data-chrome="pixel"][data-state="stopped"] #controls button{font-size:15px} }
   @media (max-width:389px){ #app[data-chrome="pixel"][data-state="stopped"] #controls{gap:8px} #app[data-skin="city"][data-state="stopped"] #controls{gap:12px} }
   @media (max-width:359px){ #app[data-chrome="pixel"][data-state="stopped"]:not([data-skin="city"]) #controls button{font-size:11px} #app[data-chrome="pixel"][data-state="stopped"] #btnStart{flex-grow:1.4} }   /* 320 px phones */
@@ -607,7 +605,8 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
   #app[data-chrome="pixel"] #controls button{font-size:17px}
   #app[data-skin="city"] #controls button{font-size:15px}
   #app[data-skin="dash"][data-chrome="pixel"] #controls button{font-size:20px}
-  #app[data-chrome="pixel"] .ctl-set{display:none}
+  #app #controls #btnPause, #app #controls #btnResume{max-width:620px}
+  #app #controls #btnStop{max-width:220px}
   #app[data-skin] .keep{display:block; flex-basis:100%; text-align:center; font-size:13px; line-height:18px; color:var(--mute)}
 
   #toast{font-size:15px; bottom:calc(132px + env(safe-area-inset-bottom,0px))}
@@ -750,10 +749,6 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
   <header id="top">
     <span class="app-icon" aria-hidden="true"><img src="__APP_ICON__" alt="" width="84" height="84"></span>
     <div class="brand"><h1>Music Timer</h1><span class="tagline">Instrument practice timer</span></div>
-    <button class="icon-btn" id="btnLog" aria-label="Practice log">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4M8 14h2M14 14h2M8 17h2"/></svg>
-      <span class="lbl">Log</span>
-    </button>
     <button class="icon-btn" id="btnSettings" aria-label="Settings">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>
       <span class="lbl">Settings</span>
@@ -879,8 +874,6 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
     <button id="btnResume" class="primary" hidden>Resume</button>
     <button id="btnStop" hidden>End</button>
     <button id="btnUnfollow" hidden>Stop following</button>
-    <button id="btnLog2" class="ctl-set" aria-label="Practice log"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4M8 14h2M14 14h2M8 17h2"/></svg></button>
-    <button id="btnSettings2" class="ctl-set" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg></button>
     <p class="keep">Keep this page open while timing.</p>
   </footer>
 </div>
@@ -1030,9 +1023,17 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
     </section>
   </div>
   <div class="sh-foot sum-foot">
-    <button class="btn" id="sumLog">Practice log</button>
     <button class="btn" id="sumDelete" hidden>Delete session</button>
     <button class="btn solid" id="sumClose">Close</button>
+  </div>
+</dialog>
+
+<dialog id="dlgEnd" aria-labelledby="endH">
+  <div class="sh-head"><h2 id="endH">End this session?</h2></div>
+  <div class="sh-body"><p class="end-p" id="endP"></p></div>
+  <div class="sh-foot sum-foot">
+    <button class="btn" id="endYes">End session</button>
+    <button class="btn solid" id="endNo">Keep playing</button>
   </div>
 </dialog>
 

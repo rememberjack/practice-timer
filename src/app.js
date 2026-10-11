@@ -437,7 +437,16 @@ function paintControls() {
   for (const b of $('segSource').children) b.disabled = lock;
   $('btnTests').disabled = st === 'running' || testing;
 }
-$('btnStart').onclick = start; $('btnPause').onclick = pause; $('btnResume').onclick = resume; $('btnStop').onclick = stop;
+$('btnStart').onclick = start; $('btnPause').onclick = pause; $('btnResume').onclick = resume; $('btnStop').onclick = askEnd;
+/* End asks first, so a tap on it by mistake does not cut a session short */
+function askEnd() {
+  if (session.state !== 'running' && session.state !== 'paused') return;
+  $('endP').textContent = 'You have played for ' + MT.durationText(session.play) + '. ' + (MT.worthKeeping({ play: session.play })
+    ? 'The session will be saved to your practice log.' : 'Sessions with less than 10 seconds of playing are not saved.');
+  if (!$('dlgEnd').open) $('dlgEnd').showModal();
+}
+$('endYes').onclick = () => { $('dlgEnd').close(); stop(); };
+$('endNo').onclick = () => $('dlgEnd').close();
 $('btnUnfollow').onclick = stopFollow; $('btnSummary').onclick = () => { if (current) openSummary(current.rec, false); };
 
 /* ---------- classic sound pictures: tap the picture to change it ----------
@@ -773,7 +782,6 @@ function paintSettingsSkin() {
   if (c.power) { $('effK').textContent = c.power[0]; $('effHint').textContent = c.power[1]; }
 }
 $('btnSettings').onclick = () => { if (heldOpen()) return; pauseForSheet(); paintSettingsSkin(); paintGoal(); paintControls(); paintDbg(); $('dlgSettings').showModal(); $('dlgSettings').querySelector('.sh-body').scrollTop = 0; };
-$('btnSettings2').onclick = () => $('btnSettings').click();          // on phones the Rocket and City themes keep Settings beside the buttons
 $('setClose').onclick = () => $('dlgSettings').close();
 for (const d of document.querySelectorAll('dialog')) d.addEventListener('click', e => { if (e.target === d && !heldOpen()) d.close(); });   // not the lift of the finger that held Settings down
 
@@ -867,7 +875,7 @@ function openSummary(r, past) {
   ];
   $('sFacts').replaceChildren(...facts.map(f => { const d = el('div'), dd = el('dd', null, f[1]); dd.append(el('small', null, f[2])); d.append(el('dt', null, f[0]), dd); return d; }));
   $('recBox').hidden = past || !rec.blob;                 // recordings are not kept with saved sessions
-  $('sumLog').hidden = !!past; $('sumDelete').hidden = !past; disarm($('sumDelete'), 'Delete session');
+  $('sumDelete').hidden = !past; disarm($('sumDelete'), 'Delete session');
   $('dlgSummary').querySelector('.sh-body').scrollTop = 0;
   if (!$('dlgSummary').open) $('dlgSummary').showModal();
 }
@@ -962,11 +970,9 @@ function renderLog() {
   $('logOlder').hidden = log.length <= logShown;
 }
 function openLog() { pauseForSheet(); logShown = 30; disarm($('logClear'), 'Delete all sessions'); renderLog(); $('dlgLog').querySelector('.sh-body').scrollTop = 0; if (!$('dlgLog').open) $('dlgLog').showModal(); }
-$('btnLog').onclick = openLog; $('btnLog2').onclick = openLog;
 $('logClose').onclick = () => $('dlgLog').close();
 $('logOlder').onclick = () => { logShown += 30; renderLog(); };
 $('logStart').onclick = () => { $('dlgLog').close(); if ($('dlgSummary').open) $('dlgSummary').close(); start(); };
-$('sumLog').onclick = () => { $('dlgSummary').close(); openLog(); };
 
 /* ---------- Home Screen: shown when the app opens and after a finished session's summary is closed. Start playing goes into the chosen theme ---------- */
 const homeEl = $('home');
@@ -1018,7 +1024,7 @@ let dbgAt = 0, holdT = 0, held = false, holdXY = null;
 /* holding any Settings button for half a second opens the debug tools; the click that ends the hold does not open Settings too */
 function heldOpen() { const h = held; held = false; return h; }
 document.addEventListener('pointerdown', () => { if (!holdT) held = false; }, true);   // a hold that ended without a click is forgotten at the next touch
-for (const b of [$('btnSettings'), $('btnSettings2'), $('homeSet')]) {
+for (const b of [$('btnSettings'), $('homeSet')]) {
   const cancel = () => { clearTimeout(holdT); holdT = 0; };
   b.addEventListener('pointerdown', e => { held = false; holdXY = [e.clientX, e.clientY]; cancel();
     holdT = setTimeout(() => { holdT = 0; held = true; try { if (navigator.vibrate) navigator.vibrate(12); } catch (er) {} openDebug(); }, 500); });
