@@ -692,7 +692,7 @@ function frame(t) {
 
 /* ---------- themes: swipe (touch, mouse drag or trackpad) or arrow keys ---------- */
 const SKINS = ['classic', 'rocket', 'city', 'dash'], SKIN_NAMES = ['Classic', 'Rocket', 'City', 'Dash'], PANELS = ['pClassic', 'pRocket', 'pCity', 'pDash'], stage = $('stage'), track = $('track');
-let skin = Math.max(0, SKINS.indexOf(S.skin)), dragging = false, drag = null, peek = -1;   // peek: the theme a swipe is pulling into view
+let skin = Math.max(0, SKINS.indexOf(S.skin)), dragging = false, peek = -1;   // peek: the theme a swipe is pulling into view
 /* Whether a theme can be chosen yet. Every theme is open for now; to hold one back until a condition is met, return false for it here
    and call refreshSkins() when the condition changes. A locked theme keeps its icon in the theme bar (faint, with a padlock) but leaves the swipe
    track, so swipes, arrow keys and the bar all skip it. Classic is always open, so there is somewhere to land. */
@@ -734,20 +734,19 @@ function paintSkinBar() {
 /* Event banners sit just under the read-outs, clear of the scene: each panel gets --hud-b, the bottom of its read-outs, for the CSS to use */
 function layoutChanged() { requestAnimationFrame(() => { rocket.resize(); city.resize(); dashView.resize();
   for (const [p, h] of [['pRocket', 'hud'], ['pCity', 'cityHud'], ['pDash', 'dashHud']]) { const el = $(h); $(p).style.setProperty('--hud-b', el.offsetTop + el.offsetHeight + 'px'); } }); }
-stage.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse' && e.button !== 0) return; drag = { x: e.clientX, y: e.clientY, id: e.pointerId, w: stage.clientWidth, lock: false, t: performance.now() }; });
+const swipe = new MT.DragSwipe();
+stage.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse' && e.button !== 0) return; swipe.down(e.pointerId, e.clientX, e.clientY, performance.now(), stage.clientWidth); });
 stage.addEventListener('pointermove', e => {
-  if (!drag || e.pointerId !== drag.id) return;
-  if (e.pointerType === 'mouse' && !e.buttons) { endDrag(e); return; }   // the button was let go somewhere else const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
-  if (!drag.lock) { if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.3) { drag.lock = true; dragging = true; try { stage.setPointerCapture(drag.id); } catch (er) {} rocket.resize(); } else { if (Math.abs(dy) > 14) drag = null; return; } }
+  if (!swipe.has(e.pointerId)) return;
+  if (e.pointerType === 'mouse' && !e.buttons) { endDrag(e); return; }   // the button was let go somewhere else
+  const was = swipe.locked, dx = swipe.move(e.clientX, e.clientY); if (dx == null) return;
+  if (!was) { dragging = true; try { stage.setPointerCapture(e.pointerId); } catch (er) {} rocket.resize(); }
   peek = stepSkin(dx < 0 ? 1 : -1);
-  const end = -(open.length - 1) * drag.w; let x = -open.indexOf(skin) * drag.w + dx; if (x > 0) x *= 0.3; if (x < end) x = end + (x - end) * 0.3;
-  track.style.transition = 'none'; track.style.transform = 'translateX(' + x + 'px)';
+  track.style.transition = 'none'; track.style.transform = 'translateX(' + swipe.offset(dx, open.indexOf(skin), open.length) + 'px)';
 });
 function endDrag(e) {
-  if (!drag || (e && e.pointerId !== drag.id)) return; const d = drag; drag = null; if (!d.lock) return; dragging = false; lastSwipe = performance.now();
-  const dx = (e ? e.clientX : d.x) - d.x, fast = performance.now() - d.t < 350 && Math.abs(dx) > 40;
-  let i = skin; if (dx < 0 && (dx < -d.w * 0.25 || fast)) i = stepSkin(1); else if (dx > 0 && (dx > d.w * 0.25 || fast)) i = stepSkin(-1);
-  setSkin(i, true);
+  if (e && !swipe.has(e.pointerId)) return; const s = swipe.up(e ? e.clientX : null, performance.now()); if (s == null) return;
+  dragging = false; lastSwipe = performance.now(); setSkin(s ? stepSkin(s) : skin, true);
 }
 stage.addEventListener('pointerup', endDrag); stage.addEventListener('pointercancel', () => endDrag(null));
 window.addEventListener('pointerup', endDrag);   // let go outside the scene
