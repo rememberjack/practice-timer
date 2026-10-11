@@ -10,7 +10,7 @@ function text(el, s) { if (cache.get(el) !== s) { cache.set(el, s); el.textConte
 function width(el, f) { const s = Math.round(Math.max(0, Math.min(1, f)) * 1000) / 10 + '%'; if (cache.get(el) !== s) { cache.set(el, s); el.style.width = s; } }
 
 /* ---------- settings ---------- */
-const DEF = { v: 2, goalMin: 30, name: '', sens: 'normal', hold: '5', rocketEff: 'session', record: false, source: 'mic', skin: 'classic', viz: 'piano', inst: '' };
+const DEF = { v: 2, goalMin: 30, name: '', sens: 'normal', hold: '5', record: false, source: 'mic', skin: 'classic', viz: 'piano', inst: '' };
 const S = Object.assign({}, DEF);
 try { const j = JSON.parse(localStorage.getItem('musicTimer.settings') || 'null');
   if (j && typeof j === 'object') { for (const k in DEF) if (typeof j[k] === typeof DEF[k]) S[k] = j[k];
@@ -235,7 +235,7 @@ function tick() {
   }
   music = session.tick(dt * w, m);             // a short quiet after playing still counts (the hold set in Settings)
   if (session.holdLeft > 0) heard.detail = 'Short pauses still count as playing';
-  const pw = S.rocketEff === 'recent' ? session.recentEfficiency : session.efficiency;
+  const pw = session.recentEfficiency;   // the rocket, cannons and course follow the last minute of playing
   sim.update(dt * w, { running: session.state === 'running', playing: m, eff: pw, rdt: dt });
   if (!goalHit && session.play >= session.goal) { goalHit = true; award(session.goal); }
   if (now - dashAt > 250) dashStep(dt, session.state === 'running', m, pw, session.goal > 0 ? session.play / session.goal : 0);   // frames are not being drawn (tab in the background): keep the course moving
@@ -334,7 +334,7 @@ function paint() {
     V.eff = R.active > 0 ? Math.min(1, R.play / R.active) : 0; V.pw = R.pw; V.music = R.music && R.st === 'running'; V.hold = false; V.label = R.label; V.detail = R.detail; V.note = R.note; V.midi = R.midi; V.inst = R.inst; }
   else { V.st = session.state; V.play = session.play; V.active = session.active; V.total = session.total; V.pauses = session.pauses;
     V.goal = session.state === 'idle' ? S.goalMin * 60 : session.goal; V.eff = session.efficiency;
-    V.pw = S.rocketEff === 'recent' ? session.recentEfficiency : session.efficiency; V.music = music; V.hold = session.holdLeft > 0; V.label = heard.label; V.detail = heard.detail; V.note = heard.note; V.midi = heard.midi; V.inst = kbInst; }
+    V.pw = session.recentEfficiency; V.music = music; V.hold = session.holdLeft > 0; V.label = heard.label; V.detail = heard.detail; V.note = heard.note; V.midi = heard.midi; V.inst = kbInst; }
   const st = V.st, fol = mode === 'follow';
   if (app.dataset.music !== (V.music ? '1' : '0')) app.dataset.music = V.music ? '1' : '0';
   const won = V.st !== 'idle' && V.play >= V.goal ? '1' : '0'; if (app.dataset.goal !== won) app.dataset.goal = won;
@@ -759,27 +759,19 @@ const updSource = seg('segSource', 'source', () => { hideNotice('mic'); paintDem
 function setSource(v) { S.source = v; saveS(); updSource(); paintDemoBar(); }
 seg('segSens', 'sens', () => { if (A.det) A.det.setSensitivity(S.sens); });
 seg('segHold', 'hold', () => { session.hold = +S.hold; });
-seg('segEff', 'rocketEff');
 function paintGoal() { $('goalOut').textContent = S.goalMin + ' min'; }
 function bumpGoal(d) { S.goalMin = Math.max(5, Math.min(180, S.goalMin + d)); saveS(); paintGoal(); if (session.state === 'running' || session.state === 'paused') { session.goal = S.goalMin * 60; if (session.play < session.goal) { goalHit = false; hideAward(); } } }
 $('goalDn').onclick = () => bumpGoal(-5); $('goalUp').onclick = () => bumpGoal(5);
 $('nameIn').value = S.name; $('nameIn').oninput = () => { S.name = $('nameIn').value.replace(/[\u0000-\u001F\u007F-\u009F\u200B-\u200F\u2028-\u202F\u2060-\u206F\uFEFF]/g, '').slice(0, 40); saveS(); };
 $('recIn').checked = S.record; $('recIn').onchange = () => { S.record = $('recIn').checked; saveS(); };
-/* Settings in the look and words of the theme it is opened from. Classic shows no power, so it has no power setting */
-const SET_SKIN = {
-  classic: { goal: 'The total play time to reach.' },
-  rocket: { goal: 'The total play time to reach. The rocket gets to Moon orbit after about 30 minutes of playing.', power: ['Engine power follows',
-    'Whole session uses the efficiency shown on screen. Last minute reacts faster and lets a new rocket launch sooner after a crash. If your last session today left the rocket in space, the next one carries on from there. Otherwise, and on each new day, it starts on the launch pad.'] },
-  city: { goal: 'The total play time to reach.', power: ['Cannon power follows',
-    'Whole session uses the efficiency shown on screen. Last minute reacts faster, so the cannons reload quicker and aim steadier as soon as you play steadily.'] },
-  dash: { goal: 'The total play time to reach. It is also the length of the course.', power: ['Dash speed follows',
-    'Whole session uses the efficiency shown on screen. Last minute reacts faster, so the course speeds up as soon as you play steadily.'] },
+/* the goal's hint in the words of the theme Settings is opened from */
+const GOAL_HINT = {
+  classic: 'The total play time to reach.',
+  rocket: 'The total play time to reach. The rocket gets to Moon orbit after about 30 minutes of playing. If your last session today left the rocket in space, the next one carries on from there.',
+  city: 'The total play time to reach.',
+  dash: 'The total play time to reach. It is also the length of the course.',
 };
-function paintSettingsSkin() {
-  const k = SKINS[skin], c = SET_SKIN[k]; $('dlgSettings').dataset.skin = k;
-  $('goalHint').textContent = c.goal; $('fPower').hidden = !c.power;
-  if (c.power) { $('effK').textContent = c.power[0]; $('effHint').textContent = c.power[1]; }
-}
+function paintSettingsSkin() { $('goalHint').textContent = GOAL_HINT[SKINS[skin]]; }
 $('btnSettings').onclick = () => { if (heldOpen()) return; pauseForSheet(); paintSettingsSkin(); paintGoal(); paintControls(); paintDbg(); $('dlgSettings').showModal(); $('dlgSettings').querySelector('.sh-body').scrollTop = 0; };
 $('setClose').onclick = () => $('dlgSettings').close();
 for (const d of document.querySelectorAll('dialog')) d.addEventListener('click', e => { if (e.target === d && !heldOpen()) d.close(); });   // not the lift of the finger that held Settings down
