@@ -200,20 +200,20 @@ async function start() {
   heard.label = 'Listening'; heard.detail = 'Play your instrument to start the clock'; heard.note = ''; heard.midi = null;
   startRecording();
   lastT = performance.now(); clearInterval(timer); timer = setInterval(tick, 46);
-  keepAwake(); paintControls(); push(true); writeLive();
+  keepAwake(); paintControls(); push(); writeLive();
 }
-function pause() { if (!session.pause()) return; dash.mark(); music = false; recCall('pause'); paintControls(); push(true); writeLive(); }
+function pause() { if (!session.pause()) return; dash.mark(); music = false; recCall('pause'); paintControls(); push(); writeLive(); }
 /* opening the practice log or Settings pauses a running session, so nothing counts while you look; closing it carries on,
    unless the session was already paused by hand */
 let sheetPaused = false;
 function pauseForSheet() { if (mode === 'local' && session.state === 'running') { pause(); sheetPaused = true; } }
 function resumeAfterSheet() { if (!sheetPaused || $('dlgSettings').open || $('dlgLog').open || $('dlgDebug').open) return; sheetPaused = false; if (session.state === 'paused') resume(); }
-function resume() { sheetPaused = false; if (!session.resume()) return; if (A.ctx && A.ctx.state !== 'running') A.ctx.resume().catch(() => {}); if (A.det) { A.det.score = 0; A.det.isMusic = false; } recCall('resume'); lastT = performance.now(); paintControls(); push(true); }
+function resume() { sheetPaused = false; if (!session.resume()) return; if (A.ctx && A.ctx.state !== 'running') A.ctx.resume().catch(() => {}); if (A.det) { A.det.score = 0; A.det.isMusic = false; } recCall('resume'); lastT = performance.now(); paintControls(); push(); }
 function stop() {
   if (!session.stop()) return;
   clearLive();                                   // ended here, so nothing was cut short
   clearInterval(timer); timer = 0; music = false; recCall('stop'); rec.mr = null; hideAward();
-  closeAudio(); letSleep(); paintControls(); push(true);
+  closeAudio(); letSleep(); paintControls(); push();
   current = finishSession(); openSummary(current.rec, false);
 }
 
@@ -243,12 +243,12 @@ function tick() {
   sim.update(away ? 0 : dt * w, { running: session.state === 'running', playing: m, eff: pw, rdt: dt });
   if (!goalHit && session.play >= session.goal) { goalHit = true; award(session.goal); }
   if (now - dashAt > 250) dashStep(dt, session.state === 'running', m, pw, session.goal > 0 ? session.play / session.goal : 0);   // frames are not being drawn (tab in the background): keep the course moving
-  if (now - lastPush > 330) push(false);
+  if (now - lastPush > 330) push();
 }
 
 /* ---------- following another device ---------- */
 let followPeer = '', R = null, followDismissed = false, offerPeer = '';
-function push(force) {
+function push() {
   lastPush = performance.now(); if (!room || mode !== 'local') return;
   let br = ''; for (let i = 0; i < NB; i++) br += Math.min(9, Math.floor(bars[i] * 10));
   const r1 = v => Math.round(v * 10) / 10;
@@ -353,7 +353,7 @@ function paint() {
   else { status = 'Session finished'; label = fol ? 'The session has ended' : 'Nicely done'; detail = fol ? '' : 'Start again whenever you like.'; }
   if (fol) status = 'Following live' + (R && R.name ? ' (' + R.name + ')' : '') + ': ' + status.toLowerCase();
 
-  const play = fmt(V.play), effTxt = Math.round(V.eff * 100) + '%', reached = V.play >= V.goal && st !== 'idle';
+  const play = fmt(V.play), reached = V.play >= V.goal && st !== 'idle';
   clock(play); text($('cTenths'), '.' + Math.floor(V.play * 10) % 10);
   text($('cMic'), st === 'running' ? (V.music ? 'Music' : fol ? 'Live' : S.source === 'demo' ? 'Demo' : 'Listening') : st === 'paused' ? 'Paused' : 'Mic off');
   text($('cStatus'), status); text($('cHeard'), label); text($('cDetail'), detail); text($('cNote'), note);
@@ -467,7 +467,7 @@ function askFlight(home) {
 }
 function newFlight() {
   flightFrom = Date.now(); try { localStorage.setItem(FLIGHT_KEY, String(flightFrom)); } catch (e) {}
-  sim.reset(); rocket.reset(); banner('A new flight'); flightAt = performance.now(); push(true); if (homeOn) renderHome();
+  sim.reset(); rocket.reset(); banner('A new flight'); flightAt = performance.now(); push(); if (homeOn) renderHome();
 }
 $('rFlight').onclick = () => { if (flying()) askFlight(false); };
 $('flightYes').onclick = () => { $('dlgFlight').close(); newFlight(); };
@@ -696,7 +696,7 @@ let skin = Math.max(0, SKINS.indexOf(S.skin)), dragging = false, peek = -1;   //
 /* Whether a theme can be chosen yet. Every theme is open for now; to hold one back until a condition is met, return false for it here
    and call refreshSkins() when the condition changes. A locked theme keeps its icon in the theme bar (faint, with a padlock) but leaves the swipe
    track, so swipes, arrow keys and the bar all skip it. Classic is always open, so there is somewhere to land. */
-function skinOpen(i) { return true; }
+function skinOpen(i) { return true; }   // eslint-disable-line no-unused-vars -- i is for when a theme is held back
 let open = [];   // indices of the open themes, in swipe order
 function refreshSkins() {
   open = SKINS.map((_, i) => i).filter(i => i === 0 || skinOpen(i));
@@ -807,7 +807,7 @@ seg('segHold', 'hold', () => { session.hold = +S.hold; });
 function paintGoal() { $('goalOut').textContent = S.goalMin + ' min'; }
 function bumpGoal(d) { S.goalMin = Math.max(5, Math.min(180, S.goalMin + d)); saveS(); paintGoal(); if (session.state === 'running' || session.state === 'paused') { session.goal = S.goalMin * 60; if (session.play < session.goal) { goalHit = false; hideAward(); } } }
 $('goalDn').onclick = () => bumpGoal(-5); $('goalUp').onclick = () => bumpGoal(5);
-$('nameIn').value = S.name; $('nameIn').oninput = () => { S.name = $('nameIn').value.replace(/[\u0000-\u001F\u007F-\u009F\u200B-\u200F\u2028-\u202F\u2060-\u206F\uFEFF]/g, '').slice(0, 40); saveS(); };
+$('nameIn').value = S.name; $('nameIn').oninput = () => { S.name = $('nameIn').value.replace(/[\u0000-\u001F\u007F-\u009F\u200B-\u200F\u2028-\u202F\u2060-\u206F\uFEFF]/g, '').slice(0, 40); saveS(); };   // eslint-disable-line no-control-regex -- strips control and invisible characters from the name
 $('recIn').checked = S.record; $('recIn').onchange = () => { S.record = $('recIn').checked; saveS(); };
 /* the goal's hint in the words of the theme Settings is opened from */
 const GOAL_HINT = {

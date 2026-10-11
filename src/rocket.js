@@ -1,5 +1,6 @@
 /* Rocket theme renderer: a low-resolution pixel canvas, drawn fresh every frame.
    World units are Earth radii (see RocketSim in the core). */
+/* exported makeRocketView */   // used by src/app.js, which the build puts after this file
 function makeRocketView(cv, hud, sim, MT) {
   'use strict';
   const g = cv.getContext('2d');
