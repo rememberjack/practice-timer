@@ -24,7 +24,7 @@ Node 20+, no dependencies to install.
 
 - `scripts/build.js` inlines `src/core.js`, the theme renderers and `src/app.js` into `src/template.html`.
 - `src/core.js` is pure logic with no DOM (detection, `Session`, the theme sims, swipe handling) and holds the tests,
-  which also run in the page from Settings. Behaviour belongs here, with a test.
+  which also run in the page from the debug tools (Sound tests). Behaviour belongs here, with a test.
 - Finished sessions are saved in localStorage under `musicTimer.log` (no audio); the practice log's figures (week,
   totals, calendar) come from `practiceStats` in `src/core.js`, which also works out a streak that is not shown for now.
 - A day can hold several sessions. The calendar, week bars and Home Screen add up the whole day; `dayRecap` and `dayLine` give the
@@ -36,8 +36,9 @@ Node 20+, no dependencies to install.
   the session had been paused by hand.
 - The Home Screen (`#home`) shows when the app opens and after a finished session's summary is closed; its words come
   from `homeCopy` in `src/core.js`. No theme scene is drawn while it covers them.
-- Debug tools (for the developer only) sit at the bottom of Settings, hidden until the version line is tapped seven times
-  or the page is opened with `?debug` (`?debug=0` hides them); the choice is kept in `musicTimer.debug`. Their sample data
+- Debug tools (for the developer only) are their own sheet (`#dlgDebug`), opened by holding any Settings button for half a
+  second, or by opening the page with `?debug` (`?debug=0` turns them off). Once opened, Settings shows a way back to them; that is
+  kept in `musicTimer.debug`. The demo sound and the sound tests live there, not in Settings. Their sample data
   (`sampleLog` in `src/core.js`) replaces the practice log in memory only: it is never written, and the real log comes back on reload.
 - Theme renderers in `src/` only draw; `src/app.js` wires everything together. Some themes load three.js r128 from
   cdnjs.

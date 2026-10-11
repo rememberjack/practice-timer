@@ -403,9 +403,17 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
   opacity:0; transition:opacity .25s; pointer-events:none; max-width:90%; text-align:center; z-index:5}
 #toast.on{opacity:1}
 /* debug tools (developer only) */
-.dbg-k{display:block; font-weight:700; font-size:13px; margin-top:12px}
-.dbg-chips{margin-top:6px}
-.dbg-sw{margin-top:14px}
+.dbg-chips{margin-top:8px}
+.dbg-intro{font-size:13px; color:var(--mute); margin:0 0 4px}
+.dbg-row{display:flex; align-items:center; gap:12px; width:100%; text-align:left; border:0; background:none; padding:2px 0; color:inherit}
+.dbg-row > span{flex:1; min-width:0}
+.dbg-row b{display:block; font-size:15px}
+.dbg-row small{display:block; font-size:13px; color:var(--mute); margin-top:3px}
+.dbg-row svg{flex:none; width:20px; height:20px; color:var(--mute)}
+#dbgBack{min-height:36px; padding:6px 12px}
+.sh-head:has(#dbgBack:not([hidden])) h2{flex:1}
+/* Settings buttons: held down they open the debug tools, so no callout or text selection on a long press */
+#btnSettings, #btnSettings2, #homeSet{-webkit-touch-callout:none; -webkit-user-select:none; user-select:none}
 #dbgBadge{position:fixed; top:calc(env(safe-area-inset-top,0px) + 4px); left:50%; transform:translateX(-50%); z-index:6; pointer-events:none; background:#C2410C; color:#fff; font:700 11px/1 system-ui,sans-serif; padding:4px 9px; border-radius:999px}
 #dbgRead{position:fixed; left:6px; bottom:calc(env(safe-area-inset-bottom,0px) + 120px); z-index:6; pointer-events:none; margin:0; background:rgba(0,0,0,.6); color:#B6F5B6; font:10px/1.4 ui-monospace,Menlo,monospace; padding:6px 8px; border-radius:8px; white-space:pre; max-width:calc(100% - 12px); overflow:hidden}
 .sr{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap}
@@ -910,11 +918,6 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
       <input type="text" id="nameIn" maxlength="40" autocomplete="off">
     </div>
     <div class="field">
-      <span class="lab">Sound source</span>
-      <div class="seg" id="segSource"><button data-v="mic">Microphone</button><button data-v="demo">Demo sound</button></div>
-      <p class="hint" id="sourceHint">Demo sound feeds built-in test sounds to the detector (nothing is played aloud) and can run faster than real time to preview the rocket trip.</p>
-    </div>
-    <div class="field">
       <span class="lab">Detection sensitivity</span>
       <div class="seg" id="segSens"><button data-v="strict">Strict</button><button data-v="normal">Normal</button><button data-v="lenient">Lenient</button></div>
       <p class="hint">Strict if talking or TV sets the timer off. Lenient if soft playing is missed.</p>
@@ -933,24 +936,45 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
       <label class="switch" for="recIn"><span>Record the playing</span><input type="checkbox" id="recIn"></label>
       <p class="hint">Keeps an audio recording of the session (microphone only) that you can save when you stop.</p>
     </div>
-    <div class="field">
-      <span class="lab">Detection tests</span>
-      <p class="hint">Runs built-in violin, piano, clarinet, flute, cello, talking and noise samples through the detector and checks the timer and rocket rules.</p>
-      <div class="btn-row"><button class="btn" id="btnTests">Run tests</button><span id="testSum" style="align-self:center;font-size:14px"></span></div>
+    <div class="btn-row" id="setDebugRow" hidden><button class="btn" id="setDebug">Debug tools</button></div>
+    <p class="hint" id="ver" style="margin:14px 0 0;font-size:12px;color:var(--mute-2)"></p>
+  </div>
+</dialog>
+
+<dialog id="dlgDebug" aria-labelledby="dbgH">
+  <div class="sh-head"><button class="btn" id="dbgBack" hidden aria-label="Back to the debug tools">&lsaquo; Back</button><h2 id="dbgH">Debug tools</h2><button class="btn solid" id="dbgClose">Done</button></div>
+  <div class="sh-body">
+    <div id="dbgMain">
+      <p class="hint dbg-intro">For trying things out on this device. Hold the Settings button for a moment to open this from anywhere.</p>
+      <div class="field">
+        <span class="lab">Sound source</span>
+        <div class="seg" id="segSource"><button data-v="mic">Microphone</button><button data-v="demo">Demo sound</button></div>
+        <p class="hint">Demo sound feeds built-in test sounds to the detector (nothing is played aloud) and can run faster than real time to preview the rocket trip.</p>
+      </div>
+      <div class="field">
+        <span class="lab">Sample data</span>
+        <div class="chips dbg-chips" id="dbgSample" role="group" aria-label="Sample data"></div>
+        <p class="hint">Made-up sessions, to see the Home Screen and practice log after some use. They are not saved and are gone when the page reloads. Your own practice log is not changed, and sessions played meanwhile go to the sample log only.</p>
+      </div>
+      <div class="field">
+        <span class="lab">The next session&rsquo;s rocket starts</span>
+        <div class="chips dbg-chips" id="dbgRocket" role="group" aria-label="Where the next session's rocket starts"></div>
+      </div>
+      <div class="field">
+        <label class="switch" for="dbgReadIn"><span>Show the detector read-out</span><input type="checkbox" id="dbgReadIn"></label>
+      </div>
+      <div class="field">
+        <button class="dbg-row" id="dbgOpenTests"><span><b>Sound tests</b><small id="dbgTestsNote">Built-in instrument, talking and noise samples, and the timer and rocket rules.</small></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+      </div>
+      <div class="field">
+        <div class="btn-row"><button class="btn" id="dbgTrophy">Show the trophy</button><button class="btn" id="dbgHome">Show the Home Screen</button><button class="btn" id="dbgSave">Save my practice log as a file</button><button class="btn" id="dbgOff">Turn off debug tools</button></div>
+      </div>
+    </div>
+    <div id="dbgTests" hidden>
+      <p class="hint dbg-intro">Runs built-in violin, piano, clarinet, flute, cello, talking and noise samples through the detector and checks the timer and rocket rules.</p>
+      <div class="btn-row"><button class="btn solid" id="btnTests">Run tests</button><span id="testSum" style="align-self:center;font-size:14px"></span></div>
       <ul id="tests"></ul>
     </div>
-    <div class="field" id="dbg" hidden>
-      <span class="lab">Debug tools</span>
-      <p class="hint">These stay hidden until the version line below is tapped seven times, and only on this device.</p>
-      <span class="dbg-k">Sample data</span>
-      <div class="chips dbg-chips" id="dbgSample" role="group" aria-label="Sample data"></div>
-      <p class="hint">Made-up sessions, to see the Home Screen and practice log after some use. They are not saved and are gone when the page reloads. Your own practice log is not changed, and sessions played meanwhile go to the sample log only.</p>
-      <span class="dbg-k">The next session&rsquo;s rocket starts</span>
-      <div class="chips dbg-chips" id="dbgRocket" role="group" aria-label="Where the next session's rocket starts"></div>
-      <label class="switch dbg-sw" for="dbgReadIn"><span>Show the detector read-out</span><input type="checkbox" id="dbgReadIn"></label>
-      <div class="btn-row"><button class="btn" id="dbgTrophy">Show the trophy</button><button class="btn" id="dbgHome">Show the Home Screen</button><button class="btn" id="dbgSave">Save my practice log as a file</button><button class="btn" id="dbgOff">Turn off debug tools</button></div>
-    </div>
-    <p class="hint" id="ver" style="margin:14px 0 0;font-size:12px;color:var(--mute-2);touch-action:manipulation;-webkit-user-select:none;user-select:none"></p>
   </div>
 </dialog>
 
