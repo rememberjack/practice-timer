@@ -44,7 +44,8 @@ Node 20+, no dependencies to install.
   The rocket's power, the cannons and the Dash speed follow the last minute of playing (`Session.recentEfficiency`); there is no
   setting for it.
 - The Home Screen (`#home`) shows when the app opens and after a finished session's summary is closed; its words come
-  from `homeCopy` in `src/core.js`. No theme scene is drawn while it covers them.
+  from `homeCopy` in `src/core.js`. No theme scene is drawn while it covers them. Its greeting, headline and line are picked from
+  playful words for young players (`HOME_HELLO`, `HOME_WORDS`), new each time it shows; they must fit an iPhone SE without wrapping more.
 - Debug tools (for the developer only) are their own sheet (`#dlgDebug`), opened by holding any Settings button for half a
   second, or by opening the page with `?debug` (`?debug=0` turns them off). Once opened, Settings shows a way back to them; that is
   kept in `musicTimer.debug`. The demo sound and the sound tests live there, not in Settings. Their sample data

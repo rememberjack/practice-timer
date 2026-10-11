@@ -1054,9 +1054,10 @@ function paintHomeThemes() {
   $('homeFlightGo').hidden = !c;
 }
 $('homeFlightGo').onclick = () => askFlight(true);
+let homeSeed = 0;                                                     // which playful words: new each time the Home Screen shows, the same while it stays
 function renderHome() {
-  const now = Date.now(), P = MT.practiceStats(log, now), c = MT.homeCopy(P, log.length ? log[log.length - 1] : null, now);
-  $('homeHello').textContent = c.hello + (S.name ? ', ' + S.name : '');
+  const now = Date.now(), P = MT.practiceStats(log, now), c = MT.homeCopy(P, log.length ? log[log.length - 1] : null, now, { seed: homeSeed, name: S.name });
+  $('homeHello').textContent = c.hello;
   $('homeName').hidden = !!S.name;
   $('homeHead').textContent = c.head; $('homeLede').textContent = c.lede;
   $('homeFirst').hidden = c.kind !== 'first'; $('homeWeek').hidden = c.kind === 'first';
@@ -1078,7 +1079,7 @@ function renderHome() {
 }
 function showHome() {
   if (mode === 'follow' || session.state === 'running' || session.state === 'paused') return;
-  renderHome(); homeEl.hidden = false; homeOn = true; app.inert = true; checkVersion();
+  homeSeed = 1 + Math.floor(Math.random() * 2e9); renderHome(); homeEl.hidden = false; homeOn = true; app.inert = true; checkVersion();
 }
 function hideHome() { if (!homeOn) return; homeEl.hidden = true; homeOn = false; app.inert = false; layoutChanged(); }
 $('homeGo').onclick = () => { hideHome(); start(); };
