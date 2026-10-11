@@ -751,6 +751,15 @@ function detectionTests(sr) {
     const ok = cases.every(c => c[0] === c[1]) && buildOf(page('c0ffee1 2026-10-12')) === 'c0ffee1 2026-10-12';
     return { name: 'New versions: the live page is newer', expect: 'a different build stamp on the live page is newer; the same stamp, a missing one or an unbuilt page is not',
       got: cases.map(c => c[0]).join(', '), pass: ok }; } });
+  list.push({ name: 'A session cut short is kept', run: () => {
+    const s = new Session(); s.start(); for (let i = 0; i < 900; i++) s.tick(0.5, i % 10 < 7); s.pause(); s.tick(30, false); s.resume(); for (let i = 0; i < 200; i++) s.tick(0.5, true);
+    const now = s.startedAt + 600e3, snap = JSON.parse(JSON.stringify(liveSnapshot(s, 'Sam', { mode: 'orbit' }, now))), rec = liveRecord(snap);
+    s.stoppedAt = now; const want = sessionRecord(s, sessionReport(s.runs), 'Sam', { mode: 'orbit' });
+    const bad = [null, {}, Object.assign({}, snap, { v: 2 }), Object.assign({}, snap, { runs: [0, 5, 1] }), Object.assign({}, snap, { runs: [7, 5] }), Object.assign({}, snap, { savedAt: snap.startedAt - 1 })];
+    const ok = rec && rec.id === s.startedAt && rec.end === now && Math.abs(rec.play - want.play) < 0.5 && Math.abs(rec.eff - want.eff) < 0.002 && rec.R.pauses === 1
+      && rec.name === 'Sam' && rec.rocket.mode === 'orbit' && worthKeeping(rec.R) && bad.every(x => liveRecord(x) === null) && JSON.stringify(snap).length < 8000;
+    return { name: 'A session cut short is kept', expect: 'the kept session turns back into the same record as ending it there; damaged ones are ignored',
+      got: rec ? 'play ' + rec.play + ' (' + want.play + '), efficiency ' + rec.eff + ' (' + want.eff + '), ' + JSON.stringify(snap).length + ' bytes kept' : 'no record', pass: !!ok }; } });
   list.push({ name: 'Debug tools: sample practice logs', run: () => {
     const now = new Date(2026, 9, 9, 18).getTime(), want = { first: 'first', today: 'today', week: 'week', back: 'back', months: 'today' }, got = [];   // Friday 9 October 2026, 6 pm
     let ok = SAMPLE_LOGS.length === 5;
@@ -994,6 +1003,17 @@ function rocketCarry(records, now, from) {
   return last && last.rocket || null;
 }
 const worthKeeping = R => R.play >= KEEP_PLAY;
+/* a session cut short: if the app is closed or iOS discards it mid-session, the session so far is still there next time.
+   liveSnapshot is what is kept while it runs (now: when, rocket: RocketSim.save()); liveRecord turns it back into a saved record, or null */
+function liveSnapshot(s, name, rocket, now) {
+  return { v: 1, startedAt: s.startedAt, savedAt: now, goal: s.goal, name: name || '', rocket: rocket || null, runs: s.runs.map((x, i) => i % 2 ? Math.round(x * 100) / 100 : x) };
+}
+function liveRecord(x) {
+  if (!x || x.v !== 1 || !(x.startedAt > 0) || !(x.savedAt >= x.startedAt) || !(x.goal > 0) || !Array.isArray(x.runs) || x.runs.length % 2) return null;
+  for (let i = 0; i < x.runs.length; i += 2) if ([0, 1, 2].indexOf(x.runs[i]) < 0 || !(x.runs[i + 1] >= 0)) return null;
+  const R = sessionReport(x.runs);
+  return sessionRecord({ startedAt: x.startedAt, stoppedAt: x.savedAt, goal: x.goal }, R, typeof x.name === 'string' ? x.name : '', x.rocket && typeof x.rocket === 'object' ? x.rocket : null);
+}
 /* local calendar days */
 const dayKey = d => { d = new Date(d); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
 const dayStart = d => { d = new Date(d); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); };
@@ -1507,6 +1527,6 @@ class DashSim {
 }
 
 const api = { LIFTOFF, OnsetTracker, WheelSwipe, DashSim, DASH, dashSpeed, MusicDetector, Session, RocketSim, WORLD, MILESTONES, SENSITIVITY, CLIPS, DETECTION_CASES,
-  detectionTests, runDetectionTests, analyzeClip, sessionReport, clockText, sessionRecord, worthKeeping, rocketCarry, buildOf, newerBuild, practiceStats, dayRecap, dayLine, practiceNudge, homeCopy, weekLine, durationText, dayKey, LOG_MAX, LEVEL_MIN, SAMPLE_LOGS, sampleLog, rocketAt, fraction, heardAs, noteOf, smooth, pchip, clamp01 };
+  detectionTests, runDetectionTests, analyzeClip, sessionReport, clockText, sessionRecord, worthKeeping, liveSnapshot, liveRecord, rocketCarry, buildOf, newerBuild, practiceStats, dayRecap, dayLine, practiceNudge, homeCopy, weekLine, durationText, dayKey, LOG_MAX, LEVEL_MIN, SAMPLE_LOGS, sampleLog, rocketAt, fraction, heardAs, noteOf, smooth, pchip, clamp01 };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.MT = api;
 })(typeof self !== 'undefined' ? self : this);

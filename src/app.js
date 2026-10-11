@@ -200,9 +200,9 @@ async function start() {
   heard.label = 'Listening'; heard.detail = 'Play your instrument to start the clock'; heard.note = ''; heard.midi = null;
   startRecording();
   lastT = performance.now(); clearInterval(timer); timer = setInterval(tick, 46);
-  keepAwake(); paintControls(); push(true);
+  keepAwake(); paintControls(); push(true); writeLive();
 }
-function pause() { if (!session.pause()) return; dash.mark(); music = false; recCall('pause'); paintControls(); push(true); }
+function pause() { if (!session.pause()) return; dash.mark(); music = false; recCall('pause'); paintControls(); push(true); writeLive(); }
 /* opening the practice log or Settings pauses a running session, so nothing counts while you look; closing it carries on,
    unless the session was already paused by hand */
 let sheetPaused = false;
@@ -211,6 +211,7 @@ function resumeAfterSheet() { if (!sheetPaused || $('dlgSettings').open || $('dl
 function resume() { sheetPaused = false; if (!session.resume()) return; if (A.ctx && A.ctx.state !== 'running') A.ctx.resume().catch(() => {}); if (A.det) { A.det.score = 0; A.det.isMusic = false; } recCall('resume'); lastT = performance.now(); paintControls(); push(true); }
 function stop() {
   if (!session.stop()) return;
+  clearLive();                                   // ended here, so nothing was cut short
   clearInterval(timer); timer = 0; music = false; recCall('stop'); rec.mr = null; hideAward();
   closeAudio(); letSleep(); paintControls(); push(true);
   current = finishSession(); openSummary(current.rec, false);
@@ -218,6 +219,7 @@ function stop() {
 
 function tick() {
   const now = performance.now(), dt = (now - lastT) / 1000; if (!(dt > 0)) return; lastT = now;
+  if (now - liveAt > 5000) writeLive();          // keep the session so far, in case the app is closed
   const w = A.kind === 'demo' ? A.warp : 1;
   let m = false;
   if (session.state === 'running') {
@@ -757,7 +759,8 @@ document.addEventListener('wheel', e => {   // the whole page: on a computer the
 document.addEventListener('keydown', e => { if (document.querySelector('dialog[open]') || /INPUT|TEXTAREA/.test(e.target.tagName)) return;
   if (e.key === 'ArrowRight') setSkin(stepSkin(1), true); else if (e.key === 'ArrowLeft') setSkin(stepSkin(-1), true); });
 window.addEventListener('resize', layoutChanged);
-document.addEventListener('visibilitychange', () => { if (document.visibilityState !== 'visible') return;
+window.addEventListener('pagehide', writeLive);   // the app is being closed: keep the session so far
+document.addEventListener('visibilitychange', () => { if (document.visibilityState !== 'visible') { writeLive(); return; }
   if (session.state === 'running' || session.state === 'paused') keepAwake();
   if (A.ctx && A.ctx.state === 'suspended') A.ctx.resume().catch(() => {});
   checkVersion(); });
@@ -915,6 +918,33 @@ async function saveFile(filename, data) {
 }
 function stamp() { const d = new Date(session.startedAt || Date.now()), p = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes()); }
 $('btnSaveRec').onclick = () => { if (rec.blob) saveFile('practice-recording-' + stamp() + '.' + rec.ext, rec.blob); };
+
+/* ---------- a session cut short: while a session runs, the session so far is kept every few seconds and whenever the app
+   goes to the background. If the app is closed or iOS discards it before End, the next time it opens it offers to save it ---------- */
+const LIVE_KEY = 'musicTimer.live';
+let liveAt = 0, lost = null;
+function writeLive() {
+  if (mode !== 'local' || (session.state !== 'running' && session.state !== 'paused')) return;
+  liveAt = performance.now();
+  try { localStorage.setItem(LIVE_KEY, JSON.stringify(MT.liveSnapshot(session, S.name, sim.save(), Date.now()))); } catch (e) {}
+}
+function clearLive() { try { localStorage.removeItem(LIVE_KEY); } catch (e) {} }
+function readLive() { try { return JSON.parse(localStorage.getItem(LIVE_KEY) || 'null'); } catch (e) { return null; } }
+function checkLost(prev) {
+  const x = readLive(); if (!x || session.state === 'running' || session.state === 'paused') return;
+  const age = Date.now() - (x.savedAt || 0);
+  if (!prev && age >= 0 && age < 12e3) { setTimeout(() => { const y = readLive(); if (y && y.savedAt === x.savedAt) checkLost(true); }, 12e3 - age + 500); return; }   // it may still be running in another tab
+  const r = MT.liveRecord(x);
+  if (!r || !MT.worthKeeping(r.R) || log.some(o => o.id === r.id)) { clearLive(); return; }
+  lost = r;
+  $('lostP').textContent = 'Music Timer closed during your session ' + whenText(r.start) + ', after ' + MT.durationText(r.play) + ' of playing. You can still save it to your practice log.';
+  if (!$('dlgLost').open) $('dlgLost').showModal();
+}
+function whenText(ms) { const k = MT.dayKey(ms), now = new Date(), y = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+  return (k === MT.dayKey(now) ? 'today' : k === MT.dayKey(y) ? 'yesterday' : 'on ' + new Date(ms).toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' })) + ' at ' + at(ms); }
+$('lostYes').onclick = () => { $('dlgLost').close(); clearLive(); if (!lost) return;
+  toast(addToLog(lost) ? 'Saved to your practice log.' : 'This session could not be saved on this device.'); lost = null; rocketAfterDelete(); if (homeOn) renderHome(); };
+$('lostNo').onclick = () => { $('dlgLost').close(); clearLive(); lost = null; };
 
 /* ---------- practice log: finished sessions, kept on this device (no audio) ---------- */
 const LOG_KEY = 'musicTimer.log';
@@ -1114,7 +1144,7 @@ $('dbgOff').onclick = () => { DBG.on = false; DBG.readout = false; DBG.rocket = 
   saveDbg(); paintDbg(); rocketAfterDelete(); hideNotice('mic'); $('dlgDebug').close(); };
 
 /* ---------- go ---------- */
-carryRocket(); refreshSkins(); paintGoal(); paintControls(); paintDemoBar(); paintDbg(); showHome();
+carryRocket(); refreshSkins(); paintGoal(); paintControls(); paintDemoBar(); paintDbg(); showHome(); checkLost();
 try { if (sessionStorage.getItem('musicTimer.updated')) { sessionStorage.removeItem('musicTimer.updated'); toast('Music Timer has been updated.'); } } catch (e) {}
 try { const b = document.querySelector('meta[name="build"]'); $('ver').textContent = 'Version ' + (b && b.content && b.content.indexOf('__') < 0 ? b.content : 'dev'); } catch (e) {}
 if (S.source === 'mic' && (micPolicyBlocked() || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia))

@@ -1011,7 +1011,16 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
   <div class="sh-body"><p class="end-p" id="endP"></p></div>
   <div class="sh-foot sum-foot">
     <button class="btn" id="endYes">End session</button>
-    <button class="btn solid" id="endNo">Keep playing</button>
+    <button class="btn solid" id="endNo" autofocus>Keep playing</button>
+  </div>
+</dialog>
+
+<dialog id="dlgLost" class="ask" aria-labelledby="lostH">
+  <div class="sh-head"><h2 id="lostH">Save your last session?</h2></div>
+  <div class="sh-body"><p class="end-p" id="lostP"></p></div>
+  <div class="sh-foot sum-foot">
+    <button class="btn" id="lostNo">Discard</button>
+    <button class="btn solid" id="lostYes" autofocus>Save session</button>
   </div>
 </dialog>
 
@@ -1020,7 +1029,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
   <div class="sh-body"><p class="end-p" id="flightP"></p></div>
   <div class="sh-foot sum-foot">
     <button class="btn" id="flightYes">Start a new flight</button>
-    <button class="btn solid" id="flightNo">Keep flying</button>
+    <button class="btn solid" id="flightNo" autofocus>Keep flying</button>
   </div>
 </dialog>
 
