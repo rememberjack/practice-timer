@@ -318,7 +318,8 @@ function followStep(dt) {
 /* ---------- rocket events ---------- */
 const EVENT_TEXT = { ignition: 'Engines lit', liftoff: 'Lift-off!', tower: 'Tower cleared', stage1: 'Stage 1 separation', space: 'You have left the atmosphere',
   stage2: 'Stage 2 separation', orbit: 'Moon orbit reached!', spin: 'Module spinning', fall: 'Engines out. Falling!', crash: 'The rocket exploded!' };
-function fire(e) { if (EVENT_TEXT[e]) banner(EVENT_TEXT[e]); rocket.event(e); }
+let flightAt = -1e9;   // when a new flight was started, so its banner is not replaced at once by "Engines lit"
+function fire(e) { if (EVENT_TEXT[e] && !(e === 'ignition' && performance.now() - flightAt < 3000)) banner(EVENT_TEXT[e]); rocket.event(e); }
 
 /* ---------- screen ---------- */
 const clockEl = $('cClock'); let clockTxt = '';
@@ -371,6 +372,7 @@ function paint() {
   else if (st === 'running' && !V.music) next = 'Losing power. Keep playing';
   else for (const n of NEXT) { const at = MT.MILESTONES[n[0]]; if (sim.fp < at) { next = n[1] + ' in ' + fmt(Math.ceil(at - sim.fp)); break; } }
   text($('rNext'), next);
+  const nf = flying(); if ($('rFlight').hidden === nf) { $('rFlight').hidden = !nf; $('hud').classList.toggle('has-flight', nf); }   // New flight, once off the pad
   if (visible(2)) paintCity(st, fol, label);
   if (visible(3)) paintDash(st, label);
 }
@@ -443,8 +445,27 @@ function askEnd() {
   if (session.state !== 'running' && session.state !== 'paused') return;
   $('endP').textContent = 'You have played for ' + MT.durationText(session.play) + '. ' + (MT.worthKeeping({ play: session.play })
     ? 'The session will be saved to your practice log.' : 'Sessions with less than 10 seconds of playing are not saved.');
-  if (!$('dlgEnd').open) $('dlgEnd').showModal();
+  themeSheet($('dlgEnd'), false); if (!$('dlgEnd').open) $('dlgEnd').showModal();
 }
+/* a question asked over a theme takes its look; asked from the Home Screen (or in Classic) it keeps the plain one */
+function themeSheet(d, home) { if (home || skin === 0) delete d.dataset.skin; else d.dataset.skin = SKINS[skin]; }
+/* Start a new flight: the rocket goes back to the launch pad. Play time, the goal and the trophy are not touched.
+   The time is kept, so sessions that had ended by then no longer carry their flight on (MT.rocketCarry) */
+const FLIGHT_KEY = 'musicTimer.newFlight';
+let flightFrom = 0; try { flightFrom = +localStorage.getItem(FLIGHT_KEY) || 0; } catch (e) {}
+const flying = () => mode === 'local' && (sim.mode === 'ascent' || sim.mode === 'orbit');
+function askFlight(home) {
+  $('flightP').textContent = home ? 'The rocket goes back to the launch pad, and your next session lifts off from there.'
+    : 'The rocket goes back to the launch pad and lifts off again as you play. Your playing time stays as it is.';
+  themeSheet($('dlgFlight'), home); if (!$('dlgFlight').open) $('dlgFlight').showModal();
+}
+function newFlight() {
+  flightFrom = Date.now(); try { localStorage.setItem(FLIGHT_KEY, String(flightFrom)); } catch (e) {}
+  sim.reset(); rocket.reset(); banner('A new flight'); flightAt = performance.now(); push(true); if (homeOn) renderHome();
+}
+$('rFlight').onclick = () => { if (flying()) askFlight(false); };
+$('flightYes').onclick = () => { $('dlgFlight').close(); newFlight(); };
+$('flightNo').onclick = () => $('dlgFlight').close();
 $('endYes').onclick = () => { $('dlgEnd').close(); stop(); };
 $('endNo').onclick = () => $('dlgEnd').close();
 $('btnUnfollow').onclick = stopFollow; $('btnSummary').onclick = () => { if (current) openSummary(current.rec, false); };
@@ -891,7 +912,7 @@ function writeLog() {
 }
 /* the rocket carries on from where the day's latest saved session left it, and starts on the pad each new day */
 function carryRocket() { if (mode === 'local' && DBG.rocket) return sim.restore(DBG.rocket === 'pad' ? null : MT.rocketAt(MT.MILESTONES[DBG.rocket]));
-  return sim.restore(mode === 'local' ? MT.rocketCarry(log, Date.now()) : null); }
+  return sim.restore(mode === 'local' ? MT.rocketCarry(log, Date.now(), flightFrom) : null); }
 function rocketAfterDelete() { if (mode === 'local' && (session.state === 'idle' || session.state === 'stopped')) { carryRocket(); rocket.reset(); } }
 function addToLog(r) { log = log.filter(x => x.id !== r.id); log.push(r); log.sort((a, b) => a.start - b.start); if (log.length > MT.LOG_MAX) log.splice(0, log.length - MT.LOG_MAX); return writeLog(); }
 /* a destructive button asks twice: the first tap arms it for a few seconds */
@@ -973,7 +994,11 @@ const homeChips = SKINS.map((id, i) => { const b = el('button'); b.type = 'butto
 function paintHomeThemes() {
   homeChips.forEach((b, i) => { b.hidden = !open.includes(i); b.setAttribute('aria-pressed', String(i === skin)); });
   $('homeTheme').textContent = SKIN_NAMES[skin];
+  // with Rocket chosen and today's flight carrying on, the next session can start a new one instead
+  const c = SKINS[skin] === 'rocket' && mode === 'local' ? MT.rocketCarry(log, Date.now(), flightFrom) : null;
+  $('homeFlightGo').hidden = !c;
 }
+$('homeFlightGo').onclick = () => askFlight(true);
 function renderHome() {
   const now = Date.now(), P = MT.practiceStats(log, now), c = MT.homeCopy(P, log.length ? log[log.length - 1] : null, now);
   $('homeHello').textContent = c.hello + (S.name ? ', ' + S.name : '');
