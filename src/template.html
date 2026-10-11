@@ -102,7 +102,6 @@ body:has(> #app[data-skin="dash"]){background:#07071F}
 .hud-flight:active{box-shadow:inset 2px 2px 0 rgba(0,0,0,.32)}
 .hud.has-flight #rNext{padding-right:112px}
 #homeFlightGo{white-space:nowrap}   /* Home Screen: after "Playing with Rocket" while today's flight carries on */
-.keep{flex-basis:100%; margin:0; color:var(--mute); font-size:13px}
 
 /* ---------- classic theme ---------- */
 .classic{height:100%; max-width:596px; margin:0 auto; padding:6px 18px 0; display:flex; flex-direction:column; overflow-y:auto; scrollbar-width:none; touch-action:pan-y pinch-zoom}   /* a scroll area does not inherit #stage's pan-y, so without this Android Chrome takes a sideways swipe on Classic and cancels it */
@@ -146,7 +145,7 @@ body:has(> #app[data-skin="dash"]){background:#07071F}
 #app[data-skin="rocket"]{--paper:#070A14; --surface:#1B2030; --ink:#F4F6FA; --mute:#A3ACC2; --rule:#3A4258; --accent:#FFD23F; --accent:#5DA831; --on-accent:#FFFFFF}
 #app[data-chrome="pixel"] #top{display:flex; gap:12px; padding:10px 16px 8px; margin:0; max-width:none; width:auto; border-bottom:0}
 #app[data-chrome="pixel"] .brand{flex:1}
-#app[data-chrome="pixel"] .app-icon, #app[data-chrome="pixel"] .tagline, #app[data-chrome="pixel"] .icon-btn .lbl, #app[data-chrome="pixel"] .keep{display:none}
+#app[data-chrome="pixel"] .app-icon, #app[data-chrome="pixel"] .tagline, #app[data-chrome="pixel"] .icon-btn .lbl{display:none}
 #app[data-chrome="pixel"] #top h1{font-family:var(--pixel); font-size:15px; font-weight:400; letter-spacing:0}
 #app[data-chrome="pixel"] .icon-btn{flex:none; width:40px; height:40px; min-height:0; padding:0; display:grid; place-items:center}
 #app[data-chrome="pixel"] .icon-btn svg{display:block}
@@ -440,7 +439,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 .sr{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap}
 @media (max-width:359px){ #top{gap:10px; width:calc(100% - 28px)} #top h1{font-size:18px} .icon-btn{padding:0 12px} .classic{padding-left:14px; padding-right:14px} .stats{gap:8px 14px}
   #notice, #demoBar{margin-left:14px; margin-right:14px; width:calc(100% - 28px)} #controls{padding-left:14px; padding-right:14px} .hud{padding-left:10px; padding-right:10px; font-size:11px} .hud-stats span{font-size:8px} .hud-stats b{font-size:11px} }
-@media (max-height:700px){ .keep{display:none} #top{padding-top:8px; padding-bottom:8px} .tagline{font-size:12px} #controls button{min-height:50px} }
+@media (max-height:700px){ #top{padding-top:8px; padding-bottom:8px} .tagline{font-size:12px} #controls button{min-height:50px} }
 /* the clock, stats and monitor give way when the panel is short (small phones, or a notice showing) */
 @supports (font-size:1cqh){ .clock{font-size:clamp(42px, min(21vw, 20cqh), 112px)} }
 @container (max-height:470px){ .clock-label{margin-top:4px; font-size:14px} .stats{gap:6px 16px; margin-top:8px} .stat .k{font-size:13px} .stat .v{font-size:21px} .meter{margin-top:3px}
@@ -586,7 +585,6 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
   #app[data-skin="dash"][data-chrome="pixel"] #controls button{font-size:20px}
   #app #controls #btnPause, #app #controls #btnResume{max-width:620px}
   #app #controls #btnStop{max-width:220px}
-  #app[data-skin] .keep{display:block; flex-basis:100%; text-align:center; font-size:13px; line-height:18px; color:var(--mute)}
 
   #toast{font-size:15px; bottom:calc(132px + env(safe-area-inset-bottom,0px))}
   .award-card{max-width:380px; padding:26px 34px 24px}
@@ -854,7 +852,6 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
     <button id="btnResume" class="primary" hidden>Resume</button>
     <button id="btnStop" hidden>End</button>
     <button id="btnUnfollow" hidden>Stop following</button>
-    <p class="keep">Keep this page open while timing.</p>
   </footer>
 </div>
 
