@@ -30,8 +30,8 @@ Node 20+, no dependencies to install.
 - A day can hold several sessions. The calendar, week bars and Home Screen add up the whole day; `dayRecap` and `dayLine` give the
   summary's "Today" block (each session of the day). The practice goal is for one session, so the block does not measure the day against it.
 - Each saved session keeps where the rocket got to if it is in space or Moon orbit (`RocketSim.save`); the next session
-  that day carries on from it (`rocketCarry`). Below space, and on a new day, it starts on the pad. Demo and unsaved
-  sessions never move the carried flight.
+  that day carries on from it (`rocketCarry`). Below space, and on a new day, it starts on the pad. Sessions too short
+  to save never move the carried flight; demo sound sessions are saved like any other.
 - Opening the practice log or Settings pauses a running session (`pauseForSheet` in `src/app.js`); closing it resumes, unless
   the session had been paused by hand.
 - Settings takes the look and words of the theme it is opened from (`SET_SKIN` in `src/app.js`, `#dlgSettings[data-skin]` in the
