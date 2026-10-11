@@ -19,11 +19,13 @@ try { const j = JSON.parse(localStorage.getItem('musicTimer.settings') || 'null'
 if (!(S.goalMin >= 5 && S.goalMin <= 180)) S.goalMin = 30;
 if (['0', '5', '10', '20'].indexOf(S.hold) < 0) S.hold = DEF.hold;
 function saveS() { try { localStorage.setItem('musicTimer.settings', JSON.stringify(S)); } catch (e) {} }
-/* debug tools, for the developer only: hidden until the version line in Settings is tapped seven times (or the page is opened with ?debug).
+/* debug tools, for the developer only: a sheet opened by holding a Settings button down (or by opening the page with ?debug).
+   on: they have been opened on this device, so Settings shows a way back to them and the demo sound can be chosen.
    sample: the sample practice log in use instead of the real one, never saved and gone on reload; rocket: where the next session's rocket starts ('pad', 'space', 'orbit'), if set */
 const DBG = { on: false, readout: false, sample: '', rocket: '', r: null, fps: 0 };
 try { const j = JSON.parse(localStorage.getItem('musicTimer.debug') || 'null'); if (j && j.on === true) { DBG.on = true; DBG.readout = j.readout === true; } } catch (e) {}
 try { const q = new URLSearchParams(location.search).get('debug'); if (q != null) DBG.on = q !== '0'; } catch (e) {}
+if (!DBG.on && S.source === 'demo') S.source = 'mic';     // the demo sound is a debug tool now
 function saveDbg() { try { if (DBG.on) localStorage.setItem('musicTimer.debug', JSON.stringify({ on: true, readout: DBG.readout })); else localStorage.removeItem('musicTimer.debug'); } catch (e) {} }
 
 /* ---------- model ---------- */
@@ -139,21 +141,26 @@ function levelBars() {
 }
 /* iPhone and iPad (iPadOS reports itself as a Mac with touch): every browser there takes its microphone permission from the Settings app */
 const iOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-const MIC_FRAMED = 'The microphone is not available inside this Claude view. Use the demo sound here, or open the standalone Music Timer file in a browser to time real playing.';
+const MIC_FRAMED = 'The microphone is not available inside this Claude view. Open the standalone Music Timer file in a browser to time real playing.';
 function micMessage(e) {
   const n = e && e.name;
-  if (n === 'Insecure') return 'The microphone only works on a secure address (https) or on localhost. You can try the demo sound instead.';
+  if (n === 'Insecure') return 'The microphone only works on a secure address (https) or on localhost.';
   if (n === 'NotAllowedError' || n === 'SecurityError' || n === 'Unsupported') {
     if (framed) return MIC_FRAMED;
-    return n === 'Unsupported' ? 'This browser cannot use the microphone. You can try the demo sound instead.'
+    return n === 'Unsupported' ? 'This browser cannot use the microphone.'
       : iOS ? 'Microphone access was not allowed. Open the Settings app, go to Apps, choose this browser and turn on Microphone, then press Start again.'
       : 'Microphone access was not allowed. Allow the microphone for this page in the browser settings, then press Start again.';
   }
-  if (n === 'NotFoundError') return 'No microphone was found on this device. You can try the demo sound instead.';
+  if (n === 'NotFoundError') return 'No microphone was found on this device.';
   if (n === 'NotReadableError') return 'Another app is using the microphone. Close it and press Start again.';
-  return 'The microphone could not be started' + (n ? ' (' + n + ')' : '') + '. You can try the demo sound instead.';
+  return 'The microphone could not be started' + (n ? ' (' + n + ')' : '') + '. Press Start to try again.';
 }
 function useDemoAction() { setSource('demo'); hideNotice('mic'); }
+/* a microphone problem; with the debug tools on, it also offers the demo sound */
+function micNotice(msg, then) {
+  if (!DBG.on) { showNotice('mic', msg); return; }
+  showNotice('mic', msg + ' You can try the demo sound instead.', 'Use demo sound', () => { useDemoAction(); if (then) then(); });
+}
 
 /* ---------- recording ---------- */
 const rec = { mr: null, chunks: [], blob: null, url: '', ext: 'webm' };
@@ -183,7 +190,7 @@ async function start() {
   const ctx = S.source === 'demo' ? null : makeContext();
   try { if (S.source === 'demo') openDemo(); else await openMic(ctx); }
   catch (e) { busy = false; if (ctx) { try { ctx.close(); } catch (er) {} }
-    showNotice('mic', micMessage(e), 'Use demo sound', () => { useDemoAction(); start(); }); return; }
+    micNotice(micMessage(e), start); return; }
   busy = false; hideNotice();
   const forced = !!DBG.rocket;
   session.goal = S.goalMin * 60; session.hold = +S.hold; session.start(); const carried = carryRocket() && !forced; DBG.rocket = ''; rocket.reset(); city.reset(); cityBannerAt = 0;
@@ -200,7 +207,7 @@ function pause() { if (!session.pause()) return; dash.mark(); music = false; rec
    unless the session was already paused by hand */
 let sheetPaused = false;
 function pauseForSheet() { if (mode === 'local' && session.state === 'running') { pause(); sheetPaused = true; } }
-function resumeAfterSheet() { if (!sheetPaused || $('dlgSettings').open || $('dlgLog').open) return; sheetPaused = false; if (session.state === 'paused') resume(); }
+function resumeAfterSheet() { if (!sheetPaused || $('dlgSettings').open || $('dlgLog').open || $('dlgDebug').open) return; sheetPaused = false; if (session.state === 'paused') resume(); }
 function resume() { sheetPaused = false; if (!session.resume()) return; if (A.ctx && A.ctx.state !== 'running') A.ctx.resume().catch(() => {}); if (A.det) { A.det.score = 0; A.det.isMusic = false; } recCall('resume'); lastT = performance.now(); paintControls(); push(true); }
 function stop() {
   if (!session.stop()) return;
@@ -750,10 +757,10 @@ function bumpGoal(d) { S.goalMin = Math.max(5, Math.min(180, S.goalMin + d)); sa
 $('goalDn').onclick = () => bumpGoal(-5); $('goalUp').onclick = () => bumpGoal(5);
 $('nameIn').value = S.name; $('nameIn').oninput = () => { S.name = $('nameIn').value.replace(/[\u0000-\u001F\u007F-\u009F\u200B-\u200F\u2028-\u202F\u2060-\u206F\uFEFF]/g, '').slice(0, 40); saveS(); };
 $('recIn').checked = S.record; $('recIn').onchange = () => { S.record = $('recIn').checked; saveS(); };
-$('btnSettings').onclick = () => { pauseForSheet(); paintGoal(); paintControls(); paintDbg(); $('dlgSettings').showModal(); };
+$('btnSettings').onclick = () => { if (heldOpen()) return; pauseForSheet(); paintGoal(); paintControls(); paintDbg(); $('dlgSettings').showModal(); };
 $('btnSettings2').onclick = () => $('btnSettings').click();          // on phones the Rocket and City themes keep Settings beside the buttons
 $('setClose').onclick = () => $('dlgSettings').close();
-for (const d of document.querySelectorAll('dialog')) d.addEventListener('click', e => { if (e.target === d) d.close(); });
+for (const d of document.querySelectorAll('dialog')) d.addEventListener('click', e => { if (e.target === d && !heldOpen()) d.close(); });   // not the lift of the finger that held Settings down
 
 let testing = false;
 $('btnTests').onclick = async () => {
@@ -994,13 +1001,36 @@ $('dlgSettings').addEventListener('close', () => { if (homeOn) renderHome(); res
 $('dlgLog').addEventListener('close', () => { if (homeOn) renderHome(); resumeAfterSheet(); });     // sessions deleted from the log
 
 /* ---------- debug tools, for the developer only: sample data, a detector read-out, where the rocket starts, and shortcuts ---------- */
-let verTaps = 0, verAt = 0, dbgAt = 0;
-$('ver').addEventListener('click', () => {           // seven quick taps on the version line turn them on
-  if (DBG.on) return; const t = performance.now(); verTaps = t - verAt < 1500 ? verTaps + 1 : 1; verAt = t;
-  if (verTaps >= 7) { verTaps = 0; DBG.on = true; saveDbg(); paintDbg(); $('dbg').scrollIntoView({ block: 'start', behavior: reduceMotion ? 'auto' : 'smooth' }); }
-});
+let dbgAt = 0, holdT = 0, held = false, holdXY = null;
+/* holding any Settings button for half a second opens the debug tools; the click that ends the hold does not open Settings too */
+function heldOpen() { const h = held; held = false; return h; }
+document.addEventListener('pointerdown', () => { if (!holdT) held = false; }, true);   // a hold that ended without a click is forgotten at the next touch
+for (const b of [$('btnSettings'), $('btnSettings2'), $('homeSet')]) {
+  const cancel = () => { clearTimeout(holdT); holdT = 0; };
+  b.addEventListener('pointerdown', e => { held = false; holdXY = [e.clientX, e.clientY]; cancel();
+    holdT = setTimeout(() => { holdT = 0; held = true; try { if (navigator.vibrate) navigator.vibrate(12); } catch (er) {} openDebug(); }, 500); });
+  b.addEventListener('pointermove', e => { if (holdT && holdXY && Math.hypot(e.clientX - holdXY[0], e.clientY - holdXY[1]) > 12) cancel(); });
+  for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) b.addEventListener(ev, cancel);
+  b.addEventListener('contextmenu', e => e.preventDefault());
+}
+function openDebug() {
+  if ($('dlgDebug').open) return;
+  if ($('dlgSettings').open) $('dlgSettings').close();
+  pauseForSheet(); if (!DBG.on) { DBG.on = true; saveDbg(); }
+  dbgView(false); paintDbg(); updSource(); $('dlgDebug').showModal();
+}
+/* the debug sheet's two pages: the tools, and the sound tests */
+function dbgView(tests) {
+  $('dbgMain').hidden = tests; $('dbgTests').hidden = !tests; $('dbgBack').hidden = !tests;
+  $('dbgH').textContent = tests ? 'Sound tests' : 'Debug tools'; $('dlgDebug').querySelector('.sh-body').scrollTop = 0;
+}
+$('dbgOpenTests').onclick = () => dbgView(true);
+$('dbgBack').onclick = () => dbgView(false);
+$('dbgClose').onclick = () => $('dlgDebug').close();
+$('setDebug').onclick = openDebug;
+$('dlgDebug').addEventListener('close', () => { if (homeOn) renderHome(); resumeAfterSheet(); });
 function paintDbg() {
-  $('dbg').hidden = !DBG.on; $('dbgBadge').hidden = !DBG.sample; $('dbgRead').hidden = !(DBG.on && DBG.readout);
+  $('setDebugRow').hidden = !DBG.on; $('dbgBadge').hidden = !DBG.sample; $('dbgRead').hidden = !(DBG.on && DBG.readout);
   if (!DBG.on) return;
   const c = $('dbgSample'), r = $('dbgRocket'); c.textContent = ''; r.textContent = '';
   chip(c, 'My log', !DBG.sample, () => setSample(''));
@@ -1023,11 +1053,12 @@ function dbgFrame(ms) {
   ].filter(Boolean).join('\n');
 }
 $('dbgReadIn').onchange = () => { DBG.readout = $('dbgReadIn').checked; saveDbg(); paintDbg(); };
-$('dbgTrophy').onclick = () => { $('dlgSettings').close(); hideHome(); award(session.goal || S.goalMin * 60); };
-$('dbgHome').onclick = () => { $('dlgSettings').close(); showHome(); };
+$('dbgTrophy').onclick = () => { $('dlgDebug').close(); hideHome(); award(session.goal || S.goalMin * 60); };
+$('dbgHome').onclick = () => { $('dlgDebug').close(); showHome(); };
 $('dbgSave').onclick = () => { const d = new Date(), p = n => String(n).padStart(2, '0');
   saveFile('music-timer-log-' + d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + '.json', JSON.stringify(readLog())); };
-$('dbgOff').onclick = () => { DBG.on = false; DBG.readout = false; DBG.rocket = ''; if (DBG.sample) setSample(''); saveDbg(); paintDbg(); rocketAfterDelete(); };
+$('dbgOff').onclick = () => { DBG.on = false; DBG.readout = false; DBG.rocket = ''; if (DBG.sample) setSample(''); if (S.source === 'demo') setSource('mic');
+  saveDbg(); paintDbg(); rocketAfterDelete(); hideNotice('mic'); $('dlgDebug').close(); };
 
 /* ---------- go ---------- */
 /* Rocket and City read-outs: tap them to fold them down to play time and power, leaving more of the scene in view */
@@ -1043,7 +1074,7 @@ setHudCompact(!!S.hudCompact);
 carryRocket(); refreshSkins(); paintGoal(); paintControls(); paintDemoBar(); paintDbg(); showHome();
 try { const b = document.querySelector('meta[name="build"]'); $('ver').textContent = 'Version ' + (b && b.content && b.content.indexOf('__') < 0 ? b.content : 'dev'); } catch (e) {}
 if (S.source === 'mic' && (micPolicyBlocked() || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia))
-  showNotice('mic', framed ? MIC_FRAMED : micMessage({ name: window.isSecureContext === false ? 'Insecure' : 'Unsupported' }), 'Use demo sound', useDemoAction);
+  micNotice(framed ? MIC_FRAMED : micMessage({ name: window.isSecureContext === false ? 'Insecure' : 'Unsupported' }));
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(layoutChanged, () => {});
 requestAnimationFrame(t => { lastF = t; frame(t); });
 window.__mt = { session: session, sim: sim, rocket: rocket, city: city, dash: dash, A: A, S: S, V: V, start: start, stop: stop };
