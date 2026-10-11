@@ -693,7 +693,7 @@ function makeCityView(host) {
 
     // Camera: fixed, no orbit. It is fitted so the three cannons sit along the bottom, the front of the city behind them, and the
     // sky the asteroids fall through above, all below the read-outs, and as large as the space allows. Fitted again whenever the
-    // space changes (screen size, read-outs folded).
+    // space changes (screen size).
     const CAM_H = 14, LOOK_Z = -20;
     const KEEP = [[-26, 0, 15], [26, 0, 15], [0, 0, 23], [-23, 7, 13], [23, 7, 13], [-30, 0, -5], [30, 0, -5], [0, 112, -35]];   // cannons, front of the city, sky
     const area = { x: 0.94, lo: -0.94, hi: 0.9 }, pt = new V3(), camPos = new V3(), camLook = new V3();
