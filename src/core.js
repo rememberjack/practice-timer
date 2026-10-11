@@ -46,11 +46,11 @@ const SENSITIVITY = {
 const NOTE = { none: 0.7, step: 0.9, fresh: 0.5, drift: 0.15, lifted: 0.95, ctxT: 2, ctx0: 0.35, ctxW: 0.25, ctxStart: 0.45 };
 
 const INSTRUMENTS = {
-  piano:    { name: 'Piano',    detail: 'Struck strings: each note rings, then fades' },
-  clarinet: { name: 'Clarinet', detail: 'Reed tone: hollow, odd overtones stand out' },
-  flute:    { name: 'Flute',    detail: 'Pure, airy tone with few overtones' },
-  cello:    { name: 'Cello',    detail: 'Low bowed strings with rich overtones' },
-  violin:   { name: 'Violin',   detail: 'Bowed strings: sustained, rich overtones' }
+  piano:    { name: 'Piano' },
+  clarinet: { name: 'Clarinet' },
+  flute:    { name: 'Flute' },
+  cello:    { name: 'Cello' },
+  violin:   { name: 'Violin' }
 };
 
 /* ---------- Music detector ----------
@@ -307,7 +307,7 @@ class MusicDetector {
     o.instrument = '';
     if (this.isMusic) {
       const ins = this.classify();
-      o.kind = 'music'; o.instrument = ins.name; o.label = 'Sounds like ' + ins.name.toLowerCase(); o.detail = ins.detail;
+      o.kind = 'music'; o.instrument = ins.name; o.label = 'Music heard'; o.detail = 'The clock counts while you play';
     } else if (!active) { o.kind = 'quiet'; o.label = 'Quiet'; o.detail = 'Nothing loud enough to count'; }
     else if (this.duty > 0.85 && this.glideHold <= 0) { o.kind = 'tone'; o.label = 'A steady tone'; o.detail = 'Checking whether it is music'; }
     else if (this.duty > 0.22) { o.kind = 'voice'; o.label = 'Talking or a voice'; o.detail = 'Pitch slides and breaks up, unlike an instrument'; }

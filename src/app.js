@@ -495,8 +495,7 @@ function fitKeyboard(dt) {
   lo = Math.max(12, lo); hi = Math.min(120, hi); if (BLACK[pc(lo)]) lo--; if (BLACK[pc(hi)]) hi++;
   const tLo = whiteU(lo), tHi = whiteU(hi) + 1, f = kbShown === null || reduceMotion ? 1 : Math.min(1, dt * 5);
   kbLo += (tLo - kbLo) * f; kbHi += (tHi - kbHi) * f; kbEnds = [lo, hi];
-  if (kbShown !== inst) { if (kbShown !== null && inst && VIZ[vizI][0] === 'piano') { const n = $('vizName'); n.textContent = inst + ' keyboard, ' + keyName(r[0]) + ' to ' + keyName(r[1]); n.classList.add('on'); clearTimeout(vizNameT); vizNameT = setTimeout(() => n.classList.remove('on'), 2600); }
-    kbShown = inst; }
+  kbShown = inst;
 }
 /* where a key sits across the picture: white keys one unit wide, black keys on the line between two whites */
 function keyBox(k, ww) { const u = whiteU(k); return BLACK[pc(k)] ? { x: (u + 1 - kbLo) * ww, w: Math.max(3, ww * 0.62), black: true } : { x: (u + 0.5 - kbLo) * ww, w: ww, black: false }; }
