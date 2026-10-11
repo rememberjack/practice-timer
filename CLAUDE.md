@@ -43,7 +43,8 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
   one, and End asks to confirm (`askEnd`, `#dlgEnd`).
 - Settings always has the Classic look; only the goal's hint follows the theme it is opened from (`GOAL_HINT` in `src/app.js`).
   The rocket's power, the cannons and the Dash speed follow the last minute of playing (`Session.recentEfficiency`); there is no
-  setting for it.
+  setting for it. The Rocket and City bars fill to that as Power, with a tick and a figure for the whole session's Efficiency
+  (`powerBar` in `src/app.js`), like a car's instant and trip-average fuel figures.
 - The Home Screen (`#home`) shows when the app opens and after a finished session's summary is closed; its words come
   from `homeCopy` in `src/core.js`. No theme scene is drawn while it covers them. Its greeting, headline and line are picked from
   playful words for young players (`HOME_HELLO`, `HOME_WORDS`), new each time it shows; they must fit an iPhone SE without wrapping more.

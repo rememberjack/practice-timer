@@ -191,10 +191,9 @@ body:has(> #app[data-skin="dash"]){background:#07071F}
 .ch-side b{color:#F4F4F4; font-weight:700}
 .city-hud .ok{color:#86D25A} .city-hud .bad{color:#FF6B4A}
 .city-hud .engine{margin-top:6px}
-.city-hud .engine .k{flex:none}
 .city-hud .pbar{min-width:0; height:12px; background:#1C1C1C; border:2px solid #000}
 .city-hud .pbar i{background:#FF6B4A} .city-hud .pbar i.ok{background:#F2C94C} .city-hud .pbar i.go{background:#86D25A}
-#yPwN{flex:none; min-width:4ch; text-align:right}
+.city-hud .pbar .avg{background:#F4F4F4; box-shadow:0 0 0 2px #000} .city-hud .eff::before{background:#F4F4F4; box-shadow:0 0 0 1px #000}
 .ch-stats{display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:0 4px; margin-top:6px; text-align:center}
 .ch-stats span{display:block; font-size:9px; line-height:1.3; color:#D9D2C6; white-space:nowrap}
 .ch-stats b{display:block; font-size:13px; line-height:1.25; font-weight:700; white-space:nowrap}
@@ -223,16 +222,20 @@ body:has(> #app[data-skin="dash"]){background:#07071F}
 .hud-stats{display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:0 4px; margin-top:6px; text-align:center}
 .hud-stats span{display:block; font-size:9px; line-height:1.3; color:#C5CCDD; white-space:nowrap}
 .hud-stats b{display:block; font-size:13px; line-height:1.25; font-weight:700; white-space:nowrap}
-.engine .k{flex:none} .pbar{min-width:0} #rPwN{flex:none}
 #app[data-chrome="pixel"] #controls button{font-size:clamp(10px, 3.4vw, 15px); padding-left:4px; padding-right:4px; min-width:0}
-.engine{display:flex; align-items:center; gap:8px; margin-top:8px}
-.pbar{flex:1; height:14px; background:#10141F; border:2px solid #05070D; position:relative; box-shadow:inset 2px 2px 0 rgba(0,0,0,.5)}
+/* Power (the last minute) fills the bar and reads beside its label; the tick on the bar is the whole session's Efficiency, like a car's
+   instant and trip-average fuel figures. On phones the two figures sit over a full-width bar; on tablets all in one row. */
+.engine{display:grid; grid-template-columns:auto auto minmax(0, 1fr) auto; grid-template-areas:"k n . e" "bar bar bar bar"; align-items:baseline; gap:5px 8px; margin-top:8px}
+.engine > .k{grid-area:k} .engine .pn{grid-area:n} .engine .pbar{grid-area:bar} .engine .eff{grid-area:e; white-space:nowrap}
+.engine b{font-weight:700}
+.eff::before{content:''; display:inline-block; width:3px; height:11px; margin-right:7px; vertical-align:-1px; background:#FFD23F; box-shadow:0 0 0 1px #05070D}   /* the tick's key */
+.pbar .avg{position:absolute; top:-5px; bottom:-5px; width:3px; margin-left:-1px; background:#FFD23F; box-shadow:0 0 0 2px #05070D}
+.pbar{height:14px; background:#10141F; border:2px solid #05070D; position:relative; box-shadow:inset 2px 2px 0 rgba(0,0,0,.5)}
 .pbar i{display:block; height:100%; width:0; background:#E2502C}
 .pbar i.ok{background:#FFB629}
 .pbar i.go{background:#5DA831}
 .pbar b{position:absolute; top:-3px; bottom:-3px; width:2px; background:#F4F6FA; opacity:.85}
 .pbar b.m50{left:50%}
-#rPwN{min-width:4ch; text-align:right}
 .hud-line{margin-top:6px; min-height:16px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 #rNext{color:#C5CCDD}
 #rBanner{position:absolute; left:50%; top:max(0px, calc(var(--hud-b, 156px) - 6px)); transform:translateX(-50%); max-width:92%; text-align:center; padding:8px 12px; background:#05070D; color:#FFD23F; border:2px solid #FFD23F;
@@ -634,6 +637,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
   .hud-play, .ch-play, .dh-play{grid-area:play; align-self:end}
   .hud-side, .ch-side, .dh-side{grid-area:side; align-self:end; line-height:1.45}
   .hud .engine, .city-hud .engine, .dh-prog{grid-area:bar; margin:0; gap:12px}
+  .hud .engine, .city-hud .engine{grid-template-columns:auto auto minmax(0, 1fr) auto; grid-template-areas:"k n bar e"; align-items:center}
   .hud-stats, .ch-stats, .dh-stats{grid-area:stats; margin:0}
   #rHeard, #yHeard, #dHeard{grid-area:heard; margin:0; min-height:0}
   #rNext, #yHint, #dHint{grid-area:next; margin:0; min-height:0}
@@ -642,8 +646,8 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
   .hud .big, .city-hud .big, .dash-hud .big{font-size:clamp(44px, 7cqw, 58px); margin-top:2px}
   .hud .big.long, .city-hud .big.long, .dash-hud .big.long{font-size:clamp(32px, 5cqw, 42px)}
   .pbar, .city-hud .pbar, .dh-bar{height:18px}
-  .dh-prog .k{display:block}                                                    /* the course bar gets a label, like Engine and Power */
-  #rPwN, #yPwN, #dPct{min-width:4ch; font-size:inherit}
+  .dh-prog .k{display:block}                                                    /* the course bar gets a label, like Power in Rocket and City */
+  #rPwN, #yPwN, #rEff, #yEff, #dPct{display:inline-block; min-width:4ch; font-size:inherit}
   #dPct{font-weight:800}
   .hud-stats span, .ch-stats span{font-size:12px} .hud-stats b, .ch-stats b{font-size:18px}
   .dh-stats span{font-size:13px} .dh-stats b{font-size:21px}
@@ -778,7 +782,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
               <div id="rGoalLeft">30:00 left</div>
             </div>
           </div>
-          <div class="engine"><span class="k">Engine</span><div class="pbar"><i id="rPw"></i><b class="m50"></b></div><span id="rPwN">0%</span></div>
+          <div class="engine"><span class="k">Power</span><b class="pn" id="rPwN">0%</b><div class="pbar"><i id="rPw"></i><b class="m50"></b><span class="avg" id="rAvg" hidden></span></div><span class="eff"><span class="k">Efficiency</span> <b id="rEff">0%</b></span></div>
           <div class="hud-stats">
             <div><span>Active</span><b id="rActive">00:00</b></div>
             <div><span>Total</span><b id="rTotal">00:00</b></div>
@@ -802,7 +806,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
               <div>Pauses <b id="yPauses">0</b></div>
             </div>
           </div>
-          <div class="engine"><span class="k">Power</span><div class="pbar"><i id="yPw"></i></div><span id="yPwN">0%</span></div>
+          <div class="engine"><span class="k">Power</span><b class="pn" id="yPwN">0%</b><div class="pbar"><i id="yPw"></i><span class="avg" id="yAvg" hidden></span></div><span class="eff"><span class="k">Efficiency</span> <b id="yEff">0%</b></span></div>
           <div class="ch-stats">
             <div><span>Shot down</span><b id="yDown">0</b></div>
             <div><span>Impacts</span><b id="yImp">0</b></div>
