@@ -53,6 +53,8 @@ Node 20+, no dependencies to install.
   cdnjs.
 - `window.claude` and the "framed" checks support running inside a Claude artifact view; on GitHub Pages everything
   falls back to plain browser APIs.
+- New versions: between sessions (Home Screen shown, or the app coming back to the screen) the page fetches itself and reloads
+  if the live build stamp differs (`newerBuild` in `src/core.js`, `checkVersion` in `src/app.js`); never during a session.
 - A session cut short (the app closed or discarded by iOS before End) is not lost: while it runs it is kept in `musicTimer.live`
   (`liveSnapshot`, every 5 s and when the app is hidden), cleared at End, and offered back on the next open (`liveRecord`, `#dlgLost`).
 - While no name is set, a quiet "Add your name" link follows the Home Screen greeting and opens Settings at the name field.

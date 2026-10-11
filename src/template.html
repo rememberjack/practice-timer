@@ -97,10 +97,10 @@ body:has(> #app[data-skin="dash"]){background:#07071F}
 .ask[data-skin="dash"] .btn:active{transform:translateY(3px); box-shadow:0 1px 0 #05051A}
 @media (max-width:560px){ .ask[data-skin="rocket"], .ask[data-skin="city"]{border-radius:0} .ask[data-skin="dash"]{border-radius:24px 24px 0 0; border-width:3px 0 0} }
 /* New flight, at the end of the Rocket read-outs' last line while the rocket is off the pad */
-.hud-flight{position:absolute; right:12px; bottom:6px; min-height:30px; padding:4px 9px; border:2px solid #05070D; border-radius:0; background:#7B8293; color:#fff;
+.hud-flight{position:absolute; right:12px; bottom:6px; min-height:28px; padding:3px 7px; border:2px solid #05070D; border-radius:0; background:#7B8293; color:#fff;
   font-family:var(--pixel); font-size:10px; text-shadow:1px 1px 0 rgba(0,0,0,.45); box-shadow:inset -2px -2px 0 rgba(0,0,0,.25); cursor:pointer}
 .hud-flight:active{box-shadow:inset 2px 2px 0 rgba(0,0,0,.32)}
-.hud.has-flight #rNext{padding-right:112px}
+.hud.has-flight #rNext{padding-right:98px}
 #homeFlightGo{white-space:nowrap}   /* Home Screen: after "Playing with Rocket" while today's flight carries on */
 
 /* ---------- classic theme ---------- */
@@ -519,7 +519,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
   #app[data-chrome="pixel"] #controls{padding:8px 12px 10px; gap:10px}
   #app[data-chrome="pixel"] #controls button{min-height:46px}
   #app[data-skin="city"] #controls{padding:8px 15px 10px; gap:14px}
-  #app[data-skin="dash"][data-chrome="pixel"] #controls{padding:6px 12px 12px}   /* room for the drop shadow, same height as the others */
+  #app[data-skin="dash"][data-chrome="pixel"] #controls{padding:6px 12px 10px}   /* room for the drop shadow, and the same height as the others, so the scenes match */
   #app[data-chrome="pixel"] #notice{margin-top:8px}
   #app[data-chrome="pixel"] #demoBar{display:flex; align-items:center; gap:6px; padding:6px 8px; margin-top:8px}   /* demo sound on one line */
   #app[data-chrome="pixel"] #demoBar .lab{display:none}
@@ -670,7 +670,9 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 .hm-name{flex:1; font-size:17px; font-weight:700; letter-spacing:-.01em}
 .hm-ib{width:44px; height:44px; display:grid; place-items:center; border:0; border-radius:12px; background:none; color:var(--mute)}
 .hm-ib svg{width:22px; height:22px}
-.hm-main{flex:1; min-height:0; display:flex; flex-direction:column; justify-content:center; gap:28px; overflow-y:auto; scrollbar-width:none}
+.hm-main{flex:1; min-height:0; display:flex; flex-direction:column; gap:28px; overflow-y:auto; scrollbar-width:none}
+/* centred while it fits; on a short screen (a small phone, landscape) it scrolls from the top instead of cutting the greeting off */
+.hm-main > :first-child{margin-top:auto} .hm-main > :last-child{margin-bottom:auto}
 .hm-main > *{flex:none}
 .hm-hello{margin:0; color:var(--mute); font-size:16px}
 /* a quiet invitation to add a name, after the greeting, while there is none */
@@ -710,6 +712,10 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 .hm-go:active{transform:translateY(1px)}
 @media (max-height:600px){ .hm-main{gap:18px} .hm-head{font-size:28px} }
 @media (min-width:700px) and (min-height:600px){ .hm{max-width:600px} .hm-head{font-size:46px} .hm-lede{font-size:18px} .hm-big b{font-size:34px} .hm-main{gap:40px} }
+.log-big, .log-total{white-space:nowrap}
+@media (max-width:359px){ .log-big{font-size:30px} .log-total{font-size:18px} }                                     /* 320 px phones: the totals stay on one line */
+@media (max-height:700px){ .hm-main{gap:18px} .hm-today{margin-bottom:12px} }                                     /* an iPhone SE: everything fits without scrolling */
+@media (min-width:700px) and (min-height:600px) and (max-height:900px){ .hm-main{gap:24px} .hm-head{font-size:38px} }   /* an iPad on its side */
 @media (prefers-reduced-motion: reduce){ *{transition-duration:.01ms !important} }
 </style>
 </head>

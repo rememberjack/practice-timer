@@ -762,7 +762,22 @@ window.addEventListener('resize', layoutChanged);
 window.addEventListener('pagehide', writeLive);   // the app is being closed: keep the session so far
 document.addEventListener('visibilitychange', () => { if (document.visibilityState !== 'visible') { writeLive(); return; }
   if (session.state === 'running' || session.state === 'paused') keepAwake();
-  if (A.ctx && A.ctx.state === 'suspended') A.ctx.resume().catch(() => {}); });
+  if (A.ctx && A.ctx.state === 'suspended') A.ctx.resume().catch(() => {});
+  checkVersion(); });
+window.addEventListener('pageshow', e => { if (e.persisted) checkVersion(); });   // back from the browser's page cache
+
+/* ---------- new versions: a Home Screen app keeps the page it first loaded until iOS discards it, so when it comes back
+   to the screen between sessions it looks at the live page, and reloads into a newer version. Never during a session ---------- */
+const BUILD = (document.querySelector('meta[name="build"]') || {}).content || '';
+let verAt = 0;
+const between = () => !busy && mode === 'local' && session.state !== 'running' && session.state !== 'paused' && !document.querySelector('dialog[open]');
+async function checkVersion() {
+  if (framed || !/^https?:$/.test(location.protocol) || !between() || Date.now() - verAt < 60e3) return;
+  verAt = Date.now();
+  try { const r = await fetch(location.pathname, { cache: 'no-store' }); if (!r.ok) return;
+    if (MT.newerBuild(BUILD, await r.text()) && between()) { try { sessionStorage.setItem('musicTimer.updated', '1'); } catch (e) {} location.reload(); } }
+  catch (e) {}   // offline: try again next time
+}
 
 /* ---------- demo bar ---------- */
 function chip(parent, label, on, fn) { const b = document.createElement('button'); b.textContent = label; b.setAttribute('aria-pressed', on); b.onclick = fn; parent.appendChild(b); }
@@ -1053,7 +1068,7 @@ function renderHome() {
 }
 function showHome() {
   if (mode === 'follow' || session.state === 'running' || session.state === 'paused') return;
-  renderHome(); homeEl.hidden = false; homeOn = true; app.inert = true;
+  renderHome(); homeEl.hidden = false; homeOn = true; app.inert = true; checkVersion();
 }
 function hideHome() { if (!homeOn) return; homeEl.hidden = true; homeOn = false; app.inert = false; layoutChanged(); }
 $('homeGo').onclick = () => { hideHome(); start(); };
@@ -1130,6 +1145,7 @@ $('dbgOff').onclick = () => { DBG.on = false; DBG.readout = false; DBG.rocket = 
 
 /* ---------- go ---------- */
 carryRocket(); refreshSkins(); paintGoal(); paintControls(); paintDemoBar(); paintDbg(); showHome(); checkLost();
+try { if (sessionStorage.getItem('musicTimer.updated')) { sessionStorage.removeItem('musicTimer.updated'); toast('Music Timer has been updated.'); } } catch (e) {}
 try { const b = document.querySelector('meta[name="build"]'); $('ver').textContent = 'Version ' + (b && b.content && b.content.indexOf('__') < 0 ? b.content : 'dev'); } catch (e) {}
 if (S.source === 'mic' && (micPolicyBlocked() || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia))
   micNotice(framed ? MIC_FRAMED : micMessage({ name: window.isSecureContext === false ? 'Insecure' : 'Unsupported' }));
