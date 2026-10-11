@@ -921,9 +921,11 @@ function renderLog() {
   const week = P.weekPlay > 0;
   $('logBig').textContent = MT.durationText(week ? P.weekPlay : P.totalPlay); $('logBigCap').textContent = week ? 'of music this week' : 'of music so far';
   $('logTotalBox').hidden = !week; $('logTotal').textContent = MT.durationText(P.totalPlay); $('logNudge').textContent = MT.practiceNudge(P);
-  // this week, Monday to Sunday, each day's bar filled towards that day's goal
+  // this week, Monday to Sunday: each day's bar as tall as its playing next to the others (a full bar is the longest day, or 30 minutes), one block a session.
+  // The goal is for one session, so a day is not measured against it
+  const top = Math.max(1800, ...P.week.map(c => c.play));
   $('logWeek').replaceChildren(...P.week.map(c => { const d = el('div', 'd' + (c.today ? ' today' : '') + (c.future ? ' future' : '')), bar = el('div', 'bar');
-    if (c.play > 0) { const i = el('i', (c.level === 4 ? 'met' : '') + (c.plays.length > 1 ? ' segs' : '')); i.style.height = Math.max(4, Math.min(1, c.goal ? c.play / c.goal : 1) * 100) + '%';
+    if (c.play > 0) { const i = el('i', c.plays.length > 1 ? 'segs' : ''); i.style.height = Math.max(4, c.play / top * 100) + '%';
       if (c.plays.length > 1) for (const p of c.plays) { const b = el('b'); b.style.flexGrow = String(p); i.append(b); }
       bar.append(i); }
     d.append(el('span', 't', compact(c.play)), bar, el('span', null, c.date.toLocaleDateString([], { weekday: 'narrow' }))); return d; }));
@@ -937,8 +939,8 @@ function renderLog() {
     for (const c of col) { const i = el('i', (c.level ? 'lv' + c.level : '') + (c.today ? ' today' : '') + (c.future ? ' future' : ''));
       if (!c.future) i.title = c.date.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' }) + ': ' + (c.play > 0 ? MT.durationText(c.play) + (c.sessions > 1 ? ' in ' + c.sessions + ' sessions' : '') : 'no practice'); cells.push(i); } });
   $('logMonths').replaceChildren(...months); $('logCal').replaceChildren(...cells);
-  const all = P.grid.flat(), on = all.filter(c => c.play > 0).length, met = all.filter(c => c.level === 4).length;
-  $('logCal').setAttribute('aria-label', 'Practiced on ' + on + ' of the last ' + all.filter(c => !c.future).length + ' days, reaching the goal on ' + met + '.');
+  const all = P.grid.flat(), on = all.filter(c => c.play > 0).length;
+  $('logCal').setAttribute('aria-label', 'Practiced on ' + on + ' of the last ' + all.filter(c => !c.future).length + ' days.');
   // all time
   const first = log[0].start, facts = [
     ['Sessions', String(P.sessions), 'since ' + new Date(first).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })],

@@ -712,12 +712,12 @@ function detectionTests(sr) {
     const P2 = practiceStats(recs.filter(r => r.start < at(9, 0)), now), P3 = practiceStats([rec(3, 1800)], now), P0 = practiceStats([], now);
     const lines = [practiceNudge(P), practiceNudge(P2), practiceNudge(P3), weekLine(P), weekLine({ weekPlay: 600, lastWeekPlay: 4300, lastWeekSoFar: 2500 })];
     const ok = P.streak === 4 && P.bestStreak === 4 && P.practicedToday && P2.streak === 3 && !P2.practicedToday && P3.streak === 0 && P3.daysSince === 6 && P0.streak === 0 && practiceNudge(P0) === ''
-      && wk === '0124300' && P.week[4].today && P.week[5].future && P.weekPlay === 4800 && P.lastWeekPlay === 4300 && P.lastWeekSoFar === 2500
+      && wk === '0123200' && P.week[4].today && P.week[5].future && P.weekPlay === 4800 && P.lastWeekPlay === 4300 && P.lastWeekSoFar === 2500
       && P.grid.length === 12 && P.grid[11][0].key === '2026-10-05' && P.grid[10][3].level === 2 && P.sessions === 9 && P.longest.play === 1800 && Math.abs(P.efficiency - 0.8) < 1e-9
       && lines[0] === 'Lovely playing today. Come back whenever you feel like it.' && lines[1] === 'You have played on 3 days this week. Nice work.'
       && lines[2] === 'Welcome back. Even a few minutes of playing is worth it.' && lines[3] === 'This week: 1 h 20 min of playing, 8 min more than all of last week.'
       && lines[4] === 'This week: 10 min of playing.' && !lines.some(l => /streak|in a row|ago|match/.test(l));
-    return { name: 'Practice log: week, calendar and encouraging lines', expect: 'week levels 0124300, 1 h 20 min this week, no streak or days-missed wording',
+    return { name: 'Practice log: week, calendar and encouraging lines', expect: 'week levels 0123200, 1 h 20 min this week, no streak or days-missed wording',
       got: 'streak ' + P.streak + ' (' + P2.streak + '), best ' + P.bestStreak + ', week ' + wk + ', ' + durationText(P.weekPlay) + ' | ' + lines.join(' | '), pass: ok }; } });
   list.push({ name: 'Several sessions in a day: the day adds up', run: () => {
     const at = (d, h, m) => new Date(2026, 9, d, h, m || 0).getTime(), now = at(9, 20);                // Friday 9 October 2026, 8 pm
@@ -726,7 +726,7 @@ function detectionTests(sr) {
     const P = practiceStats(recs, now), D = dayRecap(recs, c), D1 = dayRecap(recs, a), Y = dayRecap(recs, y1), one = dayRecap([y1], y1);
     const L = dayLine(D, now), L1 = dayLine(D1, now), LY = dayLine(Y, now), H = homeCopy(P, c, now), HW = homeCopy(practiceStats([y1, y2], now), y2, now);
     const words = [L.lead, L.text, L1.text, LY.lead, LY.text, H.lede, HW.note].join(' ');
-    const ok = P.today.sessions === 3 && P.today.play === 1920 && P.today.plays.join() === '600,900,420' && P.week[3].plays.join() === '300,1200' && P.today.level === 4
+    const ok = P.today.sessions === 3 && P.today.play === 1920 && P.today.plays.join() === '600,900,420' && P.week[3].plays.join() === '300,1200' && P.today.level === 3
       && D.n === 3 && D.count === 3 && D.before === 1500 && D.upTo === 1920 && D1.n === 1 && D1.upTo === 600 && dayRecap(recs, rec(9, 21, 60)) === null
       && one.count === 1 && dayLine(one, now) === null
       && L.lead === '32 min of music today.' && L.text === 'This was your third session today.' && L1.text === 'This was session 1 of 3 today.'
@@ -753,9 +753,9 @@ function detectionTests(sr) {
     }
     const T = practiceStats(sampleLog('today', now), now), carried = new RocketSim().restore(rocketCarry(sampleLog('today', now), now));
     const space = new RocketSim(), orbit = new RocketSim(), months = sampleLog('months', now).length, back = practiceStats(sampleLog('back', now), now);
-    ok = ok && T.today.sessions === 2 && T.today.level === 4 && carried && months > 30 && back.daysSince >= 21 && rocketAt(MILESTONES.space - 1) === null
+    ok = ok && T.today.sessions === 2 && T.today.level === 3 && carried && months > 30 && back.daysSince >= 21 && rocketAt(MILESTONES.space - 1) === null
       && space.restore(rocketAt(MILESTONES.space)) && space.mode === 'ascent' && orbit.restore(rocketAt(MILESTONES.orbit)) && orbit.mode === 'orbit';
-    return { name: 'Debug tools: sample practice logs', expect: 'each sample log is valid and the same every time, and opens the Home Screen it is for; today’s sessions reach the goal and the rocket carries on',
+    return { name: 'Debug tools: sample practice logs', expect: 'each sample log is valid and the same every time, and opens the Home Screen it is for; today has two sessions and the rocket carries on',
       got: got.join(', ') + '; today ' + durationText(T.today.play) + ', rocket ' + (carried ? 'carried on' : 'on the pad'), pass: ok }; } });
   // rocket timeline
   list.push({ name: 'Rocket: timeline from ignition to Moon orbit', run: () => {
@@ -979,6 +979,8 @@ const worthKeeping = R => R.play >= KEEP_PLAY;
 const dayKey = d => { d = new Date(d); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
 const dayStart = d => { d = new Date(d); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); };
 const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+/* a calendar day's shade: under LEVEL_MIN[0] minutes of playing, under LEVEL_MIN[1], or more */
+const LEVEL_MIN = [15, 30];
 /* the figures on the practice log page, from saved records (any order) at time now */
 function practiceStats(records, now, weeks) {
   weeks = weeks || 12;
@@ -1000,7 +1002,7 @@ function practiceStats(records, now, weeks) {
   let lastStart = 0; for (const r of records) if (r.start > lastStart) lastStart = r.start;
   const daysSince = lastStart ? Math.round((today - dayStart(lastStart)) / 864e5) : null;
   const cell = d => { const x = days.get(dayKey(d)) || null, play = x ? x.play : 0, goal = x && x.goal > 0 ? x.goal : 0;
-    const f = goal ? play / goal : 0, level = play <= 0 ? 0 : goal && f >= 1 ? 4 : f >= 2 / 3 ? 3 : f >= 1 / 3 ? 2 : 1;
+    const level = play <= 0 ? 0 : play < LEVEL_MIN[0] * 60 ? 1 : play < LEVEL_MIN[1] * 60 ? 2 : 3;   // by minutes played: the goal is for one session, not a day
     const plays = x ? x.recs.slice().sort((a, b) => a.start - b.start).map(r => r.play) : [];   // each session's playing that day, earliest first
     return { date: d, key: dayKey(d), play: play, goal: goal, sessions: x ? x.sessions : 0, plays: plays, level: level, today: d.getTime() === today.getTime(), future: d > today }; };
   // this week, Monday to Sunday, and the week before
@@ -1486,6 +1488,6 @@ class DashSim {
 }
 
 const api = { LIFTOFF, OnsetTracker, WheelSwipe, DashSim, DASH, dashSpeed, MusicDetector, Session, RocketSim, WORLD, MILESTONES, SENSITIVITY, CLIPS, DETECTION_CASES,
-  detectionTests, runDetectionTests, analyzeClip, sessionReport, clockText, sessionRecord, worthKeeping, rocketCarry, practiceStats, dayRecap, dayLine, practiceNudge, homeCopy, weekLine, durationText, dayKey, LOG_MAX, SAMPLE_LOGS, sampleLog, rocketAt, fraction, heardAs, noteOf, smooth, pchip, clamp01 };
+  detectionTests, runDetectionTests, analyzeClip, sessionReport, clockText, sessionRecord, worthKeeping, rocketCarry, practiceStats, dayRecap, dayLine, practiceNudge, homeCopy, weekLine, durationText, dayKey, LOG_MAX, LEVEL_MIN, SAMPLE_LOGS, sampleLog, rocketAt, fraction, heardAs, noteOf, smooth, pchip, clamp01 };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.MT = api;
 })(typeof self !== 'undefined' ? self : this);

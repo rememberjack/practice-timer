@@ -47,6 +47,8 @@ Node 20+, no dependencies to install.
 - `window.claude` and the "framed" checks support running inside a Claude artifact view; on GitHub Pages everything
   falls back to plain browser APIs.
 - While no name is set, a quiet "Add your name" link follows the Home Screen greeting and opens Settings at the name field.
+- The practice goal is for one session. The practice log never marks a day as reaching it: the week bars compare days by time
+  played, and the calendar shades days by minutes (`LEVEL_MIN` in `src/core.js`). Only a session's trophy is gold.
 
 ## Things that are easy to break
 

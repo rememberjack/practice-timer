@@ -333,7 +333,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 .sum-foot{grid-auto-flow:column; grid-auto-columns:1fr}
 #sumDelete.armed{background:var(--alert); border-color:var(--alert); color:#2B0F08}
 
-/* practice log: what was played this week and in all, this week's days, a 12-week calendar and the sessions. Mint is practice, gold a reached goal, as on the summary */
+/* practice log: what was played this week and in all, this week's days, a 12-week calendar and the sessions. Mint is practice, shaded by minutes played; the goal is for one session, so only a session's trophy is gold */
 .log-hero{display:flex; align-items:flex-end; justify-content:space-between; gap:12px}
 .log-hero p{margin:0}
 .log-big{font-weight:800; font-size:clamp(34px, 10.5vw, 46px); letter-spacing:-.04em; line-height:1; font-variant-numeric:tabular-nums}
@@ -344,12 +344,9 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 .log-week{display:grid; grid-template-columns:repeat(7, minmax(0, 1fr)); gap:6px; align-items:end}
 .log-week .d{display:grid; gap:4px; justify-items:center; font-size:12px; color:var(--mute)}
 .log-week .bar{position:relative; width:100%; height:72px; border-radius:6px; background:var(--surface); overflow:hidden}
-.log-week .bar::after{content:""; position:absolute; left:0; right:0; top:0; border-top:1px dashed var(--rule)}
 .log-week .bar i{position:absolute; left:0; right:0; bottom:0; background:var(--accent); border-radius:6px 6px 0 0}
-.log-week .bar i.met{background:var(--gold)}
 .log-week .bar i.segs{display:flex; flex-direction:column-reverse; gap:2px; background:none}   /* a day of several sessions: one block each, earliest at the bottom */
 .log-week .bar i.segs b{flex:1 1 0; min-height:2px; background:var(--accent)}
-.log-week .bar i.segs.met b{background:var(--gold)}
 .log-week .bar i.segs b:last-child{border-radius:6px 6px 0 0}
 .log-week .d.today{color:var(--ink); font-weight:700}
 .log-week .d.today .bar{box-shadow:inset 0 0 0 1.5px var(--ink)}
@@ -368,11 +365,10 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 .lv1{background:rgba(134,220,192,.32) !important}
 .lv2{background:rgba(134,220,192,.6) !important}
 .lv3{background:rgba(134,220,192,.88) !important}
-.lv4{background:var(--gold) !important}
 .log-key{display:flex; flex-wrap:wrap; justify-content:flex-end; gap:6px 16px; font-size:12px; color:var(--mute)}
 .log-key span{display:flex; align-items:center; gap:3px}
 .log-key i{width:11px; height:11px; border-radius:3px}
-.log-key span i:last-of-type{margin-right:4px}
+.log-key span i:last-of-type{margin-right:5px}
 .log-list{display:grid; gap:14px}
 .log-day h4{display:flex; justify-content:space-between; margin:0 0 6px; font-size:13px; font-weight:700; color:var(--mute)}
 .log-day h4 span{font-weight:500; font-variant-numeric:tabular-nums}
@@ -1060,6 +1056,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
       <section class="sum-blk">
         <h3>This week</h3>
         <div class="log-week" id="logWeek" role="img"></div>
+        <div class="log-key" aria-hidden="true"><span><i class="lv3"></i>Time played, one block for each session</span></div>
         <p class="log-line" id="logWeekLine"></p>
       </section>
       <section class="sum-blk">
@@ -1068,7 +1065,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
           <div class="log-cal-days" aria-hidden="true"><span>M</span><span></span><span>W</span><span></span><span>F</span><span></span><span></span></div>
           <div><div class="log-cal-months" id="logMonths" aria-hidden="true"></div><div class="log-cal" id="logCal" role="img"></div></div>
         </div>
-        <div class="log-key" aria-hidden="true"><span><i class="lv1"></i><i class="lv2"></i><i class="lv3"></i>Some practice</span><span><i class="lv4"></i>Goal reached</span></div>
+        <div class="log-key" aria-hidden="true"><span><i class="lv1"></i>Under 15 min</span><span><i class="lv2"></i>15 to 30 min</span><span><i class="lv3"></i>30 min or more</span></div>
       </section>
       <section class="sum-blk">
         <h3>All time</h3>
