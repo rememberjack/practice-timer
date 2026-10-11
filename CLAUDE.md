@@ -36,8 +36,9 @@ Node 20+, no dependencies to install.
   paused by hand. The practice log opens only from the Home Screen.
 - Every theme keeps the title row with Settings at the top. During a session Pause (or Resume) is the big button and End the small
   one, and End asks to confirm (`askEnd`, `#dlgEnd`).
-- Settings takes the look and words of the theme it is opened from (`SET_SKIN` in `src/app.js`, `#dlgSettings[data-skin]` in the
-  template); Classic has no power setting, as it shows no power.
+- Settings always has the Classic look; only the goal's hint follows the theme it is opened from (`GOAL_HINT` in `src/app.js`).
+  The rocket's power, the cannons and the Dash speed follow the last minute of playing (`Session.recentEfficiency`); there is no
+  setting for it.
 - The Home Screen (`#home`) shows when the app opens and after a finished session's summary is closed; its words come
   from `homeCopy` in `src/core.js`. No theme scene is drawn while it covers them.
 - Debug tools (for the developer only) are their own sheet (`#dlgDebug`), opened by holding any Settings button for half a
