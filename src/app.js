@@ -828,16 +828,13 @@ function openSummary(r, past) {
   // was it saved to the practice log, and the week it adds to (only for the session just finished)
   const note = !past && current && current.rec === r ? current.note : null; $('sSaved').hidden = !note;
   if (note) $('sSaved').replaceChildren(...(note.lead ? [el('b', null, note.lead), ' '] : []), note.text);
-  // the rest of its day, when it had more than one session: each session a block, this one bright, and the day's goal
+  // the rest of its day, when it had more than one session: each session a block, this one bright. The goal is for each session, so the day is not measured against it
   const D = MT.dayRecap(log, r), L = MT.dayLine(D, Date.now()), box = $('sDayBox'); box.hidden = !L;
   if (L) {
-    const today = D.key === MT.dayKey(Date.now()), scale = Math.max(D.play, D.goal) || 1;
-    $('sDayH').textContent = today ? 'Today' : 'That day'; box.classList.toggle('done', D.met);
+    const today = D.key === MT.dayKey(Date.now());
+    $('sDayH').textContent = today ? 'Today' : 'That day';
     $('sDaySegs').replaceChildren(...D.sessions.map(x => { const i = el('i', x.id === r.id ? 'me' : ''); i.style.flexGrow = String(x.play); return i; }));
-    $('sDaySegs').style.width = (D.play / scale * 100) + '%';
-    $('sDayGoal').hidden = !(D.goal > 0); $('sDayGoal').style.left = (D.goal / scale * 100) + '%';
     $('sDayBar').setAttribute('aria-label', D.count + ' sessions ' + (today ? 'today' : 'that day') + ': ' + D.sessions.map(x => MT.durationText(x.play)).join(', ') + '.');
-    $('sDayN').textContent = (today ? 'Today\u2019s' : 'That day\u2019s') + ' goal ' + Math.round(D.goal / 60) + ' minutes'; $('sDayLeft').textContent = D.met ? 'Reached' : '';
     $('sDay').replaceChildren(el('b', null, L.lead), ' ', L.text);
   }
   // where the time went
