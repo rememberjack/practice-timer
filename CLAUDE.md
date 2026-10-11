@@ -41,7 +41,7 @@ Node 20+, no dependencies to install.
 - Debug tools (for the developer only) are their own sheet (`#dlgDebug`), opened by holding any Settings button for half a
   second, or by opening the page with `?debug` (`?debug=0` turns them off). Once opened, Settings shows a way back to them; that is
   kept in `musicTimer.debug`. The demo sound and the sound tests live there, not in Settings. Their sample data
-  (`sampleLog` in `src/core.js`) replaces the practice log in memory only: it is never written, and the real log comes back on reload.
+  (`sampleLog` in `src/core.js`), chosen with two taps, replaces the saved practice log and is then treated as real sessions.
 - Theme renderers in `src/` only draw; `src/app.js` wires everything together. Some themes load three.js r128 from
   cdnjs.
 - `window.claude` and the "framed" checks support running inside a Claude artifact view; on GitHub Pages everything

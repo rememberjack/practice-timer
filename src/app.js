@@ -21,8 +21,8 @@ if (['0', '5', '10', '20'].indexOf(S.hold) < 0) S.hold = DEF.hold;
 function saveS() { try { localStorage.setItem('musicTimer.settings', JSON.stringify(S)); } catch (e) {} }
 /* debug tools, for the developer only: a sheet opened by holding a Settings button down (or by opening the page with ?debug).
    on: they have been opened on this device, so Settings shows a way back to them and the demo sound can be chosen.
-   sample: the sample practice log in use instead of the real one, never saved and gone on reload; rocket: where the next session's rocket starts ('pad', 'space', 'orbit'), if set */
-const DBG = { on: false, readout: false, sample: '', rocket: '', r: null, fps: 0 };
+   rocket: where the next session's rocket starts ('pad', 'space', 'orbit'), if set */
+const DBG = { on: false, readout: false, rocket: '', r: null, fps: 0 };
 try { const j = JSON.parse(localStorage.getItem('musicTimer.debug') || 'null'); if (j && j.on === true) { DBG.on = true; DBG.readout = j.readout === true; } } catch (e) {}
 try { const q = new URLSearchParams(location.search).get('debug'); if (q != null) DBG.on = q !== '0'; } catch (e) {}
 if (!DBG.on && S.source === 'demo') S.source = 'mic';     // the demo sound is a debug tool now
@@ -811,7 +811,6 @@ function finishSession(demo) {
   if (demo) note = null;                    // not saved, and nothing said about it
   else if (!MT.worthKeeping(R)) note = { text: 'Sessions with less than 10 seconds of playing are not saved to your practice log.' };
   else if (!addToLog(r)) note = { text: 'This session could not be saved on this device.' };
-  else if (DBG.sample) note = { text: 'Sample data is on, so this session was added to the sample log only. Your practice log is unchanged.' };
   else { const P = MT.practiceStats(log, Date.now()); note = { lead: MT.durationText(P.weekPlay) + ' of music this week.', text: 'Saved to your practice log.' }; }
   return { rec: r, note: note };
 }
@@ -892,7 +891,6 @@ const LOG_KEY = 'musicTimer.log';
 function readLog() { try { const j = JSON.parse(localStorage.getItem(LOG_KEY) || '[]'); if (Array.isArray(j)) return j.filter(r => r && r.v === 1 && r.R && r.start > 0).sort((a, b) => a.start - b.start); } catch (e) {} return []; }
 let log = readLog(), logShown = 30;
 function writeLog() {
-  if (DBG.sample) return true;                // a sample log lives only in memory; the real one stays as it was
   for (;;) { try { localStorage.setItem(LOG_KEY, JSON.stringify(log)); return true; }
     catch (e) { const full = e && (e.name === 'QuotaExceededError' || e.code === 22 || e.code === 1014);   // storage full: drop the oldest fifth and try again
       if (!full || log.length < 2) return false; log.splice(0, Math.ceil(log.length / 5)); } }
@@ -1048,16 +1046,19 @@ $('dbgClose').onclick = () => $('dlgDebug').close();
 $('setDebug').onclick = openDebug;
 $('dlgDebug').addEventListener('close', () => { if (homeOn) renderHome(); resumeAfterSheet(); });
 function paintDbg() {
-  $('setDebugRow').hidden = !DBG.on; $('dbgBadge').hidden = !DBG.sample; $('dbgRead').hidden = !(DBG.on && DBG.readout);
+  $('setDebugRow').hidden = !DBG.on; $('dbgRead').hidden = !(DBG.on && DBG.readout);
   if (!DBG.on) return;
   const c = $('dbgSample'), r = $('dbgRocket'); c.textContent = ''; r.textContent = '';
-  chip(c, 'My log', !DBG.sample, () => setSample(''));
-  for (const [k, label] of MT.SAMPLE_LOGS) chip(c, label, DBG.sample === k, () => setSample(k));
+  for (const [k, label] of MT.SAMPLE_LOGS) { const b = el('button', null, label); b.type = 'button'; c.append(b);   // asks twice: it replaces the saved log
+    twoTap(b, label, 'Tap again to replace', () => setSample(k, label)); }
   for (const [k, label] of [['', 'As usual'], ['pad', 'On the pad'], ['space', 'In space'], ['orbit', 'In Moon orbit']])
     chip(r, label, DBG.rocket === k, () => { DBG.rocket = k; rocketAfterDelete(); paintDbg(); });   // shown at once while no session is on
   $('dbgReadIn').checked = DBG.readout;
 }
-function setSample(k) { DBG.sample = k; log = k ? MT.sampleLog(k, Date.now()) : readLog(); logShown = 30; rocketAfterDelete(); paintDbg(); }
+/* replace the saved practice log with a sample one. From then on it is the practice log: sessions are added to it and the rocket carries on from it */
+function setSample(k, label) { log = MT.sampleLog(k, Date.now()); logShown = 30;
+  if (!writeLog()) { log = readLog(); toast('The sample log could not be saved on this device'); return; }
+  rocketAfterDelete(); if (homeOn) renderHome(); toast('Your practice log is now \u201c' + label + '\u201d'); }
 function dbgFrame(ms) {
   if (ms > 0 && ms < 1000) DBG.fps = DBG.fps ? DBG.fps * 0.9 + 100 / ms : 1000 / ms;
   const now = performance.now(); if (now - dbgAt < 250) return; dbgAt = now;
@@ -1067,7 +1068,7 @@ function dbgFrame(ms) {
     r ? 'level ' + f1(r.levelDb) + ' dB' + (r.active ? '' : ' (too soft)') + '  pitch ' + (r.pitch > 0 ? Math.round(r.pitch) + ' Hz ' + r.note : 'none') : 'not listening',
     r ? 'score ' + f1(r.score) + '  ' + (r.isMusic ? 'music, ' + r.instrument : r.kind) : '',
     'play ' + fmt(session.play) + ' of ' + fmt(session.active) + (session.holdLeft > 0 ? '  hold ' + f1(session.holdLeft) + ' s' : ''),
-    'rocket ' + sim.mode + ', ' + Math.round(sim.fp) + ' s flown, power ' + Math.round(sim.power * 100) + '%' + (DBG.sample ? '  sample: ' + DBG.sample : ''),
+    'rocket ' + sim.mode + ', ' + Math.round(sim.fp) + ' s flown, power ' + Math.round(sim.power * 100) + '%',
   ].filter(Boolean).join('\n');
 }
 $('dbgReadIn').onchange = () => { DBG.readout = $('dbgReadIn').checked; saveDbg(); paintDbg(); };
@@ -1075,7 +1076,7 @@ $('dbgTrophy').onclick = () => { $('dlgDebug').close(); hideHome(); award(sessio
 $('dbgHome').onclick = () => { $('dlgDebug').close(); showHome(); };
 $('dbgSave').onclick = () => { const d = new Date(), p = n => String(n).padStart(2, '0');
   saveFile('music-timer-log-' + d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + '.json', JSON.stringify(readLog())); };
-$('dbgOff').onclick = () => { DBG.on = false; DBG.readout = false; DBG.rocket = ''; if (DBG.sample) setSample(''); if (S.source === 'demo') setSource('mic');
+$('dbgOff').onclick = () => { DBG.on = false; DBG.readout = false; DBG.rocket = ''; if (S.source === 'demo') setSource('mic');
   saveDbg(); paintDbg(); rocketAfterDelete(); hideNotice('mic'); $('dlgDebug').close(); };
 
 /* ---------- go ---------- */
