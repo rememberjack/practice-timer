@@ -226,7 +226,8 @@ function tick() {
     if (f) { const r = A.det.process(f, Math.min(dt, 1)); DBG.r = r;
       m = r.isMusic && dt < 1.5;                 // a long gap means the page was asleep: no credit
       if (dt >= 1.5) session.quietFor = Infinity;   // and no hold across it
-      heard.label = r.label; heard.detail = r.detail; heard.note = r.note; heard.midi = r.pitch > 0 ? 69 + 12 * Math.log2(r.pitch / 440) : null; levelBars();
+      heard.label = r.label; heard.detail = r.detail; heard.note = r.isMusic ? r.note : '';   // a note name only for an instrument, not for talking or noise
+      heard.midi = r.pitch > 0 ? 69 + 12 * Math.log2(r.pitch / 440) : null; levelBars();
       if (onsets.feed(dt, { music: m, midi: heard.midi, levelDb: r.levelDb })) { pendingOnsets++; onsetN++; }
       if (A.kind === 'mic' && A.ctx && A.ctx.state !== 'running') { m = false; heard.label = 'The microphone is asleep'; heard.detail = 'Press Pause, then Resume to wake it'; heard.note = ''; heard.midi = null; }
       if (m && r.instrument) vote[r.instrument] = (vote[r.instrument] || 0) + dt; }
