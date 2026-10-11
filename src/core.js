@@ -42,8 +42,12 @@ const SENSITIVITY = {
 };
 /* How much a tonal frame counts, by how its pitch behaves (see MusicDetector). A pitch that holds, or swings either side of one
    note (vibrato), counts in full. A frame with no single pitch (a chord), the first frame of a new note, or a pitch that drifts
-   counts for less, unless most of the pitched sound in the last couple of seconds held its notes (ctx), as an instrument's does */
-const NOTE = { none: 0.7, step: 0.9, fresh: 0.5, drift: 0.15, lifted: 0.95, ctxT: 2, ctx0: 0.35, ctxW: 0.25, ctxStart: 0.45 };
+   counts for less, unless most of the pitched sound in the last couple of seconds held its notes (ctx), as an instrument's does,
+   or the pitches of the last few seconds all lie on one tuning grid, a whole number of semitones apart (tune), as they do even in a
+   scale too fast for any note to hold. A voice's pitches lie anywhere. The grid only ever adds credit, so a player who is not
+   quite in tune counts as before */
+const NOTE = { none: 0.7, step: 0.9, fresh: 0.5, drift: 0.15, lifted: 0.95, ctxT: 2, ctx0: 0.35, ctxW: 0.25, ctxStart: 0.45,
+  tuneT: 3, tuneN: 8, tune0: 0.3, tuneW: 0.3, tuneM: -0.1 };
 
 const INSTRUMENTS = {
   piano:    { name: 'Piano' },
@@ -91,7 +95,7 @@ class MusicDetector {
   reset() {
     this.floor.fill(1e-9); this.pf.fill(0); this.pd.fill(0.05);
     this.score = 0; this.isMusic = false; this.glideHold = 0; this.flat = 0; this.bridge = 0;
-    this.ch.fill(NaN); this.held = false; this.ctx = NOTE.ctxStart; this.lh.fill(-120); this.lp.fill(0); this.lpf.fill(0); this.lt.fill(0); this.fq.fill(-1); this.P0.fill(0); this.hist.fill(0);
+    this.ch.fill(NaN); this.gx = this.gy = this.gw = this.gq = 0; this.held = false; this.ctx = NOTE.ctxStart; this.lh.fill(-120); this.lp.fill(0); this.lpf.fill(0); this.lt.fill(0); this.fq.fill(-1); this.P0.fill(0); this.hist.fill(0);
     this.duty = 0; this.trans = 0; this.prevLevel = -120; this.prevLevel2 = -120;
     this.lm = -80; this.lv = 0;
     // what the instrument sounds like: averages that start from a guess worth three frames, then keep a 2.5 s memory (vibrato: 5 s, no guess)
@@ -231,7 +235,10 @@ class MusicDetector {
     let note = 0;
     if (tonal) {
       if (!L) note = NOTE.none;
-      else if (L === 1) note = this.held ? NOTE.step : NOTE.fresh;
+      else if (L === 1) {                         // a new note: straight after a held one, or a whole number of semitones from the last
+        const pv = ch[6] === ch[6] ? ch[6] : ch[5]; let d = ch[7] - pv; d = Math.abs(d - 1200 * Math.round(d / 1200));
+        note = this.held || (pv === pv && d >= 70 && Math.abs(d - 100 * Math.round(d / 100)) <= 20) ? NOTE.step : NOTE.fresh;
+      }
       else if (hi - lo <= 3 + 4 * L) note = 1;
       else if (L >= 5 && turns >= 2 && hi - lo <= 100) {
         const h = L >> 1; let m1 = 0, m2 = 0; for (let i = 0; i < h; i++) { m1 += seg[8 - L + i]; m2 += seg[7 - i]; }
@@ -242,7 +249,14 @@ class MusicDetector {
     // the share of the pitched sound lately that held its notes: most of it while an instrument plays, little while talking.
     // While it is high, the frames in between count almost fully too, and a step between notes is not taken for a glide
     if (L) this.ctx += ((note === 1 ? 1 : 0) - this.ctx) * (1 - Math.exp(-dt / NOTE.ctxT));
-    const lift = clamp01((this.ctx - NOTE.ctx0) / NOTE.ctxW);
+    // how closely the pitches of the last few seconds keep to one tuning grid: the length of the average of their positions
+    // within a semitone, taken round a circle (1 when all agree, near 0 when they lie anywhere). A few notes can agree by chance,
+    // the more so the fewer and longer they are (gq adds up each note's frames squared), so the bar starts higher
+    const gk = Math.exp(-dt / NOTE.tuneT); this.gx *= gk; this.gy *= gk; this.gw *= gk; this.gq *= gk * gk;
+    if (L) { const a = 2 * Math.PI * ch[7] / 100; this.gx += Math.cos(a); this.gy += Math.sin(a); this.gw++; this.gq += 2 * L - 1; }
+    const tune = this.gw >= NOTE.tuneN ? Math.hypot(this.gx, this.gy) / this.gw : 0;
+    const bar = Math.max(NOTE.tune0, (this.gw > 0 ? Math.sqrt(this.gq) / this.gw : 1) + NOTE.tuneM);
+    const lift = Math.max(clamp01((this.ctx - NOTE.ctx0) / NOTE.ctxW), clamp01((tune - bar) / NOTE.tuneW));
     if (tonal && note < 1) note += (NOTE.lifted - note) * lift;
     let q = 0;
     if (tonal) {
@@ -538,6 +552,8 @@ function concat(list) { let n = 0; for (const a of list) n += a.length; const ou
   let p = 0; for (const a of list) { out.set(a, p); p += a.length; } return out; }
 
 const mel = (ms, d, gap) => ms.map(m => [m, d, gap || 0]);
+/* a major scale up two octaves from key number m and back down */
+const scale2 = m => { const up = []; for (let o = 0; o < 2; o++) for (const k of [0, 2, 4, 5, 7, 9, 11]) up.push(m + 12 * o + k); up.push(m + 24); return up.concat(up.slice(0, -1).reverse()); };
 const CLIPS = {
   violin:   sr => synthSustained(sr, 'violin', mel([69, 71, 73, 76, 74, 73, 71, 69, 76, 78, 76, 74], 0.5), 0.2, 11),
   violinFast: sr => synthSustained(sr, 'violin', mel([69, 71, 73, 74, 76, 78, 80, 81, 80, 78, 76, 74, 73, 71, 69, 71, 73, 74, 76, 78, 80, 81, 80, 78, 76, 74, 73, 71, 69, 71, 73, 74, 76, 78, 80, 81], 0.14), 0.2, 12),
@@ -573,6 +589,11 @@ const CLIPS = {
   roomFlute:    sr => inRoom(sr, synthPlayed(sr, 'flute', mel([72, 74, 76, 77, 79, 77, 76, 74, 72, 76, 79, 77], 0.5), { seed: 53, level: 0.1 }), { gainDb: -52, dist: 4, seed: 63 }),
   roomCello:    sr => inRoom(sr, synthPlayed(sr, 'cello', mel([43, 45, 47, 48, 50, 52, 50, 48, 47, 45, 43, 50], 0.55), { seed: 54 }), { gainDb: -56, dist: 3, rt60: 0.7, seed: 64 }),
   roomPiano:    sr => inRoom(sr, synthPiano(sr, [60, 64, 67, 72, 71, 67, 64, 62, 60, 65, 69, 72, 67, 64, 60, 62].map((m, i) => [0.1 + i * 0.36, m, 0.34]), 6.2, 0.18, 55), { gainDb: -54, dist: 4, seed: 65 }),
+  // scales up and down two octaves, legato, at a brisk practice tempo, in a room
+  scaleViolin:  sr => inRoom(sr, synthPlayed(sr, 'violin', mel(scale2(55), 1 / 12), { seed: 59 }), { gainDb: -24, dist: 3, rt60: 0.6, seed: 69 }),
+  scaleCello:   sr => inRoom(sr, synthPlayed(sr, 'cello', mel(scale2(36), 1 / 8), { seed: 60 }), { gainDb: -24, dist: 3, rt60: 0.6, seed: 70 }),
+  scaleFlute:   sr => inRoom(sr, synthPlayed(sr, 'flute', mel(scale2(62), 1 / 12), { seed: 61 }), { gainDb: -24, dist: 3, rt60: 0.6, seed: 71 }),
+  scalePiano:   sr => inRoom(sr, synthPiano(sr, scale2(48).map((m, i) => [0.1 + i / 10, m, 1 / 10]), 0.1 + 29 / 10 + 0.4, 0.18, 62), { gainDb: -24, dist: 3, rt60: 0.6, seed: 72 }),
   // talking near the phone in a room whose echo joins up the syllables, and talking quietly across the room
   roomTalk:     sr => inRoom(sr, synthSpeech(sr, 6, 120, 56), { gainDb: -12, dist: 1, seed: 66 }),
   roomTalkHigh: sr => inRoom(sr, synthSpeech(sr, 6, 230, 57), { gainDb: -12, dist: 1, seed: 67 }),
@@ -620,6 +641,11 @@ const DETECTION_CASES = [
   { name: 'Soft flute, phone across the room', clip: 'roomFlute', music: true, inst: 'Flute' },
   { name: 'Soft cello in an echoing room', clip: 'roomCello', music: true, inst: 'Cello' },
   { name: 'Quiet piano, phone across the room', clip: 'roomPiano', music: true, inst: 'Piano' },
+  // fast legato scales, with the phone across the room: the steps between notes must not be taken for a voice's glides
+  { name: 'Violin scale, 12 notes a second', clip: 'scaleViolin', music: true },
+  { name: 'Cello scale from low C, 8 notes a second', clip: 'scaleCello', music: true },
+  { name: 'Flute scale, 12 notes a second', clip: 'scaleFlute', music: true },
+  { name: 'Piano scale, 10 notes a second', clip: 'scalePiano', music: true },
   { name: 'Talking, low voice', clip: 'talk', music: false },
   { name: 'Talking, high voice', clip: 'talkHigh', music: false },
   { name: 'Talking, flat monotone', clip: 'talkFlat', music: false },
