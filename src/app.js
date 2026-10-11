@@ -235,10 +235,12 @@ function tick() {
     let best = '', bs = 0; for (const k in vote) { vote[k] *= Math.exp(-dt / 25); if (vote[k] > bs) { bs = vote[k]; best = k; } }
     if (best && best !== kbInst && bs >= 1.2 && bs > (vote[kbInst] || 0) * 1.25 + 0.4) { kbInst = best; S.inst = best; saveS(); }
   }
-  music = session.tick(dt * w, m);             // a short quiet after playing still counts (the hold set in Settings)
+  const away = dt >= 1.5 && session.state === 'running';   // the page was asleep or in the background: that time counts like a pause
+  if (away) { session.away(dt * w); music = false; }
+  else music = session.tick(dt * w, m);        // a short quiet after playing still counts (the hold set in Settings)
   if (session.holdLeft > 0) heard.detail = 'Short pauses still count as playing';
   const pw = session.recentEfficiency;   // the rocket, cannons and course follow the last minute of playing
-  sim.update(dt * w, { running: session.state === 'running', playing: m, eff: pw, rdt: dt });
+  sim.update(away ? 0 : dt * w, { running: session.state === 'running', playing: m, eff: pw, rdt: dt });
   if (!goalHit && session.play >= session.goal) { goalHit = true; award(session.goal); }
   if (now - dashAt > 250) dashStep(dt, session.state === 'running', m, pw, session.goal > 0 ? session.play / session.goal : 0);   // frames are not being drawn (tab in the background): keep the course moving
   if (now - lastPush > 330) push(false);
@@ -321,7 +323,9 @@ function followStep(dt) {
 const EVENT_TEXT = { ignition: 'Engines lit', liftoff: 'Lift-off!', tower: 'Tower cleared', stage1: 'Stage 1 separation', space: 'You have left the atmosphere',
   stage2: 'Stage 2 separation', orbit: 'Moon orbit reached!', spin: 'Module spinning', fall: 'Engines out. Falling!', crash: 'The rocket exploded!' };
 let flightAt = -1e9;   // when a new flight was started, so its banner is not replaced at once by "Engines lit"
-function fire(e) { if (EVENT_TEXT[e] && !(e === 'ignition' && performance.now() - flightAt < 3000)) banner(EVENT_TEXT[e]); rocket.event(e); }
+/* the rocket's own effects (explosions, falling stages, the flash) only while Rocket is on screen: they age only as it is drawn,
+   so effects from another theme would all play at once on switching to Rocket */
+function fire(e) { if (EVENT_TEXT[e] && !(e === 'ignition' && performance.now() - flightAt < 3000)) banner(EVENT_TEXT[e]); if (visible(1)) rocket.event(e); }
 
 /* ---------- screen ---------- */
 const clockEl = $('cClock'); let clockTxt = '';
@@ -445,7 +449,7 @@ $('btnStart').onclick = start; $('btnPause').onclick = pause; $('btnResume').onc
 /* End asks first, so a tap on it by mistake does not cut a session short */
 function askEnd() {
   if (session.state !== 'running' && session.state !== 'paused') return;
-  $('endP').textContent = 'You have played for ' + MT.durationText(session.play) + '. ' + (MT.worthKeeping({ play: session.play })
+  $('endP').textContent = 'You have played for ' + MT.durationText(Math.floor(session.play)) + '. ' + (MT.worthKeeping({ play: session.play })
     ? 'The session will be saved to your practice log.' : 'Sessions with less than 10 seconds of playing are not saved.');
   themeSheet($('dlgEnd'), false); if (!$('dlgEnd').open) $('dlgEnd').showModal();
 }
@@ -732,7 +736,8 @@ function layoutChanged() { requestAnimationFrame(() => { rocket.resize(); city.r
   for (const [p, h] of [['pRocket', 'hud'], ['pCity', 'cityHud'], ['pDash', 'dashHud']]) { const el = $(h); $(p).style.setProperty('--hud-b', el.offsetTop + el.offsetHeight + 'px'); } }); }
 stage.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse' && e.button !== 0) return; drag = { x: e.clientX, y: e.clientY, id: e.pointerId, w: stage.clientWidth, lock: false, t: performance.now() }; });
 stage.addEventListener('pointermove', e => {
-  if (!drag || e.pointerId !== drag.id) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+  if (!drag || e.pointerId !== drag.id) return;
+  if (e.pointerType === 'mouse' && !e.buttons) { endDrag(e); return; }   // the button was let go somewhere else const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
   if (!drag.lock) { if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.3) { drag.lock = true; dragging = true; try { stage.setPointerCapture(drag.id); } catch (er) {} rocket.resize(); } else { if (Math.abs(dy) > 14) drag = null; return; } }
   peek = stepSkin(dx < 0 ? 1 : -1);
   const end = -(open.length - 1) * drag.w; let x = -open.indexOf(skin) * drag.w + dx; if (x > 0) x *= 0.3; if (x < end) x = end + (x - end) * 0.3;
@@ -745,6 +750,7 @@ function endDrag(e) {
   setSkin(i, true);
 }
 stage.addEventListener('pointerup', endDrag); stage.addEventListener('pointercancel', () => endDrag(null));
+window.addEventListener('pointerup', endDrag);   // let go outside the scene
 stage.addEventListener('dragstart', e => e.preventDefault());   // a native drag would cancel the pointer stream mid-swipe
 const wheel = new MT.WheelSwipe();   // a two-finger trackpad swipe arrives as horizontal wheel events: one theme per swipe, however quickly they follow
 document.addEventListener('wheel', e => {   // the whole page: on a computer the pointer is often over the theme bar or beside the column
@@ -763,6 +769,7 @@ window.addEventListener('pagehide', writeLive);   // the app is being closed: ke
 document.addEventListener('visibilitychange', () => { if (document.visibilityState !== 'visible') { writeLive(); return; }
   if (session.state === 'running' || session.state === 'paused') keepAwake();
   if (A.ctx && A.ctx.state === 'suspended') A.ctx.resume().catch(() => {});
+  if (homeOn && mode === 'local' && session.state !== 'running' && session.state !== 'paused') { carryRocket(); renderHome(); }   // a new day since: fresh words, and the rocket on the pad
   checkVersion(); });
 window.addEventListener('pageshow', e => { if (e.persisted) checkVersion(); });   // back from the browser's page cache
 
@@ -847,7 +854,8 @@ function finishSession() {
   let note;
   if (!MT.worthKeeping(R)) note = { text: 'Sessions with less than 10 seconds of playing are not saved to your practice log.' };
   else if (!addToLog(r)) note = { text: 'This session could not be saved on this device.' };
-  else { const P = MT.practiceStats(log, Date.now()); note = { lead: MT.durationText(P.weekPlay) + ' of music this week.', text: 'Saved to your practice log.' }; }
+  else { const P = MT.practiceStats(log, Date.now()); note = P.weekPlay > 0 ? { lead: MT.durationText(P.weekPlay) + ' of music this week.', text: 'Saved to your practice log.' }
+    : { text: 'Saved to your practice log.' }; }   // a Sunday-night session that ran past midnight is filed under last week
   return { rec: r, note: note };
 }
 function openSummary(r, past) {
@@ -959,7 +967,9 @@ function writeLog() {
 function carryRocket() { if (mode === 'local' && DBG.rocket) return sim.restore(DBG.rocket === 'pad' ? null : MT.rocketAt(MT.MILESTONES[DBG.rocket]));
   return sim.restore(mode === 'local' ? MT.rocketCarry(log, Date.now(), flightFrom) : null); }
 function rocketAfterDelete() { if (mode === 'local' && (session.state === 'idle' || session.state === 'stopped')) { carryRocket(); rocket.reset(); } }
-function addToLog(r) { log = log.filter(x => x.id !== r.id); log.push(r); log.sort((a, b) => a.start - b.start); if (log.length > MT.LOG_MAX) log.splice(0, log.length - MT.LOG_MAX); return writeLog(); }
+/* add a session; if it cannot be written, the log stays as it was, so nothing shows that is not saved */
+function addToLog(r) { const was = log; log = log.filter(x => x.id !== r.id); log.push(r); log.sort((a, b) => a.start - b.start); if (log.length > MT.LOG_MAX) log.splice(0, log.length - MT.LOG_MAX);
+  if (writeLog()) return true; log = was; return false; }
 /* a destructive button asks twice: the first tap arms it for a few seconds */
 function disarm(b, label) { b.classList.remove('armed'); b.textContent = label; clearTimeout(b._t); }
 function twoTap(b, label, armedLabel, act) { b.onclick = () => {

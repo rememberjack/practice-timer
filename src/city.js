@@ -7,17 +7,18 @@ function makeCityView(host) {
   const THREE_URL = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
   const CANNON_EVERY = 10, BUILD_EVERY = 15;
   const view = { ready: false, failed: false, loading: false, used: false, events: [], stats: { down: 0, imp: 0, rebuilt: 0, cannons: 3, standing: 0, total: 0 }, next: null };
-  let api = null, promise = null;
+  let api = null, promise = null, failedAt = 0;
   view.ensure = function () {
     if (promise) return promise;
-    view.loading = true;
+    if (view.failed && Date.now() - failedAt < 10e3) return Promise.resolve();   // after a failed load, try again every 10 s while City is shown
+    view.loading = true; let s = null;
     promise = new Promise((res, rej) => {
       if (window.THREE) return res();
-      const s = document.createElement('script'); s.src = THREE_URL; s.async = true;
+      s = document.createElement('script'); s.src = THREE_URL; s.async = true;
       s.onload = () => res(); s.onerror = () => rej(new Error('three.js did not load'));
       document.head.appendChild(s);
-    }).then(() => { api = build(); view.ready = true; view.loading = false; view.resize(); })
-      .catch(e => { view.failed = true; view.loading = false; view.error = String(e && e.message || e); });
+    }).then(() => { api = build(); view.ready = true; view.failed = false; view.loading = false; view.resize(); })
+      .catch(e => { view.failed = true; view.loading = false; view.error = String(e && e.message || e); failedAt = Date.now(); promise = null; if (s) s.remove(); });
     return promise;
   };
   view.reset = () => { view.events.length = 0; if (api) api.reset(); };

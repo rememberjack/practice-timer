@@ -57,6 +57,8 @@ Node 20+, no dependencies to install.
   if the live build stamp differs (`newerBuild` in `src/core.js`, `checkVersion` in `src/app.js`); never during a session.
 - A session cut short (the app closed or discarded by iOS before End) is not lost: while it runs it is kept in `musicTimer.live`
   (`liveSnapshot`, every 5 s and when the app is hidden), cleared at End, and offered back on the next open (`liveRecord`, `#dlgLost`).
+- Time the app could not listen during a session (the phone asleep, the app in the background: a tick of 1.5 s or more) counts like a
+  pause (`Session.away`), so it never lowers efficiency or the last minute's power.
 - While no name is set, a quiet "Add your name" link follows the Home Screen greeting and opens Settings at the name field.
 - The practice goal is for one session. The practice log never marks a day as reaching it: the week bars compare days by time
   played, and the calendar shades days by minutes (`LEVEL_MIN` in `src/core.js`). Only a session's trophy is gold.
