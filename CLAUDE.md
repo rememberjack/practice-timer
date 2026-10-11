@@ -17,13 +17,13 @@ Node 20+, no dependencies to install.
 
     npm test          unit tests (src/core.js)
     npm run build     joins src/ into dist/index.html (dist/ is not committed)
-    npm run ci        tests, build and a smoke check of the built page; GitHub Actions runs this
+    npm run ci        tests, build, a smoke check of the built page and swipes in a real browser; GitHub Actions runs this
     npm run serve     build and serve locally (the microphone works on localhost)
 
 ## Layout
 
 - `scripts/build.js` inlines `src/core.js`, the theme renderers and `src/app.js` into `src/template.html`.
-- `src/core.js` is pure logic with no DOM (detection, `Session`, the theme sims, swipe handling) and holds the tests,
+- `src/core.js` is pure logic with no DOM (detection, `Session`, the theme sims, swipe handling: `DragSwipe`, `WheelSwipe`) and holds the tests,
   which also run in the page from the debug tools (Sound tests). Behaviour belongs here, with a test.
 - Finished sessions are saved in localStorage under `musicTimer.log` (no audio); the practice log's figures (week,
   totals, calendar) come from `practiceStats` in `src/core.js`, which also works out a streak that is not shown for now.
@@ -80,7 +80,9 @@ Node 20+, no dependencies to install.
 
 ## Testing
 
-The app is mainly used on an iPhone. Playwright with Chromium is installed globally in cloud sessions. cdnjs is not
+The app is mainly used on an iPhone. `test/browser.js` swipes the built page by finger and mouse in headless Chrome over the DevTools
+protocol (no dependencies); it finds Chromium in cloud sessions and Chrome on GitHub's runner, is skipped locally without one (or set
+`CHROME_PATH`) and fails under CI. Playwright with Chromium is installed globally in cloud sessions. cdnjs is not
 reachable from the sandbox, so for themes that use three.js serve it from `npm pack three@0.128.0` via `page.route`.
 
 ## Workflow
