@@ -41,6 +41,10 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
   paused by hand. The practice log opens only from the Home Screen.
 - Every theme keeps the title row with Settings at the top. During a session Pause (or Resume) is the big button and End the small
   one, and End asks to confirm (`askEnd`, `#dlgEnd`).
+- Settings, Themes (its own page in the Settings sheet, `settingsPage` in `src/app.js`) lets the player turn off themes they don't like. A theme
+  turned off leaves the swipe, the theme bar and the Home Screen choices, with no padlock (there is nothing to earn back). One theme always
+  stays on, any one; turning off the theme on screen moves to the next one on, during a session too. The ids turned off are kept in
+  the settings as `themesOff` (`themesOn`, `themeSwitch`, `themeLanding` in `src/core.js`), so a new theme starts on and a removed one is forgotten.
 - Settings always has the Classic look; only the goal's hint follows the theme it is opened from (`GOAL_HINT` in `src/app.js`).
   The rocket's power, the cannons and the Dash speed follow the last minute of playing (`Session.recentEfficiency`); there is no
   setting for it. The Rocket and City bars fill to that as Power, with a tick and a figure for the whole session's Efficiency
@@ -70,6 +74,9 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
 
 ## Things that are easy to break
 
+- Adding, removing or renaming a theme: keep Settings, Themes in sync with it. That is its id and name in `SKINS`, `SKIN_NAMES` and `PANELS`,
+  its line in `THEME_LINE` (`src/app.js`), its tile colours (`[data-theme="<id>"]` in `src/template.html`), its `#ico-<id>` icon, and the
+  theme list in the "Themes: the player turns off" test (`src/core.js`). Check the page still fits an iPhone SE.
 - Only the theme on screen (and the one a swipe is revealing) is drawn; drawing hidden themes made swipes lag on phones.
 - Any scroll area inside a theme needs `touch-action:pan-y pinch-zoom`, or Android Chrome cancels sideways swipes.
 - Themes sharing the pixel chrome (`data-chrome="pixel"`) must keep the same scene height (`#stage`) at every screen

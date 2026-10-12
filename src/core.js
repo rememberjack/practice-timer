@@ -974,6 +974,14 @@ function detectionTests(sr) {
   const notches = (n, gap) => Array.from({ length: n }, (_, i) => ({ t: i * gap, dx: 100, dy: 0 }));
   wheelTest('Mouse wheel: sideways clicks of 100 px each move one theme', 'a 100 px sideways wheel click (as Chrome and Edge send on Windows) every 260 or 400 ms steps each time; a quick spin steps once', [
     ['every 400 ms', notches(3, 400), 'next next next'], ['every 260 ms', notches(3, 260), 'next next next'], ['a quick spin', notches(3, 100), 'next']]);
+  list.push({ name: 'Themes: the player turns off the ones they don\'t like', run: () => {
+    const all = ['classic', 'rocket', 'city', 'dash'];
+    const got = [themesOn(all, '').join(' '), themesOn(all, 'city,dash').join(' '), themesOn(all, 'classic,rocket,city,dash').join(' '), themesOn(all, 'space,dash').join(' '),
+      themeSwitch(all, '', 'city', false), themeSwitch(all, 'city', 'classic', false), themeSwitch(all, 'classic,city', 'city', true), themeSwitch(all, 'classic,rocket,city', 'dash', false),
+      themeSwitch(all, 'space', 'rocket', false), themeLanding(all, ['classic', 'dash'], 'rocket'), themeLanding(all, ['classic', 'rocket'], 'dash'), themeLanding(all, ['city'], 'city'), themeLanding(all, ['rocket'], 'gone')];
+    const want = ['classic rocket city dash', 'classic rocket', 'classic rocket city dash', 'classic rocket city', 'city', 'classic,city', 'classic', 'classic,rocket,city', 'rocket', 'dash', 'rocket', 'city', 'rocket'];
+    return { name: 'Themes: the player turns off the ones they don\'t like', expect: 'off themes leave the list, unknown ids are ignored, the last one on stays on, and turning off the one on screen lands on the next one on (' + want.join(' | ') + ')',
+      got: got.join(' | '), pass: got.every((g, i) => g === want[i]) }; } });
   return list;
 }
 function runDetectionTests(sr) { return detectionTests(sr).map(t => t.run()); }
@@ -983,6 +991,22 @@ function runDetectionTests(sr) { return detectionTests(sr).map(t => t.run()); }
 function buildOf(html) { const m = /<meta name="build" content="([^"]*)"/.exec(html || ''); return m && m[1].indexOf('__') < 0 ? m[1].trim() : ''; }
 /* is the live page (its html) a different build from the one running? Never for an unbuilt page */
 function newerBuild(running, html) { const b = buildOf(html); return !!running && running.indexOf('__') < 0 && !!b && b !== running; }
+
+/* ---------- theme choice: the player can turn off themes they don't like (Settings, Themes) ---------- */
+/* all: every theme id, in swipe order; off: the ids turned off, saved as text ('city,dash'). Ids no longer in all are left out,
+   so a removed theme is forgotten and a new one starts on. One theme always stays on: with every one off, all come back. */
+function themesOff(all, off) { const ids = String(off || '').split(','); return all.filter(id => ids.indexOf(id) >= 0); }
+function themesOn(all, off) { const o = themesOff(all, off), on = all.filter(id => o.indexOf(id) < 0); return on.length ? on : all.slice(); }
+/* turns one theme on or off; the new off text. The last theme on can't be turned off */
+function themeSwitch(all, off, id, want) {
+  const o = themesOff(all, off).filter(x => x !== id); if (!want && all.indexOf(id) >= 0) o.push(id);
+  return o.length < all.length ? all.filter(x => o.indexOf(x) >= 0).join(',') : themesOff(all, off).join(',');
+}
+/* the theme to show when cur is not among those on: the next one on after it in swipe order, else the nearest before it */
+function themeLanding(all, on, cur) {
+  if (on.indexOf(cur) >= 0) return cur; const i = all.indexOf(cur);
+  return all.slice(i + 1).find(x => on.indexOf(x) >= 0) || all.slice(0, Math.max(0, i)).reverse().find(x => on.indexOf(x) >= 0) || on[0];
+}
 
 /* ---------- Session clock ---------- */
 class Session {
@@ -1660,6 +1684,6 @@ class DashSim {
 }
 
 const api = { LIFTOFF, OnsetTracker, DragSwipe, WheelSwipe, DashSim, DASH, dashSpeed, MusicDetector, Session, RocketSim, WORLD, MILESTONES, SENSITIVITY, CLIPS, DETECTION_CASES,
-  detectionTests, runDetectionTests, analyzeClip, sessionReport, clockText, sessionRecord, worthKeeping, liveSnapshot, liveRecord, rocketCarry, buildOf, newerBuild, practiceStats, dayRecap, dayLine, practiceNudge, homeCopy, weekLine, durationText, dayKey, LOG_MAX, LEVEL_MIN, SAMPLE_LOGS, sampleLog, rocketAt, fraction, heardAs, noteOf, smooth, pchip, clamp01 };
+  detectionTests, runDetectionTests, analyzeClip, sessionReport, clockText, sessionRecord, worthKeeping, liveSnapshot, liveRecord, rocketCarry, buildOf, newerBuild, themesOn, themeSwitch, themeLanding, practiceStats, dayRecap, dayLine, practiceNudge, homeCopy, weekLine, durationText, dayKey, LOG_MAX, LEVEL_MIN, SAMPLE_LOGS, sampleLog, rocketAt, fraction, heardAs, noteOf, smooth, pchip, clamp01 };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.MT = api;
 })(typeof self !== 'undefined' ? self : this);
