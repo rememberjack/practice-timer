@@ -334,13 +334,14 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 #dlgSettings .sh-head, #dlgSettings .sh-body, #dlgLog .sh-head, #dlgLog .sh-body{padding-left:max(16px, calc((100% - 520px) / 2)); padding-right:max(16px, calc((100% - 520px) / 2))}
 #dlgSettings .sh-body, #dlgLog .sh-body{padding-bottom:24px}
 /* About (from Settings): the credits fill the screen on near-black, rolling up and fading in at the bottom and out at the top.
-   With reduced motion they stand still and scroll */
+   With reduced motion they stand still and scroll. The title row and the hint sit above the roll, and the roll is clipped twice:
+   on an iPhone the rolling names, unseen under the fade, could otherwise cover Done and take its taps */
 #dlgCredits{position:fixed; inset:0; width:100%; max-width:none; height:100%; max-height:none; margin:0; border:0; border-radius:0; background:#070B12;
   padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
-.cr-head{flex:none; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 16px 4px}
+.cr-head{flex:none; position:relative; z-index:1; background:#070B12; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 16px 4px}
 #aboutH{font-weight:800; font-size:17px; margin:0; color:var(--mute)}
-.cr-hint{flex:none; margin:0; padding:8px 16px 14px; text-align:center; font-size:13px; color:var(--mute-2)}
-.roll{position:relative; flex:1 1 auto; min-height:0; overflow:hidden; cursor:pointer; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;
+.cr-hint{flex:none; position:relative; z-index:1; background:#070B12; margin:0; padding:8px 16px 14px; text-align:center; font-size:13px; color:var(--mute-2)}
+.roll{position:relative; flex:1 1 auto; min-height:0; overflow:hidden; clip-path:inset(0); cursor:pointer; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;
   -webkit-mask-image:linear-gradient(transparent, #000 18%, #000 82%, transparent); mask-image:linear-gradient(transparent, #000 18%, #000 82%, transparent)}
 .roll-in{list-style:none; margin:0 auto; max-width:520px; padding:0 24px; text-align:center; will-change:transform}
 .roll-in li{margin:0 0 20px}
