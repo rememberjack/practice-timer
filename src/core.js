@@ -723,9 +723,9 @@ function detectionTests(sr) {
     const first = homeCopy(stats([]), null, at(9, 9)), today = homeCopy(stats(all.concat([rec(9, 1200)])), rec(9, 1200), now);
     const yest = homeCopy(stats(all), rec(8, 600), now), tue = homeCopy(stats([rec(6, 900)]), rec(6, 900), now), back = homeCopy(stats([rec(1, 1500)]), rec(1, 1500), at(9, 14));
     const all5 = [first, today, yest, tue, back], words = all5.map(c => [c.hello, c.head, c.lede, c.note || '', c.fresh || ''].join(' '));
-    const ok = first.kind === 'first' && first.hello === 'Good morning' && today.kind === 'today' && today.lede === 'You played for 20 min today. Come back whenever you feel like it.'
+    const ok = first.kind === 'first' && first.hello === 'Good morning, music maker' && first.friend === 'music maker' && today.kind === 'today' && today.lede === 'You played for 20 min today. Come back whenever you feel like it.'
       && today.note === 'All together: 1 h 10 min of music.' && yest.kind === 'week' && yest.note === 'Your last session was yesterday, 10 min.'
-      && tue.note === 'Your last session was on Tuesday, 15 min.' && back.kind === 'back' && back.hello === 'Good afternoon' && back.note === 'So far you have made 25 min of music with Music Timer.'
+      && tue.note === 'Your last session was on Tuesday, 15 min.' && back.kind === 'back' && back.hello === 'Good afternoon, music maker' && back.note === 'So far you have made 25 min of music with Music Timer.'
       && !words.some(w => /streak|in a row|ago|miss|lost|keep/i.test(w));
     return { name: 'Home Screen: the words for each moment', expect: 'first time, played today, played this week, back after a break; nothing about streaks or days missed',
       got: all5.map(c => c.kind + ': ' + c.head + ' ' + (c.note || c.lede)).join(' | '), pass: ok }; } });
@@ -734,19 +734,19 @@ function detectionTests(sr) {
     const rec = (d, play) => ({ start: at(d, 16), play: play, goal: 1800, eff: 0.8, R: { active: play / 0.8 } });
     const moments = [[[], null], [[rec(9, 1200)], rec(9, 1200)], [[rec(8, 600)], rec(8, 600)], [[rec(1, 1500)], rec(1, 1500)]];
     const seeds = []; for (let i = 1; i <= 60; i++) seeds.push(i * 7919);
-    const seen = moments.map(() => new Set()), hellos = new Set(); let same = true, named = true, clean = true;
+    const seen = moments.map(() => new Set()), hellos = new Set(), friends = new Set(); let same = true, named = true, clean = true;
     for (const [rs, last] of moments) for (const seed of seeds) {
       const P = practiceStats(rs, now), c = homeCopy(P, last, now, { seed: seed, name: 'Sam' }), plain = homeCopy(P, last, now, { seed: seed }), k = moments.findIndex(m => m[1] === last);
-      seen[k].add(c.head); hellos.add(c.hello);
+      seen[k].add(c.head); hellos.add(c.hello); friends.add(plain.friend);
       same = same && JSON.stringify(c) === JSON.stringify(homeCopy(P, last, now, { seed: seed, name: 'Sam' })) && c.head === plain.head;
-      named = named && /Sam/.test(c.hello) && !/[{}]|Sam|,\s*$|\s$/.test(plain.hello);
+      named = named && /Sam/.test(c.hello) && c.friend === undefined && !/[{}]|Sam|,\s*$|\s$/.test(plain.hello) && !!plain.friend && plain.hello.endsWith(' ' + plain.friend);
       clean = clean && ![c.hello, c.head, c.lede, c.note || '', c.fresh || ''].join(' ').match(/streak|in a row|ago|miss|lost|keep|[{}]|undefined/i) && /[.!?]$/.test(c.head) && /[.!?]$/.test(c.lede);
     }
-    const all = Object.values(HOME_WORDS).flatMap(w => Object.values(w).flat()).concat(HOME_HELLO);
-    const ok = same && named && clean && seen.every(s => s.size >= 4) && hellos.size >= 10 && homeCopy(practiceStats([], now), null, now).hello === 'Good evening'
+    const all = Object.values(HOME_WORDS).flatMap(w => Object.values(w).flat()).concat(HOME_HELLO, HOME_FRIEND);
+    const ok = same && named && clean && seen.every(s => s.size >= 4) && hellos.size >= 10 && friends.size >= 8 && friends.has('Captain') && homeCopy(practiceStats([], now), null, now).hello === 'Good evening, music maker'
       && homeCopy(practiceStats([], now), null, now, { name: 'Sam' }).hello === 'Good evening, Sam' && all.every(w => w.length <= 64 && !/streak|in a row|ago|miss|lost|keep/i.test(w));
-    return { name: 'Home Screen: playful words that change', expect: 'each moment has several headlines and greetings, the same seed gives the same words, a name fits in or drops out cleanly',
-      got: seen.map(s => s.size).join(', ') + ' headlines, ' + hellos.size + ' greetings; e.g. ' + homeCopy(practiceStats([], now), null, now, { seed: 5, name: 'Sam' }).hello + ' / ' + homeCopy(practiceStats([], now), null, now, { seed: 6 }).hello, pass: ok }; } });
+    return { name: 'Home Screen: playful words that change', expect: 'each moment has several headlines and greetings, the same seed gives the same words, a name fits in, and with none a fun word for the player does',
+      got: seen.map(s => s.size).join(', ') + ' headlines, ' + hellos.size + ' greetings, ' + friends.size + ' words for a player with no name; e.g. ' + homeCopy(practiceStats([], now), null, now, { seed: 5, name: 'Sam' }).hello + ' / ' + homeCopy(practiceStats([], now), null, now, { seed: 6 }).hello, pass: ok }; } });
   // the practice log
   list.push({ name: 'Practice log: week, calendar and encouraging lines', run: () => {
     const at = (d, h) => new Date(2026, 9, d, h).getTime(), now = at(9, 18);                // Friday 9 October 2026, 6 pm
@@ -1265,10 +1265,12 @@ function practiceNudge(P) {
 /* the Home Screen's words for this moment: a greeting, a headline and a line or two. Low pressure, like the practice log: they speak
    of what was played, never of days missed, so opening the app after a break feels welcoming. last is the latest session, or null.
    o.seed picks among playful words for young players, so the greeting is seldom the same twice (no seed: the first of each);
-   o.name goes into the greeting ("Ahoy, Captain Sam"), and a greeting without a name simply drops it ("Ahoy, Captain") */
+   o.name goes into the greeting ("Ahoy, Captain Sam"); with no name a fun word for the player takes its place ("Hello, music maker", or the
+   greeting's own title: "Ahoy, Captain"), given as friend too, so the page can make it the link that adds a name. Every greeting ends with it */
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const HOME_HELLO = ['Hello, {name}', 'Hi there, {name}', 'Howdy, {name}', 'Ahoy, Captain {name}', 'Hello, Earthling {name}', 'Yo-ho-ho, {name}',
   'Hey, superstar {name}', 'Bonjour, {name}', 'Hiya, {name}', 'Well, hello there, {name}', 'Hey, Maestro {name}', 'Beep boop, hello, {name}'];
+const HOME_FRIEND = ['music maker', 'superstar', 'rock star', 'maestro', 'friend', 'tune wizard', 'melody maker', 'star player', 'music hero'];
 const HOME_WORDS = {
   first: { head: ['Let\u2019s make some music.', 'Ready to make some noise?', 'Your instrument looks excited.', 'Time to make music magic.', 'Let\u2019s get this party started.'] },
   today: { head: ['Lovely playing today.', 'Somewhere, a cat is clapping.', 'High five for playing today!', 'Your instrument says thank you.', 'The crowd wants an encore.', 'That was some fine music.', 'You rocked it today.'],
@@ -1285,18 +1287,20 @@ function homeCopy(P, last, now, o) {
   const day = new Date(now), h = day.getHours(), r = o.seed ? rng(o.seed) : null, pick = a => a[r ? Math.floor(r() * a.length) : 0];
   // the greeting: the time of day comes first (and with no seed is the one used), then the playful ones, which may name the day too
   const hellos = [h < 12 ? 'Good morning, {name}' : h < 18 ? 'Good afternoon, {name}' : 'Good evening, {name}', h < 12 ? 'Rise and shine, {name}' : 'Happy ' + WEEKDAYS[day.getDay()] + ', {name}'].concat(HOME_HELLO);
-  const name = String(o.name || '').trim(), hello = name ? pick(hellos).replace('{name}', name) : pick(hellos).replace(/,? ?\{name\}/, '');
-  if (!P.sessions || !last) return { kind: 'first', hello: hello, head: pick(HOME_WORDS.first.head), lede: 'It counts only the time the microphone hears you play.' };
+  // with no name, a title the greeting has ("Captain") is the word for the player; else one of HOME_FRIEND (picked either way, so a name never changes the other words)
+  const name = String(o.name || '').trim(), said = pick(hellos), other = pick(HOME_FRIEND), title = said.slice(said.lastIndexOf(', ') + 2).replace('{name}', '').trim();
+  const friend = name ? undefined : title || other, hello = name ? said.replace('{name}', name) : title ? said.replace(/ \{name\}$/, '') : said.replace('{name}', other);
+  if (!P.sessions || !last) return { kind: 'first', hello: hello, friend: friend, head: pick(HOME_WORDS.first.head), lede: 'It counts only the time the microphone hears you play.' };
   // a session that started before midnight and ended today still counts as playing today here (it is filed under the day it started)
   const lateLast = !P.practicedToday && dayKey(last.end || last.start) === dayKey(now);
   if (P.practicedToday || lateLast) { const t = P.today, n = t.sessions, play = lateLast ? last.play : t.play;
-    return { kind: 'today', hello: hello, head: pick(HOME_WORDS.today.head), lede: 'You played for ' + durationText(play) + ' today' + (!lateLast && n > 1 ? ', in ' + n + ' sessions' : '') + '. ' + pick(HOME_WORDS.today.then),
+    return { kind: 'today', hello: hello, friend: friend, head: pick(HOME_WORDS.today.head), lede: 'You played for ' + durationText(play) + ' today' + (!lateLast && n > 1 ? ', in ' + n + ' sessions' : '') + '. ' + pick(HOME_WORDS.today.then),
       note: 'All together: ' + durationText(P.totalPlay) + ' of music.' }; }
   if (P.weekPlay > 0) { const days = Math.round((dayStart(now) - dayStart(last.start)) / 864e5), when = days <= 1 ? 'yesterday' : 'on ' + WEEKDAYS[new Date(last.start).getDay()];
     const d = P.week.find(c => c.key === dayKey(last.start)), n = d ? d.sessions : 1;   // every session that day, not only the last
-    return { kind: 'week', hello: hello, head: pick(HOME_WORDS.week.head), lede: pick(HOME_WORDS.week.lede),
+    return { kind: 'week', hello: hello, friend: friend, head: pick(HOME_WORDS.week.head), lede: pick(HOME_WORDS.week.lede),
       note: n > 1 ? 'You last played ' + when + ', ' + durationText(d.play) + ' in ' + n + ' sessions.' : 'Your last session was ' + when + ', ' + durationText(last.play) + '.' }; }
-  return { kind: 'back', hello: hello, head: pick(HOME_WORDS.back.head), lede: pick(HOME_WORDS.back.lede),
+  return { kind: 'back', hello: hello, friend: friend, head: pick(HOME_WORDS.back.head), lede: pick(HOME_WORDS.back.lede),
     fresh: 'A fresh week. Whenever you play, it shows up here.', note: 'So far you have made ' + durationText(P.totalPlay) + ' of music with Music Timer.' };
 }
 function weekLine(P) {

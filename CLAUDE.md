@@ -81,7 +81,8 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
   (`liveSnapshot`, every 5 s and when the app is hidden), cleared at End, and offered back on the next open (`liveRecord`, `#dlgLost`).
 - Time the app could not listen during a session (the phone asleep, the app in the background: a tick of 1.5 s or more) counts like a
   pause (`Session.away`), so it never lowers efficiency or the last minute's power.
-- While no name is set, a quiet "Add your name" link follows the Home Screen greeting and opens Settings at the name field.
+- While no name is set, the Home Screen greeting calls the player a fun word instead ("Hi there, rock star", or the greeting's own title: "Ahoy, Captain";
+  `HOME_FRIEND`, `friend` from `homeCopy`), and that word is a link that opens Settings at the name field.
 - The practice goal is for one session. The practice log never marks a day as reaching it: the week bars compare days by time
   played, and the calendar shades days by minutes (`LEVEL_MIN` in `src/core.js`). Only a session's trophy is gold.
 
