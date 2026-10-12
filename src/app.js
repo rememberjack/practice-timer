@@ -40,6 +40,9 @@ const race = new MT.RaceSim(), raceView = makeRaceView($('raceCv'), $('raceHud')
 let raceNotes = 0, raceDoneAt = 0;                  // note starts for the sparks under the car; when the chequered flag fell
 const fw = new MT.FireworkSim(), fwView = makeFireworkView($('pFire'), $('fireHud'), fw, MT);
 let fwNotes = 0;                                    // note starts waiting to send shells up
+let awardWait = 0;                                  // a goal whose trophy card waits for the fireworks finale to end
+/* the goal is reached: the trophy card, except on Fireworks, where the grand finale goes first and the card follows it (on 'finaleEnd') */
+function goalReached(goal) { if (visible(5)) awardWait = goal; else award(goal); }
 const NB = 44, bars = new Float32Array(NB), shown = new Float32Array(NB);
 const heard = { label: '', detail: '', note: '', midi: null };      // midi: the pitch heard, as a (fractional) piano key number
 let mode = 'local';            // 'local' | 'follow'
@@ -204,7 +207,7 @@ async function start() {
   dash.reset(); dashView.reset(); onsets.reset(); pendingOnsets = 0;
   race.reset(session.goal, 1 + Math.floor(Math.random() * 2e9)); raceView.reset(); raceNotes = 0; hideRaceBanner();   // a new field each session
   fw.reset(session.goal, 1 + Math.floor(Math.random() * 2e9)); fwView.reset(); fwNotes = 0; hideFireBanner();
-  music = false; goalHit = false; vote = {}; bars.fill(0); hideAward();
+  music = false; goalHit = false; awardWait = 0; vote = {}; bars.fill(0); hideAward();
   if (carried) banner('Carrying on from earlier today');
   heard.label = 'Listening'; heard.detail = 'Play your instrument to start the clock'; heard.note = ''; heard.midi = null;
   startRecording();
@@ -221,7 +224,7 @@ function resume() { sheetPaused = false; if (!session.resume()) return; if (A.ct
 function stop() {
   if (!session.stop()) return;
   clearLive();                                   // ended here, so nothing was cut short
-  clearInterval(timer); timer = 0; music = false; recCall('stop'); rec.mr = null; hideAward(); hideRaceBanner();
+  clearInterval(timer); timer = 0; music = false; recCall('stop'); rec.mr = null; hideAward(); hideRaceBanner(); awardWait = 0;
   race.update(0, { state: 'stopped', music: false, recent: 0, play: session.play });   // the car slows to a stop; the race order stays as it ended
   closeAudio(); letSleep(); paintControls(); push();
   current = finishSession(); openSummary(current.rec, false);
@@ -252,7 +255,7 @@ function tick() {
   const pw = session.recentEfficiency;   // the rocket, cannons and course follow the last minute of playing
   sim.update(away ? 0 : dt * w, { running: session.state === 'running', playing: m, eff: pw, rdt: dt });
   race.update(away ? 0 : dt * w, { state: session.state, music: music, recent: pw, play: session.play });   // the race runs on session time, like the clock
-  if (!goalHit && session.play >= session.goal) { goalHit = true; award(session.goal); }
+  if (!goalHit && session.play >= session.goal) { goalHit = true; goalReached(session.goal); }
   if (now - dashAt > 250) dashStep(dt, session.state === 'running', m, pw, session.goal > 0 ? session.play / session.goal : 0);   // frames are not being drawn (tab in the background): keep the course moving
   if (now - lastPush > 330) push();
 }
@@ -297,7 +300,7 @@ function onPeers(ch) {
 }
 function applyRemote(m) {
   const first = !R, prev = R; R = m;
-  if (prev && prev.play < prev.goal && m.play >= m.goal && m.st === 'running') award(m.goal);
+  if (prev && prev.play < prev.goal && m.play >= m.goal && m.st === 'running') goalReached(m.goal);
   if (first) { sim.reset(); rocket.reset(); city.reset(); dash.reset(); dashView.reset(); pendingOnsets = 0; sim.l = m.rl; sim.th = m.ra; race.reset(m.goal, m.gs || 7); raceView.reset(); fw.reset(m.goal, m.gs || 7); fwView.reset(); }   // the same field as the device followed
   else if (m.on > prev.on) { pendingOnsets += Math.min(3, m.on - prev.on); raceNotes += Math.min(3, m.on - prev.on); fwNotes += Math.min(3, m.on - prev.on); }
   else {
@@ -793,8 +796,9 @@ function frame(t) {
   while (race.events.length) raceEvent(race.events.shift());
   if (raceNotes) { if (visible(4) && V.music && race.racing) raceView.event('note'); raceNotes = 0; }
   if (visible(4)) raceView.draw({ minute: mode === 'follow' ? null : session.minute }, dt);
-  fw.update(dt, { state: V.st, music: V.music, notes: fwNotes, midi: V.midi, recent: V.pw, play: V.play }); fwNotes = 0;   // shells go up only while playing
-  while (fw.events.length) { const e = fw.events.shift(); if (visible(5)) fwView.event(e); if (e.k === 'finale' && skin === 5) fireBanner('Grand finale!'); }
+  fw.update(dt, { state: V.st, music: V.music, notes: fwNotes, midi: V.midi, recent: V.pw, play: V.play, shown: visible(5) }); fwNotes = 0;   // shells go up only while playing; the finale waits to be seen
+  while (fw.events.length) { const e = fw.events.shift(); if (visible(5)) fwView.event(e); if (e.k === 'finale' && skin === 5) fireBanner('Grand finale!');
+    if (e.k === 'finaleEnd' && awardWait) { award(awardWait); awardWait = 0; } }
   if (visible(5)) { let lv = 0; for (let i = 0; i < NB; i++) lv += bars[i]; fwView.draw({ st: V.st, music: V.music, level: Math.min(1, lv / NB * 2.2) }, dt); }
   requestAnimationFrame(frame);
 }
@@ -822,6 +826,7 @@ function stepSkin(d) { const p = open.indexOf(skin) + d; return open[Math.max(0,
 let homeOn = false;
 function visible(i) { return !homeOn && (i === skin || (dragging && i === peek)); }
 function setSkin(i, animate) {
+  if (awardWait && i !== 5) { award(awardWait); awardWait = 0; }   // left Fireworks before its finale ended: the card shows now
   skin = i; app.dataset.skin = SKINS[i]; app.dataset.chrome = i === 0 ? 'clean' : 'pixel'; S.skin = SKINS[i]; saveS();
   if (i === 2) city.ensure();
   if (i === 5) fwView.ensure();
@@ -918,7 +923,7 @@ function setSource(v) { S.source = v; saveS(); updSource(); paintDemoBar(); }
 seg('segSens', 'sens', () => { if (A.det) A.det.setSensitivity(S.sens); });
 seg('segHold', 'hold', () => { session.hold = +S.hold; });
 function paintGoal() { $('goalOut').textContent = S.goalMin + ' min'; }
-function bumpGoal(d) { S.goalMin = Math.max(5, Math.min(180, S.goalMin + d)); saveS(); paintGoal(); if (session.state === 'running' || session.state === 'paused') { session.goal = race.goal = fw.goal = S.goalMin * 60; if (session.play < session.goal) { goalHit = false; race.finished = false; if (!fw.inFinale) fw.finaleDone = false; hideAward(); } } }
+function bumpGoal(d) { S.goalMin = Math.max(5, Math.min(180, S.goalMin + d)); saveS(); paintGoal(); if (session.state === 'running' || session.state === 'paused') { session.goal = race.goal = fw.goal = S.goalMin * 60; if (session.play < session.goal) { goalHit = false; race.finished = false; if (!fw.inFinale) fw.finaleDone = false; awardWait = 0; hideAward(); } } }
 $('goalDn').onclick = () => bumpGoal(-5); $('goalUp').onclick = () => bumpGoal(5);
 $('nameIn').value = S.name; $('nameIn').oninput = () => { S.name = $('nameIn').value.replace(/[\u0000-\u001F\u007F-\u009F\u200B-\u200F\u2028-\u202F\u2060-\u206F\uFEFF]/g, '').slice(0, 40); saveS(); };   // eslint-disable-line no-control-regex -- strips control and invisible characters from the name
 $('recIn').checked = S.record; $('recIn').onchange = () => { S.record = $('recIn').checked; saveS(); };

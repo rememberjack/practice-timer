@@ -1,8 +1,5 @@
-/* Fireworks in 3D (three.js r128, from cdnjs, as City loads it): a harbour town at night seen from across the bay, under a low moon. Pastel
-   houses climb the hill behind the quay, a lighthouse sweeps the water, a Ferris wheel turns on the promenade and boats bob at their moorings.
-   Shells burst as real spheres and tilted rings at different depths, light up the town as they go off, and show again in the water. The camera drifts
-   slowly along the shore so the depth reads. src/fireworks.js uses this once three.js is there, and its flat drawing until then (or if it never
-   comes). What goes up, and when, comes from FireworkSim in the core; this only draws it. */
+/* Fireworks in 3D (three.js r128): a harbour town at night across the bay, under a low moon, with a lighthouse, a Ferris wheel and boats.
+   Shells burst as spheres and tilted rings at different depths, light up the town and show again in the water; the camera drifts along the shore. */
 /* exported makeFirework3D */   // used by src/fireworks.js
 function makeFirework3D(cv, hud, MT) {
   'use strict';
@@ -23,7 +20,7 @@ function makeFirework3D(cv, hud, MT) {
       'float s=aS*px/-mv.z;vC=aC*dim*min(1.0,s/2.0)*(0.85+0.15*sin(t*2.5+aPh));gl_PointSize=max(1.5,s);gl_Position=projectionMatrix*mv;}',
     fragmentShader: 'varying vec3 vC;void main(){float d=length(gl_PointCoord-0.5)*2.0;if(d>1.0)discard;gl_FragColor=vec4(vC*(exp(-d*d*5.0)+smoothstep(0.3,0.0,d)*0.6),1.0);}' });
   const lightMats = [lightMat(1), lightMat(0.5)];
-  function lightPoints(list, mirrored) {                                   // list: [x, y, z, colour, size]
+  function lightPoints(list, mirrored) {   // list: [x, y, z, colour, size]
     const n = list.length, pos = new Float32Array(n * 3), c = new Float32Array(n * 3), sz = new Float32Array(n), ph = new Float32Array(n);
     list.forEach((q, i) => { pos.set([q[0], q[1], q[2]], i * 3); tmp.set(q[3]); c.set([tmp.r, tmp.g, tmp.b], i * 3); sz[i] = q[4]; ph[i] = i * 2.39; });
     const g = new T.BufferGeometry(); g.setAttribute('position', new T.BufferAttribute(pos, 3)); g.setAttribute('aC', new T.BufferAttribute(c, 3)); g.setAttribute('aS', new T.BufferAttribute(sz, 1)); g.setAttribute('aPh', new T.BufferAttribute(ph, 1));
@@ -60,7 +57,7 @@ function makeFirework3D(cv, hud, MT) {
 
   /* ---------- the waterfront: built twice from the same seed, once on land and once upside down under the water for its reflection ---------- */
   const world = new T.Group(), mirror = new T.Group(); mirror.scale.y = -1; scene.add(world, mirror);
-  const SHORE = -178;                                                      // the quay's edge; the town climbs the hill behind it
+  const SHORE = -178;   // the quay's edge; the town climbs the hill behind it
   const hillY = (x, z) => { const d = Math.max(0, SHORE - 6 - z); return d * (0.34 + 0.12 * Math.sin(x / 47) + 0.07 * Math.sin(x / 19 + 1)) * (x > 30 && x < 90 ? 0.15 : 1); };
   const lam = c => new T.MeshLambertMaterial({ color: c });
   const M = { ground: lam(0x15232B), quay: lam(0x3A3A42), tree: lam(0x14291F), roof: lam(0xFFFFFF), stone: lam(0x2A2C33), white: lam(0xE8E2D6), red: lam(0xB8433A), steel: lam(0x4A5268), hull: lam(0x2E3442), sail: lam(0xD8D0BE) };
@@ -76,7 +73,7 @@ function makeFirework3D(cv, hud, MT) {
   const box = new T.BoxGeometry(1, 1, 1).translate(0, 0.5, 0), cone = new T.ConeGeometry(1, 1, 6).translate(0, 0.5, 0);
   const roofGeo = (() => { const sh = new T.Shape(); sh.moveTo(-0.55, 0); sh.lineTo(0.55, 0); sh.lineTo(0, 0.5); sh.closePath(); return new T.ExtrudeGeometry(sh, { depth: 1, bevelEnabled: false }).translate(0, 0, -0.5); })();
   const HOUSE = ['#B8684A', '#C49A4A', '#C88276', '#C8BCA2', '#5E8E88', '#6C7EAA', '#A88A6A', '#9C5050', '#C4AA88'], ROOF = ['#7A3B2E', '#8C4A32', '#3B4152', '#5A3A36'];
-  function ridge(z, h, top, bottom, seed) {                                // a mountain ridge, moonlit along its top
+  function ridge(z, h, top, bottom, seed) {   // a mountain ridge, moonlit along its top
     const sh = new T.Shape(), r = MT.raceRng(seed); sh.moveTo(-1600, -8);
     for (let x = -1600; x <= 1600; x += 50) sh.lineTo(x, h * (0.5 + 0.28 * Math.sin(x / 210 + seed) + 0.14 * Math.sin(x / 77 + seed * 2) + 0.12 * r()));
     sh.lineTo(1600, -8); sh.closePath();
@@ -85,7 +82,7 @@ function makeFirework3D(cv, hud, MT) {
     g.setAttribute('color', new T.BufferAttribute(c, 3));
     const m = new T.Mesh(g, new T.MeshBasicMaterial({ vertexColors: true })); m.position.z = z; return m;
   }
-  function instances(geo, mat, list) {                                     // list: [x, y, z, sx, sy, sz, colour, turn]
+  function instances(geo, mat, list) {   // list: [x, y, z, sx, sy, sz, colour, turn]
     const im = new T.InstancedMesh(geo, mat, list.length), o = new T.Object3D();
     list.forEach((q, i) => { o.position.set(q[0], q[1], q[2]); o.scale.set(q[3], q[4], q[5]); o.rotation.set(0, q[7] || 0, 0); o.updateMatrix(); im.setMatrixAt(i, o.matrix); if (q[6]) im.setColorAt(i, tmp.set(q[6])); });
     return im;
@@ -96,8 +93,8 @@ function makeFirework3D(cv, hud, MT) {
     const ground = new T.PlaneGeometry(800, 180, 80, 18).rotateX(-Math.PI / 2).translate(0, 0, SHORE - 96), gp = ground.attributes.position;
     for (let i = 0; i < gp.count; i++) gp.setY(i, hillY(gp.getX(i), gp.getZ(i)) - 0.5);
     ground.computeVertexNormals(); root.add(new T.Mesh(ground, M.ground));
-    add(box, M.quay, 0, 0, SHORE - 5, 800, 2.6, 10);                        // the quay
-    add(box, M.quay, -62, 0, SHORE + 24, 10, 3, 58);                       // the breakwater out to the lighthouse
+    add(box, M.quay, 0, 0, SHORE - 5, 800, 2.6, 10);   // the quay
+    add(box, M.quay, -62, 0, SHORE + 24, 10, 3, 58);   // the breakwater out to the lighthouse
     // houses climbing the hill, close together by the water and thinning out higher up; the bell tower among them
     const houses = [], roofs = [], trees = [];
     for (let z = SHORE - 9; z > SHORE - 120; z -= 8 + r() * 4) for (let x = -260; x < 230; x += 7 + r() * 6) {
@@ -134,7 +131,7 @@ function makeFirework3D(cv, hud, MT) {
     const posts = [], strings = [], LC = ['#FFC46B', '#FF8F8F', '#A8F0D8', '#FFF1D0'];
     for (let x = -120; x <= 120; x += 24) posts.push([x, 0, SHORE - 2, 0.5, 9, 0.5, 0]);
     for (let x = -120; x < 120; x += 24) for (let j = 0; j <= 8; j++) { const f = j / 8; strings.push([x + f * 24, 8.6 - 1.8 * (1 - (2 * f - 1) * (2 * f - 1)), SHORE - 2, LC[(j + x / 24 | 0) & 3], 1.1]); }
-    strings.push([lx, ly + 21.5, lz, '#FFE7A8', 5]);                        // the lighthouse lamp
+    strings.push([lx, ly + 21.5, lz, '#FFE7A8', 5]);   // the lighthouse lamp
     root.add(instances(box, M.stone, posts));
     // sailboats moored in the bay, bobbing
     const boats = [];
@@ -163,7 +160,7 @@ function makeFirework3D(cv, hud, MT) {
       for (const b of a.boats) { b.g.position.y = Math.sin(k * 0.8 + b.ph) * 0.25; b.g.rotation.z = Math.sin(k * 0.6 + b.ph) * 0.04; }
       if (a.beam) a.beam.rotation.y = k * 0.55;
     }
-    for (const a of anim) { const wl = a.bulbs.geometry.attributes.aC;    // the wheel's lights chase round in colour
+    for (const a of anim) { const wl = a.bulbs.geometry.attributes.aC;   // the wheel's lights chase round in colour
       for (let i = 0; i < wl.count; i++) { tmp.setHSL(((i < 48 ? i / 48 : (i - 48) / 16) + k * 0.08) % 1, 0.9, 0.62); wl.setXYZ(i, tmp.r, tmp.g, tmp.b); }
       wl.needsUpdate = true; }
     for (const m of lightMats) m.uniforms.t.value = k;
@@ -204,9 +201,7 @@ function makeFirework3D(cv, hud, MT) {
   world.add(P, L); mirror.add(PM, LM);
 
   /* ---------- smoke: a few soft puffs that hang where shells burst, lit by the newest ---------- */
-  const puffTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
-    gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return new T.CanvasTexture(c); })();
-  for (let i = 0; i < (RM ? 0 : 14); i++) { const s = new T.Sprite(new T.SpriteMaterial({ map: puffTex, transparent: true, depthWrite: false, opacity: 0, fog: false, color: 0x8C8CB4 })); s.visible = false; s.renderOrder = 2.5; world.add(s); puffs.push({ s: s, t: 0, life: 1 }); }
+  for (let i = 0; i < (RM ? 0 : 14); i++) { const s = new T.Sprite(new T.SpriteMaterial({ map: glowTex, transparent: true, depthWrite: false, opacity: 0, fog: false, color: 0x8C8CB4 })); s.visible = false; s.renderOrder = 2.5; world.add(s); puffs.push({ s: s, t: 0, life: 1 }); }
   let puffI = 0;
 
   function resize() {
@@ -231,12 +226,13 @@ function makeFirework3D(cv, hud, MT) {
   function launch(e) {
     if (!W && !resize()) return;
     placeCamera();
-    const py = top + (1 - e.h) * (H - top) * 0.64, d = rnd(85, 165);
-    ray.set((e.x * 2 - 1) * 0.86, 1 - 2 * py / H, 0.5).unproject(camera); cam.copy(camera.position); ray.sub(cam).normalize();
+    const trophy = e.kind === 'trophy', py = trophy ? top + (H - top) * 0.36 : top + (1 - e.h) * (H - top) * 0.64, d = trophy ? 130 : rnd(85, 165);   // the trophy goes up in the middle of the sky
+    ray.set(trophy ? 0 : (e.x * 2 - 1) * 0.86, 1 - 2 * py / H, 0.5).unproject(camera); cam.copy(camera.position); ray.sub(cam).normalize();
     const at = cam.clone().addScaledVector(ray, d), depth = d * ray.dot(camera.getWorldDirection(fwd));   // d away along the ray; its depth in front of the camera
     at.y = Math.max(14, at.y);
-    const per = 2 * depth * TANF / ((H - top) * SHIFT), R = (0.12 + 0.2 * e.size) * Math.min(W, (H - top) * 1.1) * per;   // the burst's size on the screen, in the world at that depth
-    rockets.push({ p: new V(at.x + rnd(-4, 4), 0.6, at.z), from: new V(at.x + rnd(-4, 4), 0.6, at.z), to: at, t: 0, dur: 0.8 + 0.55 * e.h + Math.random() * 0.15, e: e, R: R });
+    const per = 2 * depth * TANF / ((H - top) * SHIFT), R = (trophy ? Math.min(0.29 * (H - top), 0.55 * W) : (0.12 + 0.2 * e.size) * Math.min(W, (H - top) * 1.1)) * per;   // the burst's size on the screen, in the world at that depth
+    const sx = trophy ? 0 : rnd(-4, 4);
+    rockets.push({ p: new V(at.x + sx, 0.6, at.z), from: new V(at.x + sx, 0.6, at.z), to: at, t: 0, dur: 0.8 + 0.55 * e.h + Math.random() * 0.15, e: e, R: R });
   }
   function event(e) { if (e.k === 'shell') launch(e); else if (e.k === 'finale' && !RM) flash.setRGB(0.12, 0.1, 0.08); }
   function spark(p) { if (sparks.length < MAX) sparks.push(p); }
@@ -247,10 +243,15 @@ function makeFirework3D(cv, hud, MT) {
     const e = r.e, o = r.to, R = r.R, n = (RM ? 0.45 : 1) * (0.6 + 0.5 * Math.min(1.2, e.size)), two = e.hue2 >= 0, ca = hsl(e.hue, 100, 58), cb = two ? hsl(e.hue2, 100, 58) : ca;
     const gold = hsl(40, 92, 52), add = (dir, sp, q) => spark(Object.assign({ x: o.x, y: o.y, z: o.z, vx: dir.x * sp, vy: dir.y * sp, vz: dir.z * sp, t: 0 }, q));
     const ball = (N, k, g, life, s, tr, c, extra) => { for (let i = 0; i < N; i++) add(unit(), R * k * (0.93 + Math.random() * 0.1), Object.assign({ k: k, g: g, life: life * (0.85 + Math.random() * 0.3), s: s, tr: tr, c: c === 'two' ? (i % 2 ? cb : ca) : c }, extra)); };
-    const s0 = R * 0.035;                                                  // a star's size, in the world
-    if (e.kind === 'peony') ball(Math.round(110 * n), 1.7, R * 0.3, 1.3, s0, 0.05, 'two');
+    const s0 = R * 0.035;   // a star's size, in the world
+    if (e.kind === 'trophy') {   // the finale's last shell opens into a gold trophy facing the viewer, holds it, then lets it fall
+      const right = new V().setFromMatrixColumn(camera.matrixWorld, 0), up = new V().setFromMatrixColumn(camera.matrixWorld, 1), k = 2.4, pale = hsl(48, 100, 80), cup = hsl(44, 95, 58);
+      const at = (px, py, q) => { const d = right.clone().multiplyScalar(px * R).addScaledVector(up, py * R); sparks.push(Object.assign({ x: o.x, y: o.y, z: o.z, vx: d.x * k, vy: d.y * k, vz: d.z * k, k: k, g: R * 0.35, hold: 1.8, t: 0, life: 3.6, s: s0 * 1.5, tr: 0.05, c: cup, glit: true }, q)); };
+      for (const q of MT.fwTrophyShape(0.05)) at(q[0], q[1]);
+      for (let i = 0; i <= 8; i++) at(-0.3 + 0.06 * Math.sin(i / 8 * 1.6), 0.66 - i * 0.05, { c: pale, s: s0 * 0.9 });   // the shine down the cup, as on the trophy card
+    } else if (e.kind === 'peony') ball(Math.round(110 * n), 1.7, R * 0.3, 1.3, s0, 0.05, 'two');
     else if (e.kind === 'chrysanthemum') ball(Math.round(120 * n), 1.5, R * 0.35, 1.7, s0 * 0.85, 0.16, 'two', { glit: true });
-    else if (e.kind === 'ring') {                                          // a ring, tilted any way in the sky
+    else if (e.kind === 'ring') {   // a ring, tilted any way in the sky
       const nrm = unit(), u = new V().crossVectors(nrm, Math.abs(nrm.y) < 0.9 ? new V(0, 1, 0) : new V(1, 0, 0)).normalize(), w = new V().crossVectors(nrm, u), N = Math.round(80 * n);
       for (let i = 0; i < N; i++) { const a = i / N * TAU; add(u.clone().multiplyScalar(Math.cos(a)).addScaledVector(w, Math.sin(a)), R * 1.6, { k: 1.6, g: R * 0.25, life: 1.5, s: s0, tr: 0.07, c: i % 2 ? cb : ca }); }
       ball(Math.round(18 * n), 0.8, R * 0.3, 1, s0 * 0.8, 0.03, hsl(e.hue, 60, 85));
@@ -259,7 +260,7 @@ function makeFirework3D(cv, hud, MT) {
       const N = 8 + Math.floor(Math.random() * 3);
       for (let i = 0; i < N; i++) { const d = unit(); d.y = Math.abs(d.y) * 0.6 + 0.25; d.normalize(); add(d, R * 1.6, { k: 1.3, g: R * 0.7, life: 2, s: s0 * 1.6, tr: 0.32, c: i % 2 ? cb : ca, glit: true }); }
       ball(Math.round(30 * n), 1.2, R * 0.4, 1.4, s0 * 0.7, 0.1, gold);
-    } else {                                                              // crossette: stars that each split in four
+    } else {   // crossette: stars that each split in four
       const N = 12 + Math.floor(Math.random() * 4);
       for (let i = 0; i < N; i++) add(unit(), R * 1.5, { k: 1.6, g: R * 0.3, life: 2, s: s0 * 1.2, tr: 0.12, c: i % 2 ? cb : ca, split: 0.55 + Math.random() * 0.15, R: R });
     }
@@ -290,11 +291,11 @@ function makeFirework3D(cv, hud, MT) {
     for (let i = sparks.length - 1; i >= 0; i--) { const p = sparks[i]; p.t += dt;
       if (p.split && p.t >= p.split) { sparks.splice(i, 1); split(p); continue; }
       if (p.t >= p.life) { sparks.splice(i, 1); continue; }
-      const d = kf[p.k] || (kf[p.k] = Math.exp(-p.k * dt)); p.vx *= d; p.vz *= d; p.vy = p.vy * d - p.g * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
+      const d = kf[p.k] || (kf[p.k] = Math.exp(-p.k * dt)); p.vx *= d; p.vz *= d; p.vy = p.vy * d - (p.hold && p.t < p.hold ? 0 : p.g) * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
       const age = p.t / p.life; let a = p.flare ? 1 - age : age < 0.6 ? 1 : 1 - (age - 0.6) / 0.4;
       if (p.glit && age > 0.55 && !RM) a *= Math.random() < 0.55 ? 1 : 0.12;   // glitter as they burn out
       const hot = age < 0.06 && !p.flare ? 1 + (1 - age / 0.06) * 0.6 : 1, fade = p.droop ? 1 - age * 0.45 : 1, m = a * hot * fade;
-      if (p.y < 0.2) continue;                                              // gone into the water
+      if (p.y < 0.2) continue;   // gone into the water
       hp[nh * 3] = p.x; hp[nh * 3 + 1] = p.y; hp[nh * 3 + 2] = p.z; hc[nh * 3] = p.c.r * m; hc[nh * 3 + 1] = p.c.g * m; hc[nh * 3 + 2] = p.c.b * m; hs[nh] = p.s; nh++;
       if (p.tr) { const j = nl * 6, b = p.tr; lp[j] = p.x; lp[j + 1] = p.y; lp[j + 2] = p.z; lp[j + 3] = p.x - p.vx * b; lp[j + 4] = p.y - p.vy * b + (p.droop ? p.g * b * b * 0.5 : 0); lp[j + 5] = p.z - p.vz * b;
         lc[j] = p.c.r * m * 0.7; lc[j + 1] = p.c.g * m * 0.7; lc[j + 2] = p.c.b * m * 0.7; lc[j + 3] = lc[j + 4] = lc[j + 5] = 0; nl++; }
@@ -311,6 +312,5 @@ function makeFirework3D(cv, hud, MT) {
     renderer.render(scene, camera);
   }
   function busy() { return rockets.length + sparks.length; }
-  function dispose() { renderer.dispose(); }
-  return { resize: resize, draw: draw, event: event, reset: reset, busy: busy, dispose: dispose };
+  return { resize: resize, draw: draw, event: event, reset: reset, busy: busy };
 }

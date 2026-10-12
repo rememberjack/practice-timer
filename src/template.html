@@ -921,6 +921,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
   <symbol id="ico-fireworks" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M12 2.6v3.6M12 17.8v3.6M2.6 12h3.6M17.8 12h3.6M5.4 5.4l2.5 2.5M16.1 16.1l2.5 2.5M18.6 5.4l-2.5 2.5M7.9 16.1l-2.5 2.5"/><circle cx="12" cy="12" r="2.3" fill="currentColor"/></symbol>
   <symbol id="ico-next" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
   <symbol id="ico-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="ico-trophy" viewBox="0 0 64 64"><path d="M19 13H9c0 10 5 15 12 16M45 13h10c0 10-5 15-12 16" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><path fill="currentColor" d="M18 7h28v15c0 10-6 17-14 17s-14-7-14-17zM29 38h6v9h-6zM22 47h20a2 2 0 0 1 2 2v3H20v-3a2 2 0 0 1 2-2zM17 52h30a2 2 0 0 1 2 2v4H15v-4a2 2 0 0 1 2-2z"/><path d="M25 12v9c0 4 1 7 3 10" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="3" stroke-linecap="round"/></symbol>
   <symbol id="ico-lock" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="3" d="M7.5 11V8a4.5 4.5 0 0 1 9 0v3"/><rect x="4" y="11" width="16" height="11" rx="2" fill="currentColor"/></symbol>
 </svg>
 <div id="app" data-skin="classic" data-state="idle" data-music="0">
@@ -949,7 +950,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
           <div class="clock" role="timer" aria-label="Play time"><span id="cClock"></span><span class="tenths" id="cTenths">.0</span></div>
           <div class="stats">
             <div class="stat"><div class="k">Efficiency</div><div class="v" id="cEff">0%</div><div class="meter"><i id="cEffBar"></i></div></div>
-            <div class="stat"><div class="k"><svg class="trophy badge" viewBox="0 0 64 64" aria-hidden="true"><path d="M19 13H9c0 10 5 15 12 16M45 13h10c0 10-5 15-12 16" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><path fill="currentColor" d="M18 7h28v15c0 10-6 17-14 17s-14-7-14-17zM29 38h6v9h-6zM22 47h20a2 2 0 0 1 2 2v3H20v-3a2 2 0 0 1 2-2zM17 52h30a2 2 0 0 1 2 2v4H15v-4a2 2 0 0 1 2-2z"/><path d="M25 12v9c0 4 1 7 3 10" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="3" stroke-linecap="round"/></svg><span id="cGoalK">Practice goal</span></div><div class="v"><span id="cGoalV">30:00</span> <small id="cGoal">30:00 left</small></div><div class="meter"><i id="cGoalBar"></i></div></div>
+            <div class="stat"><div class="k"><svg class="trophy badge" viewBox="0 0 64 64" aria-hidden="true"><use href="#ico-trophy"/></svg><span id="cGoalK">Practice goal</span></div><div class="v"><span id="cGoalV">30:00</span> <small id="cGoal">30:00 left</small></div><div class="meter"><i id="cGoalBar"></i></div></div>
             <div class="stat"><div class="k">Active session time</div><div class="v" id="cActive">00:00</div></div>
             <div class="stat"><div class="k">Total session time</div><div class="v"><span id="cTotal">00:00</span> <small id="cPauses">0 pauses</small></div></div>
           </div>
@@ -1017,7 +1018,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
           <div class="dh-top">
             <div class="dh-play"><span class="k">Play time</span><span class="big" id="dPlay">00:00</span></div>
             <div class="dh-side">
-              <div><svg class="trophy badge" viewBox="0 0 64 64" aria-hidden="true"><path d="M19 13H9c0 10 5 15 12 16M45 13h10c0 10-5 15-12 16" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><path fill="currentColor" d="M18 7h28v15c0 10-6 17-14 17s-14-7-14-17zM29 38h6v9h-6zM22 47h20a2 2 0 0 1 2 2v3H20v-3a2 2 0 0 1 2-2zM17 52h30a2 2 0 0 1 2 2v4H15v-4a2 2 0 0 1 2-2z"/><path d="M25 12v9c0 4 1 7 3 10" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="3" stroke-linecap="round"/></svg>Goal <b id="dGoal">30:00</b></div>
+              <div><svg class="trophy badge" viewBox="0 0 64 64" aria-hidden="true"><use href="#ico-trophy"/></svg>Goal <b id="dGoal">30:00</b></div>
               <div id="dGoalLeft">30:00 left</div>
               <div>Pauses <b id="dPauses">0</b></div>
             </div>
@@ -1041,7 +1042,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
           <div class="gp-top">
             <div class="gp-play"><span class="k">Play time</span><span class="big" id="gPlay">00:00</span></div>
             <div class="gp-side">
-              <div><svg class="trophy badge" viewBox="0 0 64 64" aria-hidden="true"><path d="M19 13H9c0 10 5 15 12 16M45 13h10c0 10-5 15-12 16" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><path fill="currentColor" d="M18 7h28v15c0 10-6 17-14 17s-14-7-14-17zM29 38h6v9h-6zM22 47h20a2 2 0 0 1 2 2v3H20v-3a2 2 0 0 1 2-2zM17 52h30a2 2 0 0 1 2 2v4H15v-4a2 2 0 0 1 2-2z"/><path d="M25 12v9c0 4 1 7 3 10" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="3" stroke-linecap="round"/></svg>Goal <b id="gGoal">30:00</b></div>
+              <div><svg class="trophy badge" viewBox="0 0 64 64" aria-hidden="true"><use href="#ico-trophy"/></svg>Goal <b id="gGoal">30:00</b></div>
               <div id="gGoalLeft">30:00 left</div>
               <div>Pauses <b id="gPauses">0</b></div>
             </div>
@@ -1067,7 +1068,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
           <div class="fw-top">
             <div class="fw-play"><span class="k">Play time</span><span class="big" id="fPlay">00:00</span></div>
             <div class="fw-side">
-              <div><svg class="trophy badge" viewBox="0 0 64 64" aria-hidden="true"><path d="M19 13H9c0 10 5 15 12 16M45 13h10c0 10-5 15-12 16" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><path fill="currentColor" d="M18 7h28v15c0 10-6 17-14 17s-14-7-14-17zM29 38h6v9h-6zM22 47h20a2 2 0 0 1 2 2v3H20v-3a2 2 0 0 1 2-2zM17 52h30a2 2 0 0 1 2 2v4H15v-4a2 2 0 0 1 2-2z"/><path d="M25 12v9c0 4 1 7 3 10" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="3" stroke-linecap="round"/></svg>Goal <b id="fGoal">30:00</b></div>
+              <div><svg class="trophy badge" viewBox="0 0 64 64" aria-hidden="true"><use href="#ico-trophy"/></svg>Goal <b id="fGoal">30:00</b></div>
               <div id="fGoalLeft">30:00 left</div>
               <div>Pauses <b id="fPauses">0</b></div>
             </div>
@@ -1088,7 +1089,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
     </div>
     <div id="award" hidden role="status">
       <div class="award-card" id="awardCard">
-        <svg class="trophy" viewBox="0 0 64 64" aria-hidden="true"><path d="M19 13H9c0 10 5 15 12 16M45 13h10c0 10-5 15-12 16" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><path fill="currentColor" d="M18 7h28v15c0 10-6 17-14 17s-14-7-14-17zM29 38h6v9h-6zM22 47h20a2 2 0 0 1 2 2v3H20v-3a2 2 0 0 1 2-2zM17 52h30a2 2 0 0 1 2 2v4H15v-4a2 2 0 0 1 2-2z"/><path d="M25 12v9c0 4 1 7 3 10" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="3" stroke-linecap="round"/></svg>
+        <svg class="trophy" viewBox="0 0 64 64" aria-hidden="true"><use href="#ico-trophy"/></svg>
         <canvas class="px-trophy" id="awardPx" width="16" height="16"></canvas>
         <h3>Trophy earned</h3>
         <p id="awardSub"></p>

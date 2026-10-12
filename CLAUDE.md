@@ -62,8 +62,10 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
 - Fireworks (`FireworkSim` in `src/core.js`, drawn by `src/fireworks.js`) sends up a shell for each note played: its colour is the note (the twelve
   notes are twelve colours, `fwHue`) and its height how high the note is. The last minute of playing is shown as Intensity (Power in the other
   themes): it sets the pace, so the higher it is the more shells are in the sky at once (`FW.PACE`; a held note keeps them going up), and their
-  size and kinds. Only playing sends shells up, fast runs are capped (the extra notes make the next shell bigger), and the goal sets off a grand
-  finale once. It makes no sound.
+  size and kinds. Only playing sends shells up, and fast runs are capped (the extra notes make the next shell bigger). It makes no sound.
+  The goal sets off a grand finale once, ending in a shell that bursts into a gold trophy (`fwTrophyShape`); on Fireworks the trophy card waits
+  for the finale to end (`goalReached`, `awardWait` in `src/app.js`). The finale only plays while the theme is on screen: reached on another theme,
+  the card shows there at once and the finale waits; leaving Fireworks mid-finale shows the card then.
   The scene is a harbour town at night under a low moon (hillside houses, a lighthouse, a Ferris wheel, boats, the moon's path on the water). It is
   drawn in 3D (`src/fireworks3d.js`, three.js r128 like City: a level camera with a shifted lens, so the town stands straight under the read-outs);
   `src/fireworks.js` loads three.js when the theme is shown and draws a flat version of the same waterfront until then, or if it cannot load.

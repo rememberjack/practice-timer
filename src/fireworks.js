@@ -1,7 +1,5 @@
-/* Fireworks theme renderer: a night show over a harbour. Shells rise and burst in the colour of the note played, and the water below shows them
-   again. It is drawn in 3D (src/fireworks3d.js) once three.js has loaded, as City loads it; until then, or if it cannot load (no network, no
-   WebGL), the flat drawing here stands in. Everything about the show (when a shell goes up, its colour, height, size and kind, the finale) comes
-   from FireworkSim in the core; this only draws it. Nothing here makes a sound: the microphone is listening. */
+/* Fireworks theme renderer: drawn in 3D (src/fireworks3d.js) once three.js has loaded, as City loads it, and by the flat drawing here until
+   then or without it. What goes up, and when, comes from FireworkSim in the core. Nothing here makes a sound: the microphone is listening. */
 /* exported makeFireworkView */   // used by src/app.js, which the build puts after this file
 function makeFireworkView(host, hud, sim, MT) {
   'use strict';
@@ -31,7 +29,7 @@ function makeFireworkView(host, hud, sim, MT) {
 function makeFirework2D(cv, hud, sim, MT) {
   'use strict';
   const g = cv.getContext('2d'), RM = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches, TAU = Math.PI * 2;
-  const MAX = RM ? 700 : 2600;                        // sparks in the air at once; a fast run on a phone stays smooth
+  const MAX = RM ? 700 : 2600;   // sparks in the air at once; a fast run on a phone stays smooth
   let W = 0, H = 0, dpr = 1, top = 0, GY = 0, SKY = 0, clock = 0, idleT = 1.5, flash = 0, skyline = null, stars = [];
   const rockets = [], sparks = [], glows = [], smoke = [], cols = new Map();
   const col = (h, s, l) => { const k = h * 1e4 + s * 100 + l; let c = cols.get(k); if (!c) { c = 'hsl(' + h + ',' + s + '%,' + l + '%)'; cols.set(k, c); } return c; };
@@ -60,7 +58,7 @@ function makeFirework2D(cv, hud, sim, MT) {
     const hillTop = x => base - tall * (0.32 + 0.12 * Math.sin(x / 60) + 0.06 * Math.sin(x / 17));   // the hill the town climbs
     s.fillStyle = '#14212A'; s.beginPath(); s.moveTo(0, base); for (let x = 0; x <= W + 8; x += 8) s.lineTo(x, hillTop(x)); s.lineTo(W, base); s.closePath(); s.fill();
     const HOUSE = ['#6E4A3E', '#7A6440', '#7A5450', '#7C7464', '#3E5A58', '#46506C', '#6A5844', '#643838'], unit = Math.max(5, Math.min(9, tall * 0.09));
-    for (let row = 0; row < 4; row++) for (let x = -4; x < W;) {               // rows of houses, the back ones higher up the hill and further apart
+    for (let row = 0; row < 4; row++) for (let x = -4; x < W;) {   // rows of houses, the back ones higher up the hill and further apart
       const w = unit * (0.9 + r() * 0.7), h = unit * (0.9 + r() * 0.8) * (row === 3 ? 1.25 : 1), yb = base - (3 - row) * (base - hillTop(x)) * 0.28 - 1;
       if (r() < 0.25 + (3 - row) * 0.12 || (x > W * 0.22 && x < W * 0.29 && row > 1) || (x > W * 0.66 && x < W * 0.86 && row > 1)) { x += w + 2; continue; }
       s.fillStyle = HOUSE[Math.floor(r() * HOUSE.length)]; s.fillRect(x, yb - h, w, h);
@@ -68,15 +66,15 @@ function makeFirework2D(cv, hud, sim, MT) {
       for (let j = 0; j < 2; j++) if (r() < 0.55) { s.fillStyle = r() < 0.7 ? 'rgba(255,184,104,.85)' : 'rgba(255,226,168,.8)'; s.fillRect(x + w * (0.2 + j * 0.42), yb - h * 0.7, Math.max(1, w * 0.18), Math.max(1.2, h * 0.25)); }
       x += w + (r() < 0.3 ? 1 + r() * 3 : 0.5);
     }
-    const bx = W * 0.45, bh = tall * 0.62, bw = Math.max(4, unit * 0.8);         // the bell tower and its spire
+    const bx = W * 0.45, bh = tall * 0.62, bw = Math.max(4, unit * 0.8);   // the bell tower and its spire
     s.fillStyle = '#8A8070'; s.fillRect(bx, base - bh, bw, bh - 1); s.fillStyle = '#3A3E4A'; s.beginPath(); s.moveTo(bx - 1, base - bh); s.lineTo(bx + bw / 2, base - bh - bw * 2.2); s.lineTo(bx + bw + 1, base - bh); s.closePath(); s.fill();
     s.fillStyle = 'rgba(255,214,150,.9)'; s.fillRect(bx + bw * 0.3, base - bh * 0.85, bw * 0.4, bw * 0.5);
-    const lx = W * 0.22, lh = tall * 0.42, lw = Math.max(3, unit * 0.55);       // the lighthouse, striped
+    const lx = W * 0.22, lh = tall * 0.42, lw = Math.max(3, unit * 0.55);   // the lighthouse, striped
     for (let j = 0; j < 4; j++) { s.fillStyle = j % 2 ? '#A8463C' : '#D8D2C6'; s.fillRect(lx, base - lh + j * lh / 4, lw, lh / 4 + 0.5); }
     s.fillStyle = '#FFE7A8'; s.fillRect(lx - 0.5, base - lh - lw * 0.8, lw + 1, lw * 0.8); s.fillStyle = '#A8463C'; s.beginPath(); s.moveTo(lx - 1, base - lh - lw * 0.8); s.lineTo(lx + lw / 2, base - lh - lw * 1.6); s.lineTo(lx + lw + 1, base - lh - lw * 0.8); s.closePath(); s.fill();
-    LIGHT = { x: lx + lw / 2, y: GY - (base - lh - lw * 0.4) };                  // where the beam comes from, on the main canvas
-    s.fillStyle = '#2C2F38'; s.fillRect(0, base - 2, W, 3);                    // the quay
-    WHEEL = { x: W * 0.76, y: GY - tall * 0.55, r: tall * 0.42 };              // the Ferris wheel is drawn live, so it can turn
+    LIGHT = { x: lx + lw / 2, y: GY - (base - lh - lw * 0.4) };   // where the beam comes from, on the main canvas
+    s.fillStyle = '#2C2F38'; s.fillRect(0, base - 2, W, 3);   // the quay
+    WHEEL = { x: W * 0.76, y: GY - tall * 0.55, r: tall * 0.42 };   // the Ferris wheel is drawn live, so it can turn
     s.strokeStyle = '#4A5268'; s.lineWidth = 1.5; s.beginPath(); s.moveTo(WHEEL.x - WHEEL.r * 0.55, base); s.lineTo(WHEEL.x, base - tall * 0.55); s.lineTo(WHEEL.x + WHEEL.r * 0.55, base); s.stroke();
   }
   let MOONX = 0, MOONY = 0, MOONR = 8, LIGHT = { x: 0, y: 0 }, WHEEL = { x: 0, y: 0, r: 10 };
@@ -85,8 +83,8 @@ function makeFirework2D(cv, hud, sim, MT) {
   /* a shell from the core: {x, h, size, hue, hue2, kind, finale} */
   function launch(e) {
     if (!W && !resize()) return;
-    const R = (0.12 + 0.2 * e.size) * Math.min(W, SKY * 1.5), ty = Math.max(top + R * 0.6, GY - e.h * SKY);
-    rockets.push({ x: e.x * W, x0: e.x * W, y: GY, y0: GY, ty: ty, t: 0, dur: 0.75 + 0.55 * e.h + Math.random() * 0.15, drift: (Math.random() - 0.5) * W * 0.05, e: e, R: R });
+    const trophy = e.kind === 'trophy', R = trophy ? Math.min(0.4 * SKY, 0.55 * W) : (0.12 + 0.2 * e.size) * Math.min(W, SKY * 1.5), ty = trophy ? top + SKY * 0.46 : Math.max(top + R * 0.6, GY - e.h * SKY);
+    rockets.push({ x: e.x * W, x0: e.x * W, y: GY, y0: GY, ty: ty, t: 0, dur: 0.75 + 0.55 * e.h + Math.random() * 0.15, drift: trophy ? 0 : (Math.random() - 0.5) * W * 0.05, e: e, R: R });
   }
   function event(e) {
     if (e.k === 'shell') launch(e);
@@ -97,25 +95,29 @@ function makeFirework2D(cv, hud, sim, MT) {
   function burst(r) {
     const e = r.e, x = r.x, y = r.y, R = r.R, n = (RM ? 0.5 : 1) * (0.6 + 0.5 * Math.min(1.2, e.size)), two = e.hue2 >= 0;
     const hueOf = i => two && i % 2 ? e.hue2 : e.hue;
-    const sphere = (N, k, gr, life, s, trail, l, extra) => {           // sparks spread over a ball, seen from the side
+    const sphere = (N, k, gr, life, s, trail, l, extra) => {   // sparks spread over a ball, seen from the side
       for (let i = 0; i < N; i++) { const a = Math.random() * TAU, u = Math.random(), sp = R * k * Math.sqrt(1 - u * u) * (0.92 + Math.random() * 0.12);
         spark(Object.assign({ x: x, y: y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, k: k, gr: gr, t: 0, life: life * (0.85 + Math.random() * 0.3), s: s, n: trail, h: hueOf(i), sat: 100, l: l }, extra)); } };
-    if (e.kind === 'peony') sphere(Math.round(90 * n), 1.7, R * 0.3, 1.3, 2.2, 1, 60);
+    if (e.kind === 'trophy') {   // the finale's last shell opens into a gold trophy, holds it, then lets it fall
+      const k = 2.4, at = (px, py, q) => sparks.push(Object.assign({ x: x, y: y, vx: px * R * k, vy: -py * R * k, k: k, gr: R * 0.35, hold: 1.8, t: 0, life: 3.6, s: 3, n: 1, h: 44, sat: 95, l: 60, glit: true }, q));
+      for (const q of MT.fwTrophyShape(0.05)) at(q[0], q[1]);
+      for (let i = 0; i <= 8; i++) at(-0.3 + 0.06 * Math.sin(i / 8 * 1.6), 0.66 - i * 0.05, { h: 48, sat: 100, l: 80, s: 2 });   // the shine down the cup, as on the trophy card
+    } else if (e.kind === 'peony') sphere(Math.round(90 * n), 1.7, R * 0.3, 1.3, 2.2, 1, 60);
     else if (e.kind === 'chrysanthemum') sphere(Math.round(100 * n), 1.5, R * 0.35, 1.7, 1.8, 4, 60, { glit: true });
     else if (e.kind === 'ring') {
       const N = Math.round(64 * n), tilt = Math.random() * Math.PI, sq = 0.3 + Math.random() * 0.5, c = Math.cos(tilt), s = Math.sin(tilt);
       for (let i = 0; i < N; i++) { const a = i / N * TAU, ux = Math.cos(a) * R * 1.3, uy = Math.sin(a) * R * 1.3 * sq;
         spark({ x: x, y: y, vx: ux * c - uy * s, vy: ux * s + uy * c, k: 1.6, gr: R * 0.25, t: 0, life: 1.4, s: 2.2, n: 2, h: hueOf(i), sat: 100, l: 60 }); }
-      sphere(Math.round(14 * n), 0.9, R * 0.3, 1.0, 1.8, 1, 80);          // a bright heart in the middle
+      sphere(Math.round(14 * n), 0.9, R * 0.3, 1.0, 1.8, 1, 80);   // a bright heart in the middle
     } else if (e.kind === 'willow') {
-      sphere(Math.round(16 * n), 1.4, R * 0.3, 0.9, 2, 1, 62);            // a heart in the note's colour, then long gold trails that droop
+      sphere(Math.round(16 * n), 1.4, R * 0.3, 0.9, 2, 1, 62);   // a heart in the note's colour, then long gold trails that droop
       sphere(Math.round(90 * n), 2.2, R * 0.55, 3, 1.6, 6, 54, { h: 40, sat: 90, glit: true, droop: true });
     } else if (e.kind === 'palm') {
       const N = 7 + Math.floor(Math.random() * 3);
       for (let i = 0; i < N; i++) { const a = i / N * TAU + Math.random() * 0.3, sp = R * 1.6;
         spark({ x: x, y: y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - R * 0.3, k: 1.3, gr: R * 0.7, t: 0, life: 1.9, s: 3.2, n: 7, h: hueOf(i), sat: 95, l: 60, glit: true }); }
       sphere(Math.round(24 * n), 1.2, R * 0.4, 1.4, 1.5, 2, 70, { h: 42, sat: 90 });
-    } else {                                                              // crossette: a few stars that each split in four
+    } else {   // crossette: a few stars that each split in four
       const N = 10 + Math.floor(Math.random() * 4);
       for (let i = 0; i < N; i++) { const a = i / N * TAU + Math.random() * 0.2, sp = R * 1.5;
         spark({ x: x, y: y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, k: 1.6, gr: R * 0.3, t: 0, life: 2, s: 2.6, n: 3, h: hueOf(i), sat: 100, l: 64, split: 0.55 + Math.random() * 0.15 }); }
@@ -167,7 +169,7 @@ function makeFirework2D(cv, hud, sim, MT) {
     for (let i = sparks.length - 1; i >= 0; i--) { const p = sparks[i]; p.t += dt;
       if (p.split && p.t >= p.split) { p.R0 = Math.hypot(p.vx, p.vy) * 0.25; sparks.splice(i, 1); splitStar(p); continue; }
       if (p.t >= p.life) { sparks.splice(i, 1); continue; }
-      const d = kf[p.k] || (kf[p.k] = Math.exp(-p.k * dt)); p.vx *= d; p.vy = p.vy * d + p.gr * dt; p.x += p.vx * dt; p.y += p.vy * dt;
+      const d = kf[p.k] || (kf[p.k] = Math.exp(-p.k * dt)); p.vx *= d; p.vy = p.vy * d + (p.hold && p.t < p.hold ? 0 : p.gr) * dt; p.x += p.vx * dt; p.y += p.vy * dt;
       const age = p.t / p.life; let a = age < 0.6 ? 1 : 1 - (age - 0.6) / 0.4;
       if (p.glit && age > 0.55 && !RM) a *= Math.random() < 0.55 ? 1 : 0.15;   // glitter as they burn out
       const l = Math.round(p.l + (age < 0.06 ? (1 - age / 0.06) * 18 : 0) - (p.droop ? age * 16 : 0)), c = col(p.h, p.sat, Math.max(28, Math.min(90, l)));
@@ -187,11 +189,11 @@ function makeFirework2D(cv, hud, sim, MT) {
     g.fillStyle = '#060C16'; g.fillRect(0, GY, W, WH);
     g.save(); g.setTransform(dpr, 0, 0, -dpr, 0, (GY + H) * dpr); g.globalAlpha = 0.42;
     g.drawImage(cv, 0, Math.round((GY - srcH) * dpr), Math.round(W * dpr), Math.round(srcH * dpr), 0, GY, W, WH); g.restore();
-    g.fillStyle = 'rgba(4,5,12,.55)';                                     // ripples break the reflection into lines
+    g.fillStyle = 'rgba(4,5,12,.55)';   // ripples break the reflection into lines
     for (let y = GY + 1, j = 0; y < H; y += 3, j++) { const off = RM ? 0 : Math.sin(clock * 1.6 + j * 0.9) * 6; g.fillRect(off - 6, y, W + 12, 1 + (j % 3 === 0 ? 1 : 0)); }
     const fade = g.createLinearGradient(0, GY, 0, H); fade.addColorStop(0, 'rgba(4,5,12,0)'); fade.addColorStop(1, 'rgba(4,5,12,.7)'); g.fillStyle = fade; g.fillRect(0, GY, W, WH);
     g.fillStyle = 'rgba(160,180,255,.18)'; g.fillRect(0, GY, W, 1);
-    g.globalCompositeOperation = 'lighter';                                 // the moon's path glittering on the water
+    g.globalCompositeOperation = 'lighter';   // the moon's path glittering on the water
     for (let y = GY + 2, j = 0; y < H; y += 2, j++) { const f = (y - GY) / (H - GY), w = MOONR * (1.2 + f * 5), on = RM ? 0.6 : 0.35 + 0.65 * Math.abs(Math.sin(clock * 2.1 + j * 1.7));
       g.fillStyle = 'rgba(255,240,210,' + (0.32 * on * (1 - f * 0.5)).toFixed(3) + ')'; g.fillRect(MOONX - w / 2 + Math.sin(clock * 1.3 + j) * w * 0.15, y, w * (0.5 + 0.5 * on), 1); }
     g.globalCompositeOperation = 'source-over';
