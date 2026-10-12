@@ -513,29 +513,28 @@ function paintRace(st, label) {
   }
   const tw = $('gTower'); if (cache.get(tw) !== html) { cache.set(tw, html); tw.innerHTML = html; }
 }
-/* Fireworks read-outs: the bar fills toward the goal and its grand finale; Colours counts the notes (each its own colour) sent up so far;
+/* Fireworks read-outs: the bar fills toward the goal and its grand finale; Shells counts the player's shells (each note's colour shows in the sky);
    Intensity is the last minute of playing (what the other themes call Power): how many shells are in the sky at once, and how big */
 let fBannerT = 0;
 function fireBanner(msg) { const b = $('fBanner'); b.textContent = msg; b.classList.add('on'); clearTimeout(fBannerT); fBannerT = setTimeout(() => b.classList.remove('on'), 3200); }
 function hideFireBanner() { clearTimeout(fBannerT); $('fBanner').classList.remove('on'); }
 function fireHint(st) {
-  const n = fw.colours, shells = fw.shells;
+  const shells = fw.shells;
   if (st === 'idle') return tr('Every note you play sends up a firework');
-  if (st === 'stopped') return shells ? tr('{fireworks} in {colours}', { fireworks: trn(shells, '{n} firework', '{n} fireworks'), colours: trn(n, '{n} colour', '{n} colours') }) : tr('Press Start for a new show');
+  if (st === 'stopped') return shells ? trn(shells, '{n} firework lit up the sky', '{n} fireworks lit up the sky') : tr('Press Start for a new show');
   if (st === 'paused') return tr(fw.inFinale ? 'Paused. The finale waits for you' : 'Paused. The sky waits for you');
   if (fw.inFinale) return tr('Grand finale!');
   if (!V.music) return tr('The sky is waiting. Play a note');
   if (fw.finaleDone) return tr('Goal reached. Every note is an encore');
   if (V.pw < 0.3) return tr('Keep playing: the more you play, the more fireworks');
-  if (n < 12) return tr('Each note has its own colour: {n} of 12 so far', { n: n });
-  return tr('All twelve colours! Shells grow as you play');
+  return tr('Every note has its own colour');
 }
 function paintFire(st, label) {
   const p = V.goal > 0 ? V.play / V.goal : 0, playTxt = fmt(V.play), el = $('fPlay'), cls = playTxt.length > 5 ? 'big long' : 'big', reached = st !== 'idle' && V.play >= V.goal;
   text(el, playTxt); if (el.className !== cls) el.className = cls;
   width($('fBar'), p); text($('fPct'), Math.min(100, Math.floor(p * 100)) + '%');
   text($('fGoal'), fmt(V.goal)); text($('fGoalLeft'), reached ? tr('Reached') : goalLeft(V)); text($('fPauses'), String(V.pauses));
-  text($('fShells'), String(fw.shells)); text($('fCols'), fw.colours + '/12'); text($('fSize'), MT.fwCalibre(V.pw) + '″'); text($('fPw'), Math.round(V.pw * 100) + '%'); text($('fEff'), Math.round(V.eff * 100) + '%');
+  text($('fShells'), String(fw.shells)); text($('fPw'), Math.round(V.pw * 100) + '%'); text($('fEff'), Math.round(V.eff * 100) + '%');
   text($('fHeard'), heardLine(st, label));
   text($('fHint'), fireHint(st));
 }

@@ -1098,7 +1098,7 @@ function detectionTests(sr) {
     const kinds = recent => { const s = new FireworkSim(); s.reset(1800, 11); const ev = fwRun(s, 60, { state: 'running', music: true, midi: 62, recent: recent, play: 0 }, 1);
       return { size: ev.reduce((x, e) => x + e.size, 0) / ev.length, kinds: new Set(ev.map(e => e.kind)) }; };
     const lo = kinds(0.2), mid = kinds(0.5), hi = kinds(0.9);
-    const ok = hi.size > mid.size && mid.size > lo.size && lo.kinds.size === 1 && lo.kinds.has('peony') && !mid.kinds.has('willow') && mid.kinds.has('ring') && hi.kinds.has('willow') && hi.kinds.size >= 5 && fwCalibre(0.2) < fwCalibre(0.9) && fwCalibre(1) === 12;
+    const ok = hi.size > mid.size && mid.size > lo.size && lo.kinds.size === 1 && lo.kinds.has('peony') && !mid.kinds.has('willow') && mid.kinds.has('ring') && hi.kinds.has('willow') && hi.kinds.size >= 5;
     return { name: 'Fireworks: the last minute sets the size and the kinds', expect: 'bigger shells with more of the last minute played; round ones only at 20%, rings at 50%, willows and more at 90%',
       got: [['20%', lo], ['50%', mid], ['90%', hi]].map(p => p[0] + ': size ' + p[1].size.toFixed(2) + ', ' + [...p[1].kinds].sort().join(' ')).join('; '), pass: ok }; } });
   list.push({ name: 'Fireworks: a held note still sends shells up', run: () => {
@@ -1137,6 +1137,51 @@ function detectionTests(sr) {
     const s = new Session(); s.start(); for (let i = 0; i < 30; i++) s.tick(1, true); for (let i = 0; i < 10; i++) s.tick(1, false);
     const m = s.minute, ok = m.length === 60 && m.slice(0, 20).every(v => v === null) && m.slice(20, 50).every(v => v === 1) && m.slice(50).every(v => v === 0);
     return { name: 'Session: the last minute, a second at a time', expect: '20 empty seconds, 30 played, 10 quiet', got: m.map(v => v == null ? '.' : v >= 0.5 ? '#' : '_').join(''), pass: ok }; } });
+  list.push({ name: 'Summary: the columns add up for any length of session', run: () => {
+    const runsFor = secs => { const s = new Session(); s.start(); for (let t = 0; t < secs; t += 7) s.tick(Math.min(7, secs - t), Math.floor(t / 100) % 3 !== 2); s.stop(); return s.runs; };
+    const near = (a, b) => Math.abs(a - b) < 1e-6, rows = [60, 61, 3000, 10800, 144000].map(secs => { const R = sessionReport(runsFor(secs)), c = R.columns;
+      const t = c.reduce((a, x) => a + x.t, 0), all = c.reduce((a, x) => a + x.play + x.quiet + x.paused, 0), play = c.reduce((a, x) => a + x.play, 0);
+      return { secs: secs, bin: R.bin, n: c.length, ok: near(t, secs) && near(all, secs) && near(play, R.play) && near(R.total, secs) && c.length === Math.ceil(secs / R.bin) && c.every(x => x.t > 0 && x.t <= R.bin + 1e-9) && (c.length <= 45 || R.bin === 3600) }; });
+    const ok = rows.every(r => r.ok) && rows.map(r => r.bin).join() === '60,60,120,300,3600' && rows.map(r => r.n).join() === '1,2,25,36,40';
+    return { name: 'Summary: the columns add up for any length of session', expect: 'sessions of 1 min, 61 s, 50 min, 3 h and 40 h get columns of 60, 60, 120, 300 and 3600 s (1, 2, 25, 36 and 40 of them, the 61 s session ending in a column of 1 s) whose times add up to the whole session and whose playing adds up to the playing',
+      got: rows.map(r => clockText(r.secs) + ': ' + r.n + ' columns of ' + r.bin + ' s' + (r.ok ? '' : ', which do not add up')).join('; '), pass: ok }; } });
+  list.push({ name: 'Summary: the best window needs 10 minutes, and the thirds need running time', run: () => {
+    const best = runs => { const b = sessionReport(runs).best; return b ? clockText(b.a) + '+' + b.len : 'none'; }, th = runs => sessionReport(runs).thirds.map(x => x == null ? '-' : Math.round(x * 100)).join('/');
+    const E = sessionReport([]), Z = sessionReport([2, 100]), got = [best([0, 300, 1, 299]), best([0, 300, 1, 300]), best([1, 600, 0, 599]), best([1, 600, 0, 600]), th([0, 100, 2, 200]), th([1, 100, 0, 100]), th([2, 100]), th([])];
+    const want = ['none', '0:00+300', '10:00+300', '10:00+600', '100/-/-', '0/50/100', '-/-/-', '-/-/-'];
+    const ok = got.every((g, i) => g === want[i]) && E.total === 0 && E.columns.length === 0 && E.best === null && E.longest.a === 0 && E.longest.b === 0 && E.efficiency === 0
+      && Z.total === 100 && Z.paused === 100 && Z.pauses === 1 && Z.active === 0 && Z.efficiency === 0 && Z.best === null && Z.columns.length === 2 && Z.columns[1].paused === 40 && Z.longest.b === 0;
+    return { name: 'Summary: the best window needs 10 minutes, and the thirds need running time', expect: 'no best window under 10 minutes, the best 5 minutes from 10 minutes and the best 10 from 20, placed where the playing is; a third with no running time is blank; no runs at all, or one long pause, give an empty report',
+      got: got.join(' | ') + ' | empty: ' + E.columns.length + ' columns | one pause: ' + Z.paused + ' s paused, ' + Z.columns.length + ' columns', pass: ok }; } });
+  list.push({ name: 'Session: away while paused, calls out of turn, and the hold', run: () => {
+    const s = new Session(); s.start(); s.tick(10, true); s.pause(); s.away(30); const a = [s.pauses, s.total, s.runs.join()];   // away while paused: the pause goes on
+    s.resume(); s.away(0); s.away(-5); s.away(NaN); const b = [s.total, s.runs.join()]; s.away(5); const c = [s.pauses, s.runs.join(), s.playing];
+    const i = new Session(), idle = [i.pause(), i.resume(), i.stop(), i.tick(1, true), i.total]; i.start(); const r = [i.resume(), i.pause(), i.pause(), i.pauses, i.resume(), i.stop(), i.stop(), i.tick(1, true), i.total, i.resume(), i.pause(), i.state];
+    const m = new Session(); m.start(); for (let k = 0; k < 60; k++) m.tick(1, true); for (let k = 0; k < 59; k++) m.tick(1, false); const r119 = m.recentEfficiency; m.tick(1, false); const r120 = m.recentEfficiency, eff = m.efficiency;
+    const h = new Session(); h.hold = 5; h.start(); const hl = [h.holdLeft]; h.tick(1, true); hl.push(h.holdLeft); h.tick(2, false); hl.push(h.holdLeft); h.tick(3, false); hl.push(h.holdLeft, h.playing); h.tick(1, false); hl.push(h.holdLeft, h.playing);
+    h.tick(1, true); h.pause(); hl.push(h.holdLeft); h.resume(); h.tick(1, false); hl.push(h.holdLeft, h.playing); h.tick(1, true); h.tick(2, false); hl.push(h.holdLeft); h.stop(); hl.push(h.holdLeft);
+    const ok = a.join() === '1,40,0,10,2,30' && b.join() === '40,0,10,2,30' && c.join() === '2,0,10,2,35,false' && idle.join() === 'false,false,false,false,0' && r.join() === 'false,true,false,1,true,true,false,false,0,false,false,stopped'
+      && Math.abs(r119 - 1 / 60) < 1e-9 && r120 === 0 && Math.abs(eff - 0.5) < 1e-9 && hl.join() === '0,0,3,0,true,0,false,0,0,false,3,0';
+    return { name: 'Session: away while paused, calls out of turn, and the hold', expect: 'away while paused lengthens the pause without counting another; away for 0 s, a negative time or NaN changes nothing; pause, resume, stop and tick out of turn return false and change nothing; after exactly 120 s the last minute has let the first go; the hold counts down from 5 s and is 0 while playing is heard, once it has run out, while paused, after a resume and after End even mid-way',
+      got: 'away while paused: ' + a.join(' ') + ' | out of turn: ' + idle.join(' ') + ' / ' + r.join(' ') + ' | last minute at 119 s ' + Math.round(r119 * 1000) / 10 + '%, at 120 s ' + Math.round(r120 * 100) + '% | hold ' + hl.join(' '), pass: ok }; } });
+  list.push({ name: 'Swipe: a press has to start, go sideways and lock before it counts', run: () => {
+    const d = new DragSwipe(), go = (dx, ms, x) => { d.down(1, 200, 300, 0, 390); d.move(200 + dx, 300); return d.up(x === undefined ? 200 + dx : x, ms); };
+    const got = [d.move(10, 10), d.up(10, 100), d.has(1)];                                  // nothing pressed
+    d.down(1, 200, 300, 0, 390); got.push(d.has(2), d.move(210, 300), d.locked, d.move(211, 300), d.locked, d.move(211, 400), d.up(159, 349));   // 10 px is still a tap, 11 px locks, then it stays locked however far down
+    d.down(1, 200, 300, 0, 390); got.push(d.move(200, 315), d.has(1), d.move(100, 315), d.up(100, 500));   // a scroll took it: later sideways moves are ignored
+    got.push(go(-41, 349), go(-41, 350), go(-40, 100), go(97.5, 1000), go(98, 1000), go(-200, 400, null), d.has(1));   // the flick and quarter edges; taken away after the lock it goes back
+    d.down(1, 200, 300, 0, 390); d.move(100, 300); d.down(2, 50, 50, 10, 390); got.push(d.has(1), d.locked, d.move(40, 50), d.up(40, 100));   // a second finger starts over
+    const want = [null, null, false, false, null, false, 11, true, 11, 1, null, false, null, null, 1, 0, 0, 0, -1, 0, false, false, false, null, null];
+    return { name: 'Swipe: a press has to start, go sideways and lock before it counts', expect: 'moving or letting go with nothing pressed is nothing; 10 px sideways is still a tap and 11 px locks the swipe, which then follows the finger whatever it does up or down; after a scroll takes the press, sideways moves and letting go count for nothing; a 41 px flick under 350 ms steps, 40 px or 350 ms does not; a quarter of the way (97.5 px) stays, a px more steps; taken away after the lock it goes back; a second finger starts over',
+      got: got.map(String).join(' '), pass: got.length === want.length && got.every((g, i) => g === want[i]) }; } });
+  list.push({ name: 'Trackpad: small nudges, a change of mind and a reset', run: () => {
+    const w = new WheelSwipe(), f = (t, dx) => w.feed({ t: t, now: t, drawn: t - 8, dx: dx });
+    const got = [f(0, 20), f(16, 20), f(32, 19), f(48, 1), f(64, 30), f(80, 10), f(2000, 70)];   // 59 px is not a swipe, 60 is; the momentum after it is not another; a fresh swipe after a pause is
+    w.reset(); got.push(f(0, 30), f(16, -10), f(32, 40), f(48, 30), f(64, -70), f(80, 70));         // a few px back wipe the count (else 30 + 40 would step); after a step, the other way is a new swipe
+    w.reset(); got.push(f(0, 200), f(16, 150), f(32, 100)); w.reset(); got.push(f(48, 100), f(64, 0), f(80, 0));   // a reset lets the next event count at once; events of 0 px do nothing
+    const want = [0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, -1, 1, 1, 0, 0, 1, 0, 0];
+    return { name: 'Trackpad: small nudges, a change of mind and a reset', expect: 'nudges add up to a step at 60 px and the momentum after it does not step again; a few px the other way start the count again, while the other way after a step is a new swipe; after a reset the next event counts afresh',
+      got: got.join(' '), pass: got.length === want.length && got.every((g, i) => g === want[i]) }; } });
   list.push({ name: 'Themes: the player turns off the ones they don\'t like', run: () => {
     const all = ['classic', 'rocket', 'city', 'dash', 'race', 'fireworks'];
     const got = [themesOn(all, '').join(' '), themesOn(all, 'city,dash').join(' '), themesOn(all, 'classic,rocket,city,dash,race,fireworks').join(' '), themesOn(all, 'space,dash').join(' '),
@@ -1145,6 +1190,74 @@ function detectionTests(sr) {
     const want = ['classic rocket city dash race fireworks', 'classic rocket race fireworks', 'classic', 'classic rocket city race fireworks', 'city', 'city', '', 'rocket,city,dash,race', 'rocket', 'classic', 'classic', 'city', 'classic', 'rocket,fireworks', 'fireworks'];
     return { name: 'Themes: the player turns off the ones they don\'t like', expect: 'off themes leave the list, unknown ids are ignored, Classic is always on, and a theme turned off lands on the first one on, Classic (' + want.join(' | ') + ')',
       got: got.join(' | '), pass: got.every((g, i) => g === want[i]) }; } });
+  list.push({ name: 'Practice log: the week turns on Monday, and at the turn of the year', run: () => {
+    const at = (y, m, d, h) => new Date(y, m - 1, d, h || 12).getTime(), rec = (t, play) => ({ start: t, play: play, goal: 1800, eff: 0.8, R: { active: play / 0.8 } });
+    const recs = [rec(at(2026, 10, 4), 900), rec(at(2026, 10, 5), 600), rec(at(2026, 10, 11), 300)];   // Sunday 4, Monday 5 and Sunday 11 October 2026
+    const S = practiceStats(recs, at(2026, 10, 11, 18)), M = practiceStats(recs, at(2026, 10, 12, 9)), Y = practiceStats([rec(at(2026, 12, 27), 120), rec(at(2026, 12, 28), 60), rec(at(2026, 12, 31), 600)], at(2027, 1, 1));
+    const keys = P => P.week[0].key + '..' + P.week[6].key, sum = P => ' (' + P.weekPlay + ', ' + P.lastWeekSoFar + ' of ' + P.lastWeekPlay + ')';
+    const shape = P => P.grid.length === 12 && P.grid.every(c => c.length === 7) && P.grid[11][0].key === P.week[0].key && P.grid[11][6].key === P.week[6].key;
+    const ok = keys(S) === '2026-10-05..2026-10-11' && S.week[6].today && !S.week.some(c => c.future) && S.weekPlay === 900 && S.lastWeekPlay === 900 && S.lastWeekSoFar === 900
+      && keys(M) === '2026-10-12..2026-10-18' && M.week[0].today && M.week.filter(c => c.future).length === 6 && M.weekPlay === 0 && M.lastWeekPlay === 900 && M.lastWeekSoFar === 600 && M.daysSince === 1
+      && keys(Y) === '2026-12-28..2027-01-03' && Y.weekPlay === 660 && Y.lastWeekPlay === 120 && Y.lastWeekSoFar === 0 && Y.grid[10][0].key === '2026-12-21'
+      && [S, M, Y].every(shape) && M.grid[0][0].key === '2026-07-27' && practiceStats([], at(2027, 1, 1), 3).grid.length === 3;
+    return { name: 'Practice log: the week turns on Monday, and at the turn of the year', expect: 'on Sunday 11 October the week is Monday 5 to Sunday 11 and last week so far is all of last week; on Monday 12 a new week starts with six days to come and only last Monday counted so far; New Year\'s Day sits in the week of 28 December; the calendar is 12 columns of 7 ending in this week',
+      got: keys(S) + sum(S) + ' | ' + keys(M) + sum(M) + ' | ' + keys(Y) + sum(Y), pass: ok }; } });
+  list.push({ name: 'Practice log: an empty log, records in any order and the shades of the calendar', run: () => {
+    const at = (d, h) => new Date(2026, 9, d, h || 12).getTime(), mon = at(12, 9), rec = (t, play, o) => Object.assign({ start: t, play: play, goal: 1800, eff: 0.8, R: { active: play / 0.8 } }, o);
+    const E = practiceStats([], mon), O = practiceStats([rec(at(12), 100), rec(at(1), 700), rec(at(7), 500)], mon), N = practiceStats([rec(at(12, 8), 600, { eff: 0.5, R: null }), rec(at(12, 9), 300, { eff: 0, R: null })], mon);
+    const level = plays => practiceStats(plays.map((p, i) => rec(at(12, 8 + i), p)), mon).today.level, levels = [[0], [1], [899], [900], [1799], [1800], [450, 450]].map(level).join('');
+    const L = practiceStats([rec(at(11, 23), 2400, { end: at(12, 0) + 25 * 6e4 })], mon);   // Sunday 23:00 to Monday 00:25 is filed under Sunday
+    const ok = E.sessions === 0 && E.totalPlay === 0 && E.efficiency === 0 && E.longest === null && E.daysSince === null && E.daysPlayed === 0 && E.weekPlay === 0 && E.today.level === 0 && E.grid.length === 12
+      && O.longest.play === 700 && O.daysSince === 0 && O.daysPlayed === 3 && O.sessions === 3 && O.totalPlay === 1300
+      && Math.abs(N.efficiency - 0.6) < 1e-9 && levels === '0112232' && LEVEL_MIN.join() === '15,30'
+      && !L.practicedToday && L.today.play === 0 && L.weekPlay === 0 && L.lastWeekPlay === 2400 && L.daysSince === 1;
+    return { name: 'Practice log: an empty log, records in any order and the shades of the calendar', expect: 'an empty log has no longest session and no days since; the longest and the days since come out the same in any order; a record with no report falls back to its efficiency (60%); the shades turn at exactly 15 and 30 minutes, two sessions adding up (0112232); a session over midnight is filed under the day it started',
+      got: 'empty: ' + E.sessions + ' sessions, longest ' + E.longest + ', days since ' + E.daysSince + ' | any order: longest ' + (O.longest && O.longest.play) + ' s, ' + O.daysSince + ' days since | no report: ' + Math.round(N.efficiency * 100) + '% | shades ' + levels + ' | over midnight: ' + L.lastWeekPlay + ' s last week', pass: ok }; } });
+  list.push({ name: 'Rocket: a new flight while a session is still running', run: () => {
+    const at = (d, h) => new Date(2026, 9, d, h).getTime(), now = at(12, 18), up = { mode: 'ascent', fp: 400 }, orb = { mode: 'orbit', fp: 2000 };
+    const got = [rocketCarry([{ start: at(12, 8), end: at(12, 9), rocket: up }], now, at(12, 9)),              // ended just as the new flight was chosen: the pad
+      rocketCarry([{ start: at(12, 8), rocket: up }], now, at(12, 8)),                                          // no end saved, and started by then: the pad
+      rocketCarry([{ start: at(12, 8), end: at(12, 20), rocket: up }], now, at(12, 19)),                        // chosen while it still ran: carries on
+      rocketCarry([{ start: at(12, 8), rocket: up }], now, at(12, 7)),                                          // chosen before it started: carries on
+      rocketCarry([{ start: at(12, 8), rocket: up }], now, 0), rocketCarry([{ start: at(12, 8), rocket: up }], now),   // never chosen
+      rocketCarry([{ start: at(12, 14), rocket: orb }, { start: at(11, 20), rocket: up }, { start: at(12, 8), rocket: up }], now),   // the day's latest, whatever the order
+      rocketCarry([], now), rocketCarry([{ start: at(12, 8) }], now), rocketCarry([{ start: at(11, 8), rocket: orb }], now)];
+    const want = [null, null, up, up, up, up, orb, null, null, null];
+    return { name: 'Rocket: a new flight while a session is still running', expect: 'a session that had ended (or, with no end saved, had started) by the time the new flight was chosen starts on the pad; one still running then, or started later, carries on; the latest session of the day wins in any order; yesterday, no sessions or no saved flight give the pad',
+      got: got.map(g => g ? g.mode : 'pad').join(', '), pass: got.every((g, i) => g === want[i]) }; } });
+  list.push({ name: 'A session cut short: every damaged snapshot is ignored', run: () => {
+    const s = new Session(); s.start(); for (let i = 0; i < 100; i++) s.tick(1, true); s.pause(); s.tick(5, false); s.resume(); s.tick(10, false);
+    const snap = JSON.parse(JSON.stringify(liveSnapshot(s, 'Ana', { mode: 'orbit', fp: 2000 }, s.startedAt + 200e3))), vary = (k, v) => { const c = JSON.parse(JSON.stringify(snap)); if (v === undefined) delete c[k]; else c[k] = v; return c; };
+    const bad = { 'no version': vary('v'), 'no start': vary('startedAt'), 'start 0': vary('startedAt', 0), 'no savedAt': vary('savedAt'), 'no goal': vary('goal'), 'goal 0': vary('goal', 0), 'no runs': vary('runs'), 'runs as text': vary('runs', '0,5'),
+      'kind 3': vary('runs', [3, 5]), 'kind as text': vary('runs', ['0', 5]), 'negative seconds': vary('runs', [0, -1]), 'NaN seconds': vary('runs', [0, NaN]), 'text': 'x', 'a number': 5, 'a list': [] };
+    const wrong = Object.keys(bad).filter(k => liveRecord(bad[k]) !== null), r = liveRecord(snap), r2 = liveRecord(vary('rocket', 'orbit')), r3 = liveRecord(vary('name', 5)), r4 = liveRecord(vary('runs', [])), r5 = liveRecord(vary('savedAt', snap.startedAt));
+    const ok = !wrong.length && r && r.play === 100 && r.end - r.start === 200e3 && r.rocket.mode === 'orbit' && r.name === 'Ana' && r.R.pauses === 1 && r2 && r2.rocket === null && r3 && r3.name === '' && r4 && r4.play === 0 && r4.R.columns.length === 0 && r5 && r5.end === r5.start;
+    return { name: 'A session cut short: every damaged snapshot is ignored', expect: Object.keys(bad).length + ' kinds of damage are ignored; a good one keeps its 100 s, its pause, its name and its rocket; a rocket that is not an object or a name that is not text is dropped; no runs at all is a session with nothing in it',
+      got: (wrong.length ? 'not ignored: ' + wrong.join(', ') : 'all ignored') + (r ? '; play ' + r.play + ' s, ' + r.R.pauses + ' pause, ' + r.name + ', rocket ' + (r.rocket && r.rocket.mode) : '; no record'), pass: !!ok }; } });
+  list.push({ name: 'Themes: Classic can\'t be turned off, and the saved text stays tidy', run: () => {
+    const all = ['classic', 'rocket', 'city', 'dash', 'race', 'fireworks'], off = themeSwitch(all, '', 'city', false), on = themeSwitch(all, off, 'city', true);
+    const got = [themeSwitch(all, '', 'classic', false), themeSwitch(all, 'rocket', 'classic', false), themesOn(all, 'classic').length, themesOn(all, null).length, themesOn(all, undefined).length, themesOn(all, 'bogus,classic,rocket').join(' '),
+      themeSwitch(all, 'rocket,bogus', 'city', false), themeSwitch(all, 'rocket,rocket', 'city', false), themeSwitch(all, 'rocket', 'rocket', false), on, themeLanding(themesOn(all, off), 'city'), themeLanding(themesOn(all, on), 'city')];
+    const want = ['', 'rocket', 6, 6, 6, 'classic city dash race fireworks', 'rocket,city', 'rocket,city', 'rocket', '', 'classic', 'city'];
+    return { name: 'Themes: Classic can\'t be turned off, and the saved text stays tidy', expect: 'turning Classic off changes nothing; nothing saved means all on; unknown and repeated ids go as soon as the text is written again; off then on gives back an empty text; the Home Screen lands on Classic while City is off and back on City once it is on',
+      got: got.join(' | '), pass: got.every((g, i) => g === want[i]) }; } });
+  list.push({ name: 'Clock and duration text at the edges, and the eleventh session of a day', run: () => {
+    const clock = [0, 59.9, 3599, 3600, 5400, 86400, -5].map(clockText).join(' '), dur = [0, 29.5, 59.4, 59.5, 89, 90, 3569, 3570, 3600, 5400, 86400, -3].map(durationText).join(' | ');
+    const at = (d, h) => new Date(2026, 9, d, h).getTime(), now = at(12, 20), rec = t => ({ id: t, start: t, play: 60, goal: 1800, eff: 0.8, R: { active: 75 } }), recs = []; for (let i = 0; i < 11; i++) recs.push(rec(at(12, 7 + i)));
+    const line = n => dayLine({ key: '2026-10-12', n: n, count: n, play: 600 }, now).text, D = dayRecap(recs.slice().reverse(), recs[10]), D1 = dayRecap(recs, recs[0]);
+    const ok = clock === '0:00 0:59 59:59 1:00:00 1:30:00 24:00:00 0:00' && dur === '0 s | 30 s | 59 s | 1 min | 1 min | 2 min | 59 min | 1 h | 1 h | 1 h 30 min | 24 h | 0 s'
+      && line(10) === 'This was your tenth session today.' && line(11) === 'This was session 11 today.' && dayLine({ key: '2026-10-12', n: 10, count: 11, play: 60 }, now).text === 'This was session 10 of 11 today.'
+      && dayLine({ key: '2026-10-11', n: 11, count: 11, play: 60 }, now).lead === '1 min of music that day.' && dayLine({ key: '2026-10-12', n: 1, count: 1, play: 60 }, now) === null && dayLine(null, now) === null
+      && D.n === 11 && D.count === 11 && D.before === 600 && D.upTo === 660 && D.play === 660 && D1.n === 1 && D1.before === 0 && D1.upTo === 60 && dayRecap(recs, rec(at(12, 19))) === null && dayRecap(recs, null) === null && dayRecap([], recs[0]) === null;
+    return { name: 'Clock and duration text at the edges, and the eleventh session of a day', expect: 'the clock shows whole seconds (59.9 s is 0:59) and hours from 1:00:00; durations round to the minute from 59.5 s and to the hour from 59.5 min; the tenth session is "your tenth", the eleventh "session 11"; a day with one session, or a session not in the log, has no line',
+      got: clock + ' | ' + dur + ' | ' + line(10) + ' ' + line(11) + ' | eleventh: ' + D.n + ' of ' + D.count + ', ' + D.before + ' s before it', pass: ok }; } });
+  list.push({ name: 'New versions: placeholders, dev builds and whitespace', run: () => {
+    const page = b => '<meta name="build" content="' + b + '">', P = '__' + 'BUILD__';
+    const got = [buildOf(page(' 12 ')), buildOf(page('dev')), buildOf(page('')), buildOf(null), buildOf('<meta name="build">'), buildOf(page('x__y')),
+      newerBuild('dev', page('dev')), newerBuild('12', page('dev')), newerBuild('dev', page('13')), newerBuild('12', page(' 12 ')), newerBuild(null, page('13')), newerBuild('12', null), newerBuild('12', page(P) + page('13'))];
+    const want = ['12', 'dev', '', '', '', '', false, true, true, false, false, false, false];
+    return { name: 'New versions: placeholders, dev builds and whitespace', expect: 'the stamp is trimmed; a page with no meta, no content or a placeholder has no stamp; dev against dev, or the same stamp with spaces round it, is not newer, while a dev page against a numbered build is; the first meta tag is the one that counts',
+      got: got.join(', '), pass: got.every((g, i) => g === want[i]) }; } });
   // languages
   list.push({ name: 'Languages: every word in Chinese and French', run: () => {
     const ids = LANGS.map(l => l[0]).filter(id => id !== 'en'), keys = id => Object.keys(WORDS[id] || {}).sort(), marks = t => (String(t).match(/\{\w+\}/g) || []).sort().join();
@@ -2075,8 +2188,7 @@ function raceGap(l) { const a = Math.abs(l); return a >= 1 ? trn(Math.floor(a), 
    'finaleEnd' event TROPHY_T seconds later, when the trophy card can show. The finale only plays while the theme is on screen (shown), so it waits
    for the player to come to it, and it holds through a pause like the clock. src/fireworks.js only draws what this decides. */
 const FW = { PACE: 3, RATE: 1, PER: 4, BURST: 2, BURSTPER: 3, AIR: 3.5, CHARGE: 0.15, FINALE: 28, FINALE_T: 7, LULL: 1.4, TROPHY_T: 3.6,   // LULL: the quiet before the trophy goes up   // AIR: about how long a shell is in the sky, rising and burning
-  KINDS: [[0, 'peony'], [0.3, 'ring'], [0.3, 'chrysanthemum'], [0.6, 'willow'], [0.6, 'palm'], [0.6, 'crossette']],   // [intensity needed, kind]
-  CALIBRE: [2, 3, 4, 5, 6, 8, 10, 12] };                                    // shell sizes in inches, as real shells are measured, for the read-outs
+  KINDS: [[0, 'peony'], [0.3, 'ring'], [0.3, 'chrysanthemum'], [0.6, 'willow'], [0.6, 'palm'], [0.6, 'crossette']] };   // [intensity needed, kind]
 function fwHue(pc) { return ((pc * 7) % 12) * 30; }                            // C red, G orange, D yellow, A lime, E green... round the circle of fifths
 /* the finale's last burst: points along the outline of a trophy (the cup, its two handles, the stem and the base), about step apart, in units where
    the trophy is 1.5 high and centred on 0, y up. The renderers throw a spark at each point, so the burst opens into the shape and holds it a moment */
@@ -2092,7 +2204,6 @@ function fwTrophyShape(step) {
   seg(-0.32, -0.45, 0.32, -0.45); seg(0.32, -0.45, 0.42, -0.75); seg(0.42, -0.75, -0.42, -0.75); seg(-0.42, -0.75, -0.32, -0.45);   // the base
   return out;
 }
-function fwCalibre(recent) { return FW.CALIBRE[Math.max(0, Math.min(FW.CALIBRE.length - 1, Math.floor(recent * FW.CALIBRE.length)))]; }
 class FireworkSim {
   constructor() { this.reset(0, 1); }
   reset(goal, seed) {
@@ -2141,7 +2252,7 @@ class FireworkSim {
   }
 }
 
-const api = { LANGS, addWords, setLang, getLang, pickLang, locale, tr, trn, inLang, both, LIFTOFF, OnsetTracker, DragSwipe, WheelSwipe, DashSim, DASH, dashSpeed, RaceSim, RACE, RACE_PIT, raceTrack, FireworkSim, FW, fwHue, fwCalibre, fwTrophyShape, raceGap, raceRng, RacePractiser, MusicDetector, Session, RocketSim, WORLD, MILESTONES, SENSITIVITY, CLIPS, DETECTION_CASES,
+const api = { LANGS, addWords, setLang, getLang, pickLang, locale, tr, trn, inLang, both, LIFTOFF, OnsetTracker, DragSwipe, WheelSwipe, DashSim, DASH, dashSpeed, RaceSim, RACE, RACE_PIT, raceTrack, FireworkSim, FW, fwHue, fwTrophyShape, raceGap, raceRng, RacePractiser, MusicDetector, Session, RocketSim, WORLD, MILESTONES, SENSITIVITY, CLIPS, DETECTION_CASES,
   detectionTests, runDetectionTests, analyzeClip, sessionReport, clockText, sessionRecord, worthKeeping, liveSnapshot, liveRecord, rocketCarry, buildOf, newerBuild, themesOn, themeSwitch, themeLanding, practiceStats, dayRecap, dayLine, practiceNudge, homeCopy, weekLine, durationText, dayKey, LOG_MAX, LEVEL_MIN, SAMPLE_LOGS, sampleLog, rocketAt, fraction, heardAs, noteOf, smooth, pchip, clamp01 };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.MT = api;
 })(typeof self !== 'undefined' ? self : this);
