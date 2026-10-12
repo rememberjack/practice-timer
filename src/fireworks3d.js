@@ -206,7 +206,9 @@ function makeFirework3D(cv, hud, MT) {
 
   function resize() {
     const host = cv.parentElement, w = host.clientWidth, h = host.clientHeight; if (w < 10 || h < 10) return false;
-    W = w; H = h; dpr = Math.min(2, window.devicePixelRatio || 1); top = Math.min(h * 0.55, hud.offsetTop + hud.offsetHeight);
+    const d = Math.min(2, window.devicePixelRatio || 1), t = Math.min(h * 0.55, hud.offsetTop + hud.offsetHeight);
+    if (w === W && h === H && d === dpr && t === top) return true;   // every theme change asks, after the frame is drawn: setSize clears the canvas, and a blank frame would show
+    W = w; H = h; dpr = d; top = t;
     renderer.setPixelRatio(dpr); renderer.setSize(W, H, false);
     // a level camera with a shifted lens, so buildings stand straight: the full picture is SHIFT times the height left under the read-outs, and the
     // canvas shows its top part, with the horizon low down
