@@ -921,6 +921,21 @@ function detectionTests(sr) {
     return { name: 'Dash: silence anywhere on the course', expect: 'wherever the music stops (on the ground, up on a platform, in mid-air), a 2 s gap is survived and a long silence crashes once, ' + DASH.GRACE + ' s in; then it runs on with no touch',
       got: (at.ground + at.platform + at.air) + ' silences (' + at.ground + ' on the ground, ' + at.platform + ' on a platform, ' + at.air + ' in the air), crashes ' + lo.toFixed(1) + ' to ' + hi.toFixed(1) + ' s in' + (wrong.length ? '; wrong: ' + wrong.slice(0, 3).join('; ') : ''),
       pass: !wrong.length && at.platform > 0 && at.air > 0 }; } });
+  // the coin pusher
+  list.push({ name: 'Coins: every note drops a coin with its name, and every coin played is won in the end', run: () => {
+    const s = new CoinSim(), notes = [['C4', 60], ['F\u266F2', 42], ['B\u266D5', 82]], landed = {}; let acc = 0, k = 0, side = 0, most = 0, play = 0;
+    const run = (sec, rate, running) => { for (let t = 0; t < sec; t += 1 / 60) { acc += rate / 60;
+      while (acc >= 1) { acc--; const n = notes[k++ % 3]; s.drop(n[0], n[1]); const c = s.air[s.air.length - 1]; if (n[1] < 45 ? c.x > 0.15 : n[1] > 80 ? c.x < 0.85 : Math.abs(c.x - 0.43) > 0.1) side++; }
+      if (running) play += 1 / 60; s.update(1 / 60, { running: running, eff: 0.8, play: play });
+      while (s.events.length) { const e = s.events.shift(); if (e.k === 'land' && !e.c.medal) landed[e.c.note] = (landed[e.c.note] || 0) + 1; }
+      most = Math.max(most, s.coins.length); } };
+    run(240, 4, true); run(60, 12, true); run(3, 0, true);                    // four notes a second for 4 minutes, then a fast minute
+    const held = s.coins.map(c => c.x + ',' + c.y).join(' '), plate = s.push; run(5, 0, false);
+    const still = held === s.coins.map(c => c.x + ',' + c.y).join(' ') && plate === s.push, w = s.worst();
+    const kept = s.start + s.played + s.medals === s.coins.length + s.air.length + s.won, names = Object.keys(landed).sort().join(' ');
+    const ok = kept && names === 'B\u266D C F\u266F' && side === 0 && s.medals === 5 && s.won >= s.played * 0.95 && most < 100 && still && w.bad === 0 && w.overlap < 0.3;
+    return { name: 'Coins: every note drops a coin with its name, and every coin played is won in the end', expect: 'coins named by note (no octave), low notes landing left and high ones right, one medal a minute; none lost (every coin is on the shelf, in the air or won); the shelf never overfills, even at 12 notes a second; pausing stops the plate and the coins',
+      got: s.played + ' coins and ' + s.medals + ' medals played, ' + s.won + ' won, ' + s.coins.length + ' on the shelf' + (kept ? '' : ', SOME LOST') + '; names ' + names + (side ? ', ' + side + ' in the wrong place' : '') + '; at most ' + most + ' on the shelf; ' + (still ? 'still while paused' : 'MOVED while paused') + '; overlap ' + w.overlap.toFixed(2) + ' radii, ' + w.bad + ' in the plate or a wall', pass: ok }; } });
   // finger and mouse swipes on a 390 px scene: a press at 200,300, moved in even steps to (dx, dy) over ms, then let go there (or taken away by the browser)
   const press = (dx, dy, ms, cancel) => { const s = new DragSwipe(), seen = []; s.down(1, 200, 300, 0, 390);
     for (let k = 1; k <= 20; k++) { const m = s.move(200 + dx * k / 20, 300 + dy * k / 20); if (m != null) seen.push(m); }
@@ -939,7 +954,7 @@ function detectionTests(sr) {
   list.push({ name: 'Swipe: the themes give only a little past either end', run: () => {
     const s = new DragSwipe(); s.down(1, 200, 300, 0, 390); const o = (dx, at) => Math.round(s.offset(dx, at, 4));
     const got = [o(-100, 1), o(100, 0), o(-100, 3), o(0, 2)], want = [-490, 30, -1200, -780];
-    return { name: 'Swipe: the themes give only a little past either end', expect: 'mid-way the track moves with the finger; past Classic or Dash it moves 0.3 px per px (' + want.join(', ') + ')',
+    return { name: 'Swipe: the themes give only a little past either end', expect: 'mid-way the track moves with the finger; past the first or last theme it moves 0.3 px per px (' + want.join(', ') + ')',
       got: got.join(', '), pass: got.every((g, i) => g === want[i]) }; } });
   // trackpad swipes: recorded wheel events replayed as the page receives them, one theme step per swipe however quickly they follow
   const steps = evs => { const w = new WheelSwipe(), got = [];
@@ -1659,7 +1674,75 @@ class DashSim {
   }
 }
 
-const api = { LIFTOFF, OnsetTracker, DragSwipe, WheelSwipe, DashSim, DASH, dashSpeed, MusicDetector, Session, RocketSim, WORLD, MILESTONES, SENSITIVITY, CLIPS, DETECTION_CASES,
+/* ---------- Coin pusher: every note played drops a gold coin with the note's name on it ----------
+   The shelf is seen from above: x across (0 to 1, wall to wall), y from the back (0) to the front edge (COIN.D), in shelf widths.
+   A plate slides out from the back and in again while the session runs, faster with more power (the last minute of playing).
+   Coins have no speed of their own (friction holds them): they move only when the plate or another coin shoves them, a little
+   further forward than back, as a crowded shelf creeps towards the edge. A coin whose middle passes the front edge drops into
+   the tray: a coin won. The sides are walls, so nothing played is ever lost; sooner or later every coin is won.
+   The machine starts full of plain coins, as one in an arcade does, so the first notes already push coins over. Each minute of playing drops a
+   large medal with the minute on it. Notes land across the shelf by pitch, low on the left and high on the right, like a keyboard. */
+const COIN = { D: 0.9, R: 0.05, MEDAL: 0.085, FILL: 52, P0: 0.05, PA: 0.17, PERIOD: 3, DROP: 0.85, G: 5, ITER: 6, SLIDE: 0.6, FWD: 0.7, LO: 45, HI: 84, AIR: 0.7, TRAY: 48 };   // AIR: seconds a won coin takes to fall into the tray; TRAY: how many won coins the tray shows
+const noteLetter = n => String(n || '').replace(/-?\d+$/, '');   // 'C\u266F4' -> 'C\u266F'
+class CoinSim {
+  constructor(seed) { this.seed = seed == null ? 7 : seed; this.events = []; this.reset(); }
+  reset() {
+    this.rnd = rng(this.seed); this.coins = []; this.air = []; this.falling = []; this.phase = 0; this.push = COIN.P0;
+    this.played = 0; this.won = 0; this.medals = 0; this.last = ''; this.n = 0; this.tray = []; this.events.length = 0;
+    const r = COIN.R, y0 = COIN.P0 + COIN.PA + r;
+    for (let tries = 0; this.coins.length < COIN.FILL && tries < 4000; tries++) {
+      const c = { id: this.n++, x: r + this.rnd() * (1 - 2 * r), y: y0 + this.rnd() * (COIN.D - y0 - r * 1.6), r: r, note: '', plain: true, medal: 0, spin: this.rnd() * 6.283 };   // the machine's own coins, stamped with a star
+      if (this.coins.every(o => (o.x - c.x) * (o.x - c.x) + (o.y - c.y) * (o.y - c.y) > 4 * r * r * 0.81)) this.coins.push(c);
+    }
+    this.start = this.coins.length;
+  }
+  /* a note was played: its coin drops from the top of the machine; midi (the key heard) chooses where across */
+  drop(note, midi) {
+    const r = COIN.R, k = midi != null && isFinite(midi) ? clamp01((midi - COIN.LO) / (COIN.HI - COIN.LO)) : this.rnd();
+    const x = Math.max(r, Math.min(1 - r, r + k * (1 - 2 * r) + (this.rnd() - 0.5) * r));
+    this.air.push({ id: this.n++, x: x, y: this.push + r + 0.01 + this.rnd() * 0.12, r: r, note: noteLetter(note), medal: 0, z: COIN.DROP, vz: 0, spin: this.rnd() * 6.283 });
+    this.played++; if (note) this.last = noteLetter(note);
+  }
+  medal(minute) {
+    const r = COIN.MEDAL; this.medals++;
+    this.air.push({ id: this.n++, x: 0.5 + (this.rnd() - 0.5) * 0.3, y: this.push + r + 0.02, r: r, note: '', medal: minute, z: COIN.DROP * 1.2, vz: 0, spin: 0 });
+    this.events.push({ k: 'medal', minute: minute });
+  }
+  get count() { return this.coins.length + this.air.length; }
+  /* inp: {running, eff 0..1, play (seconds of play, for the medals)}; a paused or ended session stops the plate, but what is in the air still lands */
+  update(dt, inp) {
+    dt = Math.min(0.25, Math.max(0, dt));
+    if (inp.running && inp.play != null) { const m = Math.floor(inp.play / 60); while (this.medals < m) this.medal(this.medals + 1); }
+    for (let left = dt; left > 1e-9; left -= 1 / 60) this.step(Math.min(1 / 60, left), inp);
+    if (this.events.length > 300) this.events.splice(0, this.events.length - 300);   // nobody is reading them (the page in the background)
+  }
+  step(h, inp) {
+    if (inp.running) { this.phase += h * 2 * Math.PI / COIN.PERIOD * (0.35 + 0.65 * clamp01(inp.eff || 0)); this.push = COIN.P0 + COIN.PA * (1 - Math.cos(this.phase)) / 2; }
+    for (let i = this.air.length - 1; i >= 0; i--) { const c = this.air[i]; c.vz += COIN.G * h; c.z -= c.vz * h; c.spin += h * 9;
+      if (c.z <= 0) { c.z = 0; this.air.splice(i, 1); this.coins.push(c); this.events.push({ k: 'land', c: c }); } }
+    for (let i = this.falling.length - 1; i >= 0; i--) { const f = this.falling[i]; f.t += h; if (f.t >= COIN.AIR) this.falling.splice(i, 1); }
+    const cs = this.coins, n = cs.length, cap = COIN.SLIDE * h / COIN.ITER;
+    for (let it = 0; it < COIN.ITER; it++) {
+      for (const c of cs) { if (c.y - c.r < this.push) c.y = this.push + c.r; if (c.x < c.r) c.x = c.r; else if (c.x > 1 - c.r) c.x = 1 - c.r; }
+      cs.sort((a, b) => a.y - b.y);                                           // back to front, so a shove carries forward through the pile in one pass
+      for (let i = 0; i < n; i++) { const a = cs[i];
+        for (let j = i + 1; j < n; j++) { const b = cs[j], rr = a.r + b.r, dy = b.y - a.y; if (dy >= a.r + COIN.MEDAL) break;
+          const dx = b.x - a.x, d2 = dx * dx + dy * dy; if (d2 >= rr * rr) continue;
+          const d = Math.sqrt(d2) || 1e-6, o = Math.min(rr - d, cap * 2), nx = d2 ? dx / d : 0, ny = d2 ? dy / d : 1;
+          a.x -= nx * o * (1 - COIN.FWD); a.y -= ny * o * (1 - COIN.FWD); b.x += nx * o * COIN.FWD; b.y += ny * o * COIN.FWD; } }
+    }
+    for (const c of cs) { if (c.y - c.r < this.push) c.y = this.push + c.r; if (c.x < c.r) c.x = c.r; else if (c.x > 1 - c.r) c.x = 1 - c.r; }   // nothing is left inside the plate or a wall
+    for (let i = cs.length - 1; i >= 0; i--) { const c = cs[i];
+      if (c.y > COIN.D) { cs.splice(i, 1); this.won++; this.falling.push({ c: c, t: 0 }); this.tray.push(c); if (this.tray.length > COIN.TRAY) this.tray.shift(); this.events.push({ k: 'won', c: c }); } }
+  }
+  /* for the tests: the deepest overlap between two coins on the shelf, and anything inside the plate or a wall */
+  worst() { let o = 0, bad = 0; const cs = this.coins;
+    for (const c of cs) if (c.y - c.r < this.push - 1e-9 || c.x < c.r - 1e-9 || c.x > 1 - c.r + 1e-9) bad++;
+    for (let i = 0; i < cs.length; i++) for (let j = i + 1; j < cs.length; j++) { const a = cs[i], b = cs[j]; o = Math.max(o, a.r + b.r - Math.hypot(a.x - b.x, a.y - b.y)); }
+    return { overlap: o / COIN.R, bad: bad }; }
+}
+
+const api = { LIFTOFF, CoinSim, COIN, noteLetter, OnsetTracker, DragSwipe, WheelSwipe, DashSim, DASH, dashSpeed, MusicDetector, Session, RocketSim, WORLD, MILESTONES, SENSITIVITY, CLIPS, DETECTION_CASES,
   detectionTests, runDetectionTests, analyzeClip, sessionReport, clockText, sessionRecord, worthKeeping, liveSnapshot, liveRecord, rocketCarry, buildOf, newerBuild, practiceStats, dayRecap, dayLine, practiceNudge, homeCopy, weekLine, durationText, dayKey, LOG_MAX, LEVEL_MIN, SAMPLE_LOGS, sampleLog, rocketAt, fraction, heardAs, noteOf, smooth, pchip, clamp01 };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.MT = api;
 })(typeof self !== 'undefined' ? self : this);

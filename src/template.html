@@ -39,6 +39,7 @@ body{transition:background-color .3s}
 body:has(> #app[data-skin="rocket"]){background:#070A14}
 body:has(> #app[data-skin="city"]){background:#0E1130}
 body:has(> #app[data-skin="dash"]){background:#07071F}
+body:has(> #app[data-skin="coins"]){background:#1A0820}
 
 /* ---------- chrome (classic look; the rocket theme overrides it below) ---------- */
 #top{display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:10px; padding:12px 0 12px; margin:0 auto 6px; max-width:560px; width:calc(100% - 36px); border-bottom:1px solid var(--rule)}
@@ -95,7 +96,11 @@ body:has(> #app[data-skin="dash"]){background:#07071F}
 .ask[data-skin="dash"] .btn{border:3px solid #05051A; border-radius:16px; background:#2B2B7A; color:#fff; font-weight:800; box-shadow:0 4px 0 #05051A}
 .ask[data-skin="dash"] .btn.solid{background:#7CFF4F; color:#06210A}
 .ask[data-skin="dash"] .btn:active{transform:translateY(3px); box-shadow:0 1px 0 #05051A}
-@media (max-width:560px){ .ask[data-skin="rocket"], .ask[data-skin="city"]{border-radius:0} .ask[data-skin="dash"]{border-radius:24px 24px 0 0; border-width:3px 0 0} }
+.ask[data-skin="coins"]{--sheet:#1A0820; --surface:#2E1236; --ink:#FFF6E0; --mute:#E2C9A8; --rule:#5A2A5E; --accent:#D7951A; --on-accent:#FFFFFF; border:0; border-top:2px solid #FFC83D; border-radius:0}
+.ask[data-skin="coins"] h2{font-family:var(--pixel); font-weight:400; letter-spacing:0; font-size:18px; color:#FFC83D}
+.ask[data-skin="coins"] .btn{font-family:var(--pixel); font-weight:400; font-size:13px; border-radius:0; border:2px solid #05070D; background:#7A3A7E; color:#fff; text-shadow:2px 2px 0 rgba(0,0,0,.45)}
+.ask[data-skin="coins"] .btn.solid{background:#D7951A}
+@media (max-width:560px){ .ask[data-skin="rocket"], .ask[data-skin="city"], .ask[data-skin="coins"]{border-radius:0} .ask[data-skin="dash"]{border-radius:24px 24px 0 0; border-width:3px 0 0} }
 /* New flight, at the end of the Rocket read-outs' last line while the rocket is off the pad */
 .hud-flight{position:absolute; right:12px; bottom:6px; min-height:28px; padding:3px 7px; border:2px solid #05070D; border-radius:0; background:#7B8293; color:#fff;
   font-family:var(--pixel); font-size:10px; text-shadow:1px 1px 0 rgba(0,0,0,.45); box-shadow:inset -2px -2px 0 rgba(0,0,0,.25); cursor:pointer}
@@ -493,6 +498,25 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 @media (max-width:350px){ .dash-hud{font-size:11px; padding:8px 10px 7px} .dh-stats span{font-size:10px} .dh-stats b{font-size:14px} #app[data-skin="dash"][data-chrome="pixel"] #controls button{font-size:15px} }
 @media (max-height:620px){ .dh-line.dim{display:none} }
 
+/* ---------- coins theme: an arcade coin pusher. Gold on deep plum, the Rocket read-outs and pixel buttons in its colours ---------- */
+#app[data-skin="coins"]{--paper:#1A0820; --surface:#2E1236; --ink:#FFF6E0; --mute:#E2C9A8; --rule:#5A2A5E; --accent:#FFC83D; --on-accent:#3A2000}
+#app[data-skin="coins"][data-chrome="pixel"] #controls button{background:#7A3A7E}
+#app[data-skin="coins"][data-chrome="pixel"] #controls button.primary{background:#D7951A}
+#app[data-skin="coins"][data-chrome="pixel"] .award-card{background:#1A0820; border-color:#FFC83D}
+#app[data-skin="coins"] #skinBar{--tint:#FFC83D}
+#app[data-skin="coins"] #skinBar button::before{border-radius:0}
+#pCoins{background:#1A0820; color:#FFF6E0; font-family:var(--pixel)}
+#coinCv{position:absolute; inset:0; width:100%; height:100%; display:block}
+#pCoins .hud{background:linear-gradient(rgba(26,8,32,.85), rgba(26,8,32,.85) 82%, rgba(26,8,32,0))}
+#pCoins .hud{border-color:#5A2A5E}                                            /* the card's outline, on a tablet */
+#pCoins .hud .k, #pCoins .hud-side, #pCoins .hud-stats span, #kHint{color:#E2C9A8}
+#pCoins .hud-side b{color:#FFF6E0}
+#app[data-music="1"] #pCoins .hud .big{color:#FFC83D}
+#pCoins .pbar i.go{background:#FFC83D}
+#kBanner{position:absolute; left:50%; top:max(0px, calc(var(--hud-b, 156px) - 6px)); transform:translateX(-50%); max-width:92%; text-align:center; padding:8px 12px; background:#1A0820; color:#FFC83D; border:2px solid #FFC83D;
+  font-size:14px; opacity:0; transition:opacity .25s; pointer-events:none}
+#kBanner.on{opacity:1}
+
 /* ---------- theme bar: each theme's icon under the scene; the current one lit on a tinted tab, a locked one faint with a padlock ---------- */
 #skinBar{display:flex; justify-content:center; gap:6px; flex:none; height:28px; margin-top:4px; --tint:var(--accent)}
 #skinBar button{position:relative; width:38px; height:28px; padding:0; border:0; background:none; color:var(--tint); display:grid; place-items:center}
@@ -536,7 +560,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
   .city-hud{top:7px}
 }
 /* ---------- tablet layout (iPad and larger): a screen at least 700 px wide and 600 px tall ----------
-   All four themes share one frame, so a swipe changes the look but nothing moves:
+   All the themes share one frame, so a swipe changes the look but nothing moves:
    - one page edge (--edge) for the title row, notice, demo bar, read-outs, sound monitor and buttons;
    - the same title row, demo bar, theme bar and button row, at the same heights;
    - read-outs on top and the picture underneath (the sound monitor in Classic, the scene in the others). Rocket, City and Dash put
@@ -626,7 +650,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
     .classic > .monitor{grid-area:mon; margin-top:18px; min-height:0}
   }
 
-  /* ----- Rocket, City, Dash: one read-out card, the same size and grid in all three ----- */
+  /* ----- Rocket, City, Dash, Coins: one read-out card, the same size and grid in all of them ----- */
   .hud, .city-hud, .dash-hud{top:12px; left:var(--edge); right:var(--edge); line-height:1.4; font-size:14px;
     display:grid; grid-template-columns:minmax(0, 1fr) auto; column-gap:24px; row-gap:6px; align-items:center;
     grid-template-rows:84px 26px 44px 22px 22px; grid-template-areas:"play side" "bar bar" "stats stats" "heard heard" "next next"}
@@ -639,15 +663,15 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
   .hud .engine, .city-hud .engine, .dh-prog{grid-area:bar; margin:0; gap:12px}
   .hud .engine, .city-hud .engine{grid-template-columns:auto auto minmax(0, 1fr) auto; grid-template-areas:"k n bar e"; align-items:center}
   .hud-stats, .ch-stats, .dh-stats{grid-area:stats; margin:0}
-  #rHeard, #yHeard, #dHeard{grid-area:heard; margin:0; min-height:0}
-  #rNext, #yHint, #dHint{grid-area:next; margin:0; min-height:0}
+  #rHeard, #yHeard, #dHeard, #kHeard{grid-area:heard; margin:0; min-height:0}
+  #rNext, #yHint, #dHint, #kHint{grid-area:next; margin:0; min-height:0}
   .ch-line.dim, .dh-line.dim{display:block}
   .hud .k, .city-hud .k, .dash-hud .k{white-space:nowrap}
   .hud .big, .city-hud .big, .dash-hud .big{font-size:clamp(44px, 7cqw, 58px); margin-top:2px}
   .hud .big.long, .city-hud .big.long, .dash-hud .big.long{font-size:clamp(32px, 5cqw, 42px)}
   .pbar, .city-hud .pbar, .dh-bar{height:18px}
   .dh-prog .k{display:block}                                                    /* the course bar gets a label, like Power in Rocket and City */
-  #rPwN, #yPwN, #rEff, #yEff, #dPct{display:inline-block; min-width:4ch; font-size:inherit}
+  #rPwN, #yPwN, #kPwN, #rEff, #yEff, #kEff, #dPct{display:inline-block; min-width:4ch; font-size:inherit}
   #dPct{font-weight:800}
   .hud-stats span, .ch-stats span{font-size:12px} .hud-stats b, .ch-stats b{font-size:18px}
   .dh-stats span{font-size:13px} .dh-stats b{font-size:21px}
@@ -657,11 +681,11 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
       grid-template-areas:"play bar side" "play stats side" "heard heard next"}
     .hud-play, .ch-play, .dh-play{align-self:center}
     .hud-side, .ch-side, .dh-side{align-self:center}
-    #rNext, #yHint, #dHint{text-align:right}
+    #rNext, #yHint, #dHint, #kHint{text-align:right}
   }
   /* event banners: just under the read-outs, in the middle, in all three */
-  #rBanner, #yBanner, #dBanner{top:calc(var(--hud-b, 0px) + 14px); bottom:auto; margin:0}
-  #rBanner{font-size:17px; padding:10px 16px}
+  #rBanner, #yBanner, #dBanner, #kBanner{top:calc(var(--hud-b, 0px) + 14px); bottom:auto; margin:0}
+  #rBanner, #kBanner{font-size:17px; padding:10px 16px}
   #yBanner{font-size:15px; padding:9px 16px}
   #yMsg{font-size:15px; padding:14px 20px}
   #dBanner{font-size:19px; padding:10px 18px}
@@ -730,6 +754,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
   <symbol id="ico-rocket" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M12 1.5c3.1 2.3 4.6 5.7 4.6 9.8V16H7.4v-4.7C7.4 7.2 8.9 3.8 12 1.5zM12 7.6a1.9 1.9 0 1 0 0 3.8a1.9 1.9 0 1 0 0-3.8zM6.6 11.8L3.5 15.2V19l3.1-1.6zM17.4 11.8l3.1 3.4V19l-3.1-1.6zM9.8 17.4h4.4l-.7 2.6L12 22.6 10.5 20z"/></symbol>
   <symbol id="ico-city" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M2.5 11.5h5.5V21H2.5zM9 6h6v15H9zM16 9.5h5.5V21H16zM10.6 8h1.2v1.6h-1.2zM12.2 8h1.2v1.6h-1.2zM10.6 11.6h1.2v1.6h-1.2zM12.2 11.6h1.2v1.6h-1.2zM4.3 14h1.8v1.6H4.3zM17.8 12h1.8v1.6h-1.8zM2 21h20v1.6H2z"/><circle cx="17.3" cy="5.2" r="2.2" fill="currentColor"/><path fill="currentColor" opacity=".6" d="M15.7 3.6L22.6.4 18.9 6.8z"/></symbol>
   <symbol id="ico-dash" viewBox="0 0 24 24"><rect x="3.6" y="3.6" width="16.8" height="16.8" rx="3" fill="none" stroke="currentColor" stroke-width="2.6"/><path fill="currentColor" d="M12 7.2l4.8 4.8-4.8 4.8L7.2 12z"/></symbol>
+  <symbol id="ico-coins" viewBox="0 0 24 24"><ellipse cx="12" cy="6.2" rx="8" ry="3.2" fill="currentColor"/><path fill="currentColor" d="M4 8.6v2.8c0 1.8 3.6 3.2 8 3.2s8-1.4 8-3.2V8.6c-1.6 1.4-4.6 2.2-8 2.2s-6.4-.8-8-2.2zM4 14.4v2.8c0 1.8 3.6 3.2 8 3.2s8-1.4 8-3.2v-2.8c-1.6 1.4-4.6 2.2-8 2.2s-6.4-.8-8-2.2z"/></symbol>
   <symbol id="ico-lock" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="3" d="M7.5 11V8a4.5 4.5 0 0 1 9 0v3"/><rect x="4" y="11" width="16" height="11" rx="2" fill="currentColor"/></symbol>
 </svg>
 <div id="app" data-skin="classic" data-state="idle" data-music="0">
@@ -842,6 +867,28 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
           <div class="dh-line dim" id="dHint">Play to run the course</div>
         </div>
         <div id="dBanner" role="status"></div>
+      </section>
+      <section class="panel" id="pCoins" aria-label="Coins theme">
+        <canvas id="coinCv" aria-hidden="true"></canvas>
+        <div class="hud" id="coinHud">
+          <div class="hud-row">
+            <div class="hud-play"><span class="k">Play time</span><span class="big" id="kPlay">00:00</span></div>
+            <div class="hud-side">
+              <div><canvas class="px-trophy badge" id="kTrophy" width="16" height="16"></canvas>Goal <b id="kGoal">30:00</b></div>
+              <div id="kGoalLeft">30:00 left</div>
+            </div>
+          </div>
+          <div class="engine"><span class="k">Power</span><b class="pn" id="kPwN">0%</b><div class="pbar"><i id="kPw"></i><span class="avg" id="kAvg" hidden></span></div><span class="eff"><span class="k">Efficiency</span> <b id="kEff">0%</b></span></div>
+          <div class="hud-stats">
+            <div><span>Coins</span><b id="kCoins">0</b></div>
+            <div><span>Won</span><b id="kWon">0</b></div>
+            <div><span>Medals</span><b id="kMedals">0</b></div>
+            <div><span>Pauses</span><b id="kPauses">0</b></div>
+          </div>
+          <div class="hud-line" id="kHeard">Press Start, then play</div>
+          <div class="hud-line" id="kHint">Every note you play drops a coin</div>
+        </div>
+        <div id="kBanner" role="status"></div>
       </section>
     </div>
     <div id="award" hidden role="status">

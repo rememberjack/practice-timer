@@ -52,6 +52,9 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
   second, or by opening the page with `?debug` (`?debug=0` turns them off). Once opened, Settings shows a way back to them; that is
   kept in `musicTimer.debug`. The demo sound and the sound tests live there, not in Settings. Their sample data
   (`sampleLog` in `src/core.js`), chosen with two taps, replaces the saved practice log and is then treated as real sessions.
+- Coins is an arcade coin pusher (`CoinSim` in `src/core.js`, drawn by `src/coins.js`): each note start drops a gold coin stamped
+  with the note's name (`coinStep` in `src/app.js` waits a moment for the name), landing across the shelf by pitch. The machine starts
+  full of plain star coins; coins only fall off the front edge (won), never the sides, and each minute of playing drops a medal.
 - Theme renderers in `src/` only draw; `src/app.js` wires everything together. Some themes load three.js r128 from
   cdnjs.
 - `window.claude` and the "framed" checks support running inside a Claude artifact view; on GitHub Pages everything

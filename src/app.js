@@ -36,6 +36,8 @@ const rocket = makeRocketView($('rk'), $('hud'), sim, MT);
 const city = makeCityView($('pCity'));
 const dash = new MT.DashSim(), dashView = makeDashView($('dashCv'), $('dashHud'), dash, MT), onsets = new MT.OnsetTracker();
 let pendingOnsets = 0, onsetN = 0, dashAt = 0;      // note starts waiting to be used; a running count for followers; when the course last moved
+const coins = new MT.CoinSim(), coinView = makeCoinView($('coinCv'), $('coinHud'), coins, MT);
+const coinWait = []; let coinAt = 0;                // note starts waiting for their name, each with how long it has waited; when the coin machine last moved
 const NB = 44, bars = new Float32Array(NB), shown = new Float32Array(NB);
 const heard = { label: '', detail: '', note: '', midi: null };      // midi: the pitch heard, as a (fractional) piano key number
 let mode = 'local';            // 'local' | 'follow'
@@ -67,7 +69,7 @@ const TROPHY_PX = ['....YYYYYYYY....', '.YY.YWYYYYYD.YY.', '.Y..YWYYYYYD..Y.', '
   '......YYYD......', '.......YD.......', '.......YD.......', '......YYYD......', '.....DDDDDD.....', '....BBBBBBBB....', '....BbbbbbbB....', '................'];
 function drawPixelTrophy(cv) { const g = cv.getContext('2d'), pal = { Y: '#FFD23F', W: '#FFF3B0', D: '#C99A1E', B: '#8A5A2B', b: '#6E4420' };
   TROPHY_PX.forEach((row, j) => { for (let i = 0; i < row.length; i++) if (pal[row[i]]) { g.fillStyle = pal[row[i]]; g.fillRect(i, j, 1, 1); } }); }
-drawPixelTrophy($('rTrophy')); drawPixelTrophy($('awardPx')); drawPixelTrophy($('yTrophy'));
+drawPixelTrophy($('rTrophy')); drawPixelTrophy($('awardPx')); drawPixelTrophy($('yTrophy')); drawPixelTrophy($('kTrophy'));
 let awardT = 0;
 function goalText(goal) { return Math.round(goal / 60) + '-minute'; }
 function award(goal) {
@@ -195,7 +197,7 @@ async function start() {
   busy = false; hideNotice();
   const forced = !!DBG.rocket;
   session.goal = S.goalMin * 60; session.hold = +S.hold; session.start(); const carried = carryRocket() && !forced; DBG.rocket = ''; rocket.reset(); city.reset(); cityBannerAt = 0;
-  dash.reset(); dashView.reset(); onsets.reset(); pendingOnsets = 0;
+  dash.reset(); dashView.reset(); onsets.reset(); pendingOnsets = 0; coins.reset(); coinView.reset(); coinWait.length = 0;
   music = false; goalHit = false; vote = {}; bars.fill(0); hideAward();
   if (carried) banner('Carrying on from earlier today');
   heard.label = 'Listening'; heard.detail = 'Play your instrument to start the clock'; heard.note = ''; heard.midi = null;
@@ -230,7 +232,7 @@ function tick() {
       if (dt >= 1.5) session.quietFor = Infinity;   // and no hold across it
       heard.label = r.label; heard.detail = r.detail; heard.note = r.isMusic ? r.note : '';   // a note name only for an instrument, not for talking or noise
       heard.midi = r.pitch > 0 ? 69 + 12 * Math.log2(r.pitch / 440) : null; levelBars();
-      if (onsets.feed(dt, { music: m, midi: heard.midi, levelDb: r.levelDb })) { pendingOnsets++; onsetN++; }
+      if (onsets.feed(dt, { music: m, midi: heard.midi, levelDb: r.levelDb })) { pendingOnsets++; onsetN++; coinWait.push(0); }
       if (A.kind === 'mic' && A.ctx && A.ctx.state !== 'running') { m = false; heard.label = 'The microphone is asleep'; heard.detail = 'Press Pause, then Resume to wake it'; heard.note = ''; heard.midi = null; }
       if (m && r.instrument) vote[r.instrument] = (vote[r.instrument] || 0) + dt; }
     let best = '', bs = 0; for (const k in vote) { vote[k] *= Math.exp(-dt / 25); if (vote[k] > bs) { bs = vote[k]; best = k; } }
@@ -244,6 +246,7 @@ function tick() {
   sim.update(away ? 0 : dt * w, { running: session.state === 'running', playing: m, eff: pw, rdt: dt });
   if (!goalHit && session.play >= session.goal) { goalHit = true; award(session.goal); }
   if (now - dashAt > 250) dashStep(dt, session.state === 'running', m, pw, session.goal > 0 ? session.play / session.goal : 0);   // frames are not being drawn (tab in the background): keep the course moving
+  if (now - coinAt > 250) coinStep(dt, session.state === 'running', pw, session.play);
   if (now - lastPush > 330) push();
 }
 
@@ -288,8 +291,8 @@ function onPeers(ch) {
 function applyRemote(m) {
   const first = !R, prev = R; R = m;
   if (prev && prev.play < prev.goal && m.play >= m.goal && m.st === 'running') award(m.goal);
-  if (first) { sim.reset(); rocket.reset(); city.reset(); dash.reset(); dashView.reset(); pendingOnsets = 0; sim.l = m.rl; sim.th = m.ra; }
-  else if (m.on > prev.on) pendingOnsets += Math.min(3, m.on - prev.on);
+  if (first) { sim.reset(); rocket.reset(); city.reset(); dash.reset(); dashView.reset(); pendingOnsets = 0; coins.reset(); coinView.reset(); coinWait.length = 0; sim.l = m.rl; sim.th = m.ra; }
+  else if (m.on > prev.on) { const k = Math.min(3, m.on - prev.on); pendingOnsets += k; for (let i = 0; i < k; i++) coinWait.push(0); }
   else {
     if (prev.rm === 'pad' && m.rm === 'ascent') fire('liftoff');
     if (m.rm === 'ascent' && prev.rf < MT.MILESTONES.tower && m.rf >= MT.MILESTONES.tower) fire('tower');
@@ -311,7 +314,7 @@ function startFollow(peer) {
   onPeers({ peers: room.peers() }); if (!R) { stopFollow(); return; }
   paintControls(); paintDemoBar();
 }
-function stopFollow() { hideAward(); mode = 'local'; followPeer = ''; R = null; carryRocket(); rocket.reset(); city.reset(); dash.reset(); dashView.reset(); bars.fill(0); session.reset(); paintControls(); paintDemoBar(); }
+function stopFollow() { hideAward(); mode = 'local'; followPeer = ''; R = null; carryRocket(); rocket.reset(); city.reset(); dash.reset(); dashView.reset(); coins.reset(); coinView.reset(); coinWait.length = 0; bars.fill(0); session.reset(); paintControls(); paintDemoBar(); }
 function followStep(dt) {
   if (!R) return;
   if (R.st === 'running') { R.total += dt; R.active += dt; if (R.music) R.play += dt; } else if (R.st === 'paused') R.total += dt;
@@ -381,6 +384,7 @@ function paint() {
   const nf = flying(); if ($('rFlight').hidden === nf) { $('rFlight').hidden = !nf; $('hud').classList.toggle('has-flight', nf); }   // New flight, once off the pad
   if (visible(2)) paintCity(st, fol, label);
   if (visible(3)) paintDash(st, label);
+  if (visible(4)) paintCoins(st, label);
 }
 /* the Rocket and City power bars: the fill and Power are the last minute of playing, the tick and Efficiency the whole session */
 function powerBar(p, cls) {
@@ -409,6 +413,30 @@ function paintDash(st, label) {
   else if (dash.silentT > 0) hint = 'Keep playing! Spike in ' + Math.max(1, Math.ceil(MT.DASH.GRACE - dash.silentT));
   else hint = dash.done ? 'Level complete! Bonus run' : 'Every new note is a jump';
   text($('dHint'), hint);
+}
+/* coins theme: a note start waits a moment for its name (its first frame may have no pitch yet), then drops its coin */
+function coinStep(dt, running, eff, play) {
+  coinAt = performance.now();
+  const f = mode === 'follow' && R, n = f ? R.note : heard.note, k = f ? R.midi : heard.midi;
+  for (let i = coinWait.length - 1; i >= 0; i--) { coinWait[i] += dt; if (n || coinWait[i] > 0.25) { coins.drop(n, k); coinWait.splice(i, 1); } }
+  coins.update(Math.min(0.1, dt), { running: running, eff: eff, play: play });
+}
+let kBannerT = 0;
+function coinBanner(msg) { const b = $('kBanner'); b.textContent = msg; b.classList.add('on'); clearTimeout(kBannerT); kBannerT = setTimeout(() => b.classList.remove('on'), 3200); }
+function paintCoins(st, label) {
+  const playTxt = fmt(V.play), el = $('kPlay'), cls = playTxt.length > 5 ? 'big long' : 'big', reached = st !== 'idle' && V.play >= V.goal;
+  text(el, playTxt); if (el.className !== cls) el.className = cls;
+  text($('kGoal'), fmt(V.goal)); text($('kGoalLeft'), reached ? 'Reached' : fmt(Math.ceil(V.goal - V.play)) + ' left');
+  powerBar('k', V.pw >= 0.5 ? 'go' : 'ok');
+  text($('kCoins'), String(coins.played)); text($('kWon'), String(coins.won)); text($('kMedals'), String(coins.medals)); text($('kPauses'), String(V.pauses));
+  text($('kHeard'), st === 'running' ? label : st === 'paused' ? 'Paused: not listening' : st === 'idle' ? 'Press Start, then play' : 'Session finished');
+  let hint;
+  if (st === 'idle') hint = 'Every note you play drops a coin';
+  else if (st === 'paused') hint = 'Paused: the pusher waits for you';
+  else if (st === 'stopped') hint = coins.played + (coins.played === 1 ? ' coin' : ' coins') + ' played, ' + coins.won + ' won';
+  else if (!V.music) hint = 'Play a note to drop a coin';
+  else hint = coins.last ? 'Last coin: ' + coins.last : 'Every note drops a coin';
+  text($('kHint'), hint);
 }
 /* city theme read-outs */
 const CITY_TEXT = { impact: 'Impact!', building: 'A building was hit', cannonLost: 'A cannon was hit', cannonBack: 'Cannon repaired', rebuilt: 'Building rebuilt' };
@@ -693,11 +721,15 @@ function frame(t) {
   let geo = null;
   if (visible(3)) { let lv = 0; for (let i = 0; i < NB; i++) lv += bars[i]; geo = dashView.draw({ running: V.st === 'running', music: V.music, level: Math.min(1, lv / NB * 2.2) }, dt); }
   while (dash.events.length) { const e = dash.events.shift(); if (geo) dashView.event(e, geo); if (e === 'complete' && skin === 3) dashBanner('Level complete!'); }
+  coinStep(dt, V.st === 'running', V.pw, V.play);
+  if (visible(4)) { let lv = 0; for (let i = 0; i < NB; i++) lv += bars[i]; coinView.draw({ running: V.st === 'running', music: V.music, level: Math.min(1, lv / NB * 2.2) }, dt); }
+  while (coins.events.length) { const e = coins.events.shift(); coinView.event(e);
+    if (e.k === 'medal' && skin === 4) coinBanner(e.minute === 1 ? 'A medal for your first minute of playing' : 'A medal for ' + e.minute + ' minutes of playing'); }
   requestAnimationFrame(frame);
 }
 
 /* ---------- themes: swipe (touch, mouse drag or trackpad) or arrow keys ---------- */
-const SKINS = ['classic', 'rocket', 'city', 'dash'], SKIN_NAMES = ['Classic', 'Rocket', 'City', 'Dash'], PANELS = ['pClassic', 'pRocket', 'pCity', 'pDash'], stage = $('stage'), track = $('track');
+const SKINS = ['classic', 'rocket', 'city', 'dash', 'coins'], SKIN_NAMES = ['Classic', 'Rocket', 'City', 'Dash', 'Coins'], PANELS = ['pClassic', 'pRocket', 'pCity', 'pDash', 'pCoins'], stage = $('stage'), track = $('track');
 let skin = Math.max(0, SKINS.indexOf(S.skin)), dragging = false, peek = -1;   // peek: the theme a swipe is pulling into view
 /* Whether a theme can be chosen yet. Every theme is open for now; to hold one back until a condition is met, return false for it here
    and call refreshSkins() when the condition changes. A locked theme keeps its icon in the theme bar (faint, with a padlock) but leaves the swipe
@@ -738,8 +770,8 @@ function paintSkinBar() {
   });
 }
 /* Event banners sit just under the read-outs, clear of the scene: each panel gets --hud-b, the bottom of its read-outs, for the CSS to use */
-function layoutChanged() { requestAnimationFrame(() => { rocket.resize(); city.resize(); dashView.resize();
-  for (const [p, h] of [['pRocket', 'hud'], ['pCity', 'cityHud'], ['pDash', 'dashHud']]) { const el = $(h); $(p).style.setProperty('--hud-b', el.offsetTop + el.offsetHeight + 'px'); } }); }
+function layoutChanged() { requestAnimationFrame(() => { rocket.resize(); city.resize(); dashView.resize(); coinView.resize();
+  for (const [p, h] of [['pRocket', 'hud'], ['pCity', 'cityHud'], ['pDash', 'dashHud'], ['pCoins', 'coinHud']]) { const el = $(h); $(p).style.setProperty('--hud-b', el.offsetTop + el.offsetHeight + 'px'); } }); }
 const swipe = new MT.DragSwipe();
 stage.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse' && e.button !== 0) return; swipe.down(e.pointerId, e.clientX, e.clientY, performance.now(), stage.clientWidth); });
 stage.addEventListener('pointermove', e => {
@@ -821,6 +853,7 @@ const GOAL_HINT = {
   rocket: 'The total play time to reach. The rocket gets to Moon orbit after about 30 minutes of playing. If your last session today left the rocket in space, the next one carries on from there.',
   city: 'The total play time to reach.',
   dash: 'The total play time to reach. It is also the length of the course.',
+  coins: 'The total play time to reach. Every minute of playing drops a medal into the machine.',
 };
 function paintSettingsSkin() { $('goalHint').textContent = GOAL_HINT[SKINS[skin]]; }
 $('btnSettings').onclick = () => { if (heldOpen()) return; pauseForSheet(); paintSettingsSkin(); paintGoal(); paintControls(); paintDbg(); $('dlgSettings').showModal(); $('dlgSettings').querySelector('.sh-body').scrollTop = 0; };
@@ -1167,5 +1200,5 @@ if (S.source === 'mic' && (micPolicyBlocked() || !navigator.mediaDevices || !nav
   micNotice(framed ? MIC_FRAMED : micMessage({ name: window.isSecureContext === false ? 'Insecure' : 'Unsupported' }));
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(layoutChanged, () => {});
 requestAnimationFrame(t => { lastF = t; frame(t); });
-window.__mt = { session: session, sim: sim, rocket: rocket, city: city, dash: dash, A: A, S: S, V: V, start: start, stop: stop };
+window.__mt = { session: session, sim: sim, rocket: rocket, city: city, dash: dash, coins: coins, A: A, S: S, V: V, start: start, stop: stop };
 })();
