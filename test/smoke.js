@@ -7,7 +7,7 @@ check(scripts.length === 2, 'two inline scripts');
 scripts.forEach((s, i) => { try { new vm.Script(s); check(true, 'script ' + (i + 1) + ' parses'); } catch (e) { check(false, 'script ' + (i + 1) + ' parses: ' + e.message); } });
 const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map(m => m[1]);
 check(new Set(ids).size === ids.length, 'element ids are unique');
-for (const id of ['app', 'btnStart', 'btnPause', 'btnResume', 'btnStop', 'cClock', 'vizBox', 'rk', 'hud', 'dlgSettings', 'dlgCredits', 'roll', 'rollIn', 'dlgSummary', 'dlgLog', 'dlgEnd', 'award', 'ver', 'pCity', 'cityCv', 'cityHud', 'yPlay', 'pDash', 'dashCv', 'dashHud', 'dPlay', 'pRace', 'raceCv', 'raceHud', 'gPlay', 'gTower', 'gBanner', 'skinBar', 'ico-classic', 'ico-rocket', 'ico-city', 'ico-dash', 'ico-race', 'ico-lock'])
+for (const id of ['app', 'btnStart', 'btnPause', 'btnResume', 'btnStop', 'cClock', 'vizBox', 'rk', 'hud', 'dlgSettings', 'dlgCredits', 'roll', 'rollIn', 'dlgSummary', 'dlgLog', 'dlgEnd', 'award', 'ver', 'pCity', 'cityCv', 'cityHud', 'yPlay', 'pDash', 'dashCv', 'dashHud', 'dPlay', 'pRace', 'raceCv', 'raceHud', 'gPlay', 'gTower', 'gBanner', 'pFire', 'fireCv', 'fire3d', 'fireHud', 'fPlay', 'fBanner', 'skinBar', 'ico-classic', 'ico-rocket', 'ico-city', 'ico-dash', 'ico-race', 'ico-fireworks', 'ico-lock'])
   check(ids.includes(id), 'has #' + id);
 check(!html.includes('__BUILD__') && !html.includes('/*__CORE__*/') && !html.includes('/*__APP__*/'), 'no placeholders left');
 check(/<meta name="build" content="(\d+|dev)">/.test(html), 'the version is a plain number');
@@ -21,5 +21,7 @@ for (const name of ['favicon.ico', 'favicon.png', 'apple-touch-icon.png'])
   check(html.includes('href="' + name + '"') && fs.existsSync(path.join(__dirname, '..', 'dist', name)), 'page links to built ' + name);
 check(/<meta name="viewport"[^>]*viewport-fit=cover/.test(html), 'viewport tag');
 check(html.includes('cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js'), 'City theme loads three.js r128 from cdnjs');
-check(html.length < 600 * 1024, 'size under 600 KB (' + Math.round(html.length / 1024) + ' KB)');
+// a tripwire against the page growing unnoticed, not a hard limit: this is the raw file (comments and the icon included); GitHub Pages sends it
+// compressed, about a third of this. Main was 525 KB and the Fireworks theme took it to about 608 KB
+check(html.length < 700 * 1024, 'size under 700 KB (' + Math.round(html.length / 1024) + ' KB)');
 process.exit(bad ? 1 : 0);

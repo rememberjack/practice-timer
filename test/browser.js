@@ -90,10 +90,13 @@ async function run(wsUrl) {
   await mouse(right, y, left, y, Math.round(box.y + box.h + 30)); check(await skin() === 'city', 'a mouse drag let go below the scene still moves (got ' + await skin() + ')');
   const tx = await js('getComputedStyle(document.getElementById("track")).transform');
   check(/matrix\(1, 0, 0, 1, -?[\d.]+, 0\)/.test(tx) && Math.abs(parseFloat(tx.split(',')[4]) + 2 * box.w) < 2, 'the track lands on City after the swipe (' + tx + ')');
-  await touch(right, y, left, y); await touch(right, y, left, y); check(await skin() === 'race', 'two more swipes left reach Grand Prix, the last theme (got ' + await skin() + ')');
-  await touch(right, y, left, y); check(await skin() === 'race', 'a swipe past the last theme stays on it (got ' + await skin() + ')');
+  await touch(right, y, left, y); await touch(right, y, left, y); check(await skin() === 'race', 'two more swipes left reach Grand Prix (got ' + await skin() + ')');
   await sleep(1500);   // let the race scene draw for a while
   check(await js('(() => { const c = document.getElementById("raceCv"); return c.width > 0 && c.height > 0; })()'), 'the Grand Prix scene has a canvas to draw on');
+  await touch(right, y, left, y); check(await skin() === 'fireworks', 'one more swipe left reaches Fireworks, the last theme (got ' + await skin() + ')');
+  await touch(right, y, left, y); check(await skin() === 'fireworks', 'a swipe past the last theme stays on it (got ' + await skin() + ')');
+  await sleep(1500);   // let the fireworks draw for a while
+  check(await js('(() => { const c = document.querySelector("#pFire canvas:not([hidden])"); return !!c && c.width > 0 && c.height > 0; })()'), 'the Fireworks scene has a canvas to draw on (3D, or flat when three.js cannot load)');
   check(!errors.length, 'no errors on the page' + (errors.length ? ': ' + [...new Set(errors)].slice(0, 3).join('; ') : ''));
   ws.close();
 }
