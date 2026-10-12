@@ -62,7 +62,7 @@ function makeRun3DView(cv, hud, sim, flat) {
       if (w === 0) {                                                       // green land: the path, hills rising to the sides, trees, clouds
         for (let z = -10; z <= 5; z++) { const top = Math.abs(z) <= 1 ? h : h + Math.max(0, sideH(c, z)), deep = Math.abs(z) <= 2 ? 4 : 2;
           for (let r = top - 1, d = 0; d < deep; r--, d++) add(flat.surface(0, d, c, hash(c * 16 + z, r)), c, r, z); }
-        for (const z of [-4, -7]) if (hash(c, 91 + z) < 0.2) {   // trees on the far side only, clear of the view const b = h + Math.max(0, sideH(c, z)), t = 3 + Math.floor(hash(c, 93 + z) * 2);
+        for (const z of [-4, -7]) if (hash(c, 91 + z) < 0.2) { const b = h + Math.max(0, sideH(c, z)), t = 3 + Math.floor(hash(c, 93 + z) * 2);   // trees on the far side only, clear of the view
           for (let r = 0; r < t; r++) add('log', c, b + r, z);
           for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) for (let r = t - 1; r <= t; r++) if (dx || dz || r === t) add('leaves', c + dx, b + r, z + dz);
           add('leaves', c, b + t + 1, z); }
