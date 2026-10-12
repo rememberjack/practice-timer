@@ -1007,11 +1007,23 @@ function detectionTests(sr) {
     return { name: 'Grand Prix: the start lights', expect: 'a light for each second of playing, none while quiet and the cars still, then lights out once', got: 'lights ' + a + ', ' + b + ' (' + mb + '), ' + c + ', then ' + s.mode + '; events ' + ev.join(' '), pass: ok }; } });
   list.push({ name: 'Grand Prix: speed is the last minute', run: () => {
     const s = new RaceSim(); s.reset(1800, 5); const inp = gpStart(s); inp.recent = 0.75; const d0 = s.dist;
-    gpRun(s, 120, inp); const want = 0.75 * RACE.VNOM * 120, kmh = s.v * 300 / RACE.VNOM;
+    gpRun(s, 120, inp); const want = 0.75 * RACE.VNOM * 120, kmh = s.v * 300 / RACE.VNOM, bend = s.cornerAt((s.d + RACE.PZ) / RACE.SEG), kmhWant = 300 * Math.min(0.75, bend);
     inp.recent = 0; gpRun(s, 10, inp); const stopped = s.v, d1 = s.dist;
-    const ok = Math.abs(s.dist - d0 - want) < 1 && Math.abs(kmh - 225) < 1 && stopped === 0 && d1 === s.dist && s.lap === 1 + Math.floor(s.dist / RACE.LAPU);
-    return { name: 'Grand Prix: speed is the last minute', expect: 'at 75% of the last minute the car runs at 225 km/h and covers 75% of full-speed distance; at 0% it stops',
-      got: Math.round((s.dist - d0) / want * 1000) / 10 + '% of the distance expected, ' + Math.round(kmh) + ' km/h, then ' + Math.round(stopped) + ' km/h at 0%, lap ' + s.lap, pass: ok }; } });
+    const ok = Math.abs(s.dist - d0 - want) < 1 && Math.abs(kmh - kmhWant) < 12 && stopped === 0 && d1 === s.dist && s.lap === 1 + Math.floor(s.dist / RACE.LAPU);
+    return { name: 'Grand Prix: speed is the last minute', expect: 'at 75% of the last minute the car runs at 225 km/h (slower in a bend) and covers 75% of full-speed distance; at 0% it stops',
+      got: Math.round((s.dist - d0) / want * 1000) / 10 + '% of the distance expected, ' + Math.round(kmh) + ' km/h (' + Math.round(kmhWant) + ' here), then ' + Math.round(stopped) + ' km/h at 0%, lap ' + s.lap, pass: ok }; } });
+  list.push({ name: 'Grand Prix: the car brakes for the bends, and the race does not', run: () => {
+    const s = new RaceSim(); s.reset(1800, 4); const inp = gpStart(s); s.cars = []; const T = s.T, at = [], d0 = s.dist; let t = 0;
+    for (; t < 60; t += 1 / 60) { s.update(1 / 60, inp); s.move(1 / 60); at.push([Math.floor((s.d + RACE.PZ) / RACE.SEG) % T.n, s.v]); }
+    const slowest = {}, entry = {}; let top = 0;
+    for (const [i, v] of at) { if (T.corner[i] >= 1) top = Math.max(top, v); if (Math.abs(T.curve[i]) > 3) slowest[i] = Math.min(slowest[i] == null ? 1e9 : slowest[i], v); }
+    const corners = []; for (let i = 0; i < T.n;) { if (Math.abs(T.curve[i]) <= 3) { i++; continue; } let e = i, lim = 1; while (e < T.n && Math.abs(T.curve[e]) > 3) lim = Math.min(lim, T.corner[e++]); corners.push({ s: i, e: e, lim: lim }); i = e; }
+    const kmh = v => Math.round(v * 300 / RACE.VNOM), bad = [];
+    for (const c of corners) { let lo = 1e9; for (let i = c.s; i < c.e; i++) if (slowest[i] != null) lo = Math.min(lo, slowest[i]); if (lo === 1e9) continue;
+      if (lo > c.lim * RACE.VNOM + 150 || lo > 0.85 * RACE.VNOM) bad.push('bend at ' + c.s + ' taken at ' + kmh(lo) + ' km/h'); }
+    const ok = !bad.length && top > 0.98 * RACE.VNOM && corners.length >= 4 && Math.abs(s.dist - d0 - RACE.VNOM * t) < RACE.VNOM * 0.02;
+    return { name: 'Grand Prix: the car brakes for the bends, and the race does not', expect: 'full speed on the straights, each sharp bend taken at its corner speed (braking before it), and the race distance still full speed all the way',
+      got: 'top ' + kmh(top) + ' km/h; ' + corners.map(c => { let lo = 1e9; for (let i = c.s; i < c.e; i++) if (slowest[i] != null) lo = Math.min(lo, slowest[i]); return lo < 1e9 ? kmh(lo) : '-'; }).join(', ') + ' km/h in the sharp bends' + (bad.length ? '; ' + bad.join('; ') : '') + '; race distance ' + Math.round((s.dist - d0) / (RACE.VNOM * t) * 100) + '% of full speed', pass: ok }; } });
   list.push({ name: 'Grand Prix: a pause freezes the race and parks the car in the pit lane', run: () => {
     const s = new RaceSim(); s.reset(1800, 9); const inp = gpStart(s); inp.recent = 0.8; gpRun(s, 60, inp);
     const pos = s.pos, mine = s.dist, theirs = s.cars.map(c => c.dist).join(), ev = [];
@@ -2016,7 +2028,7 @@ const RACE = { SEG: 200, ROADW: 2000, LAP: 3000, VNOM: 10000, LIMIT: 2700, PZ: 9
   RIVALS: [['BAC', '#C8102E', '#F5F5F5', 0.78], ['MOZ', '#1E5BC6', '#FFD23F', 0.74], ['BEE', '#30323A', '#FF7A1A', 0.70], ['CHO', '#0A7F5A', '#E8E8E8', 0.66],
     ['VIV', '#EDEDED', '#D3313A', 0.62], ['DEB', '#6B3FA0', '#7FE3FF', 0.58], ['HAN', '#FF8A00', '#1B1B1B', 0.54], ['RAV', '#0E9AA7', '#F6D55C', 0.50], ['SCH', '#8C1C3A', '#F2C14E', 0.46]],
   YOU: ['YOU', '#15213D', '#86DCC0'] };   // a lap (LAP segments of SEG) is one minute at full speed, VNOM a second; PZ: the camera sits this far behind your car
-RACE.LAPU = RACE.LAP * RACE.SEG; RACE.KERB = 0.9; RACE.APEX = 0.86;   // a kerb where the bend is sharper than KERB; at the apex the inside tyres are on it
+RACE.LAPU = RACE.LAP * RACE.SEG; RACE.KERB = 0.9; RACE.APEX = 0.86; RACE.BRAKE = 7000;   // braking for a bend, in road units a second squared   // a kerb where the bend is sharper than KERB; at the apex the inside tyres are on it
 const RACE_PIT = { X: 1.48, HALF: 0.36, JOIN: 0.62, IN: 60, OUT: 80, LIMIT: 44 };   // LIMIT: segments of speed limit past the box before the bend out   // the pit lane: its middle and half-width (road half-widths), where it joins the track, the bends in and out (segments)
 const raceGridX = p => p % 2 ? -0.42 : 0.42;                 // grid slot p (1 at the front): odd slots on the left
 const raceWrap = l => l - Math.round(l);                    // a lead in laps, as the nearest place on the circuit
@@ -2038,7 +2050,16 @@ function raceTrack() {
   }
   const N = curve.length, ahead = new Float32Array(N);   // the bend coming up
   for (let i = 0; i < N; i++) { let s = 0; for (let j = 4; j < 30; j++) s += curve[(i + j) % N]; ahead[i] = s / 26; }
-  return { n: N, curve: Float32Array.from(curve), y: Float32Array.from(y), ahead: ahead, boards: boards, line: raceLine(curve) };
+  return { n: N, curve: Float32Array.from(curve), y: Float32Array.from(y), ahead: ahead, boards: boards, line: raceLine(curve), corner: raceCorners(curve) };
+}
+/* How fast a car may take each segment, as a share of full speed: slower the sharper the bend (the hairpin at about 110 km/h, a fast
+   sweeper a little under full speed), with the braking zone before each bend worked back from it, so the car arrives already slowed.
+   Only the picture follows it: every car takes the same bends, so the race (distance, places, laps) comes from playing alone. */
+function raceCorners(curve) {
+  const N = curve.length, p = new Float32Array(N), V = RACE.VNOM, B = RACE.BRAKE * RACE.SEG * 2;
+  for (let i = 0; i < N; i++) { const c = Math.abs(curve[i]); p[i] = c <= 0.5 ? 1 : Math.max(0.35, Math.min(1, 1 - 0.09 * c)); }
+  for (let k = 2 * N - 1; k >= 0; k--) { const i = k % N, j = (i + 1) % N; p[i] = Math.min(p[i], Math.sqrt(p[j] * p[j] * V * V + B) / V); }   // twice round, so the last bend brakes into the first
+  return p;
 }
 /* The racing line, as a real driver takes a corner: out wide on the way in, the inside tyres on the kerb at the apex (a little past
    the middle of the bend), and out wide again on the way out. Corners close together (a chicane, the esses) go apex to apex.
@@ -2136,6 +2157,8 @@ class RaceSim {
     P.boxSeg = Math.floor((P.box + R.PZ) / R.SEG); this.limiter = true;
     P.m0 = Math.max(inLane ? P.m0 : 0, P.boxSeg + RACE_PIT.LIMIT); P.m1 = P.m0 + RACE_PIT.OUT;   // where the lane bends out, set now, so the garages and the lane stay put
   }
+  /* how fast a bend lets the car go at segment s (fractional), as a share of full speed */
+  cornerAt(s) { const C = this.T.corner, n = this.T.n, i = Math.floor(s), u = s - i, a = ((i % n) + n) % n; return C[a] + (C[(a + 1) % n] - C[a]) * u; }
   /* the racing line at segment s (fractional) */
   lineAt(s) { const L = this.T.line, n = this.T.n, i = Math.floor(s), u = s - i, a = ((i % n) + n) % n; return L[a] + (L[(a + 1) % n] - L[a]) * u; }
   /* the middle of the pit lane at segment s (fractional), in road half-widths from the centre; null where there is no lane */
@@ -2152,7 +2175,8 @@ class RaceSim {
     const R = RACE, st = this.st, run = st === 'running', P = this.pit;
     if (!(rdt > 0)) return;
     const seg = Math.floor((this.d + R.PZ) / R.SEG), ahead = this.T.ahead[seg % this.T.n];
-    let vt = this.mode === 'race' && run ? this.eff * R.VNOM : 0;
+    const bend = this.cornerAt((this.d + R.PZ) / R.SEG);
+    let vt = this.mode === 'race' && run ? Math.min(this.eff, bend) * R.VNOM : 0;   // the last minute's speed, or slower for a bend
     if (P && P.phase === 'in') {
       const rem = P.box - this.d;
       this.v = Math.min(this.v + 2500 * rdt, Math.sqrt(Math.max(0, 2 * P.dec * rem)));
@@ -2164,7 +2188,7 @@ class RaceSim {
       if (P && P.phase === 'out') { vt = run ? R.LIMIT : 0;          // the speed limit to the end of the pit lane, then the bend out
         if ((this.d + R.PZ) / R.SEG >= P.m0) { P.phase = 'merge'; this.limiter = false; } }
       if (this.v < vt) this.v = Math.min(vt, this.v + (this.v < 3000 ? 3600 : 2400) * rdt);
-      else this.v = Math.max(vt, this.v - (st === 'stopped' ? 6500 : 2400) * rdt);
+      else this.v = Math.max(vt, this.v - (st === 'stopped' ? 6500 : vt < this.eff * R.VNOM - 1 ? R.BRAKE : 2400) * rdt);   // hard on the brakes for a bend
     }
     this.d += this.v * rdt;
     const pa = (this.d + R.PZ) / R.SEG;
