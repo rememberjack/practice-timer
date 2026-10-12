@@ -224,19 +224,20 @@ function makeFirework3D(cv, hud, MT) {
   /* a shell from the core: {x, h, size, hue, hue2, kind, finale}. It bursts where the flat drawing would put it on the screen, at a depth of its own */
   const ray = new V(), cam = new V(), fwd = new V();
   /* the size of a burst on the screen, in the world at the shell's depth (per: world units a pixel there) */
-  const sizeR = (e, per) => (e.kind === 'trophy' ? Math.min(0.29 * (H - top), 0.55 * W) : e.kind === 'symbol' ? Math.min(0.2 * (H - top), 0.38 * W) * (0.85 + 0.25 * Math.min(1, e.size)) : (0.12 + 0.2 * e.size) * Math.min(W, (H - top) * 1.1)) * per;
+  const SYM = (Hf, size) => Math.min(0.14 * Hf, 0.27 * W) * (0.85 + 0.25 * Math.min(1, size));   // a symbol's size on the screen
+  const sizeR = (e, per) => (e.kind === 'trophy' ? Math.min(0.25 * (H - top), 0.48 * W) : e.kind === 'symbol' ? SYM(H - top, e.size) : (0.065 + 0.11 * e.size) * Math.min(W, (H - top) * 1.1)) * per;   // kept small beside the town's houses
   /* {k:'shell'} goes up and bursts by itself (the finale, and the shows before the start); {k:'launch'} goes up and waits for a note to set it off
      ({k:'burst'}), or fades and falls ({k:'fizzle'}) */
   function launch(e) {
     if (!W && !resize()) return;
     placeCamera();
-    const wait = e.k === 'launch', trophy = e.kind === 'trophy', symbol = e.kind === 'symbol', Hf = H - top, Spx = symbol ? Math.min(0.2 * Hf, 0.38 * W) * (0.85 + 0.25 * Math.min(1, e.size)) : 0;
+    const wait = e.k === 'launch', trophy = e.kind === 'trophy', symbol = e.kind === 'symbol', Hf = H - top, Spx = symbol ? SYM(Hf, e.size) : 0;
     let py = trophy ? top + Hf * 0.36 : top + (1 - e.h) * Hf * 0.64, nx = trophy ? 0 : (e.x * 2 - 1) * 0.86, d = trophy ? 130 : rnd(85, 165);   // the trophy goes up in the middle of the sky
     if (symbol) { py = Math.max(top + Spx * 0.95, Math.min(top + Hf * 0.69 - Spx * 0.85, py)); const lim = Math.max(0, 1 - 1.8 * Spx / W); nx = Math.max(-lim, Math.min(lim, nx)); }   // a symbol stays whole in the sky
     ray.set(nx, 1 - 2 * py / H, 0.5).unproject(camera); cam.copy(camera.position); ray.sub(cam).normalize();
     const at = cam.clone().addScaledVector(ray, d), depth = d * ray.dot(camera.getWorldDirection(fwd));   // d away along the ray; its depth in front of the camera
     at.y = Math.max(14, at.y);
-    const per = 2 * depth * TANF / ((H - top) * SHIFT), R = sizeR(wait ? { size: 0.8 } : e, per);   // the burst's size on the screen, in the world at that depth
+    const per = 2 * depth * TANF / ((H - top) * SHIFT), R = sizeR(wait ? { size: 0.8 } : e, per) * (wait ? 1.6 : 1);   // the burst's size on the screen, in the world at that depth
     const sx = trophy || symbol ? 0 : rnd(-4, 4);
     rockets.push({ p: new V(at.x + sx, 0.6, at.z), from: new V(at.x + sx, 0.6, at.z), to: at, t: 0, dur: 0.8 + 0.55 * e.h + Math.random() * 0.15, e: e, R: R, per: per, id: wait ? e.id : 0, wait: wait });
   }
@@ -257,7 +258,7 @@ function makeFirework3D(cv, hud, MT) {
     const e = r.e, o = r.to, R = r.R, n = (RM ? 0.45 : 1) * (0.6 + 0.5 * Math.min(1.2, e.size)), two = e.hue2 >= 0, ca = hsl(e.hue, 100, 58), cb = two ? hsl(e.hue2, 100, 58) : ca;
     const gold = hsl(40, 92, 52), add = (dir, sp, q) => spark(Object.assign({ x: o.x, y: o.y, z: o.z, vx: dir.x * sp, vy: dir.y * sp, vz: dir.z * sp, t: 0 }, q));
     const ball = (N, k, g, life, s, tr, c, extra) => { for (let i = 0; i < N; i++) add(unit(), R * k * (0.93 + Math.random() * 0.1), Object.assign({ k: k, g: g, life: life * (0.85 + Math.random() * 0.3), s: s, tr: tr, c: c === 'two' ? (i % 2 ? cb : ca) : c }, extra)); };
-    const s0 = R * 0.035;   // a star's size, in the world
+    const s0 = (e.kind === 'trophy' ? R * 0.035 : R * 0.05);   // a star's size, in the world
     if (e.kind === 'trophy' || e.kind === 'symbol') {   // a shape facing the viewer: the finale's gold trophy, or a musical symbol in the note's colour; it opens, holds a moment, then falls
       const right = new V().setFromMatrixColumn(camera.matrixWorld, 0), up = new V().setFromMatrixColumn(camera.matrixWorld, 1), k = 2.4, trophy = e.kind === 'trophy', pale = hsl(48, 100, 80), c = trophy ? hsl(44, 95, 58) : hsl(e.hue, 100, 62);
       const at = (px, py, q) => { const d = right.clone().multiplyScalar(px * R).addScaledVector(up, py * R); sparks.push(Object.assign({ x: o.x, y: o.y, z: o.z, vx: d.x * k, vy: d.y * k, vz: d.z * k, k: k, g: R * 0.35, hold: trophy ? 1.8 : 1.4, t: 0, life: trophy ? 3.6 : 3, s: s0 * 1.5, tr: 0.05, c: c, glit: true }, q)); };

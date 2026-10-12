@@ -82,7 +82,7 @@ function makeFirework2D(cv, hud, sim, MT) {
 
   /* a shell from the core: {x, h, size, hue, hue2, kind, finale} */
   /* the size of a burst, and where a shell bursts: a symbol is kept whole in the sky */
-  const sizeR = e => e.kind === 'trophy' ? Math.min(0.4 * SKY, 0.55 * W) : e.kind === 'symbol' ? Math.min(0.3 * SKY, 0.38 * W) * (0.85 + 0.25 * Math.min(1, e.size)) : (0.12 + 0.2 * e.size) * Math.min(W, SKY * 1.5);
+  const sizeR = e => e.kind === 'trophy' ? Math.min(0.35 * SKY, 0.48 * W) : e.kind === 'symbol' ? Math.min(0.21 * SKY, 0.27 * W) * (0.85 + 0.25 * Math.min(1, e.size)) : (0.065 + 0.11 * e.size) * Math.min(W, SKY * 1.5);   // kept small beside the town's houses
   const keep = (r, R) => { r.x = Math.max(R * 0.85, Math.min(W - R * 0.85, r.x)); r.y = Math.max(top + R * 0.95, Math.min(GY - R * 0.9, r.y)); };
   /* a shell from the core. {k:'shell'} goes up and bursts by itself (the finale, and the shows before the start); {k:'launch'} goes up and waits
      for a note to set it off ({k:'burst'}), or fades and falls ({k:'fizzle'}) */
