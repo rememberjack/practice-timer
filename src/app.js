@@ -924,7 +924,7 @@ const CREDITS = [
   ['Quality and operations', [['QA Engineer', 'Claude'], ['Human QA Engineer', 'Jack Chen'], ['Student Beta Tester', 'Jayden Chen'], ['Test Automation Engineer', 'Claude'], ['DevOps / Release Engineer', 'Claude']]],
 ];
 $('rollIn').innerHTML = '<li class="t">Music Timer</li><li class="lead">Music Timer counts your practice only while it hears your instrument, so every minute it shows is a minute you played.</li>' + CREDITS.map(([h, rows]) => '<li class="h">' + h + '</li>' +
-  rows.map(([r, n]) => '<li><span class="r">' + r + '</span><span class="n">' + n + '</span></li>').join('')).join('') + '<li class="end">Starring you, every time you play.</li>';
+  rows.map(([r, n]) => '<li><span class="r">' + r + '</span><span class="n">' + (n === 'Claude' ? '<svg class="ai" aria-hidden="true"><use href="#ico-claude"/></svg>' : '') + n + '</span></li>').join('')).join('') + '<li class="end">Starring you, every time you play.</li>';
 let rollAnim = null, rollHold = 0, rollFast = false, rollDown = false;
 function rollCredits(on) {
   clearTimeout(rollHold); rollFast = rollDown = false; if (rollAnim) { rollAnim.cancel(); rollAnim = null; }
