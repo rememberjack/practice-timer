@@ -999,6 +999,19 @@ function detectionTests(sr) {
     const ok = red === 'red' && frozen && boxed && back === 'race' && samePos && !s.pit && Math.abs(s.x) < 0.7 && ['red', 'box', 'green', 'release', 'exit'].every(e => ev.includes(e));
     return { name: 'Grand Prix: a pause freezes the race and parks the car in the pit lane', expect: 'red flag; no car moves on while paused; the car waits in its box; on resume it rejoins in the same place and leaves the pit lane',
       got: red + ', ' + (frozen ? 'frozen' : 'moved') + ', ' + (boxed ? 'in the box' : 'not in the box') + ', back in ' + back + ' at P' + s.pos + ' (P' + pos + ' before), ' + (s.pit ? 'still in the pit lane' : 'out of the pit lane') + '; ' + ev.join(' '), pass: ok }; } });
+  list.push({ name: 'Grand Prix: the car keeps to the pit lane, in and out', run: () => {
+    const s = new RaceSim(); s.reset(1800, 11); const inp = gpStart(s); inp.recent = 0.9; gpRun(s, 30, inp); s.x = s.tx = -0.5;   // on the far side of the track when the flag comes out
+    let worst = 0, off = 0, last = s.x, joined = null, boxOk = false; const step = (sec, state) => { inp.state = state;
+      for (let t = 0; t < sec; t += 1 / 60) { s.update(1 / 60, inp); s.move(1 / 60);
+        const pa = (s.d + RACE.PZ) / RACE.SEG, lane = s.inPit ? s.pitX(pa) : null;
+        if (lane != null && Math.abs(s.x - lane) > 1e-9) off++;
+        worst = Math.max(worst, Math.abs(s.x - last)); last = s.x;
+        if (s.pit && s.pit.phase === 'box') boxOk = s.pit.boxSeg >= s.pit.a + RACE_PIT.IN + 12;
+        if (joined == null && s.pit && s.pit.exitAt) joined = s.x; } };
+    step(6, 'paused'); step(14, 'running');
+    const ok = off === 0 && worst < 0.05 && boxOk && joined != null && Math.abs(joined - RACE_PIT.JOIN) < 0.05 && !s.pit && Math.abs(s.x) <= 0.7;
+    return { name: 'Grand Prix: the car keeps to the pit lane, in and out', expect: 'the car follows the middle of the pit lane all the way, with no sudden sideways step; the box is past the bend in; it joins the track on the right and races on',
+      got: (off ? off + ' frames off the lane' : 'always on the lane') + ', largest sideways step ' + worst.toFixed(3) + ' a frame, box ' + (boxOk ? 'past the bend' : 'too early') + ', joined at ' + (joined == null ? 'never' : joined.toFixed(2)) + ', ' + (s.pit ? 'still in the pit lane' : 'back racing at ' + s.x.toFixed(2)), pass: ok }; } });
   list.push({ name: 'Grand Prix: the same field however time is cut up', run: () => {
     const a = new RaceSim(), b = new RaceSim(); a.reset(1800, 42); b.reset(1800, 42);
     for (const s of [a, b]) { s.mode = 'race'; s.st = 'running'; }
@@ -1745,6 +1758,7 @@ const RACE = { SEG: 200, ROADW: 2000, LAP: 3000, VNOM: 10000, LIMIT: 2700, PZ: 9
     ['VIV', '#EDEDED', '#D3313A', 0.62], ['DEB', '#6B3FA0', '#7FE3FF', 0.58], ['HAN', '#FF8A00', '#1B1B1B', 0.54], ['RAV', '#0E9AA7', '#F6D55C', 0.50], ['SCH', '#8C1C3A', '#F2C14E', 0.46]],
   YOU: ['YOU', '#15213D', '#86DCC0'] };   // a lap (LAP segments of SEG) is one minute at full speed, VNOM a second; PZ: the camera sits this far behind your car
 RACE.LAPU = RACE.LAP * RACE.SEG;
+const RACE_PIT = { X: 1.48, HALF: 0.36, JOIN: 0.62, IN: 60, OUT: 80 };   // the pit lane: its middle and half-width (road half-widths), where it joins the track, the bends in and out (segments)
 const raceGridX = p => p % 2 ? -0.42 : 0.42;                 // grid slot p (1 at the front): odd slots on the left
 const raceWrap = l => l - Math.round(l);                    // a lead in laps, as the nearest place on the circuit
 function raceRng(seed) { let s = (seed >>> 0) % 2147483647 || 1; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
@@ -1831,12 +1845,24 @@ class RaceSim {
     if (this.racing && this.pos < was) ev.push('up');
     if (!this.finished && this.racing && inp.play >= this.goal) { this.finished = true; this.finishPos = this.pos; ev.push('finish'); }
   }
-  /* under the red flag your car drives into the pit lane and stops in its box: only the picture moves, the race stays frozen */
+  /* Under the red flag your car drives into the pit lane and stops in its box: only the picture moves, the race stays frozen.
+     The lane is one path (pitX): it opens out from the car's line on the way in, runs beside the track past the garages, and on the
+     way out bends gently back into the right side of the track. The car keeps to the middle of it, so it never crosses the line. */
   pitIn() {
-    const R = RACE, inLane = this.inPit, D = inLane ? 24 * R.SEG : Math.max(this.v < 6000 ? 30 * R.SEG : 55 * R.SEG, this.v * this.v / (2 * 3800));
-    if (!inLane) this.pit = { a: Math.floor((this.d + R.PZ) / R.SEG) + 3, b: Infinity };
-    Object.assign(this.pit, { phase: 'in', box: this.d + D, dec: Math.max(2400, this.v * this.v / (2 * D)), crew: 0, out: 0, exitAt: false });
-    this.pit.boxSeg = Math.floor((this.pit.box + R.PZ) / R.SEG); this.limiter = true;
+    const R = RACE, seg = (this.d + R.PZ) / R.SEG, inLane = this.pit && this.pit.phase === 'out';   // stopped again on the limiter run: in the lane already
+    if (!inLane) this.pit = { a: Math.floor(seg) + 2, x0: this.x, m0: Infinity, m1: Infinity };
+    const P = this.pit, least = inLane ? 24 * R.SEG : (P.a + RACE_PIT.IN + 12) * R.SEG - R.PZ - this.d;   // the box is past the bend in
+    const D = Math.max(least, inLane ? 0 : this.v * this.v / (2 * 3800));
+    Object.assign(P, { phase: 'in', box: this.d + D, dec: Math.max(2400, this.v * this.v / (2 * D)), out: 0, exitAt: false });
+    P.boxSeg = Math.floor((P.box + R.PZ) / R.SEG); this.limiter = true;
+  }
+  /* the middle of the pit lane at segment s (fractional), in road half-widths from the centre; null where there is no lane */
+  pitX(s) {
+    const P = this.pit, L = RACE_PIT, sm = u => u * u * (3 - 2 * u); if (!P || s < P.a) return null;
+    if (s < P.a + L.IN) return P.x0 + (L.X - P.x0) * sm((s - P.a) / L.IN);
+    if (s < P.m0) return L.X;
+    if (s < P.m1) return L.X + (L.JOIN - L.X) * sm((s - P.m0) / (P.m1 - P.m0));
+    return null;
   }
   /* the motion on screen, on real time: the car runs at its speed, takes the racing line, passes on the side away from the car ahead,
      and goes into the pit lane and out again */
@@ -1850,33 +1876,35 @@ class RaceSim {
       this.v = Math.min(this.v + 2500 * rdt, Math.sqrt(Math.max(0, 2 * P.dec * rem)));
       if (rem < 3 || (this.v < 30 && rem < 300)) { this.d = P.box; this.v = 0; P.phase = 'box'; this.events.push('box'); }
     } else if (P && P.phase === 'box') {
-      P.crew += rdt; this.v = 0;
+      this.v = 0;
       if (run) { P.phase = 'out'; P.out = this.d; this.events.push('release'); }
     } else {
-      if (P && !P.exitAt) { vt = run ? R.LIMIT : 0;
-        if (this.d - P.out > 40 * R.SEG) { P.exitAt = true; this.limiter = false; P.b = seg + 46; this.events.push('exit'); } }
+      if (P && P.phase === 'out') { vt = run ? R.LIMIT : 0;          // the speed limit to the end of the pit lane, then the bend out
+        if (this.d - P.out > 40 * R.SEG) { P.phase = 'merge'; this.limiter = false; P.m0 = (this.d + R.PZ) / R.SEG; P.m1 = P.m0 + RACE_PIT.OUT; } }
       if (this.v < vt) this.v = Math.min(vt, this.v + (this.v < 3000 ? 3600 : 2400) * rdt);
       else this.v = Math.max(vt, this.v - (st === 'stopped' ? 6500 : 2400) * rdt);
     }
-    if (P && P.exitAt && seg > P.b + 2) this.pit = null;
     this.d += this.v * rdt;
-    const line = Math.max(-0.45, Math.min(0.45, ahead * 0.07));
-    if (this.inPit) { if (this.pit.phase !== 'in' || (this.d + R.PZ) / R.SEG > this.pit.a + 2) this.tx = 1.48; }
-    else if (this.racing) {
+    const pa = (this.d + R.PZ) / R.SEG;
+    if (P && P.phase === 'merge' && pa >= P.m1) { P.phase = 'done'; P.exitAt = true; this.events.push('exit'); }   // joined the track
+    if (P && P.phase === 'done' && this.d / R.SEG > P.m1) this.pit = null;                     // and the camera is past the end of the lane
+    const lane = this.inPit ? this.pitX(pa) : null, line = Math.max(-0.45, Math.min(0.45, ahead * 0.07));
+    if (lane != null) { this.x = this.tx = lane; }                                              // in the pit lane: along its middle, nothing else
+    else if (this.racing && !this.inPit) {
       let tx = line;
       for (const c of this.cars) { const rel = raceWrap(c.lead) * R.LAP; if (rel > -5 && rel < 30 && (rel < 7 || Math.abs(c.x - tx) < 0.62)) tx = c.x > 0 ? Math.min(tx, c.x - 0.8) : Math.max(tx, c.x + 0.8); }
       this.tx = Math.max(-0.66, Math.min(0.66, tx));
     }
     this.drs = this.mode === 'race' && !this.inPit && this.v > 3000 && Math.abs(ahead) < 0.4 && !!this.ahead && this.ahead.lead * R.LAPU / R.VNOM < 1;   // within a second of the car ahead
-    const k = Math.min(1, rdt * (this.inPit ? 2.6 : 1.9)) * (this.v > 300 ? 1 : 0);   // no steering while standing still
-    this.x += (this.tx - this.x) * k;
+    const k = Math.min(1, rdt * 1.9) * (this.v > 300 ? 1 : 0);   // no steering while standing still
+    if (lane == null) this.x += (this.tx - this.x) * k;
     for (const c of this.cars) { const want = this.racing ? (c.i % 2 ? 0.4 : -0.4) + line * 0.4 : raceGridX(c.i + 1); c.x += (want - c.x) * k * 0.45; }
   }
 }
 /* a gap in laps, in words for the read-outs: seconds at full speed, or whole laps */
 function raceGap(l) { const a = Math.abs(l); return a >= 1 ? Math.floor(a) + (a >= 2 ? ' laps' : ' lap') : Math.max(0.1, a * RACE.LAPU / RACE.VNOM).toFixed(1); }
 
-const api = { LIFTOFF, OnsetTracker, DragSwipe, WheelSwipe, DashSim, DASH, dashSpeed, RaceSim, RACE, raceTrack, raceGap, raceRng, RacePractiser, MusicDetector, Session, RocketSim, WORLD, MILESTONES, SENSITIVITY, CLIPS, DETECTION_CASES,
+const api = { LIFTOFF, OnsetTracker, DragSwipe, WheelSwipe, DashSim, DASH, dashSpeed, RaceSim, RACE, RACE_PIT, raceTrack, raceGap, raceRng, RacePractiser, MusicDetector, Session, RocketSim, WORLD, MILESTONES, SENSITIVITY, CLIPS, DETECTION_CASES,
   detectionTests, runDetectionTests, analyzeClip, sessionReport, clockText, sessionRecord, worthKeeping, liveSnapshot, liveRecord, rocketCarry, buildOf, newerBuild, themesOn, themeSwitch, themeLanding, practiceStats, dayRecap, dayLine, practiceNudge, homeCopy, weekLine, durationText, dayKey, LOG_MAX, LEVEL_MIN, SAMPLE_LOGS, sampleLog, rocketAt, fraction, heardAs, noteOf, smooth, pchip, clamp01 };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.MT = api;
 })(typeof self !== 'undefined' ? self : this);

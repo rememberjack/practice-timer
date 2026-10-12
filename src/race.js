@@ -4,7 +4,7 @@
 /* exported makeRaceView */   // used by src/app.js, which the build puts after this file
 function makeRaceView(cv, hud, sim, MT) {
   'use strict';
-  const RC = MT.RACE, track = sim.T, N = track.n, SEG = RC.SEG, ROADW = RC.ROADW, LAP = RC.LAP, VNOM = RC.VNOM, PZ = RC.PZ, GRIDGAP = RC.GRIDGAP, START = RC.START;
+  const RC = MT.RACE, RP = MT.RACE_PIT, track = sim.T, N = track.n, SEG = RC.SEG, ROADW = RC.ROADW, LAP = RC.LAP, VNOM = RC.VNOM, PZ = RC.PZ, GRIDGAP = RC.GRIDGAP, START = RC.START;
   const RIVALS = RC.RIVALS, YOU = { c1: RC.YOU[1], c2: RC.YOU[2] }, rng = MT.raceRng;
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v, gridX = p => p % 2 ? -0.42 : 0.42, wrapLap = l => l - Math.round(l);
   const g = cv.getContext('2d'), RM = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -179,15 +179,19 @@ function makeRaceView(cv, hud, sim, MT) {
       if (gridX(p) > 0) quad(P.line, x1 + w1 * 0.1, x1 + w1 * 0.75, x2 + w2 * 0.1, x2 + w2 * 0.75, y1, ym);
       else quad(P.line, x1 - w1 * 0.75, x1 - w1 * 0.1, x2 - w2 * 0.75, x2 - w2 * 0.1, y1, ym);
     }
-    const pit = sim.pit;   // the pit lane opens to the right of the track, from where the car turned in
-    if (pit && abs >= pit.a && abs <= pit.b) {
-      const t = Math.min(1, (abs - pit.a) / 10, (pit.b - abs) / 10), o = 1.12 + 0.72 * t;
-      strip(n, P.apron, o, o + 1.6 * t, 1); strip(n, P.pit, 1.0, o, 1);
-      if (t >= 1) strip(n, P.wall, 1.03, 1.1, 1); else strip(n, P.line, 1.0, 1.03, 1);
-      if (abs >= pit.boxSeg - 1 && abs <= pit.boxSeg + 4) { strip(n, P.yellow, 1.2, 1.24, 1); strip(n, P.yellow, 1.72, 1.76, 1);
+    const pit = sim.pit, c1 = pit ? sim.pitX(abs) : null, c2 = pit ? sim.pitX(abs + 1) : null;   // the pit lane, along the path the car keeps to
+    if (c1 != null || c2 != null) {
+      const H = RP.HALF, a1 = c1 == null ? c2 : c1, a2 = c2 == null ? c1 : c2, i1 = a1 - H, o1 = a1 + H, i2 = a2 - H, o2 = a2 + H;
+      const main = abs >= pit.a + RP.IN && abs + 1 <= pit.m0, out = abs + 1 > pit.m0;   // beside the track past the garages; the bend back out
+      if (o1 > 0.98 || o2 > 0.98) band(n, P.pit, Math.max(0.98, i1), Math.max(0.98, o1), Math.max(0.98, i2), Math.max(0.98, o2));   // its surface off the track
+      if (main) { band(n, P.apron, o1, o1 + 1.6, o2, o2 + 1.6); band(n, P.wall, 1.03, 1.1, 1.03, 1.1); }
+      else if (out || (i1 >= 0.96 && i2 >= 0.96)) band(n, P.line, i1 - 0.02, i1 + 0.02, i2 - 0.02, i2 + 0.02);   // the line along its inner edge, painted on into the track on the way out
+      if (main && abs >= pit.boxSeg - 1 && abs <= pit.boxSeg + 4) { strip(n, P.yellow, 1.2, 1.24, 1); strip(n, P.yellow, 1.72, 1.76, 1);
         if (abs === pit.boxSeg - 1 || abs === pit.boxSeg + 4) strip(n, P.yellow, 1.2, 1.76, 1); }
     }
   }
+  /* a band on the right of segment n from a to b half-widths out at its near end, c to d at its far end (a lane that bends) */
+  function band(n, col, a, b, c, d) { quad(col, X1[n] + W1[n] * a, X1[n] + W1[n] * b, X2[n] + W2[n] * c, X2[n] + W2[n] * d, Y1[n], Y2[n]); }
   function sprite(img, n, xo, ww, alpha) {
     const s = S1[n], w = ww * s * K; if (w < 1.5) return;
     const h = w * img.height / img.width, X = X1[n] + s * xo * ROADW * K;
@@ -220,18 +224,6 @@ function makeRaceView(cv, hud, sim, MT) {
     g.drawImage(img, X - w / 2, Y - h, w, h);
     if (light && w > 8) rainLight(X, Y, w);
     if (alpha < 1) g.globalAlpha = 1;
-  }
-  function crew(cx, gy, cw, ch) {
-    const p = sim.pit, k = Math.min(1, p.crew / 0.5), off = (1 - k) * cw * 0.9, out = p.phase === 'out';
-    const fig = (x, y, sc) => { const bw = cw * 0.075 * sc, bh = cw * 0.2 * sc;
-      g.fillStyle = '#0F1830'; g.fillRect(x - bw / 2, y - bh * 0.45, bw, bh * 0.45);
-      g.fillStyle = YOU.c2; g.fillRect(x - bw / 2, y - bh, bw, bh * 0.58);
-      g.fillStyle = '#10131C'; g.beginPath(); g.arc(x, y - bh - bw * 0.42, bw * 0.48, 0, Math.PI * 2); g.fill(); };
-    if (!out) { fig(cx - cw * 0.3 + off, gy - ch * 0.62, 0.7); fig(cx + cw * 0.3 + off, gy - ch * 0.62, 0.7); fig(cx - cw * 0.6 + off, gy - ch * 0.05, 1); fig(cx + cw * 0.6 + off, gy - ch * 0.05, 1); }
-    const ly = gy - ch * 1.45 - (out ? cw * 0.4 : 0);   // the lollipop: red while the race is paused, green to release the car
-    g.fillStyle = '#C9CED8'; g.fillRect(cx + cw * 0.04, ly, Math.max(2, cw * 0.012), ch * 0.6);
-    g.fillStyle = out ? '#3BD16F' : '#E8333B'; g.beginPath(); g.arc(cx + cw * 0.045, ly, cw * 0.075, 0, Math.PI * 2); g.fill();
-    g.strokeStyle = '#FFFFFF'; g.lineWidth = Math.max(1.5, cw * 0.01); g.stroke();
   }
   /* the last minute, one bar a second, oldest on the left: played seconds full height in mint, quiet ones short */
   function minuteStrip(x, y, w, h, minute) {
@@ -317,10 +309,10 @@ function makeRaceView(cv, hud, sim, MT) {
       const vis = VIS[n]; if (!vis) continue;
       const abs = base + n, i = abs % N, P = PAL[Math.min(FL - 1, Math.floor(Math.pow(n / DD, 1.6) * FL))], fa = 1 - 0.75 * Math.pow(n / DD, 2);
       if (vis === 1) drawSegment(n, abs, P);
-      const sc = SCN[i], inPit = pit && abs >= pit.a && abs <= pit.b;
-      if (inPit && abs >= pit.a + 10 && abs <= pit.boxSeg + 63 && (abs - pit.boxSeg) % 9 === 0 && abs >= pit.boxSeg - 63)
+      const sc = SCN[i], inPit = pit && abs >= pit.a && abs <= pit.m0, nearLane = pit && abs >= pit.a && abs <= pit.m1;   // the garage side, and the lane's whole length
+      if (inPit && abs >= pit.a + RP.IN + 4 && abs + 1 <= pit.m0 && Math.abs(abs - pit.boxSeg) <= 63 && (abs - pit.boxSeg) % 9 === 0)
         sprite(abs === pit.boxSeg ? OURS : GARAGES[((abs / 9) | 0) % GARAGES.length], n, 3.15, 3000, fa);
-      for (let j = 0; j < sc.length; j++) { const o = sc[j]; if (inPit && o.x > 0) continue; sprite(o.k === 'tree' ? TREES[o.v] : o.k === 'stand' ? STAND : BOARDS[o.t], n, o.x, o.w, fa); }
+      for (let j = 0; j < sc.length; j++) { const o = sc[j]; if (o.x > 0 && (inPit || (nearLane && o.x < 2.6))) continue; sprite(o.k === 'tree' ? TREES[o.v] : o.k === 'stand' ? STAND : BOARDS[o.t], n, o.x, o.w, fa); }   // nothing stands in the pit lane
       if (i === START + 1) gantry(n);
       const b = buckets[n]; if (b.length > 1) b.sort((p, q) => q.z - p.z);
       for (const o of b) car(SPR.cars[o.c.i], n, o.f, o.z, o.c.x, fa, red && (Math.floor(clock * 2.5) & 1));
@@ -333,7 +325,6 @@ function makeRaceView(cv, hud, sim, MT) {
     g.drawImage(sim.drs ? SPR.youDrs : SPR.you, -cw / 2, -ch, cw, ch);
     if (sim.limiter ? (Math.floor(clock * 5) & 1) : red && (Math.floor(clock * 2.5) & 1)) rainLight(0, 0, cw);
     g.restore();
-    if (pit && (pit.phase === 'box' || (pit.phase === 'out' && sim.d - pit.out < 6 * SEG))) crew(W / 2, GY, cw, ch);
     // sparks from the plank
     if (sparks.length) { g.globalCompositeOperation = 'lighter'; g.lineWidth = 2; g.lineCap = 'round';
       for (let i = sparks.length - 1; i >= 0; i--) { const p = sparks[i]; p.t += dt; if (p.t >= p.life) { sparks.splice(i, 1); continue; }
