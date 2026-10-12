@@ -1048,6 +1048,18 @@ function detectionTests(sr) {
     const s = new Session(); s.start(); for (let i = 0; i < 30; i++) s.tick(1, true); for (let i = 0; i < 10; i++) s.tick(1, false);
     const m = s.minute, ok = m.length === 60 && m.slice(0, 20).every(v => v === null) && m.slice(20, 50).every(v => v === 1) && m.slice(50).every(v => v === 0);
     return { name: 'Session: the last minute, a second at a time', expect: '20 empty seconds, 30 played, 10 quiet', got: m.map(v => v == null ? '.' : v >= 0.5 ? '#' : '_').join(''), pass: ok }; } });
+  list.push({ name: 'Storage: what is kept, and a backup put back', run: () => {
+    const now = new Date(2026, 9, 9, 18).getTime(), all = sampleLog('back', now), mine = all.slice(-3), json = backupText(all, now);
+    const U = storageUse([['musicTimer.log', 'x'.repeat(99)], ['musicTimer.settings', '{}'], ['other.page', 'y'.repeat(500)], ['musicTimer.old', '']]);
+    const back = readBackup(json), M = mergeLog(mine, back), again = mergeLog(M.log, back), broken = JSON.parse(json); broken.sessions[0].R = null; broken.sessions[1].eff = 7;
+    const big = mergeLog([], Array.from({ length: LOG_MAX + 5 }, (x, i) => Object.assign({}, all[0], { id: i + 1, start: i + 1, end: i + 2 })));
+    const sizes = [sizeText(0), sizeText(1), sizeText(999), sizeText(2300), sizeText(48000), sizeText(999700), sizeText(2.5e6)].join(', ');
+    const ok = U.total === 2 * (14 + 99) + 2 * (19 + 2) + 2 * 14 && U.parts.map(p => p.name).join(',') === 'Practice log,Settings,Other' && back.length === all.length
+      && JSON.stringify(back) === JSON.stringify(all) && M.added === all.length - 3 && M.log.length === all.length && JSON.stringify(M.log) === JSON.stringify(all) && again.added === 0
+      && readBackup(JSON.stringify(broken)).length === all.length - 2 && readBackup('not json') === null && readBackup('[]') === null && readBackup(JSON.stringify({ kind: 'other', sessions: [] })) === null
+      && big.log.length === LOG_MAX && big.log[0].id === 6 && big.added === LOG_MAX && sizes === '0 bytes, 1 byte, 999 bytes, 2.3 KB, 48 KB, 1 MB, 2.5 MB';
+    return { name: 'Storage: what is kept, and a backup put back', expect: 'only Music Timer\'s keys are counted; a backup restores every session once, leaves damaged ones and other files out, and keeps the latest ' + LOG_MAX,
+      got: U.total + ' bytes in ' + U.parts.length + ' parts, ' + back.length + ' sessions read back, ' + M.added + ' added then ' + again.added + ', ' + sizes, pass: ok }; } });
   list.push({ name: 'Themes: the player turns off the ones they don\'t like', run: () => {
     const all = ['classic', 'rocket', 'city', 'dash', 'race'];
     const got = [themesOn(all, '').join(' '), themesOn(all, 'city,dash').join(' '), themesOn(all, 'classic,rocket,city,dash,race').join(' '), themesOn(all, 'space,dash').join(' '),
@@ -1059,6 +1071,46 @@ function detectionTests(sr) {
   return list;
 }
 function runDetectionTests(sr) { return detectionTests(sr).map(t => t.run()); }
+
+/* ---------- Storage (Settings, Storage): what Music Timer keeps on this device, and a backup file of the practice log ---------- */
+const STORE_PREFIX = 'musicTimer.';
+const STORE_PARTS = { log: 'Practice log', settings: 'Settings', live: 'Session under way', newFlight: 'Rocket flight', debug: 'Debug tools' };
+/* entries: [key, value] pairs from localStorage. Music Timer's own keys (other pages on the same site are left out), each with its size in bytes
+   (browsers count two a character), largest first. A key the app no longer uses is 'Other', so Delete everything still clears it */
+function storageUse(entries) {
+  const parts = []; let total = 0;
+  for (const [k, v] of entries) { if (typeof k !== 'string' || k.indexOf(STORE_PREFIX) !== 0) continue;
+    const id = k.slice(STORE_PREFIX.length), bytes = 2 * (k.length + String(v == null ? '' : v).length);
+    total += bytes; parts.push({ id: id, key: k, name: STORE_PARTS[id] || 'Other', bytes: bytes }); }
+  return { total: total, parts: parts.sort((a, b) => b.bytes - a.bytes) };
+}
+/* 512 -> "512 bytes", 2300 -> "2.3 KB", 48000 -> "48 KB", 2500000 -> "2.5 MB" */
+function sizeText(b) { b = Math.max(0, Math.round(b)); const n = (x, u) => (x < 10 ? Math.round(x * 10) / 10 : Math.round(x)) + ' ' + u;
+  return b < 1000 ? b + (b === 1 ? ' byte' : ' bytes') : b < 999500 ? n(b / 1e3, 'KB') : n(b / 1e6, 'MB'); }
+const BACKUP_KIND = 'music-timer-backup';
+/* the backup file: every saved session (no audio, as kept) */
+function backupText(log, now) { return JSON.stringify({ kind: BACKUP_KIND, v: 1, saved: now, sessions: log }); }
+/* a saved session sound enough to show in the practice log and its summary */
+const num = x => typeof x === 'number' && isFinite(x);
+function goodRecord(r) {
+  return !!r && typeof r === 'object' && r.v === 1 && num(r.id) && num(r.start) && r.start > 0 && num(r.end) && r.end >= r.start && num(r.play) && r.play >= 0
+    && num(r.goal) && r.goal > 0 && num(r.eff) && r.eff >= 0 && r.eff <= 1 && !!r.R && typeof r.R === 'object' && num(r.R.total) && num(r.R.play)
+    && Array.isArray(r.R.columns) && Array.isArray(r.R.thirds) && !!r.R.longest;
+}
+/* a backup file's sessions (a damaged one is left out), or null when the file is not a Music Timer backup */
+function readBackup(text) {
+  let j; try { j = JSON.parse(text); } catch (e) { return null; }
+  if (!j || j.kind !== BACKUP_KIND || !Array.isArray(j.sessions)) return null;
+  return j.sessions.filter(goodRecord).map(r => Object.assign({}, r, { name: typeof r.name === 'string' ? r.name.slice(0, 40) : '', rocket: r.rocket && typeof r.rocket === 'object' ? r.rocket : null }));
+}
+/* adds a backup's sessions to the log, oldest first and the latest LOG_MAX. A session already here stays as it is. added: how many are new */
+function mergeLog(log, recs) {
+  const ids = new Set(log.map(r => r.id)), add = [];
+  for (const r of recs) if (!ids.has(r.id)) { ids.add(r.id); add.push(r); }
+  const out = log.concat(add).sort((a, b) => a.start - b.start); if (out.length > LOG_MAX) out.splice(0, out.length - LOG_MAX);
+  const kept = new Set(out.map(r => r.id));
+  return { log: out, added: add.filter(r => kept.has(r.id)).length };
+}
 
 /* ---------- New versions: a page kept open (an iPhone Home Screen app) checks the live page's build stamp ---------- */
 /* the build stamp in a page's <meta name="build"> ('' when there is none, or it is still the unbuilt placeholder) */
@@ -1939,6 +1991,6 @@ class RaceSim {
 function raceGap(l) { const a = Math.abs(l); return a >= 1 ? Math.floor(a) + (a >= 2 ? ' laps' : ' lap') : Math.max(0.1, a * RACE.LAPU / RACE.VNOM).toFixed(1); }
 
 const api = { LIFTOFF, OnsetTracker, DragSwipe, WheelSwipe, DashSim, DASH, dashSpeed, RaceSim, RACE, RACE_PIT, raceTrack, raceGap, raceRng, RacePractiser, MusicDetector, Session, RocketSim, WORLD, MILESTONES, SENSITIVITY, CLIPS, DETECTION_CASES,
-  detectionTests, runDetectionTests, analyzeClip, sessionReport, clockText, sessionRecord, worthKeeping, liveSnapshot, liveRecord, rocketCarry, buildOf, newerBuild, themesOn, themeSwitch, themeLanding, practiceStats, dayRecap, dayLine, practiceNudge, homeCopy, weekLine, durationText, dayKey, LOG_MAX, LEVEL_MIN, SAMPLE_LOGS, sampleLog, rocketAt, fraction, heardAs, noteOf, smooth, pchip, clamp01 };
+  detectionTests, runDetectionTests, analyzeClip, sessionReport, clockText, sessionRecord, worthKeeping, liveSnapshot, liveRecord, rocketCarry, buildOf, newerBuild, themesOn, themeSwitch, themeLanding, storageUse, sizeText, backupText, readBackup, mergeLog, practiceStats, dayRecap, dayLine, practiceNudge, homeCopy, weekLine, durationText, dayKey, LOG_MAX, LEVEL_MIN, SAMPLE_LOGS, sampleLog, rocketAt, fraction, heardAs, noteOf, smooth, pchip, clamp01 };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.MT = api;
 })(typeof self !== 'undefined' ? self : this);
