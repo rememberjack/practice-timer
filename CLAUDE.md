@@ -134,5 +134,10 @@ reachable from the sandbox, so for themes that use three.js serve it from `npm p
 - Several sessions work in parallel: start each branch from a fresh `origin/main`.
 - One pull request per requested change; run `npm run ci` before pushing. Pushes to `main` deploy to the live site.
 - User-facing text is plain, complete sentences; on iOS, point microphone problems to the Settings app.
+- Every UI change (new or changed words, a new control, a layout or style change) must work in every language and fit the screen. Give
+  new words their Chinese and French in `src/lang.js` (`npm test` fails without them), then look at each screen it touches in English,
+  Chinese and French at iPhone SE sizes (375×667 and 320×568), during a session where it shows one. Playwright screenshots with the
+  context's `locale` set (`en-US`, `zh-CN`, `fr-FR`) pick the language through Automatic. French runs longest: shorten its words rather
+  than let a line be cut off, wrap more, or push the page into scrolling; Chinese falls back to the phone's own font in the pixel themes.
 - Lines here often hold several statements. A `//` comment runs to the end of the line, so when splitting a line, check that no code
   ended up after one; `npm run lint` flags the names this leaves undeclared.
