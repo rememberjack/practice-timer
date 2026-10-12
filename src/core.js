@@ -1051,10 +1051,10 @@ function detectionTests(sr) {
   list.push({ name: 'Themes: the player turns off the ones they don\'t like', run: () => {
     const all = ['classic', 'rocket', 'city', 'dash', 'race'];
     const got = [themesOn(all, '').join(' '), themesOn(all, 'city,dash').join(' '), themesOn(all, 'classic,rocket,city,dash,race').join(' '), themesOn(all, 'space,dash').join(' '),
-      themeSwitch(all, '', 'city', false), themeSwitch(all, 'city', 'classic', false), themeSwitch(all, 'classic,city', 'city', true), themeSwitch(all, 'classic,rocket,city,dash', 'race', false),
-      themeSwitch(all, 'space', 'rocket', false), themeLanding(all, ['classic', 'dash'], 'rocket'), themeLanding(all, ['classic', 'rocket'], 'dash'), themeLanding(all, ['city'], 'city'), themeLanding(all, ['rocket'], 'gone'), themeLanding(all, ['classic', 'city'], 'race')];
-    const want = ['classic rocket city dash race', 'classic rocket race', 'classic rocket city dash race', 'classic rocket city race', 'city', 'classic,city', 'classic', 'classic,rocket,city,dash', 'rocket', 'dash', 'rocket', 'city', 'rocket', 'city'];
-    return { name: 'Themes: the player turns off the ones they don\'t like', expect: 'off themes leave the list, unknown ids are ignored, the last one on stays on, and turning off the one on screen lands on the next one on (' + want.join(' | ') + ')',
+      themeSwitch(all, '', 'city', false), themeSwitch(all, 'city', 'classic', false), themeSwitch(all, 'classic,city', 'city', true), themeSwitch(all, 'rocket,city,dash', 'race', false),
+      themeSwitch(all, 'space', 'rocket', false), themeLanding(['classic', 'dash'], 'rocket'), themeLanding(['classic', 'rocket', 'city'], 'dash'), themeLanding(['classic', 'city'], 'city'), themeLanding(['classic'], 'gone')];
+    const want = ['classic rocket city dash race', 'classic rocket race', 'classic', 'classic rocket city race', 'city', 'city', '', 'rocket,city,dash,race', 'rocket', 'classic', 'classic', 'city', 'classic'];
+    return { name: 'Themes: the player turns off the ones they don\'t like', expect: 'off themes leave the list, unknown ids are ignored, Classic is always on, and a theme turned off lands on the first one on, Classic (' + want.join(' | ') + ')',
       got: got.join(' | '), pass: got.every((g, i) => g === want[i]) }; } });
   return list;
 }
@@ -1067,20 +1067,14 @@ function buildOf(html) { const m = /<meta name="build" content="([^"]*)"/.exec(h
 function newerBuild(running, html) { const b = buildOf(html); return !!running && running.indexOf('__') < 0 && !!b && b !== running; }
 
 /* ---------- theme choice: the player can turn off themes they don't like (Settings, Themes) ---------- */
-/* all: every theme id, in swipe order; off: the ids turned off, saved as text ('city,dash'). Ids no longer in all are left out,
-   so a removed theme is forgotten and a new one starts on. One theme always stays on: with every one off, all come back. */
-function themesOff(all, off) { const ids = String(off || '').split(','); return all.filter(id => ids.indexOf(id) >= 0); }
-function themesOn(all, off) { const o = themesOff(all, off), on = all.filter(id => o.indexOf(id) < 0); return on.length ? on : all.slice(); }
-/* turns one theme on or off; the new off text. The last theme on can't be turned off */
-function themeSwitch(all, off, id, want) {
-  const o = themesOff(all, off).filter(x => x !== id); if (!want && all.indexOf(id) >= 0) o.push(id);
-  return o.length < all.length ? all.filter(x => o.indexOf(x) >= 0).join(',') : themesOff(all, off).join(',');
-}
-/* the theme to show when cur is not among those on: the next one on after it in swipe order, else the nearest before it */
-function themeLanding(all, on, cur) {
-  if (on.indexOf(cur) >= 0) return cur; const i = all.indexOf(cur);
-  return all.slice(i + 1).find(x => on.indexOf(x) >= 0) || all.slice(0, Math.max(0, i)).reverse().find(x => on.indexOf(x) >= 0) || on[0];
-}
+/* all: every theme id, in swipe order, Classic first; off: the ids turned off, saved as text ('city,dash'). Ids no longer in all are left out,
+   so a removed theme is forgotten and a new one starts on. The first theme (Classic) is always on and can't be turned off, so there is always somewhere to land. */
+function themesOff(all, off) { const ids = String(off || '').split(','); return all.slice(1).filter(id => ids.indexOf(id) >= 0); }
+function themesOn(all, off) { const o = themesOff(all, off); return all.filter(id => o.indexOf(id) < 0); }
+/* turns one theme on or off; the new off text */
+function themeSwitch(all, off, id, want) { const o = themesOff(all, off).filter(x => x !== id); if (!want) o.push(id); return themesOff(all, o.join(',')).join(','); }
+/* the theme to show: cur while it is on, else the first one on (Classic), on the Home Screen and when the one on screen is turned off */
+function themeLanding(on, cur) { return on.indexOf(cur) >= 0 ? cur : on[0]; }
 
 /* ---------- Session clock ---------- */
 class Session {
