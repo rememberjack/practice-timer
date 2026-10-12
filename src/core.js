@@ -975,6 +975,14 @@ function detectionTests(sr) {
     const got = [o(-100, 1), o(100, 0), o(-100, 3), o(0, 2)], want = [-490, 30, -1200, -780];
     return { name: 'Swipe: the themes give only a little past either end', expect: 'mid-way the track moves with the finger; past Classic or Dash it moves 0.3 px per px (' + want.join(', ') + ')',
       got: got.join(', '), pass: got.every((g, i) => g === want[i]) }; } });
+  list.push({ name: 'Swipe: a second finger during a swipe is ignored', run: () => {
+    const s = new DragSwipe(); s.down(1, 300, 300, 0, 390); let dx = 0; for (let k = 1; k <= 10; k++) dx = s.move(300 - 12 * k, 300);   // the first finger drags 120 px: a swipe
+    s.down(2, 100, 500, 200, 390);                                                                                                    // a second finger touches the scene
+    const kept = s.has(1) && !s.has(2) && s.locked, m = s.move(150, 300), r = s.up(150, 400);                                         // the first finger goes on, then lets go
+    const t = new DragSwipe(); t.down(1, 300, 300, 0, 390); t.down(2, 100, 500, 50, 390);                                              // before any swipe, the newer press takes over, as before
+    const ok = dx === -120 && kept && m === -150 && r === 1 && !s.has(1) && !t.has(1) && t.has(2);
+    return { name: 'Swipe: a second finger during a swipe is ignored', expect: 'the swipe keeps following the first finger and steps to the next theme when it lets go; a second press before any swipe takes over',
+      got: (kept ? 'still the first finger' : 'the second finger took over') + ', then ' + (m == null ? 'no drag' : m + ' px') + ' and ' + (r == null ? 'no landing' : ['back', 'stay', 'next'][r + 1]) + (t.has(2) ? '; a second press before a swipe takes over' : '; a second press before a swipe is lost'), pass: ok }; } });
   // trackpad swipes: recorded wheel events replayed as the page receives them, one theme step per swipe however quickly they follow
   const steps = evs => { const w = new WheelSwipe(), got = [];
     for (const e of evs) { if (Math.abs(e.dx) <= Math.abs(e.dy)) continue;   // mostly vertical: the page lets Classic scroll
@@ -1790,10 +1798,12 @@ class OnsetTracker {
 
 /* ---------- finger and mouse swipes: the themes follow the drag, and letting go lands on one ----------
    A press becomes a swipe once it has gone 10 px sideways and more sideways than down; 14 px down first and it is left to scroll (a press that
-   goes nowhere stays a tap). Letting go a quarter of the way across, or after a quick 40 px flick, steps one theme that way. */
+   goes nowhere stays a tap). Letting go a quarter of the way across, or after a quick 40 px flick, steps one theme that way.
+   A second finger touching the scene during a swipe (a thumb resting on it) is ignored: the swipe keeps following the first finger and lands
+   when it lets go. Taking it over instead left the themes stranded between two of them, since neither finger's lifting then ended the swipe. */
 class DragSwipe {
   constructor() { this.d = null; }
-  down(id, x, y, t, w) { this.d = { id: id, x: x, y: y, t: t, w: w, lock: false }; }   // w: the scene's width, px
+  down(id, x, y, t, w) { if (this.d && this.d.lock) return; this.d = { id: id, x: x, y: y, t: t, w: w, lock: false }; }   // w: the scene's width, px
   has(id) { return !!this.d && this.d.id === id; }
   get locked() { return !!this.d && this.d.lock; }
   /* Returns how far it has been dragged sideways (px, - = finger moving left, towards the next theme) once it is a swipe, else null */
