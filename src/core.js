@@ -619,7 +619,13 @@ const CLIPS = {
   // talking near the phone in a room whose echo joins up the syllables, and talking quietly across the room
   roomTalk:     sr => inRoom(sr, synthSpeech(sr, 6, 120, 56), { gainDb: -12, dist: 1, seed: 66 }),
   roomTalkHigh: sr => inRoom(sr, synthSpeech(sr, 6, 230, 57), { gainDb: -12, dist: 1, seed: 67 }),
-  roomTalkFar:  sr => inRoom(sr, synthSpeech(sr, 6, 150, 58), { gainDb: -30, dist: 3, seed: 68 })
+  roomTalkFar:  sr => inRoom(sr, synthSpeech(sr, 6, 150, 58), { gainDb: -30, dist: 3, seed: 68 }),
+  // a scale with a breath at the top of each run; talking that turns into playing; soft playing under a fan as loud as itself; one note again and again
+  breathFlute:  sr => { const s = scale2(62), up = mel(s.slice(0, 14), 1 / 12), top = [[s[14], 0.4, 1.0]], down = mel(s.slice(15), 1 / 12);
+    return inRoom(sr, synthPlayed(sr, 'flute', up.concat(top, down, up, top, down), { seed: 61 }), { gainDb: -24, dist: 3, rt60: 0.6, seed: 71 }); },
+  talkThenCello: sr => inRoom(sr, concat([synthSpeech(sr, 5, 120, 56), synthPlayed(sr, 'cello', mel([50, 53, 57, 60, 62, 60, 57, 55], 0.55), { seed: 44 })]), { gainDb: -12, dist: 1, seed: 66 }),
+  roomViolinFan: sr => inRoom(sr, synthPlayed(sr, 'violin', mel([67, 69, 71, 74, 76, 74, 72, 71, 69, 67, 71, 74], 0.5), { seed: 52 }), { gainDb: -58, dist: 3, seed: 62, noiseDb: -65 }),
+  longTones:    sr => inRoom(sr, synthPlayed(sr, 'clarinet', mel([62, 62, 62, 62], 1.2, 0.3), { seed: 46 }), { gainDb: -20, dist: 2, seed: 66 })
 };
 
 /* Run a clip through the detector exactly as the live app does and return a timeline. */
@@ -678,14 +684,20 @@ const DETECTION_CASES = [
   { name: 'Constant mains hum (after it settles)', clip: 'hum', music: false, from: 18 },
   { name: 'Talking in a room with an echo', clip: 'roomTalk', music: false },
   { name: 'Talking in a high voice, room with an echo', clip: 'roomTalkHigh', music: false },
-  { name: 'Talking quietly across the room', clip: 'roomTalkFar', music: false }
+  { name: 'Talking quietly across the room', clip: 'roomTalkFar', music: false },
+  // a breath in a fast scale does not stop the clock; playing is told from the talking before it; a fan as loud as soft playing; long tones hold
+  { name: 'Flute scale, 12 notes a second, with a breath at the top', clip: 'breathFlute', music: true, min: 0.97 },
+  { name: 'Talking, before the playing starts', clip: 'talkThenCello', music: false, to: 5 },
+  { name: 'Cello, starting after the talking', clip: 'talkThenCello', music: true, from: 6, inst: 'Cello' },
+  { name: 'Soft violin across the room, over a fan as loud as itself', clip: 'roomViolinFan', music: true, inst: 'Violin' },
+  { name: 'Long tones: one clarinet note again and again', clip: 'longTones', music: true, inst: 'Clarinet' }
 ];
 /* One function per test, so a page can run them one at a time without freezing. */
 function detectionTests(sr) {
   sr = sr || 44100;
   const list = DETECTION_CASES.map(c => ({ name: c.name, run: () => {
     const x = CLIPS[c.clip](sr), tl = analyzeClip(x, sr), end = x.length / sr;
-    const fr = fraction(tl, c.from != null ? c.from : (c.music ? 1.2 : 0), end);
+    const fr = fraction(tl, c.from != null ? c.from : (c.music ? 1.2 : 0), c.to != null ? c.to : end);   // from and to: the part of the clip that is judged (s)
     let pass = c.music ? fr >= (c.min || 0.9) : fr <= 0.05, got = Math.round(fr * 100) + '% counted as music';
     if (c.inst) {                                                            // named right for most of the time, not just more often than the rest
       const h = heardAs(tl, 1.2); got += ', heard as ' + (h.inst ? h.inst + ' ' + Math.round(h.share * 100) + '% of the time' : 'nothing');
