@@ -334,19 +334,31 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 .tg:checked::after{transform:translateX(20px)}
 .tg:disabled{opacity:.5; cursor:default}
 #themesNote{margin:10px 2px 0; min-height:18px}
-/* Settings, About: the credits roll up through a window, fading in at the bottom and out at the top. With reduced motion they stand still and scroll */
-#aboutH{font-weight:800; font-size:22px; letter-spacing:-.01em; margin:0 0 4px; line-height:1.1}
-#setAbout .hint{font-size:13px; color:var(--mute); margin:3px 0 0}
-.roll{position:relative; height:min(320px, 46vh); margin:12px 0 8px; overflow:hidden; border:1px solid var(--rule); border-radius:16px; background:var(--paper); cursor:pointer; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;
+/* Settings and the practice log fill the screen; on a wide screen their rows keep to a 520px column in the middle */
+#dlgSettings, #dlgLog{position:fixed; inset:0; width:100%; max-width:none; height:100%; max-height:none; margin:0; border:0; border-radius:0;
+  padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
+#dlgSettings .sh-head, #dlgSettings .sh-body, #dlgLog .sh-head, #dlgLog .sh-body{padding-left:max(16px, calc((100% - 520px) / 2)); padding-right:max(16px, calc((100% - 520px) / 2))}
+#dlgSettings .sh-body, #dlgLog .sh-body{padding-bottom:24px}
+/* About (from Settings): the credits fill the screen on near-black, rolling up and fading in at the bottom and out at the top.
+   With reduced motion they stand still and scroll. The title row and the hint sit above the roll, and the roll is clipped twice:
+   on an iPhone the rolling names, unseen under the fade, could otherwise cover Done and take its taps */
+#dlgCredits{position:fixed; inset:0; width:100%; max-width:none; height:100%; max-height:none; margin:0; border:0; border-radius:0; background:#070B12;
+  padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
+.cr-head{flex:none; position:relative; z-index:1; background:#070B12; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 16px 4px}
+#aboutH{font-weight:800; font-size:17px; margin:0; color:var(--mute)}
+.cr-hint{flex:none; position:relative; z-index:1; background:#070B12; margin:0; padding:8px 16px 14px; text-align:center; font-size:13px; color:var(--mute-2)}
+.roll{position:relative; flex:1 1 auto; min-height:0; overflow:hidden; clip-path:inset(0); cursor:pointer; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;
   -webkit-mask-image:linear-gradient(transparent, #000 18%, #000 82%, transparent); mask-image:linear-gradient(transparent, #000 18%, #000 82%, transparent)}
-.roll-in{list-style:none; margin:0; padding:0 16px; text-align:center; will-change:transform}
-.roll-in li{margin:0 0 14px}
-.roll-in .t{font-weight:800; font-size:24px; letter-spacing:-.01em; color:var(--accent); margin:0 0 26px}
-.roll-in .h{font-size:12px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--mute-2); margin:26px 0 12px}
-.roll-in .r{display:block; font-size:13px; color:var(--mute)}
-.roll-in .n{display:block; font-size:17px; font-weight:700}
-.roll-in .end{margin:30px 0 0; font-size:17px; font-weight:700; color:var(--gold)}
-@media (prefers-reduced-motion: reduce){ .roll{overflow-y:auto; touch-action:pan-y pinch-zoom; cursor:auto; -webkit-user-select:auto; user-select:auto; -webkit-mask-image:none; mask-image:none} .roll-in{padding:18px 16px} #rollHint{display:none} }
+.roll-in{list-style:none; margin:0 auto; max-width:520px; padding:0 24px; text-align:center; will-change:transform}
+.roll-in li{margin:0 0 20px}
+.roll-in .t{font-weight:800; font-size:36px; letter-spacing:-.01em; color:var(--accent); margin:0 0 12px}
+.roll-in .lead{font-size:15px; line-height:1.45; color:var(--mute); margin:0 0 44px}
+.roll-in .h{font-size:13px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:var(--mute-2); margin:44px 0 18px}
+.roll-in .r{display:block; font-size:15px; color:var(--mute)}
+.roll-in .n{display:block; font-size:22px; font-weight:700; margin-top:2px}
+.roll-in .n .ai{width:.9em; height:.9em; margin:0 .3em 0 -.2em; vertical-align:-.1em; color:#D97757}   /* Claude's sunburst before its name */
+.roll-in .end{margin:56px 0 0; font-size:22px; font-weight:700; color:var(--gold)}
+@media (prefers-reduced-motion: reduce){ .roll{overflow-y:auto; touch-action:pan-y pinch-zoom; cursor:auto; -webkit-user-select:auto; user-select:auto; -webkit-mask-image:none; mask-image:none} .roll-in{padding:24px 24px 40px} #rollHint{display:none} }
 @media (max-height:700px){ .tlist{gap:6px; margin-top:8px} .trow{padding:6px 12px} }   /* an iPhone SE: all five themes and the note fit without scrolling */
 #tests{list-style:none; margin:10px 0 0; padding:0; font-size:13px}
 #tests li{display:grid; grid-template-columns:44px 1fr; gap:2px 8px; padding:6px 0; border-top:1px solid var(--rule)}
@@ -866,9 +878,10 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 .hm-main > :first-child{margin-top:auto} .hm-main > :last-child{margin-bottom:auto}
 .hm-main > *{flex:none}
 .hm-hello{margin:0; color:var(--mute); font-size:16px}
-/* a quiet invitation to add a name, after the greeting, while there is none */
+/* a quiet link (here after a dot): with no name set, the greeting's word for the player is one that adds a name */
 .hm-invite{border:0; background:none; padding:0; margin:0; font:inherit; color:var(--accent); cursor:pointer; text-decoration:underline; text-decoration-thickness:1px; text-underline-offset:3px}
 .hm-invite::before{content:"\00B7"; display:inline-block; margin:0 .45em; color:var(--mute-2); text-decoration:none}
+.hm-who::before{content:none}
 .hm-head{margin:6px 0 0; font-size:34px; line-height:1.12; font-weight:800; letter-spacing:-.03em}
 .hm-lede{margin:10px 0 0; color:var(--mute); font-size:16px; line-height:1.45; max-width:30ch}
 .hm-week{padding-top:18px; border-top:1px solid var(--rule)}
@@ -920,6 +933,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
   <symbol id="ico-race" viewBox="0 0 24 24"><path fill="currentColor" d="M3.2 2h2v20h-2z"/><path fill="currentColor" fill-rule="evenodd" d="M5.2 3h15.6v11H5.2zM6.9 4.7v2.5h3.1V4.7zM13.1 4.7v2.5h3.1V4.7zM10 7.2v2.6h3.1V7.2zM16.2 7.2v2.6h3V7.2zM6.9 9.8v2.5h3.1V9.8zM13.1 9.8v2.5h3.1V9.8z"/></symbol>
   <symbol id="ico-fireworks" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M12 2.6v3.6M12 17.8v3.6M2.6 12h3.6M17.8 12h3.6M5.4 5.4l2.5 2.5M16.1 16.1l2.5 2.5M18.6 5.4l-2.5 2.5M7.9 16.1l-2.5 2.5"/><circle cx="12" cy="12" r="2.3" fill="currentColor"/></symbol>
   <symbol id="ico-next" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="ico-claude" viewBox="0 0 24 24"><path d="M14.2 12.3L21.9 13.4M13.7 13.4L18.5 17.0M12.8 14.0L15.5 20.7M11.7 14.2L10.9 19.5M10.6 13.7L5.8 19.9M10.0 12.8L4.0 15.2M9.8 11.7L2.9 10.7M10.3 10.6L5.9 7.2M11.2 10.0L8.3 2.9M12.3 9.8L13.2 3.7M13.4 10.3L17.9 4.4M14.0 11.2L19.4 9.0" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"/></symbol>
   <symbol id="ico-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
   <symbol id="ico-trophy" viewBox="0 0 64 64"><path d="M19 13H9c0 10 5 15 12 16M45 13h10c0 10-5 15-12 16" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><path fill="currentColor" d="M18 7h28v15c0 10-6 17-14 17s-14-7-14-17zM29 38h6v9h-6zM22 47h20a2 2 0 0 1 2 2v3H20v-3a2 2 0 0 1 2-2zM17 52h30a2 2 0 0 1 2 2v4H15v-4a2 2 0 0 1 2-2z"/><path d="M25 12v9c0 4 1 7 3 10" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="3" stroke-linecap="round"/></symbol>
   <symbol id="ico-lock" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="3" d="M7.5 11V8a4.5 4.5 0 0 1 9 0v3"/><rect x="4" y="11" width="16" height="11" rx="2" fill="currentColor"/></symbol>
@@ -1119,7 +1133,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
       <button class="hm-ib" id="homeSet" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg></button>
     </header>
     <div class="hm-main">
-      <div><p class="hm-hello"><span id="homeHello"></span><button type="button" class="hm-invite" id="homeName" hidden>Add your name</button></p><h2 class="hm-head" id="homeHead"></h2><p class="hm-lede" id="homeLede"></p></div>
+      <div><p class="hm-hello"><span id="homeHello"></span><button type="button" class="hm-invite hm-who" id="homeName" hidden></button></p><h2 class="hm-head" id="homeHead"></h2><p class="hm-lede" id="homeLede"></p></div>
       <ul class="hm-first" id="homeFirst" hidden>
         <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.6L16 9.6"/></svg><span><b>Play anything you like.</b> Scales, pieces, or just noodling around.</span></li>
         <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.6L16 9.6"/></svg><span><b>Take a break anytime,</b> just hit Pause.</span></li>
@@ -1174,18 +1188,19 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
     <div class="btn-row" id="setDebugRow" hidden><button class="btn" id="setDebug">Debug tools</button></div>
     <p class="hint" id="ver" style="margin:14px 0 0;font-size:12px;color:var(--mute-2)"></p>
   </div>
-  <div class="sh-body" id="setAbout" hidden>
-    <h2 id="aboutH">About</h2>
-    <p class="hint">Music Timer counts your practice only while it hears your instrument, so every minute it shows is a minute you played.</p>
-    <div class="roll" id="roll" tabindex="0"><ol class="roll-in" id="rollIn" aria-label="Credits"></ol></div>
-    <p class="hint" id="rollHint"></p>
-  </div>
   <div class="sh-body" id="setThemes" hidden>
     <h2 id="themesH">Themes</h2>
-    <p class="hint">Turn off any theme you would rather not play with. It leaves the swipe and the theme bar. Your play time is kept either way, and you can turn it back on whenever you like.</p>
+    <p class="hint">Turn off any theme you would rather not play with. It leaves the swipe and the theme bar. Your play time is kept either way, and you can turn it back on whenever you like. Classic is always on.</p>
     <ul class="tlist" id="themeList"></ul>
     <p class="hint" id="themesNote" role="status"></p>
   </div>
+</dialog>
+
+<!-- About, from Settings: the credits roll up over the whole screen like the end of a film -->
+<dialog id="dlgCredits" aria-labelledby="aboutH">
+  <div class="cr-head"><h2 id="aboutH">About</h2><button class="btn solid" id="creditsClose">Done</button></div>
+  <div class="roll" id="roll" tabindex="0"><ol class="roll-in" id="rollIn" aria-label="Credits"></ol></div>
+  <p class="cr-hint" id="rollHint"></p>
 </dialog>
 
 <dialog id="dlgDebug" aria-labelledby="dbgH">

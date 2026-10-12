@@ -723,9 +723,9 @@ function detectionTests(sr) {
     const first = homeCopy(stats([]), null, at(9, 9)), today = homeCopy(stats(all.concat([rec(9, 1200)])), rec(9, 1200), now);
     const yest = homeCopy(stats(all), rec(8, 600), now), tue = homeCopy(stats([rec(6, 900)]), rec(6, 900), now), back = homeCopy(stats([rec(1, 1500)]), rec(1, 1500), at(9, 14));
     const all5 = [first, today, yest, tue, back], words = all5.map(c => [c.hello, c.head, c.lede, c.note || '', c.fresh || ''].join(' '));
-    const ok = first.kind === 'first' && first.hello === 'Good morning' && today.kind === 'today' && today.lede === 'You played for 20 min today. Come back whenever you feel like it.'
+    const ok = first.kind === 'first' && first.hello === 'Good morning, music maker' && first.friend === 'music maker' && today.kind === 'today' && today.lede === 'You played for 20 min today. Come back whenever you feel like it.'
       && today.note === 'All together: 1 h 10 min of music.' && yest.kind === 'week' && yest.note === 'Your last session was yesterday, 10 min.'
-      && tue.note === 'Your last session was on Tuesday, 15 min.' && back.kind === 'back' && back.hello === 'Good afternoon' && back.note === 'So far you have made 25 min of music with Music Timer.'
+      && tue.note === 'Your last session was on Tuesday, 15 min.' && back.kind === 'back' && back.hello === 'Good afternoon, music maker' && back.note === 'So far you have made 25 min of music with Music Timer.'
       && !words.some(w => /streak|in a row|ago|miss|lost|keep/i.test(w));
     return { name: 'Home Screen: the words for each moment', expect: 'first time, played today, played this week, back after a break; nothing about streaks or days missed',
       got: all5.map(c => c.kind + ': ' + c.head + ' ' + (c.note || c.lede)).join(' | '), pass: ok }; } });
@@ -734,19 +734,19 @@ function detectionTests(sr) {
     const rec = (d, play) => ({ start: at(d, 16), play: play, goal: 1800, eff: 0.8, R: { active: play / 0.8 } });
     const moments = [[[], null], [[rec(9, 1200)], rec(9, 1200)], [[rec(8, 600)], rec(8, 600)], [[rec(1, 1500)], rec(1, 1500)]];
     const seeds = []; for (let i = 1; i <= 60; i++) seeds.push(i * 7919);
-    const seen = moments.map(() => new Set()), hellos = new Set(); let same = true, named = true, clean = true;
+    const seen = moments.map(() => new Set()), hellos = new Set(), friends = new Set(); let same = true, named = true, clean = true;
     for (const [rs, last] of moments) for (const seed of seeds) {
       const P = practiceStats(rs, now), c = homeCopy(P, last, now, { seed: seed, name: 'Sam' }), plain = homeCopy(P, last, now, { seed: seed }), k = moments.findIndex(m => m[1] === last);
-      seen[k].add(c.head); hellos.add(c.hello);
+      seen[k].add(c.head); hellos.add(c.hello); friends.add(plain.friend);
       same = same && JSON.stringify(c) === JSON.stringify(homeCopy(P, last, now, { seed: seed, name: 'Sam' })) && c.head === plain.head;
-      named = named && /Sam/.test(c.hello) && !/[{}]|Sam|,\s*$|\s$/.test(plain.hello);
+      named = named && /Sam/.test(c.hello) && c.friend === undefined && !/[{}]|Sam|,\s*$|\s$/.test(plain.hello) && !!plain.friend && plain.hello.endsWith(' ' + plain.friend);
       clean = clean && ![c.hello, c.head, c.lede, c.note || '', c.fresh || ''].join(' ').match(/streak|in a row|ago|miss|lost|keep|[{}]|undefined/i) && /[.!?]$/.test(c.head) && /[.!?]$/.test(c.lede);
     }
-    const all = Object.values(HOME_WORDS).flatMap(w => Object.values(w).flat()).concat(HOME_HELLO);
-    const ok = same && named && clean && seen.every(s => s.size >= 4) && hellos.size >= 10 && homeCopy(practiceStats([], now), null, now).hello === 'Good evening'
+    const all = Object.values(HOME_WORDS).flatMap(w => Object.values(w).flat()).concat(HOME_HELLO, HOME_FRIEND);
+    const ok = same && named && clean && seen.every(s => s.size >= 4) && hellos.size >= 10 && friends.size >= 8 && friends.has('Captain') && homeCopy(practiceStats([], now), null, now).hello === 'Good evening, music maker'
       && homeCopy(practiceStats([], now), null, now, { name: 'Sam' }).hello === 'Good evening, Sam' && all.every(w => w.length <= 64 && !/streak|in a row|ago|miss|lost|keep/i.test(w));
-    return { name: 'Home Screen: playful words that change', expect: 'each moment has several headlines and greetings, the same seed gives the same words, a name fits in or drops out cleanly',
-      got: seen.map(s => s.size).join(', ') + ' headlines, ' + hellos.size + ' greetings; e.g. ' + homeCopy(practiceStats([], now), null, now, { seed: 5, name: 'Sam' }).hello + ' / ' + homeCopy(practiceStats([], now), null, now, { seed: 6 }).hello, pass: ok }; } });
+    return { name: 'Home Screen: playful words that change', expect: 'each moment has several headlines and greetings, the same seed gives the same words, a name fits in, and with none a fun word for the player does',
+      got: seen.map(s => s.size).join(', ') + ' headlines, ' + hellos.size + ' greetings, ' + friends.size + ' words for a player with no name; e.g. ' + homeCopy(practiceStats([], now), null, now, { seed: 5, name: 'Sam' }).hello + ' / ' + homeCopy(practiceStats([], now), null, now, { seed: 6 }).hello, pass: ok }; } });
   // the practice log
   list.push({ name: 'Practice log: week, calendar and encouraging lines', run: () => {
     const at = (d, h) => new Date(2026, 9, d, h).getTime(), now = at(9, 18);                // Friday 9 October 2026, 6 pm
@@ -1001,17 +1001,30 @@ function detectionTests(sr) {
       got: red + ', ' + (frozen ? 'frozen' : 'moved') + ', ' + (boxed ? 'in the box' : 'not in the box') + ', back in ' + back + ' at P' + s.pos + ' (P' + pos + ' before), ' + (s.pit ? 'still in the pit lane' : 'out of the pit lane') + '; ' + ev.join(' '), pass: ok }; } });
   list.push({ name: 'Grand Prix: the car keeps to the pit lane, in and out', run: () => {
     const s = new RaceSim(); s.reset(1800, 11); const inp = gpStart(s); inp.recent = 0.9; gpRun(s, 30, inp); s.x = s.tx = -0.5;   // on the far side of the track when the flag comes out
-    let worst = 0, off = 0, last = s.x, joined = null, boxOk = false; const step = (sec, state) => { inp.state = state;
+    let worst = 0, off = 0, last = s.x, joined = null, boxOk = false, m0 = null, moved = false; const step = (sec, state) => { inp.state = state;
       for (let t = 0; t < sec; t += 1 / 60) { s.update(1 / 60, inp); s.move(1 / 60);
         const pa = (s.d + RACE.PZ) / RACE.SEG, lane = s.inPit ? s.pitX(pa) : null;
         if (lane != null && Math.abs(s.x - lane) > 1e-9) off++;
         worst = Math.max(worst, Math.abs(s.x - last)); last = s.x;
         if (s.pit && s.pit.phase === 'box') boxOk = s.pit.boxSeg >= s.pit.a + RACE_PIT.IN + 12;
+        if (s.pit) { if (m0 == null) m0 = s.pit.m0; else if (s.pit.m0 !== m0) moved = true; }
         if (joined == null && s.pit && s.pit.exitAt) joined = s.x; } };
     step(6, 'paused'); step(14, 'running');
-    const ok = off === 0 && worst < 0.05 && boxOk && joined != null && Math.abs(joined - RACE_PIT.JOIN) < 0.05 && !s.pit && Math.abs(s.x) <= 0.7;
-    return { name: 'Grand Prix: the car keeps to the pit lane, in and out', expect: 'the car follows the middle of the pit lane all the way, with no sudden sideways step; the box is past the bend in; it joins the track on the right and races on',
+    const ok = off === 0 && worst < 0.05 && boxOk && !moved && joined != null && Math.abs(joined - RACE_PIT.JOIN) < 0.05 && !s.pit && Math.abs(s.x) <= RACE.APEX;
+    return { name: 'Grand Prix: the car keeps to the pit lane, in and out', expect: 'the car follows the middle of the pit lane all the way, with no sudden sideways step; the box is past the bend in; where the lane bends out is set when the car turns in (so the garages stay put); it joins the track on the right and races on',
       got: (off ? off + ' frames off the lane' : 'always on the lane') + ', largest sideways step ' + worst.toFixed(3) + ' a frame, box ' + (boxOk ? 'past the bend' : 'too early') + ', joined at ' + (joined == null ? 'never' : joined.toFixed(2)) + ', ' + (s.pit ? 'still in the pit lane' : 'back racing at ' + s.x.toFixed(2)), pass: ok }; } });
+  list.push({ name: 'Grand Prix: the racing line puts the inside tyres on the kerb at every corner', run: () => {
+    const T = raceTrack(), L = T.line, N = T.n, half = 380 / RACE.ROADW, bad = []; let n = 0, step = 0;   // half the car's width, in road half-widths
+    for (let i = 0; i < N; i++) step = Math.max(step, Math.abs(L[(i + 1) % N] - L[i]));
+    for (let i = 0; i < N;) { if (Math.abs(T.curve[i]) <= RACE.KERB) { i++; continue; } const sg = Math.sign(T.curve[i]); let e = i, best = -9;
+      while (e < N && Math.abs(T.curve[e]) > RACE.KERB && Math.sign(T.curve[e]) === sg) { best = Math.max(best, sg * L[e]); e++; }
+      n++; if (best + half < 0.97) bad.push('corner at ' + i + ' reaches ' + (best + half).toFixed(2)); i = e; }
+    // and the car keeps to it: a lap alone at full speed
+    const s = new RaceSim(); s.reset(1800, 2); const inp = gpStart(s); s.cars = []; let off = 0;
+    for (let t = 0; t < 40; t += 1 / 60) { s.update(1 / 60, inp); s.move(1 / 60); const pa = (s.d + RACE.PZ) / RACE.SEG; if (t > 6) off = Math.max(off, Math.abs(s.x - s.lineAt(pa))); }
+    const ok = n >= 10 && !bad.length && Math.max(...L) <= RACE.APEX + 1e-6 && Math.min(...L) >= -RACE.APEX - 1e-6 && step < 0.07 && off < 0.08;
+    return { name: 'Grand Prix: the racing line puts the inside tyres on the kerb at every corner', expect: 'at every corner the inside tyres reach the kerb (0.97 road half-widths out), the line stays on the road and bends smoothly, and the car keeps to it',
+      got: n + ' corners' + (bad.length ? ', ' + bad.join('; ') : ', every one on the kerb') + ', largest step ' + step.toFixed(3) + ' a segment, car at most ' + off.toFixed(3) + ' off the line', pass: ok }; } });
   list.push({ name: 'Grand Prix: the same field however time is cut up', run: () => {
     const a = new RaceSim(), b = new RaceSim(); a.reset(1800, 42); b.reset(1800, 42);
     for (const s of [a, b]) { s.mode = 'race'; s.st = 'running'; }
@@ -1105,10 +1118,10 @@ function detectionTests(sr) {
   list.push({ name: 'Themes: the player turns off the ones they don\'t like', run: () => {
     const all = ['classic', 'rocket', 'city', 'dash', 'race', 'fireworks'];
     const got = [themesOn(all, '').join(' '), themesOn(all, 'city,dash').join(' '), themesOn(all, 'classic,rocket,city,dash,race,fireworks').join(' '), themesOn(all, 'space,dash').join(' '),
-      themeSwitch(all, '', 'city', false), themeSwitch(all, 'city', 'classic', false), themeSwitch(all, 'classic,city', 'city', true), themeSwitch(all, 'classic,rocket,city,dash,race', 'fireworks', false),
-      themeSwitch(all, 'space', 'rocket', false), themeLanding(all, ['classic', 'dash'], 'rocket'), themeLanding(all, ['classic', 'rocket'], 'dash'), themeLanding(all, ['city'], 'city'), themeLanding(all, ['rocket'], 'gone'), themeLanding(all, ['classic', 'city'], 'race'), themeLanding(all, ['classic', 'rocket', 'fireworks'], 'dash')];
-    const want = ['classic rocket city dash race fireworks', 'classic rocket race fireworks', 'classic rocket city dash race fireworks', 'classic rocket city race fireworks', 'city', 'classic,city', 'classic', 'classic,rocket,city,dash,race', 'rocket', 'dash', 'rocket', 'city', 'rocket', 'city', 'fireworks'];
-    return { name: 'Themes: the player turns off the ones they don\'t like', expect: 'off themes leave the list, unknown ids are ignored, the last one on stays on, and turning off the one on screen lands on the next one on (' + want.join(' | ') + ')',
+      themeSwitch(all, '', 'city', false), themeSwitch(all, 'city', 'classic', false), themeSwitch(all, 'classic,city', 'city', true), themeSwitch(all, 'rocket,city,dash', 'race', false),
+      themeSwitch(all, 'space', 'rocket', false), themeLanding(['classic', 'dash'], 'rocket'), themeLanding(['classic', 'rocket', 'city'], 'dash'), themeLanding(['classic', 'city'], 'city'), themeLanding(['classic'], 'gone'), themeSwitch(all, 'rocket', 'fireworks', false), themeLanding(['classic', 'fireworks'], 'fireworks')];
+    const want = ['classic rocket city dash race fireworks', 'classic rocket race fireworks', 'classic', 'classic rocket city race fireworks', 'city', 'city', '', 'rocket,city,dash,race', 'rocket', 'classic', 'classic', 'city', 'classic', 'rocket,fireworks', 'fireworks'];
+    return { name: 'Themes: the player turns off the ones they don\'t like', expect: 'off themes leave the list, unknown ids are ignored, Classic is always on, and a theme turned off lands on the first one on, Classic (' + want.join(' | ') + ')',
       got: got.join(' | '), pass: got.every((g, i) => g === want[i]) }; } });
   return list;
 }
@@ -1121,20 +1134,14 @@ function buildOf(html) { const m = /<meta name="build" content="([^"]*)"/.exec(h
 function newerBuild(running, html) { const b = buildOf(html); return !!running && running.indexOf('__') < 0 && !!b && b !== running; }
 
 /* ---------- theme choice: the player can turn off themes they don't like (Settings, Themes) ---------- */
-/* all: every theme id, in swipe order; off: the ids turned off, saved as text ('city,dash'). Ids no longer in all are left out,
-   so a removed theme is forgotten and a new one starts on. One theme always stays on: with every one off, all come back. */
-function themesOff(all, off) { const ids = String(off || '').split(','); return all.filter(id => ids.indexOf(id) >= 0); }
-function themesOn(all, off) { const o = themesOff(all, off), on = all.filter(id => o.indexOf(id) < 0); return on.length ? on : all.slice(); }
-/* turns one theme on or off; the new off text. The last theme on can't be turned off */
-function themeSwitch(all, off, id, want) {
-  const o = themesOff(all, off).filter(x => x !== id); if (!want && all.indexOf(id) >= 0) o.push(id);
-  return o.length < all.length ? all.filter(x => o.indexOf(x) >= 0).join(',') : themesOff(all, off).join(',');
-}
-/* the theme to show when cur is not among those on: the next one on after it in swipe order, else the nearest before it */
-function themeLanding(all, on, cur) {
-  if (on.indexOf(cur) >= 0) return cur; const i = all.indexOf(cur);
-  return all.slice(i + 1).find(x => on.indexOf(x) >= 0) || all.slice(0, Math.max(0, i)).reverse().find(x => on.indexOf(x) >= 0) || on[0];
-}
+/* all: every theme id, in swipe order, Classic first; off: the ids turned off, saved as text ('city,dash'). Ids no longer in all are left out,
+   so a removed theme is forgotten and a new one starts on. The first theme (Classic) is always on and can't be turned off, so there is always somewhere to land. */
+function themesOff(all, off) { const ids = String(off || '').split(','); return all.slice(1).filter(id => ids.indexOf(id) >= 0); }
+function themesOn(all, off) { const o = themesOff(all, off); return all.filter(id => o.indexOf(id) < 0); }
+/* turns one theme on or off; the new off text */
+function themeSwitch(all, off, id, want) { const o = themesOff(all, off).filter(x => x !== id); if (!want) o.push(id); return themesOff(all, o.join(',')).join(','); }
+/* the theme to show: cur while it is on, else the first one on (Classic), on the Home Screen and when the one on screen is turned off */
+function themeLanding(on, cur) { return on.indexOf(cur) >= 0 ? cur : on[0]; }
 
 /* ---------- Session clock ---------- */
 class Session {
@@ -1325,10 +1332,12 @@ function practiceNudge(P) {
 /* the Home Screen's words for this moment: a greeting, a headline and a line or two. Low pressure, like the practice log: they speak
    of what was played, never of days missed, so opening the app after a break feels welcoming. last is the latest session, or null.
    o.seed picks among playful words for young players, so the greeting is seldom the same twice (no seed: the first of each);
-   o.name goes into the greeting ("Ahoy, Captain Sam"), and a greeting without a name simply drops it ("Ahoy, Captain") */
+   o.name goes into the greeting ("Ahoy, Captain Sam"); with no name a fun word for the player takes its place ("Hello, music maker", or the
+   greeting's own title: "Ahoy, Captain"), given as friend too, so the page can make it the link that adds a name. Every greeting ends with it */
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const HOME_HELLO = ['Hello, {name}', 'Hi there, {name}', 'Howdy, {name}', 'Ahoy, Captain {name}', 'Hello, Earthling {name}', 'Yo-ho-ho, {name}',
   'Hey, superstar {name}', 'Bonjour, {name}', 'Hiya, {name}', 'Well, hello there, {name}', 'Hey, Maestro {name}', 'Beep boop, hello, {name}'];
+const HOME_FRIEND = ['music maker', 'superstar', 'rock star', 'maestro', 'friend', 'tune wizard', 'melody maker', 'star player', 'music hero'];
 const HOME_WORDS = {
   first: { head: ['Let\u2019s make some music.', 'Ready to make some noise?', 'Your instrument looks excited.', 'Time to make music magic.', 'Let\u2019s get this party started.'] },
   today: { head: ['Lovely playing today.', 'Somewhere, a cat is clapping.', 'High five for playing today!', 'Your instrument says thank you.', 'The crowd wants an encore.', 'That was some fine music.', 'You rocked it today.'],
@@ -1345,18 +1354,20 @@ function homeCopy(P, last, now, o) {
   const day = new Date(now), h = day.getHours(), r = o.seed ? rng(o.seed) : null, pick = a => a[r ? Math.floor(r() * a.length) : 0];
   // the greeting: the time of day comes first (and with no seed is the one used), then the playful ones, which may name the day too
   const hellos = [h < 12 ? 'Good morning, {name}' : h < 18 ? 'Good afternoon, {name}' : 'Good evening, {name}', h < 12 ? 'Rise and shine, {name}' : 'Happy ' + WEEKDAYS[day.getDay()] + ', {name}'].concat(HOME_HELLO);
-  const name = String(o.name || '').trim(), hello = name ? pick(hellos).replace('{name}', name) : pick(hellos).replace(/,? ?\{name\}/, '');
-  if (!P.sessions || !last) return { kind: 'first', hello: hello, head: pick(HOME_WORDS.first.head), lede: 'It counts only the time the microphone hears you play.' };
+  // with no name, a title the greeting has ("Captain") is the word for the player; else one of HOME_FRIEND (picked either way, so a name never changes the other words)
+  const name = String(o.name || '').trim(), said = pick(hellos), other = pick(HOME_FRIEND), title = said.slice(said.lastIndexOf(', ') + 2).replace('{name}', '').trim();
+  const friend = name ? undefined : title || other, hello = name ? said.replace('{name}', name) : title ? said.replace(/ \{name\}$/, '') : said.replace('{name}', other);
+  if (!P.sessions || !last) return { kind: 'first', hello: hello, friend: friend, head: pick(HOME_WORDS.first.head), lede: 'It counts only the time the microphone hears you play.' };
   // a session that started before midnight and ended today still counts as playing today here (it is filed under the day it started)
   const lateLast = !P.practicedToday && dayKey(last.end || last.start) === dayKey(now);
   if (P.practicedToday || lateLast) { const t = P.today, n = t.sessions, play = lateLast ? last.play : t.play;
-    return { kind: 'today', hello: hello, head: pick(HOME_WORDS.today.head), lede: 'You played for ' + durationText(play) + ' today' + (!lateLast && n > 1 ? ', in ' + n + ' sessions' : '') + '. ' + pick(HOME_WORDS.today.then),
+    return { kind: 'today', hello: hello, friend: friend, head: pick(HOME_WORDS.today.head), lede: 'You played for ' + durationText(play) + ' today' + (!lateLast && n > 1 ? ', in ' + n + ' sessions' : '') + '. ' + pick(HOME_WORDS.today.then),
       note: 'All together: ' + durationText(P.totalPlay) + ' of music.' }; }
   if (P.weekPlay > 0) { const days = Math.round((dayStart(now) - dayStart(last.start)) / 864e5), when = days <= 1 ? 'yesterday' : 'on ' + WEEKDAYS[new Date(last.start).getDay()];
     const d = P.week.find(c => c.key === dayKey(last.start)), n = d ? d.sessions : 1;   // every session that day, not only the last
-    return { kind: 'week', hello: hello, head: pick(HOME_WORDS.week.head), lede: pick(HOME_WORDS.week.lede),
+    return { kind: 'week', hello: hello, friend: friend, head: pick(HOME_WORDS.week.head), lede: pick(HOME_WORDS.week.lede),
       note: n > 1 ? 'You last played ' + when + ', ' + durationText(d.play) + ' in ' + n + ' sessions.' : 'Your last session was ' + when + ', ' + durationText(last.play) + '.' }; }
-  return { kind: 'back', hello: hello, head: pick(HOME_WORDS.back.head), lede: pick(HOME_WORDS.back.lede),
+  return { kind: 'back', hello: hello, friend: friend, head: pick(HOME_WORDS.back.head), lede: pick(HOME_WORDS.back.lede),
     fresh: 'A fresh week. Whenever you play, it shows up here.', note: 'So far you have made ' + durationText(P.totalPlay) + ' of music with Music Timer.' };
 }
 function weekLine(P) {
@@ -1824,8 +1835,8 @@ const RACE = { SEG: 200, ROADW: 2000, LAP: 3000, VNOM: 10000, LIMIT: 2700, PZ: 9
   RIVALS: [['BAC', '#C8102E', '#F5F5F5', 0.78], ['MOZ', '#1E5BC6', '#FFD23F', 0.74], ['BEE', '#30323A', '#FF7A1A', 0.70], ['CHO', '#0A7F5A', '#E8E8E8', 0.66],
     ['VIV', '#EDEDED', '#D3313A', 0.62], ['DEB', '#6B3FA0', '#7FE3FF', 0.58], ['HAN', '#FF8A00', '#1B1B1B', 0.54], ['RAV', '#0E9AA7', '#F6D55C', 0.50], ['SCH', '#8C1C3A', '#F2C14E', 0.46]],
   YOU: ['YOU', '#15213D', '#86DCC0'] };   // a lap (LAP segments of SEG) is one minute at full speed, VNOM a second; PZ: the camera sits this far behind your car
-RACE.LAPU = RACE.LAP * RACE.SEG;
-const RACE_PIT = { X: 1.48, HALF: 0.36, JOIN: 0.62, IN: 60, OUT: 80 };   // the pit lane: its middle and half-width (road half-widths), where it joins the track, the bends in and out (segments)
+RACE.LAPU = RACE.LAP * RACE.SEG; RACE.KERB = 0.9; RACE.APEX = 0.86;   // a kerb where the bend is sharper than KERB; at the apex the inside tyres are on it
+const RACE_PIT = { X: 1.48, HALF: 0.36, JOIN: 0.62, IN: 60, OUT: 80, LIMIT: 44 };   // LIMIT: segments of speed limit past the box before the bend out   // the pit lane: its middle and half-width (road half-widths), where it joins the track, the bends in and out (segments)
 const raceGridX = p => p % 2 ? -0.42 : 0.42;                 // grid slot p (1 at the front): odd slots on the left
 const raceWrap = l => l - Math.round(l);                    // a lead in laps, as the nearest place on the circuit
 function raceRng(seed) { let s = (seed >>> 0) % 2147483647 || 1; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
@@ -1844,9 +1855,29 @@ function raceTrack() {
     if (board) boards.push({ at: curve.length, text: board, side: c > 0 ? -1 : 1 });   // on the outside of the corner
     for (let i = 0; i < n; i++) { curve.push(i < en ? c * (i / en) * (i / en) : i < en + ho ? c : io(c, 0, (i - en - ho) / le)); h = io(h0, h1, (i + 1) / n); y.push(h); }
   }
-  const N = curve.length, ahead = new Float32Array(N);   // the bend coming up, for the racing line
+  const N = curve.length, ahead = new Float32Array(N);   // the bend coming up
   for (let i = 0; i < N; i++) { let s = 0; for (let j = 4; j < 30; j++) s += curve[(i + j) % N]; ahead[i] = s / 26; }
-  return { n: N, curve: Float32Array.from(curve), y: Float32Array.from(y), ahead: ahead, boards: boards };
+  return { n: N, curve: Float32Array.from(curve), y: Float32Array.from(y), ahead: ahead, boards: boards, line: raceLine(curve) };
+}
+/* The racing line, as a real driver takes a corner: out wide on the way in, the inside tyres on the kerb at the apex (a little past
+   the middle of the bend), and out wide again on the way out. Corners close together (a chicane, the esses) go apex to apex.
+   x in road half-widths from the centre: the inside of a right-hand bend is positive. */
+function raceLine(curve) {
+  const N = curve.length, keys = [], corners = [], KERB = RACE.KERB, WIDE = 0.55, OFF = 35;
+  for (let i = 0; i < N;) { if (Math.abs(curve[i]) <= KERB) { i++; continue; } let e = i; while (e + 1 < N && Math.abs(curve[e + 1]) > KERB && Math.sign(curve[e + 1]) === Math.sign(curve[i])) e++;
+    corners.push({ s: i, e: e, sg: Math.sign(curve[i]) }); i = e + 1; }
+  const apart = (c, d) => d.s - c.e > (c.sg === d.sg ? 2 * OFF : 2 * OFF + 100);   // far enough apart to go wide between them; bends the other way need more room
+  corners.forEach((c, k) => { const prev = corners[k - 1], next = corners[k + 1];
+    if (!prev || apart(prev, c)) keys.push([c.s - OFF, -c.sg * WIDE]);
+    keys.push([c.s + (c.e - c.s) * 0.55, c.sg * RACE.APEX]);
+    if (!next || apart(c, next)) keys.push([c.e + OFF, -c.sg * WIDE]); });
+  const K = keys.length, at = k => { const q = keys[((k % K) + K) % K]; return [q[0] + Math.floor(k / K) * N, q[1]]; }, line = new Float32Array(N);
+  for (let i = 0, k = -1; i < N; i++) {
+    while (at(k + 1)[0] <= i) k++;
+    const [s0, x0] = at(k), [s1, x1] = at(k + 1), u = (i - s0) / (s1 - s0);
+    line[i] = x0 + (x1 - x0) * u * u * (3 - 2 * u);
+  }
+  return line;
 }
 /* A rival's player: phrases and quiet gaps in the proportion of its steadiness, which drifts through good and bad spells of a few
    minutes, and its efficiency over the last minute, counted like yours (60 one-second buckets). The same seed gives the same
@@ -1878,7 +1909,7 @@ class RaceSim {
     const R = RACE; this.goal = goal || 1800; this.seed = seed || 7;
     this.mode = 'grid'; this.st = 'idle'; this.lit = 0; this.litT = 0; this.hold = 0; this.finished = false; this.finishPos = 0; this.events.length = 0;
     this.dist = 0; this.eff = 0;                                              // your race distance, and speed as a share of full speed
-    this.d = (R.START - 4 - 9 * R.GRIDGAP) * R.SEG - R.PZ; this.v = 0; this.x = raceGridX(10); this.tx = this.x; this.drs = false; this.pit = null; this.limiter = false;
+    this.d = (R.START - 4 - 9 * R.GRIDGAP) * R.SEG - R.PZ; this.v = 0; this.x = raceGridX(10); this.tx = this.x; this.off = 0; this.drs = false; this.pit = null; this.limiter = false;
     const rnd = raceRng(this.seed), gauss = () => { let u = 0; for (let i = 0; i < 6; i++) u += rnd(); return (u - 3) / Math.sqrt(0.5); };   // a rival's form for the day
     this.cars = R.RIVALS.map((r, i) => ({ code: r[0], c1: r[1], c2: r[2], i: i, p: new RacePractiser(Math.max(0.3, Math.min(0.97, r[3] + R.FORM * gauss())), raceRng(this.seed * 31 + i * 7717 + 1)),   // each its own stream, so step sizes do not reorder the draws
       dist: (9 - i) * R.GRIDGAP * R.SEG, lead: 0, x: raceGridX(i + 1) }));
@@ -1900,7 +1931,7 @@ class RaceSim {
     if (this.mode === 'grid' && run) this.mode = 'lights';
     if (this.mode === 'lights' && run) {                                     // a light for each second of playing, then a short wait, then lights out
       if (this.lit < 5) { if (music) { this.litT += dt; const n = Math.min(5, Math.floor(this.litT)); if (n > this.lit) { this.lit = n; ev.push('light'); if (n === 5) this.hold = 0.5 + raceRng(this.seed + 1)() * 1.3; } } }
-      else if ((this.hold -= dt) <= 0) { this.mode = 'race'; this.lit = 0; ev.push('go'); }
+      else if ((this.hold -= dt) <= 0) { this.mode = 'race'; this.lit = 0; this.off = this.x - this.lineAt((this.d + RACE.PZ) / RACE.SEG); ev.push('go'); }   // away from the grid slot, onto the line
     }
     if (this.mode === 'race' && st === 'paused') { this.mode = 'red'; ev.push('red'); this.pitIn(); }
     if (this.mode === 'red' && run) { this.mode = 'race'; ev.push('green'); }
@@ -1917,12 +1948,15 @@ class RaceSim {
      way out bends gently back into the right side of the track. The car keeps to the middle of it, so it never crosses the line. */
   pitIn() {
     const R = RACE, seg = (this.d + R.PZ) / R.SEG, inLane = this.pit && this.pit.phase === 'out';   // stopped again on the limiter run: in the lane already
-    if (!inLane) this.pit = { a: Math.floor(seg) + 2, x0: this.x, m0: Infinity, m1: Infinity };
+    if (!inLane) this.pit = { a: Math.floor(seg) + 2, x0: this.x, m0: 0, m1: 0 };
     const P = this.pit, least = inLane ? 24 * R.SEG : (P.a + RACE_PIT.IN + 12) * R.SEG - R.PZ - this.d;   // the box is past the bend in
     const D = Math.max(least, inLane ? 0 : this.v * this.v / (2 * 3800));
     Object.assign(P, { phase: 'in', box: this.d + D, dec: Math.max(2400, this.v * this.v / (2 * D)), out: 0, exitAt: false });
     P.boxSeg = Math.floor((P.box + R.PZ) / R.SEG); this.limiter = true;
+    P.m0 = Math.max(inLane ? P.m0 : 0, P.boxSeg + RACE_PIT.LIMIT); P.m1 = P.m0 + RACE_PIT.OUT;   // where the lane bends out, set now, so the garages and the lane stay put
   }
+  /* the racing line at segment s (fractional) */
+  lineAt(s) { const L = this.T.line, n = this.T.n, i = Math.floor(s), u = s - i, a = ((i % n) + n) % n; return L[a] + (L[(a + 1) % n] - L[a]) * u; }
   /* the middle of the pit lane at segment s (fractional), in road half-widths from the centre; null where there is no lane */
   pitX(s) {
     const P = this.pit, L = RACE_PIT, sm = u => u * u * (3 - 2 * u); if (!P || s < P.a) return null;
@@ -1947,25 +1981,29 @@ class RaceSim {
       if (run) { P.phase = 'out'; P.out = this.d; this.events.push('release'); }
     } else {
       if (P && P.phase === 'out') { vt = run ? R.LIMIT : 0;          // the speed limit to the end of the pit lane, then the bend out
-        if (this.d - P.out > 40 * R.SEG) { P.phase = 'merge'; this.limiter = false; P.m0 = (this.d + R.PZ) / R.SEG; P.m1 = P.m0 + RACE_PIT.OUT; } }
+        if ((this.d + R.PZ) / R.SEG >= P.m0) { P.phase = 'merge'; this.limiter = false; } }
       if (this.v < vt) this.v = Math.min(vt, this.v + (this.v < 3000 ? 3600 : 2400) * rdt);
       else this.v = Math.max(vt, this.v - (st === 'stopped' ? 6500 : 2400) * rdt);
     }
     this.d += this.v * rdt;
     const pa = (this.d + R.PZ) / R.SEG;
-    if (P && P.phase === 'merge' && pa >= P.m1) { P.phase = 'done'; P.exitAt = true; this.events.push('exit'); }   // joined the track
+    if (P && P.phase === 'merge' && pa >= P.m1) { P.phase = 'done'; P.exitAt = true; this.off = this.x - this.lineAt(pa); this.events.push('exit'); }   // joined the track: eases over to the line from there
     if (P && P.phase === 'done' && this.d / R.SEG > P.m1) this.pit = null;                     // and the camera is past the end of the lane
-    const lane = this.inPit ? this.pitX(pa) : null, line = Math.max(-0.45, Math.min(0.45, ahead * 0.07));
-    if (lane != null) { this.x = this.tx = lane; }                                              // in the pit lane: along its middle, nothing else
+    const lane = this.inPit ? this.pitX(pa) : null, line = this.lineAt(pa);
+    if (lane != null) { this.x = this.tx = lane; this.off = 0; }                                // in the pit lane: along its middle, nothing else
     else if (this.racing && !this.inPit) {
-      let tx = line;
-      for (const c of this.cars) { const rel = raceWrap(c.lead) * R.LAP; if (rel > -5 && rel < 30 && (rel < 7 || Math.abs(c.x - tx) < 0.62)) tx = c.x > 0 ? Math.min(tx, c.x - 0.8) : Math.max(tx, c.x + 0.8); }
-      this.tx = Math.max(-0.66, Math.min(0.66, tx));
+      let want = 0;                                                                              // on the racing line, unless a car ahead is on it: then beside it
+      for (const c of this.cars) { const rel = raceWrap(c.lead) * R.LAP; if (rel > -5 && rel < 30 && (rel < 7 || Math.abs(c.x - line) < 0.62)) want = c.x > line ? Math.min(want, c.x - 0.8 - line) : Math.max(want, c.x + 0.8 - line); }
+      this.off += (want - this.off) * Math.min(1, rdt * 1.6) * (this.v > 300 ? 1 : 0);
+      this.tx = Math.max(-RACE.APEX, Math.min(RACE.APEX, line + this.off));
     }
     this.drs = this.mode === 'race' && !this.inPit && this.v > 3000 && Math.abs(ahead) < 0.4 && !!this.ahead && this.ahead.lead * R.LAPU / R.VNOM < 1;   // within a second of the car ahead
     const k = Math.min(1, rdt * 1.9) * (this.v > 300 ? 1 : 0);   // no steering while standing still
-    if (lane == null) this.x += (this.tx - this.x) * k;
-    for (const c of this.cars) { const want = this.racing ? (c.i % 2 ? 0.4 : -0.4) + line * 0.4 : raceGridX(c.i + 1); c.x += (want - c.x) * k * 0.45; }
+    if (lane == null) { const dx = this.racing ? this.tx - this.x : (this.tx - this.x) * k, cap = rdt * (0.3 + 3.2 * this.v / R.VNOM);   // on the line exactly, so the apex is not missed;
+      this.x += Math.max(-cap, Math.min(cap, dx)); }                                           // off it (the start, the pit exit), back no faster sideways than the car's speed allows
+    for (const c of this.cars) {                                                                // rivals keep to the line too, a little to one side, so two do not overlap
+      const at = pa + raceWrap(c.lead) * R.LAP, want = this.racing ? Math.max(-RACE.APEX, Math.min(RACE.APEX, this.lineAt(at) + (c.i % 2 ? 0.12 : -0.12))) : raceGridX(c.i + 1);
+      c.x += (want - c.x) * Math.min(1, rdt * (this.racing ? 6 : 0.9)) * (this.v > 300 || this.racing ? 1 : 0); }
   }
 }
 /* a gap in laps, in words for the read-outs: seconds at full speed, or whole laps */

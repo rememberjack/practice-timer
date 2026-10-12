@@ -814,11 +814,10 @@ function skinOpen(i) { return true; }   // eslint-disable-line no-unused-vars --
 function skinOn(i) { return MT.themesOn(SKINS, S.themesOff).includes(SKINS[i]); }
 let open = [];   // indices of the open themes, in swipe order
 function refreshSkins() {
-  open = SKINS.map((_, i) => i).filter(i => (i === 0 || skinOpen(i)) && skinOn(i));
-  if (!open.length) open = [0];
+  open = SKINS.map((_, i) => i).filter(i => i === 0 || (skinOpen(i) && skinOn(i)));
   PANELS.forEach((id, i) => { $(id).hidden = !open.includes(i); });
   track.style.width = open.length * 100 + '%';
-  setSkin(SKINS.indexOf(MT.themeLanding(SKINS, open.map(i => SKINS[i]), SKINS[skin])), false);
+  setSkin(SKINS.indexOf(MT.themeLanding(open.map(i => SKINS[i]), SKINS[skin])), false);
 }
 function stepSkin(d) { const p = open.indexOf(skin) + d; return open[Math.max(0, Math.min(open.length - 1, p))]; }   // the next open theme that way, or the same one at either end
 /* Only the theme on screen is drawn, plus the one a swipe is revealing. Each scene is costly (City is WebGL), so drawing every theme while a finger is down made swipes lag.
@@ -937,8 +936,8 @@ const GOAL_HINT = {
   fireworks: 'The total play time to reach. Reaching it sets off a grand finale.',
 };
 function paintSettingsSkin() { $('goalHint').textContent = GOAL_HINT[SKINS[skin]]; }
-/* Settings, Themes: a page of its own in the sheet, with a switch for each theme. The last one on can't be turned off;
-   turning off the one on screen moves to the next one on (MT.themeLanding), during a session too */
+/* Settings, Themes: a page of its own in the sheet, with a switch for each theme. Classic is always on and its switch can't be turned off;
+   turning off the one on screen moves to Classic, the first one on (MT.themeLanding), during a session too */
 const THEME_LINE = {
   classic: 'The clock, with your play time and efficiency.',
   rocket: 'Playing flies a rocket up to Moon orbit.',
@@ -954,47 +953,50 @@ const themeRows = SKINS.map((id, i) => { const li = document.createElement('li')
   li.append(sw); $('themeList').append(li); return li; });
 function paintThemes(moved) {
   const on = MT.themesOn(SKINS, S.themesOff), names = on.map(id => SKIN_NAMES[SKINS.indexOf(id)]);
-  themeRows.forEach((li, i) => { const sw = li.querySelector('input'), o = on.includes(SKINS[i]); sw.checked = o; sw.disabled = o && on.length === 1; li.classList.toggle('off', !o); });
+  themeRows.forEach((li, i) => { const sw = li.querySelector('input'), o = on.includes(SKINS[i]); sw.checked = o; sw.disabled = i === 0; li.classList.toggle('off', !o); });
   $('themesSum').textContent = on.length === SKINS.length ? 'All of them are on.' : on.length === 1 ? 'Only ' + names[0] + ' is on.' : names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1] + ' are on.';
   $('themesMini').innerHTML = on.map(id => '<i data-theme="' + id + '"><svg><use href="#ico-' + id + '"/></svg></i>').join('');
-  $('themesNote').textContent = on.length === 1 ? 'One theme always stays on, so there is always something to play with.' : moved ? 'Now playing with ' + SKIN_NAMES[skin] + '.' : '';
+  $('themesNote').textContent = moved ? 'Now playing with ' + SKIN_NAMES[skin] + '.' : '';
 }
-/* Settings, About: the credits roll up like the end of a film, round and round while the page is open; a tap pauses them, holding speeds them up.
+/* About, from Settings: the credits roll up over the whole screen like the end of a film, round and round while open; a tap pauses them, holding speeds them up.
    With reduced motion they stand still in a box that scrolls */
 const CREDITS = [
-  ['Product and design', [['Product Manager / Product Owner', 'Jack Chen'], ['UX Designer', 'Claude'], ['UI / Visual Designer', 'Claude'], ['Motion / Game Artist (2D and 3D)', 'Claude'], ['UX Writer / Copywriter', 'Claude']]],
+  ['Product and design', [['Product Manager', 'Jack Chen'], ['UX Designer', 'Claude'], ['UI / Visual Designer', 'Claude'], ['Motion / Game Artist (2D and 3D)', 'Claude'], ['UX Writer / Copywriter', 'Claude']]],
   ['Engineering', [['Front-end Developer (JavaScript / HTML / CSS)', 'Claude'], ['Audio / DSP Engineer', 'Claude'], ['Graphics / Game Developer', 'Claude'], ['Mobile Web / iOS Specialist', 'Claude']]],
-  ['Quality and operations', [['Student Beta Tester', 'Jayden Chen'], ['Test Engineer', 'Jack Chen'], ['Test Automation Engineer', 'Claude'], ['DevOps / Release Engineer', 'Claude']]],
+  ['Quality and operations', [['QA Engineer', 'Claude'], ['Human QA Engineer', 'Jack Chen'], ['Student Beta Tester', 'Jayden Chen'], ['Test Automation Engineer', 'Claude'], ['DevOps / Release Engineer', 'Claude']]],
 ];
-$('rollIn').innerHTML = '<li class="t">Music Timer</li>' + CREDITS.map(([h, rows]) => '<li class="h">' + h + '</li>' +
-  rows.map(([r, n]) => '<li><span class="r">' + r + '</span><span class="n">' + n + '</span></li>').join('')).join('') + '<li class="end">Starring you, every time you play.</li>';
+$('rollIn').innerHTML = '<li class="t">Music Timer</li><li class="lead">Music Timer counts your practice only while it hears your instrument, so every minute it shows is a minute you played.</li>' + CREDITS.map(([h, rows]) => '<li class="h">' + h + '</li>' +
+  rows.map(([r, n]) => '<li><span class="r">' + r + '</span><span class="n">' + (n === 'Claude' ? '<svg class="ai" aria-hidden="true"><use href="#ico-claude"/></svg>' : '') + n + '</span></li>').join('')).join('') + '<li class="end">Starring you, every time you play.</li>';
 let rollAnim = null, rollHold = 0, rollFast = false, rollDown = false;
 function rollCredits(on) {
   clearTimeout(rollHold); rollFast = rollDown = false; if (rollAnim) { rollAnim.cancel(); rollAnim = null; }
   if (!on || reduceMotion || !$('rollIn').animate) return;
   const h = $('roll').clientHeight, len = $('rollIn').offsetHeight;
   rollAnim = $('rollIn').animate([{ transform: 'translateY(' + h + 'px)' }, { transform: 'translateY(' + -len + 'px)' }], { duration: (h + len) / 32 * 1000, iterations: Infinity });   // 32 px a second
+  rollAnim.currentTime = h * 0.6 / 32 * 1000;   // the first time round, the title starts on screen rather than below it
 }
-function rollHint() { $('rollHint').textContent = rollAnim && rollAnim.playState === 'paused' ? 'Tap the credits to carry on.' : 'Tap the credits to pause them, or hold them to speed them up.'; }
+function rollHint() { $('rollHint').textContent = rollAnim && rollAnim.playState === 'paused' ? 'Tap to carry on.' : 'Tap to pause. Hold to speed up.'; }
 function pauseRoll() { if (!rollAnim) return; if (rollAnim.playState === 'paused') rollAnim.play(); else rollAnim.pause(); rollHint(); }
 function rollLetGo(tap) { clearTimeout(rollHold); const down = rollDown; rollDown = false; if (!rollAnim || !down) return; if (rollFast) { rollAnim.playbackRate = 1; rollFast = false; } else if (tap) pauseRoll(); }
 $('roll').onpointerdown = e => { if (!rollAnim || e.button > 0) return; clearTimeout(rollHold); rollFast = false; rollDown = true; try { $('roll').setPointerCapture(e.pointerId); } catch (x) {}   // held for a moment: six times as fast until let go, even from paused
   rollHold = setTimeout(() => { rollFast = true; rollAnim.playbackRate = 6; rollAnim.play(); rollHint(); }, 250); };
 $('roll').onpointerup = () => rollLetGo(true);
-$('roll').onpointercancel = () => rollLetGo(false);   // the finger moved off to scroll the sheet: back to normal speed, no pause
+$('roll').onpointercancel = () => rollLetGo(false);   // the browser took the touch over: back to normal speed, no pause
 $('roll').oncontextmenu = e => { if (rollAnim) e.preventDefault(); };   // a long press would open the menu over the credits
 $('roll').onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pauseRoll(); } };
-function settingsPage(page) {   // '' for Settings itself, 'themes' or 'about'
-  $('setMain').hidden = !!page; $('setThemes').hidden = page !== 'themes'; $('setAbout').hidden = page !== 'about'; $('setH').hidden = !!page; $('setBack').hidden = !page;
-  $('dlgSettings').setAttribute('aria-labelledby', page === 'themes' ? 'themesH' : page === 'about' ? 'aboutH' : 'setH'); paintThemes(false);
-  (page === 'themes' ? $('setThemes') : page === 'about' ? $('setAbout') : $('setMain')).scrollTop = 0;
-  rollCredits(page === 'about'); rollHint(); }
+function settingsPage(page) {   // '' for Settings itself, or 'themes'
+  $('setMain').hidden = !!page; $('setThemes').hidden = page !== 'themes'; $('setH').hidden = !!page; $('setBack').hidden = !page;
+  $('dlgSettings').setAttribute('aria-labelledby', page ? 'themesH' : 'setH'); paintThemes(false); (page ? $('setThemes') : $('setMain')).scrollTop = 0; }
 $('openThemes').onclick = () => settingsPage('themes');
-$('openAbout').onclick = () => settingsPage('about');
-$('setBack').onclick = () => { const from = $('setAbout').hidden ? 'openThemes' : 'openAbout'; settingsPage(''); $(from).focus(); };
+$('setBack').onclick = () => { settingsPage(''); $('openThemes').focus(); };
+$('openAbout').onclick = () => { $('dlgCredits').showModal(); rollCredits(true); rollHint(); };   // over Settings, which is still there when it closes
+$('creditsClose').onclick = () => $('dlgCredits').close();
+$('dlgCredits').addEventListener('close', () => { rollCredits(false); $('openAbout').focus(); });
 $('btnSettings').onclick = () => { if (heldOpen()) return; pauseForSheet(); paintSettingsSkin(); paintGoal(); paintControls(); paintDbg(); $('dlgSettings').showModal(); settingsPage(''); };
 $('setClose').onclick = () => $('dlgSettings').close();
-for (const d of document.querySelectorAll('dialog')) d.addEventListener('click', e => { if (e.target === d && !heldOpen()) d.close(); });   // not the lift of the finger that held Settings down
+for (const d of document.querySelectorAll('dialog')) d.addEventListener('click', e => {   // a tap on the backdrop closes; not on a sheet's own edge (Settings fills the screen), nor the lift of the finger that held Settings down
+  const r = d.getBoundingClientRect(), out = e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+  if (e.target === d && out && !heldOpen()) d.close(); });
 
 let testing = false;
 $('btnTests').onclick = async () => {
@@ -1231,8 +1233,9 @@ $('homeFlightGo').onclick = () => askFlight(true);
 let homeSeed = 0;                                                     // which playful words: new each time the Home Screen shows, the same while it stays
 function renderHome() {
   const now = Date.now(), P = MT.practiceStats(log, now), c = MT.homeCopy(P, log.length ? log[log.length - 1] : null, now, { seed: homeSeed, name: S.name });
-  $('homeHello').textContent = c.hello;
-  $('homeName').hidden = !!S.name;
+  // with no name set, the word for the player ("Ahoy, Captain") is the link that adds one
+  $('homeHello').textContent = c.friend ? c.hello.slice(0, -c.friend.length) : c.hello;
+  $('homeName').hidden = !c.friend; $('homeName').textContent = c.friend || ''; $('homeName').setAttribute('aria-label', c.friend ? c.friend + '. Add your name' : '');
   $('homeHead').textContent = c.head; $('homeLede').textContent = c.lede;
   $('homeFirst').hidden = c.kind !== 'first'; $('homeWeek').hidden = c.kind === 'first';
   if (c.kind !== 'first') {
@@ -1262,7 +1265,7 @@ $('homeSet').onclick = () => $('btnSettings').click();
 $('homeName').onclick = () => { $('btnSettings').click(); const n = $('nameIn'); try { n.focus({ preventScroll: true }); } catch (e) { n.focus(); } n.scrollIntoView({ block: 'center' }); };   // straight to the name, keyboard up
 // back to the Home Screen once a finished session's summary is put away (not when going on to the practice log)
 $('dlgSummary').addEventListener('close', () => { if (homeOn) renderHome(); else if (session.state === 'stopped' && !$('dlgLog').open) showHome(); });   // a session deleted from its summary
-$('dlgSettings').addEventListener('close', () => { rollCredits(false); if (homeOn) renderHome(); resumeAfterSheet(); });   // a new name shows in the greeting
+$('dlgSettings').addEventListener('close', () => { if (homeOn) renderHome(); resumeAfterSheet(); });   // a new name shows in the greeting
 $('dlgLog').addEventListener('close', () => { if (homeOn) renderHome(); resumeAfterSheet(); });     // sessions deleted from the log
 
 /* ---------- debug tools, for the developer only: sample data, a detector read-out, where the rocket starts, and shortcuts ---------- */

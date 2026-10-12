@@ -38,16 +38,17 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
   `musicTimer.newFlight`, and `rocketCarry` skips sessions that had ended by then. Play time, the goal and the trophy stay.
 - Questions asked over a theme (End, a new flight) take its look (`themeSheet`, `.ask[data-skin]`); Settings keeps the Classic look.
 - Opening Settings pauses a running session (`pauseForSheet` in `src/app.js`); closing it resumes, unless the session had been
-  paused by hand. The practice log opens only from the Home Screen.
+  paused by hand. The practice log opens only from the Home Screen and, like Settings, fills the whole screen (`#dlgLog`).
 - Every theme keeps the title row with Settings at the top. During a session Pause (or Resume) is the big button and End the small
   one, and End asks to confirm (`askEnd`, `#dlgEnd`).
 - Settings, Themes (its own page in the Settings sheet, `settingsPage` in `src/app.js`) lets the player turn off themes they don't like. A theme
-  turned off leaves the swipe, the theme bar and the Home Screen choices, with no padlock (there is nothing to earn back). One theme always
-  stays on, any one; turning off the theme on screen moves to the next one on, during a session too. The ids turned off are kept in
+  turned off leaves the swipe, the theme bar and the Home Screen choices, with no padlock (there is nothing to earn back). Classic is always
+  on and can't be turned off. A theme that is turned off while chosen (on the Home Screen, or the one on screen during a session) gives way to
+  the first one on, Classic. The ids turned off are kept in
   the settings as `themesOff` (`themesOn`, `themeSwitch`, `themeLanding` in `src/core.js`), so a new theme starts on and a removed one is forgotten.
-- Settings, About (another page in the Settings sheet, `settingsPage('about')`) rolls the credits up like the end of a film (`CREDITS`, `rollCredits` in
-  `src/app.js`); a tap pauses them, holding speeds them up, and with reduced motion they stand still in a box that scrolls.
-- Settings always has the Classic look; only the goal's hint follows the theme it is opened from (`GOAL_HINT` in `src/app.js`).
+- Settings, About opens the credits over the whole screen (`#dlgCredits`, over Settings) and rolls them up like the end of a film (`CREDITS`, `rollCredits` in
+  `src/app.js`; Claude's name has a sunburst before it, `#ico-claude`); a tap pauses them, holding speeds them up, and with reduced motion they stand still in a box that scrolls.
+- Settings fills the whole screen (`#dlgSettings`; on a wide screen its rows keep to a column in the middle) and always has the Classic look; only the goal's hint follows the theme it is opened from (`GOAL_HINT` in `src/app.js`).
   The rocket's power, the cannons and the Dash speed follow the last minute of playing (`Session.recentEfficiency`); there is no
   setting for it. The Rocket and City bars fill to that as Power, with a tick and a figure for the whole session's Efficiency
   (`powerBar` in `src/app.js`), like a car's instant and trip-average fuel figures; Dash shows both as figures.
@@ -58,7 +59,9 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
   stream, so a following device races the same field (the seed is shared). The field is tuned so first place comes about half the time at 80%
   efficiency; a test checks the chances rise with efficiency. A pause is a red flag that freezes every car; the pit lane is only a picture
   (the car rejoins at the same distance, with nothing changed), with no crew. The lane is one path (`RaceSim.pitX`): it opens out from the car's
-  line, runs past the garages and bends back into the track, and the car keeps to its middle, so it never cuts across the pit lane line. The race runs until the practice goal; the trophy card names the place.
+  line, runs past the garages and bends back into the track, and the car keeps to its middle, so it never cuts across the pit lane line. Where it bends
+  out is set when the car turns in, so the garages never vanish. On track every car keeps to the racing line (`raceLine`, `RaceSim.lineAt`): wide on the
+  way in, the inside tyres on the kerb at the apex, wide on the way out; close bends the other way go apex to apex. A test checks every corner. The race runs until the practice goal; the trophy card names the place.
 - Fireworks (`FireworkSim` in `src/core.js`, drawn by `src/fireworks.js`) sends up a shell for each note played: its colour is the note (the twelve
   notes are twelve colours, `fwHue`) and its height how high the note is. The last minute of playing is shown as Intensity (Power in the other
   themes): it sets the pace, so the higher it is the more shells are in the sky at once (`FW.PACE`; a held note keeps them going up), and their
@@ -89,7 +92,8 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
   (`liveSnapshot`, every 5 s and when the app is hidden), cleared at End, and offered back on the next open (`liveRecord`, `#dlgLost`).
 - Time the app could not listen during a session (the phone asleep, the app in the background: a tick of 1.5 s or more) counts like a
   pause (`Session.away`), so it never lowers efficiency or the last minute's power.
-- While no name is set, a quiet "Add your name" link follows the Home Screen greeting and opens Settings at the name field.
+- While no name is set, the Home Screen greeting calls the player a fun word instead ("Hi there, rock star", or the greeting's own title: "Ahoy, Captain";
+  `HOME_FRIEND`, `friend` from `homeCopy`), and that word is a link that opens Settings at the name field.
 - The practice goal is for one session. The practice log never marks a day as reaching it: the week bars compare days by time
   played, and the calendar shades days by minutes (`LEVEL_MIN` in `src/core.js`). Only a session's trophy is gold.
 
