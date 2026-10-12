@@ -46,21 +46,40 @@ function makeFirework2D(cv, hud, sim, MT) {
     return true;
   }
   /* the stars and the skyline are the same every time (a fixed seed), drawn once per size */
+  /* the stars and the waterfront are the same every time (a fixed seed), drawn once per size: moonlit ridges, a harbour town of pastel houses
+     climbing the hill, the bell tower, the lighthouse on the left and the Ferris wheel on the right, as in the 3D scene */
   function buildScene() {
     const r = MT.raceRng(1234); stars = [];
     for (let i = 0; i < 90; i++) stars.push({ x: r() * W, y: r() * GY * 0.92, s: r() < 0.15 ? 1.6 : 1, p: r() * TAU, f: 0.6 + r() * 1.8 });
-    skyline = document.createElement('canvas'); skyline.width = Math.round(W * dpr); const tall = Math.max(24, Math.min(110, SKY * 0.3)); skyline.height = Math.round((tall + 4) * dpr);
+    MOONX = W * 0.58; MOONY = GY - Math.max(40, Math.min(150, SKY * 0.3)); MOONR = Math.max(7, Math.min(16, W * 0.025));
+    skyline = document.createElement('canvas'); skyline.width = Math.round(W * dpr); const tall = Math.max(30, Math.min(120, SKY * 0.32)); skyline.height = Math.round((tall + 4) * dpr);
     const s = skyline.getContext('2d'); s.setTransform(dpr, 0, 0, dpr, 0, 0); const base = tall + 4;
-    const hill = []; for (let x = 0; x <= W + 20; x += 20) hill.push(base - tall * (0.18 + 0.1 * Math.sin(x / 70) + 0.06 * Math.sin(x / 23)));   // far hills
-    s.fillStyle = '#0D1230'; s.beginPath(); s.moveTo(0, base); hill.forEach((y, i) => s.lineTo(i * 20, y)); s.lineTo(W, base); s.closePath(); s.fill();
-    s.fillStyle = '#05060F';
-    for (let x = -4; x < W;) {                                                          // the buildings along the waterfront
-      const bw = 10 + Math.floor(r() * 26), bh = tall * (0.25 + r() * r() * 0.75); s.fillRect(x, base - bh, bw + 1, bh);
-      if (r() < 0.18) s.fillRect(x + bw / 2 - 1, base - bh - tall * 0.12, 2, tall * 0.12);   // a mast
-      for (let wy = base - bh + 4; wy < base - 4; wy += 5) for (let wx = x + 2; wx < x + bw - 2; wx += 4) if (r() < 0.12) { s.fillStyle = r() < 0.5 ? 'rgba(255,214,140,.55)' : 'rgba(170,200,255,.4)'; s.fillRect(wx, wy, 1.5, 2); s.fillStyle = '#05060F'; }
-      x += bw + (r() < 0.3 ? 2 + Math.floor(r() * 6) : 0);
+    const ridge = (h, top, bot, k) => { const gr = s.createLinearGradient(0, base - h, 0, base); gr.addColorStop(0, top); gr.addColorStop(1, bot); s.fillStyle = gr; s.beginPath(); s.moveTo(0, base);
+      for (let x = 0; x <= W + 20; x += 12) s.lineTo(x, base - h * (0.55 + 0.25 * Math.sin(x / 90 + k) + 0.12 * Math.sin(x / 31 + k * 2))); s.lineTo(W, base); s.closePath(); s.fill(); };
+    ridge(tall * 0.95, '#3E5276', '#1E2A44', 1); ridge(tall * 0.7, '#2A3A58', '#141D30', 2);
+    const hillTop = x => base - tall * (0.32 + 0.12 * Math.sin(x / 60) + 0.06 * Math.sin(x / 17));   // the hill the town climbs
+    s.fillStyle = '#14212A'; s.beginPath(); s.moveTo(0, base); for (let x = 0; x <= W + 8; x += 8) s.lineTo(x, hillTop(x)); s.lineTo(W, base); s.closePath(); s.fill();
+    const HOUSE = ['#6E4A3E', '#7A6440', '#7A5450', '#7C7464', '#3E5A58', '#46506C', '#6A5844', '#643838'], unit = Math.max(5, Math.min(9, tall * 0.09));
+    for (let row = 0; row < 4; row++) for (let x = -4; x < W;) {               // rows of houses, the back ones higher up the hill and further apart
+      const w = unit * (0.9 + r() * 0.7), h = unit * (0.9 + r() * 0.8) * (row === 3 ? 1.25 : 1), yb = base - (3 - row) * (base - hillTop(x)) * 0.28 - 1;
+      if (r() < 0.25 + (3 - row) * 0.12 || (x > W * 0.22 && x < W * 0.29 && row > 1) || (x > W * 0.66 && x < W * 0.86 && row > 1)) { x += w + 2; continue; }
+      s.fillStyle = HOUSE[Math.floor(r() * HOUSE.length)]; s.fillRect(x, yb - h, w, h);
+      s.fillStyle = r() < 0.5 ? '#4A2A24' : '#2C303C'; s.beginPath(); s.moveTo(x - 1, yb - h); s.lineTo(x + w / 2, yb - h - w * 0.4); s.lineTo(x + w + 1, yb - h); s.closePath(); s.fill();   // a pitched roof
+      for (let j = 0; j < 2; j++) if (r() < 0.55) { s.fillStyle = r() < 0.7 ? 'rgba(255,184,104,.85)' : 'rgba(255,226,168,.8)'; s.fillRect(x + w * (0.2 + j * 0.42), yb - h * 0.7, Math.max(1, w * 0.18), Math.max(1.2, h * 0.25)); }
+      x += w + (r() < 0.3 ? 1 + r() * 3 : 0.5);
     }
+    const bx = W * 0.45, bh = tall * 0.62, bw = Math.max(4, unit * 0.8);         // the bell tower and its spire
+    s.fillStyle = '#8A8070'; s.fillRect(bx, base - bh, bw, bh - 1); s.fillStyle = '#3A3E4A'; s.beginPath(); s.moveTo(bx - 1, base - bh); s.lineTo(bx + bw / 2, base - bh - bw * 2.2); s.lineTo(bx + bw + 1, base - bh); s.closePath(); s.fill();
+    s.fillStyle = 'rgba(255,214,150,.9)'; s.fillRect(bx + bw * 0.3, base - bh * 0.85, bw * 0.4, bw * 0.5);
+    const lx = W * 0.22, lh = tall * 0.42, lw = Math.max(3, unit * 0.55);       // the lighthouse, striped
+    for (let j = 0; j < 4; j++) { s.fillStyle = j % 2 ? '#A8463C' : '#D8D2C6'; s.fillRect(lx, base - lh + j * lh / 4, lw, lh / 4 + 0.5); }
+    s.fillStyle = '#FFE7A8'; s.fillRect(lx - 0.5, base - lh - lw * 0.8, lw + 1, lw * 0.8); s.fillStyle = '#A8463C'; s.beginPath(); s.moveTo(lx - 1, base - lh - lw * 0.8); s.lineTo(lx + lw / 2, base - lh - lw * 1.6); s.lineTo(lx + lw + 1, base - lh - lw * 0.8); s.closePath(); s.fill();
+    LIGHT = { x: lx + lw / 2, y: GY - (base - lh - lw * 0.4) };                  // where the beam comes from, on the main canvas
+    s.fillStyle = '#2C2F38'; s.fillRect(0, base - 2, W, 3);                    // the quay
+    WHEEL = { x: W * 0.76, y: GY - tall * 0.55, r: tall * 0.42 };              // the Ferris wheel is drawn live, so it can turn
+    s.strokeStyle = '#4A5268'; s.lineWidth = 1.5; s.beginPath(); s.moveTo(WHEEL.x - WHEEL.r * 0.55, base); s.lineTo(WHEEL.x, base - tall * 0.55); s.lineTo(WHEEL.x + WHEEL.r * 0.55, base); s.stroke();
   }
+  let MOONX = 0, MOONY = 0, MOONR = 8, LIGHT = { x: 0, y: 0 }, WHEEL = { x: 0, y: 0, r: 10 };
   function reset() { rockets.length = 0; sparks.length = 0; glows.length = 0; smoke.length = 0; flash = 0; idleT = 1.5; }
 
   /* a shell from the core: {x, h, size, hue, hue2, kind, finale} */
@@ -120,10 +139,12 @@ function makeFirework2D(cv, hud, sim, MT) {
     g.setTransform(dpr, 0, 0, dpr, 0, 0); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
     // the night sky, a little lighter while the music plays
     const lift = (v.music ? v.level * 6 : 0) + flash * 30, sky = g.createLinearGradient(0, 0, 0, GY);
-    sky.addColorStop(0, col(232, 60, Math.round(5 + lift * 0.4))); sky.addColorStop(0.7, col(238, 50, Math.round(11 + lift * 0.6))); sky.addColorStop(1, col(262, 40, Math.round(19 + lift * 0.6)));
+    sky.addColorStop(0, col(222, 66, Math.round(5 + lift * 0.4))); sky.addColorStop(0.6, col(218, 58, Math.round(12 + lift * 0.6))); sky.addColorStop(1, col(215, 38, Math.round(26 + lift * 0.6)));
     g.fillStyle = sky; g.fillRect(0, 0, W, GY);
+    const halo = g.createRadialGradient(MOONX, MOONY, 0, MOONX, MOONY, MOONR * 9); halo.addColorStop(0, 'rgba(150,170,215,.35)'); halo.addColorStop(1, 'rgba(150,170,215,0)');
+    g.fillStyle = halo; g.fillRect(MOONX - MOONR * 9, MOONY - MOONR * 9, MOONR * 18, MOONR * 18);
     for (const s of stars) { g.globalAlpha = RM ? 0.6 : 0.35 + 0.35 * Math.sin(clock * s.f + s.p); g.fillStyle = '#DDE4FF'; g.fillRect(s.x, s.y, s.s, s.s); }
-    g.globalAlpha = 1;
+    g.globalAlpha = 1; g.fillStyle = '#F4EBD6'; g.beginPath(); g.arc(MOONX, MOONY, MOONR, 0, TAU); g.fill();   // the moon
     // smoke left by the bursts, drifting with the breeze and lit by the newest ones
     let light = flash; for (const o of glows) light = Math.max(light, 1 - o.t / o.life);
     for (let i = smoke.length - 1; i >= 0; i--) { const o = smoke[i]; o.t += dt; if (o.t >= o.life) { smoke.splice(i, 1); continue; } o.x += dt * 6; o.y -= dt * 2; o.r += dt * 4;
@@ -156,14 +177,24 @@ function makeFirework2D(cv, hud, sim, MT) {
     g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; g.lineCap = 'butt';
     // the skyline in front, then the harbour giving it all back upside down
     g.drawImage(skyline, 0, GY - skyline.height / dpr, W, skyline.height / dpr);
+    { const k = RM ? 0 : clock, Wh = WHEEL; g.lineWidth = 1; g.strokeStyle = 'rgba(138,150,180,.6)'; g.beginPath(); g.arc(Wh.x, Wh.y, Wh.r, 0, TAU); g.stroke();   // the Ferris wheel, its lights chasing round
+      g.beginPath(); for (let i = 0; i < 12; i++) { const a = i / 12 * TAU + k * 0.09; g.moveTo(Wh.x, Wh.y); g.lineTo(Wh.x + Math.cos(a) * Wh.r, Wh.y + Math.sin(a) * Wh.r); } g.stroke();
+      for (let i = 0; i < 24; i++) { const a = i / 24 * TAU + k * 0.09; g.fillStyle = col(Math.round(((i / 24 + k * 0.08) % 1) * 360), 90, 62); g.fillRect(Wh.x + Math.cos(a) * Wh.r - 1, Wh.y + Math.sin(a) * Wh.r - 1, 2, 2); }
+      if (!RM) { const a = Math.sin(k * 0.55), len = W * 0.45, dir = a >= 0 ? 1 : -1, spread = 0.08 + 0.12 * (1 - Math.abs(a));   // the lighthouse beam swinging across the bay
+        g.globalCompositeOperation = 'lighter'; const bg = g.createLinearGradient(LIGHT.x, 0, LIGHT.x + dir * len * Math.abs(a), 0); bg.addColorStop(0, 'rgba(255,235,180,.28)'); bg.addColorStop(1, 'rgba(255,235,180,0)');
+        g.fillStyle = bg; g.beginPath(); g.moveTo(LIGHT.x, LIGHT.y); g.lineTo(LIGHT.x + dir * len * Math.abs(a), LIGHT.y - len * spread * 0.5); g.lineTo(LIGHT.x + dir * len * Math.abs(a), LIGHT.y + len * spread * 0.3); g.closePath(); g.fill(); g.globalCompositeOperation = 'source-over'; } }
     const WH = H - GY, srcH = Math.min(GY, WH * 2.4);
-    g.fillStyle = '#04050C'; g.fillRect(0, GY, W, WH);
+    g.fillStyle = '#060C16'; g.fillRect(0, GY, W, WH);
     g.save(); g.setTransform(dpr, 0, 0, -dpr, 0, (GY + H) * dpr); g.globalAlpha = 0.42;
     g.drawImage(cv, 0, Math.round((GY - srcH) * dpr), Math.round(W * dpr), Math.round(srcH * dpr), 0, GY, W, WH); g.restore();
     g.fillStyle = 'rgba(4,5,12,.55)';                                     // ripples break the reflection into lines
     for (let y = GY + 1, j = 0; y < H; y += 3, j++) { const off = RM ? 0 : Math.sin(clock * 1.6 + j * 0.9) * 6; g.fillRect(off - 6, y, W + 12, 1 + (j % 3 === 0 ? 1 : 0)); }
     const fade = g.createLinearGradient(0, GY, 0, H); fade.addColorStop(0, 'rgba(4,5,12,0)'); fade.addColorStop(1, 'rgba(4,5,12,.7)'); g.fillStyle = fade; g.fillRect(0, GY, W, WH);
     g.fillStyle = 'rgba(160,180,255,.18)'; g.fillRect(0, GY, W, 1);
+    g.globalCompositeOperation = 'lighter';                                 // the moon's path glittering on the water
+    for (let y = GY + 2, j = 0; y < H; y += 2, j++) { const f = (y - GY) / (H - GY), w = MOONR * (1.2 + f * 5), on = RM ? 0.6 : 0.35 + 0.65 * Math.abs(Math.sin(clock * 2.1 + j * 1.7));
+      g.fillStyle = 'rgba(255,240,210,' + (0.32 * on * (1 - f * 0.5)).toFixed(3) + ')'; g.fillRect(MOONX - w / 2 + Math.sin(clock * 1.3 + j) * w * 0.15, y, w * (0.5 + 0.5 * on), 1); }
+    g.globalCompositeOperation = 'source-over';
     flash = Math.max(0, flash - dt * 0.6);
   }
   function busy() { return rockets.length + sparks.length; }

@@ -61,8 +61,10 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
 - Fireworks (`FireworkSim` in `src/core.js`, drawn by `src/fireworks.js`) sends up a shell for each note played: its colour is the note (the twelve
   notes are twelve colours, `fwHue`) and its height how high the note is; the last minute of playing sets the size and the kinds. Only playing sends
   shells up, fast runs are capped (the extra notes make the next shell bigger), and the goal sets off a grand finale once. It makes no sound.
-  It is drawn in 3D (`src/fireworks3d.js`, three.js r128 like City: a level camera with a shifted lens, so the skyline stands straight under the
-  read-outs); `src/fireworks.js` loads three.js when the theme is shown and draws a flat version until then, or if it cannot load.
+  The scene is a harbour town at night under a low moon (hillside houses, a lighthouse, a Ferris wheel, boats, the moon's path on the water). It is
+  drawn in 3D (`src/fireworks3d.js`, three.js r128 like City: a level camera with a shifted lens, so the town stands straight under the read-outs);
+  `src/fireworks.js` loads three.js when the theme is shown and draws a flat version of the same waterfront until then, or if it cannot load.
+  Its look is its own, not Dash's: Fraunces serif (`--serif`), lantern amber and cream, square corners, hairlines (`.fw-hud`, the Finale bar a fuse).
 - The Home Screen (`#home`) shows when the app opens and after a finished session's summary is closed; its words come
   from `homeCopy` in `src/core.js`. No theme scene is drawn while it covers them. Its greeting, headline and line are picked from
   playful words for young players (`HOME_HELLO`, `HOME_WORDS`), new each time it shows; they must fit an iPhone SE without wrapping more.
