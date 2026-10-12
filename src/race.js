@@ -12,7 +12,7 @@ function makeRaceView(cv, hud, sim, MT) {
   const X1 = new Float32Array(MAXD + 2), Y1 = new Float32Array(MAXD + 2), W1 = new Float32Array(MAXD + 2), S1 = new Float32Array(MAXD + 2),
     X2 = new Float32Array(MAXD + 2), Y2 = new Float32Array(MAXD + 2), W2 = new Float32Array(MAXD + 2), VIS = new Uint8Array(MAXD + 2);
   let W = 0, H = 0, dpr = 1, top = 0, HY = 0, GY = 0, K = 1, DD = 150, bgX = 0, clock = 0, sky = null, far = null, near = null;
-  let flagT = -1, shake = 0;
+  let flagT = -1, shake = 0, pitSeen = null, pitFade = 0;   // the pit lane last drawn, and how far its garages have faded in
   const sparks = [], confetti = [], buckets = [];
   for (let i = 0; i <= MAXD; i++) buckets.push([]);
 
@@ -171,7 +171,7 @@ function makeRaceView(cv, hud, sim, MT) {
     if (Math.abs(c) > 2.8) strip(n, P.gravel, 1.08, 1.8, c > 0 ? -1 : 1);
     quad(((abs / 3) | 0) & 1 ? P.roadA : P.roadB, x1 - w1, x1 + w1, x2 - w2, x2 + w2, y1, y2);
     if (wide) quad(P.rubber, x1 - w1 * 0.3, x1 + w1 * 0.3, x2 - w2 * 0.3, x2 + w2 * 0.3, y1, y2);
-    if (Math.abs(c) > 0.9) { const k = abs & 1 ? P.kerbR : P.kerbW; strip(n, k, 0.97, 1.11, -1); strip(n, k, 0.97, 1.11, 1); }
+    if (Math.abs(c) > RC.KERB) { const k = abs & 1 ? P.kerbR : P.kerbW; strip(n, k, 0.97, 1.11, -1); strip(n, k, 0.97, 1.11, 1); }
     else if (w1 > 6) { strip(n, P.line, 0.955, 0.99, -1); strip(n, P.line, 0.955, 0.99, 1); }
     if (i === START) quad(P.start, x1 - w1, x1 + w1, x2 - w2, x2 + w2, y1, y1 + (y2 - y1) * 0.5);
     for (let p = 1; p <= 10; p++) if (i === START - 4 - (p - 1) * GRIDGAP + 2) {   // grid boxes
@@ -305,14 +305,15 @@ function makeRaceView(cv, hud, sim, MT) {
     }
     // pass 2, far to near
     const red = sim.mode === 'red', pit = sim.pit;
+    if (pit !== pitSeen) { pitSeen = pit; pitFade = RM ? 1 : 0; } pitFade = Math.min(1, pitFade + dt * 2);   // the garages fade in as the car turns in; the trees there fade out
     for (let n = DD; n >= 1; n--) {
       const vis = VIS[n]; if (!vis) continue;
       const abs = base + n, i = abs % N, P = PAL[Math.min(FL - 1, Math.floor(Math.pow(n / DD, 1.6) * FL))], fa = 1 - 0.75 * Math.pow(n / DD, 2);
       if (vis === 1) drawSegment(n, abs, P);
       const sc = SCN[i], inPit = pit && abs >= pit.a && abs <= pit.m0, nearLane = pit && abs >= pit.a && abs <= pit.m1;   // the garage side, and the lane's whole length
       if (inPit && abs >= pit.a + RP.IN + 4 && abs + 1 <= pit.m0 && Math.abs(abs - pit.boxSeg) <= 63 && (abs - pit.boxSeg) % 9 === 0)
-        sprite(abs === pit.boxSeg ? OURS : GARAGES[((abs / 9) | 0) % GARAGES.length], n, 3.15, 3000, fa);
-      for (let j = 0; j < sc.length; j++) { const o = sc[j]; if (o.x > 0 && (inPit || (nearLane && o.x < 2.6))) continue; sprite(o.k === 'tree' ? TREES[o.v] : o.k === 'stand' ? STAND : BOARDS[o.t], n, o.x, o.w, fa); }   // nothing stands in the pit lane
+        sprite(abs === pit.boxSeg ? OURS : GARAGES[((abs / 9) | 0) % GARAGES.length], n, 3.15, 3000, fa * pitFade);
+      for (let j = 0; j < sc.length; j++) { const o = sc[j]; const gone = o.x > 0 && (inPit || (nearLane && o.x < 2.6)); if (gone && pitFade >= 1) continue; sprite(o.k === 'tree' ? TREES[o.v] : o.k === 'stand' ? STAND : BOARDS[o.t], n, o.x, o.w, gone ? fa * (1 - pitFade) : fa); }   // nothing stands in the pit lane
       if (i === START + 1) gantry(n);
       const b = buckets[n]; if (b.length > 1) b.sort((p, q) => q.z - p.z);
       for (const o of b) car(SPR.cars[o.c.i], n, o.f, o.z, o.c.x, fa, red && (Math.floor(clock * 2.5) & 1));
