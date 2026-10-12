@@ -11,9 +11,11 @@ permissions:
   pages: write
   id-token: write
 
+# Pull requests test in a queue of their own, so they can never cancel a deploy of main (one did, and the site kept the old page).
+# A newer push to a pull request cancels its older run; deploys of main wait their turn rather than stop halfway.
 concurrency:
-  group: pages
-  cancel-in-progress: true
+  group: ${{ github.event_name == 'pull_request' && format('test-{0}', github.ref) || 'pages' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   test:

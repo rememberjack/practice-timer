@@ -439,7 +439,7 @@ function raceHint(st) {
   if (st === 'stopped') return race.racing ? (race.finished ? 'Finished P' + race.finishPos : 'P' + race.pos) + ' after ' + lapsTxt : 'Press Start for a new race';
   if (race.mode === 'grid' || race.mode === 'lights') return st === 'paused' ? 'Paused on the grid' : race.lit < 5 ? 'Keep playing to light the start lights: ' + race.lit + ' of 5' : 'Lights out any moment now';
   if (race.mode === 'red') return race.pit && race.pit.phase === 'in' ? 'Red flag. Heading into the pit lane' : 'Waiting in the pit. Every car holds its place';
-  if (race.inPit) return 'Pit lane speed limit. Rejoining in P' + race.pos;
+  if (race.inPit) return (race.limiter ? 'Pit lane speed limit. ' : 'Leaving the pit lane. ') + 'Rejoining in P' + race.pos;
   if (race.finished && performance.now() - raceDoneAt < 8000) return 'Chequered flag. You finished P' + race.finishPos;
   if (!V.music) return b && -b.lead * MT.RACE.LAPU / MT.RACE.VNOM < 1.2 ? 'Quiet seconds slow you. ' + b.code + ' is ' + MT.raceGap(b.lead) + ' s behind' : 'Quiet seconds are slowing you down';
   if (!a) return b ? 'Leading the race by ' + MT.raceGap(b.lead) + (Math.abs(b.lead) >= 1 ? '' : ' s') : 'Leading the race';
@@ -916,12 +916,40 @@ function paintThemes(moved) {
   $('themesMini').innerHTML = on.map(id => '<i data-theme="' + id + '"><svg><use href="#ico-' + id + '"/></svg></i>').join('');
   $('themesNote').textContent = moved ? 'Now playing with ' + SKIN_NAMES[skin] + '.' : '';
 }
-function settingsPage(themes) {
-  $('setMain').hidden = themes; $('setThemes').hidden = !themes; $('setH').hidden = themes; $('setBack').hidden = !themes;
-  $('dlgSettings').setAttribute('aria-labelledby', themes ? 'themesH' : 'setH'); paintThemes(false); (themes ? $('setThemes') : $('setMain')).scrollTop = 0; }
-$('openThemes').onclick = () => settingsPage(true);
-$('setBack').onclick = () => { settingsPage(false); $('openThemes').focus(); };
-$('btnSettings').onclick = () => { if (heldOpen()) return; pauseForSheet(); paintSettingsSkin(); paintGoal(); paintControls(); paintDbg(); $('dlgSettings').showModal(); settingsPage(false); };
+/* Settings, About: the credits roll up like the end of a film, round and round while the page is open; a tap pauses them, holding speeds them up.
+   With reduced motion they stand still in a box that scrolls */
+const CREDITS = [
+  ['Product and design', [['Product Manager / Product Owner', 'Jack Chen'], ['UX Designer', 'Claude'], ['UI / Visual Designer', 'Claude'], ['Motion / Game Artist (2D and 3D)', 'Claude'], ['UX Writer / Copywriter', 'Claude']]],
+  ['Engineering', [['Front-end Developer (JavaScript / HTML / CSS)', 'Claude'], ['Audio / DSP Engineer', 'Claude'], ['Graphics / Game Developer', 'Claude'], ['Mobile Web / iOS Specialist', 'Claude']]],
+  ['Quality and operations', [['Student Beta Tester', 'Jayden Chen'], ['Test Engineer', 'Jack Chen'], ['Test Automation Engineer', 'Claude'], ['DevOps / Release Engineer', 'Claude']]],
+];
+$('rollIn').innerHTML = '<li class="t">Music Timer</li>' + CREDITS.map(([h, rows]) => '<li class="h">' + h + '</li>' +
+  rows.map(([r, n]) => '<li><span class="r">' + r + '</span><span class="n">' + n + '</span></li>').join('')).join('') + '<li class="end">Starring you, every time you play.</li>';
+let rollAnim = null, rollHold = 0, rollFast = false, rollDown = false;
+function rollCredits(on) {
+  clearTimeout(rollHold); rollFast = rollDown = false; if (rollAnim) { rollAnim.cancel(); rollAnim = null; }
+  if (!on || reduceMotion || !$('rollIn').animate) return;
+  const h = $('roll').clientHeight, len = $('rollIn').offsetHeight;
+  rollAnim = $('rollIn').animate([{ transform: 'translateY(' + h + 'px)' }, { transform: 'translateY(' + -len + 'px)' }], { duration: (h + len) / 32 * 1000, iterations: Infinity });   // 32 px a second
+}
+function rollHint() { $('rollHint').textContent = rollAnim && rollAnim.playState === 'paused' ? 'Tap the credits to carry on.' : 'Tap the credits to pause them, or hold them to speed them up.'; }
+function pauseRoll() { if (!rollAnim) return; if (rollAnim.playState === 'paused') rollAnim.play(); else rollAnim.pause(); rollHint(); }
+function rollLetGo(tap) { clearTimeout(rollHold); const down = rollDown; rollDown = false; if (!rollAnim || !down) return; if (rollFast) { rollAnim.playbackRate = 1; rollFast = false; } else if (tap) pauseRoll(); }
+$('roll').onpointerdown = e => { if (!rollAnim || e.button > 0) return; clearTimeout(rollHold); rollFast = false; rollDown = true; try { $('roll').setPointerCapture(e.pointerId); } catch (x) {}   // held for a moment: six times as fast until let go, even from paused
+  rollHold = setTimeout(() => { rollFast = true; rollAnim.playbackRate = 6; rollAnim.play(); rollHint(); }, 250); };
+$('roll').onpointerup = () => rollLetGo(true);
+$('roll').onpointercancel = () => rollLetGo(false);   // the finger moved off to scroll the sheet: back to normal speed, no pause
+$('roll').oncontextmenu = e => { if (rollAnim) e.preventDefault(); };   // a long press would open the menu over the credits
+$('roll').onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pauseRoll(); } };
+function settingsPage(page) {   // '' for Settings itself, 'themes' or 'about'
+  $('setMain').hidden = !!page; $('setThemes').hidden = page !== 'themes'; $('setAbout').hidden = page !== 'about'; $('setH').hidden = !!page; $('setBack').hidden = !page;
+  $('dlgSettings').setAttribute('aria-labelledby', page === 'themes' ? 'themesH' : page === 'about' ? 'aboutH' : 'setH'); paintThemes(false);
+  (page === 'themes' ? $('setThemes') : page === 'about' ? $('setAbout') : $('setMain')).scrollTop = 0;
+  rollCredits(page === 'about'); rollHint(); }
+$('openThemes').onclick = () => settingsPage('themes');
+$('openAbout').onclick = () => settingsPage('about');
+$('setBack').onclick = () => { const from = $('setAbout').hidden ? 'openThemes' : 'openAbout'; settingsPage(''); $(from).focus(); };
+$('btnSettings').onclick = () => { if (heldOpen()) return; pauseForSheet(); paintSettingsSkin(); paintGoal(); paintControls(); paintDbg(); $('dlgSettings').showModal(); settingsPage(''); };
 $('setClose').onclick = () => $('dlgSettings').close();
 for (const d of document.querySelectorAll('dialog')) d.addEventListener('click', e => { if (e.target === d && !heldOpen()) d.close(); });   // not the lift of the finger that held Settings down
 
@@ -1191,7 +1219,7 @@ $('homeSet').onclick = () => $('btnSettings').click();
 $('homeName').onclick = () => { $('btnSettings').click(); const n = $('nameIn'); try { n.focus({ preventScroll: true }); } catch (e) { n.focus(); } n.scrollIntoView({ block: 'center' }); };   // straight to the name, keyboard up
 // back to the Home Screen once a finished session's summary is put away (not when going on to the practice log)
 $('dlgSummary').addEventListener('close', () => { if (homeOn) renderHome(); else if (session.state === 'stopped' && !$('dlgLog').open) showHome(); });   // a session deleted from its summary
-$('dlgSettings').addEventListener('close', () => { if (homeOn) renderHome(); resumeAfterSheet(); });   // a new name shows in the greeting
+$('dlgSettings').addEventListener('close', () => { rollCredits(false); if (homeOn) renderHome(); resumeAfterSheet(); });   // a new name shows in the greeting
 $('dlgLog').addEventListener('close', () => { if (homeOn) renderHome(); resumeAfterSheet(); });     // sessions deleted from the log
 
 /* ---------- debug tools, for the developer only: sample data, a detector read-out, where the rocket starts, and shortcuts ---------- */
