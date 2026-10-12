@@ -96,11 +96,12 @@ body:has(> #app[data-skin="coins"]){background:#1A0820}
 .ask[data-skin="dash"] .btn{border:3px solid #05051A; border-radius:16px; background:#2B2B7A; color:#fff; font-weight:800; box-shadow:0 4px 0 #05051A}
 .ask[data-skin="dash"] .btn.solid{background:#7CFF4F; color:#06210A}
 .ask[data-skin="dash"] .btn:active{transform:translateY(3px); box-shadow:0 1px 0 #05051A}
-.ask[data-skin="coins"]{--sheet:#1A0820; --surface:#2E1236; --ink:#FFF6E0; --mute:#E2C9A8; --rule:#5A2A5E; --accent:#D7951A; --on-accent:#FFFFFF; border:0; border-top:2px solid #FFC83D; border-radius:0}
-.ask[data-skin="coins"] h2{font-family:var(--pixel); font-weight:400; letter-spacing:0; font-size:18px; color:#FFC83D}
-.ask[data-skin="coins"] .btn{font-family:var(--pixel); font-weight:400; font-size:13px; border-radius:0; border:2px solid #05070D; background:#7A3A7E; color:#fff; text-shadow:2px 2px 0 rgba(0,0,0,.45)}
-.ask[data-skin="coins"] .btn.solid{background:#D7951A}
-@media (max-width:560px){ .ask[data-skin="rocket"], .ask[data-skin="city"], .ask[data-skin="coins"]{border-radius:0} .ask[data-skin="dash"]{border-radius:24px 24px 0 0; border-width:3px 0 0} }
+.ask[data-skin="coins"]{--sheet:#22091F; --surface:#2E1236; --ink:#FFF6E0; --mute:#E2C9A8; --rule:#5A2A5E; --accent:#F0A91F; --on-accent:#3A2000; border:2px solid #FFC83D; box-shadow:0 0 0 2px rgba(255,200,61,.25)}
+.ask[data-skin="coins"] h2{font-size:24px; font-weight:800; color:#FFC83D}
+.ask[data-skin="coins"] .btn{border:3px solid #12040F; border-radius:16px; background:linear-gradient(#5E2A63, #43184A); color:#fff; font-weight:800; box-shadow:0 4px 0 #12040F}
+.ask[data-skin="coins"] .btn.solid{background:linear-gradient(#FFDB6E, #E9A622); color:#3A2000}
+.ask[data-skin="coins"] .btn:active{transform:translateY(3px); box-shadow:0 1px 0 #12040F}
+@media (max-width:560px){ .ask[data-skin="rocket"], .ask[data-skin="city"]{border-radius:0} .ask[data-skin="dash"], .ask[data-skin="coins"]{border-radius:24px 24px 0 0; border-width:3px 0 0} }
 /* New flight, at the end of the Rocket read-outs' last line while the rocket is off the pad */
 .hud-flight{position:absolute; right:12px; bottom:6px; min-height:28px; padding:3px 7px; border:2px solid #05070D; border-radius:0; background:#7B8293; color:#fff;
   font-family:var(--pixel); font-size:10px; text-shadow:1px 1px 0 rgba(0,0,0,.45); box-shadow:inset -2px -2px 0 rgba(0,0,0,.25); cursor:pointer}
@@ -456,20 +457,20 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 @container (max-height:262px){ .classic > .monitor{display:none} .clock-label{display:none} .stats{margin-top:6px} }
 /* ---------- dash theme: a neon runner. Bold rounded type, thick dark outlines, bright lime and cyan ---------- */
 #app[data-skin="dash"]{--paper:#07071F; --surface:#17174A; --ink:#FFFFFF; --mute:#B9BCE8; --rule:#34348A; --accent:#7CFF4F; --on-accent:#06210A}
-#app[data-skin="dash"][data-chrome="pixel"] #top h1{font-family:var(--sans); font-size:20px; font-weight:800}
-#app[data-skin="dash"][data-chrome="pixel"] .icon-btn{border-radius:12px}
-#app[data-skin="dash"][data-chrome="pixel"] #notice, #app[data-skin="dash"][data-chrome="pixel"] #demoBar{border-radius:14px}
-#app[data-skin="dash"][data-chrome="pixel"] .chips button{border-radius:999px}
-#app[data-skin="dash"][data-chrome="pixel"] .chips button[aria-pressed="true"], #app[data-skin="dash"][data-chrome="pixel"] #notice .act{background:var(--accent); color:var(--on-accent); border-color:var(--accent); font-weight:700; border-radius:999px}
-#app[data-skin="dash"][data-chrome="pixel"] #controls button{font-family:var(--sans); font-size:17px; font-weight:800; border-radius:16px; border:3px solid #05051A; background:#2B2B7A; color:#FFFFFF; text-shadow:none; box-shadow:0 4px 0 #05051A}
-#app[data-skin="dash"][data-chrome="pixel"] #controls button.primary{background:#7CFF4F; color:#06210A}
-#app[data-skin="dash"][data-chrome="pixel"] #controls button:active{transform:translateY(2px); box-shadow:0 2px 0 #05051A}
-#app[data-skin="dash"][data-chrome="pixel"] #controls{padding-bottom:14px}
-#app[data-skin="dash"][data-chrome="pixel"] .award-card{background:#17174A; border:3px solid #7CFF4F; border-radius:22px; font-family:var(--sans); box-shadow:0 8px 0 rgba(5,5,26,.6)}
-#app[data-skin="dash"][data-chrome="pixel"] .award-card .trophy{display:block}
-#app[data-skin="dash"][data-chrome="pixel"] .award-card .px-trophy{display:none}
-#app[data-skin="dash"][data-chrome="pixel"] .award-card h3{font-family:var(--sans); font-size:24px; font-weight:800; color:#7CFF4F}
-#app[data-skin="dash"][data-chrome="pixel"] .award-card p{font-size:14px; color:#B9BCE8}
+#app[data-skin="dash"][data-chrome="pixel"] #top h1, #app[data-skin="coins"][data-chrome="pixel"] #top h1{font-family:var(--sans); font-size:20px; font-weight:800}
+#app[data-skin="dash"][data-chrome="pixel"] .icon-btn, #app[data-skin="coins"][data-chrome="pixel"] .icon-btn{border-radius:12px}
+#app[data-skin="dash"][data-chrome="pixel"] #notice, #app[data-skin="dash"][data-chrome="pixel"] #demoBar, #app[data-skin="coins"][data-chrome="pixel"] #notice, #app[data-skin="coins"][data-chrome="pixel"] #demoBar{border-radius:14px}
+#app[data-skin="dash"][data-chrome="pixel"] .chips button, #app[data-skin="coins"][data-chrome="pixel"] .chips button{border-radius:999px}
+#app[data-skin="dash"][data-chrome="pixel"] .chips button[aria-pressed="true"], #app[data-skin="dash"][data-chrome="pixel"] #notice .act, #app[data-skin="coins"][data-chrome="pixel"] .chips button[aria-pressed="true"], #app[data-skin="coins"][data-chrome="pixel"] #notice .act{background:var(--accent); color:var(--on-accent); border-color:var(--accent); font-weight:700; border-radius:999px}
+#app[data-skin="dash"][data-chrome="pixel"] #controls button, #app[data-skin="coins"][data-chrome="pixel"] #controls button{font-family:var(--sans); font-size:17px; font-weight:800; border-radius:16px; border:3px solid #05051A; background:#2B2B7A; color:#FFFFFF; text-shadow:none; box-shadow:0 4px 0 #05051A}
+#app[data-skin="dash"][data-chrome="pixel"] #controls button.primary, #app[data-skin="coins"][data-chrome="pixel"] #controls button.primary{background:#7CFF4F; color:#06210A}
+#app[data-skin="dash"][data-chrome="pixel"] #controls button:active, #app[data-skin="coins"][data-chrome="pixel"] #controls button:active{transform:translateY(2px); box-shadow:0 2px 0 #05051A}
+#app[data-skin="dash"][data-chrome="pixel"] #controls, #app[data-skin="coins"][data-chrome="pixel"] #controls{padding-bottom:14px}
+#app[data-skin="dash"][data-chrome="pixel"] .award-card, #app[data-skin="coins"][data-chrome="pixel"] .award-card{background:#17174A; border:3px solid #7CFF4F; border-radius:22px; font-family:var(--sans); box-shadow:0 8px 0 rgba(5,5,26,.6)}
+#app[data-skin="dash"][data-chrome="pixel"] .award-card .trophy, #app[data-skin="coins"][data-chrome="pixel"] .award-card .trophy{display:block}
+#app[data-skin="dash"][data-chrome="pixel"] .award-card .px-trophy, #app[data-skin="coins"][data-chrome="pixel"] .award-card .px-trophy{display:none}
+#app[data-skin="dash"][data-chrome="pixel"] .award-card h3, #app[data-skin="coins"][data-chrome="pixel"] .award-card h3{font-family:var(--sans); font-size:24px; font-weight:800; color:#7CFF4F}
+#app[data-skin="dash"][data-chrome="pixel"] .award-card p, #app[data-skin="coins"][data-chrome="pixel"] .award-card p{font-size:14px; color:#B9BCE8}
 #pDash{background:#07071F; color:#FFFFFF; font-family:var(--sans)}
 #dashCv{position:absolute; inset:0; width:100%; height:100%; display:block}
 .dash-hud{position:absolute; left:10px; right:10px; top:8px; padding:9px 12px 8px; font-size:12px; line-height:1.4; background:rgba(8,8,34,.78); border:2px solid rgba(255,255,255,.2); border-radius:16px}
@@ -495,26 +496,34 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 #dBanner{position:absolute; left:50%; bottom:16px; transform:translateX(-50%); width:max-content; max-width:calc(100% - 40px); padding:8px 14px; background:#05051A; color:#7CFF4F; border:3px solid #7CFF4F; border-radius:14px;
   font-size:15px; font-weight:800; text-align:center; opacity:0; transition:opacity .25s; pointer-events:none}
 #dBanner.on{opacity:1}
-@media (max-width:350px){ .dash-hud{font-size:11px; padding:8px 10px 7px} .dh-stats span{font-size:10px} .dh-stats b{font-size:14px} #app[data-skin="dash"][data-chrome="pixel"] #controls button{font-size:15px} }
+@media (max-width:350px){ .dash-hud{font-size:11px; padding:8px 10px 7px} .dh-stats span{font-size:10px} .dh-stats b{font-size:14px} #app[data-skin="dash"][data-chrome="pixel"] #controls button, #app[data-skin="coins"][data-chrome="pixel"] #controls button{font-size:15px} }
 @media (max-height:620px){ .dh-line.dim{display:none} }
 
-/* ---------- coins theme: an arcade coin pusher. Gold on deep plum, the Rocket read-outs and pixel buttons in its colours ---------- */
+/* ---------- coins theme: an arcade coin pusher in 3D. Gold on deep plum; smooth and rounded like Dash (it shares Dash's chrome rules), never pixelated ---------- */
 #app[data-skin="coins"]{--paper:#1A0820; --surface:#2E1236; --ink:#FFF6E0; --mute:#E2C9A8; --rule:#5A2A5E; --accent:#FFC83D; --on-accent:#3A2000}
-#app[data-skin="coins"][data-chrome="pixel"] #controls button{background:#7A3A7E}
-#app[data-skin="coins"][data-chrome="pixel"] #controls button.primary{background:#D7951A}
-#app[data-skin="coins"][data-chrome="pixel"] .award-card{background:#1A0820; border-color:#FFC83D}
+#app[data-skin="coins"][data-chrome="pixel"] #controls button{border-color:#12040F; background:linear-gradient(#5E2A63, #43184A); box-shadow:0 4px 0 #12040F}
+#app[data-skin="coins"][data-chrome="pixel"] #controls button.primary{background:linear-gradient(#FFDB6E, #E9A622); color:#3A2000}
+#app[data-skin="coins"][data-chrome="pixel"] #controls button:active{box-shadow:0 2px 0 #12040F}
+#app[data-skin="coins"][data-chrome="pixel"] .award-card{background:#2E1236; border-color:#FFC83D; box-shadow:0 8px 0 rgba(18,4,15,.6)}
+#app[data-skin="coins"][data-chrome="pixel"] .award-card h3{color:#FFC83D}
+#app[data-skin="coins"][data-chrome="pixel"] .award-card p{color:#E2C9A8}
 #app[data-skin="coins"] #skinBar{--tint:#FFC83D}
-#app[data-skin="coins"] #skinBar button::before{border-radius:0}
-#pCoins{background:#1A0820; color:#FFF6E0; font-family:var(--pixel)}
+#pCoins{background:radial-gradient(120% 70% at 50% 100%, #3A0F2E, #1A0820 70%); color:#FFF6E0; font-family:var(--sans)}
 #coinCv{position:absolute; inset:0; width:100%; height:100%; display:block}
-#pCoins .hud{background:linear-gradient(rgba(26,8,32,.85), rgba(26,8,32,.85) 82%, rgba(26,8,32,0))}
-#pCoins .hud{border-color:#5A2A5E}                                            /* the card's outline, on a tablet */
+.coin-gl{position:absolute; left:0; top:0; display:block}
+#pCoins .hud{background:linear-gradient(rgba(26,8,32,.92), rgba(26,8,32,.92) 82%, rgba(26,8,32,0)); text-shadow:none}
+#pCoins .hud{border-color:#5A2A5E; border-radius:20px}                        /* the card's outline, on a tablet */
 #pCoins .hud .k, #pCoins .hud-side, #pCoins .hud-stats span, #kHint{color:#E2C9A8}
-#pCoins .hud-side b{color:#FFF6E0}
+#pCoins .hud .big{font-weight:800; letter-spacing:-.04em; font-variant-numeric:tabular-nums}
+#pCoins .hud-side b, #pCoins .hud-stats b{color:#FFF6E0; font-weight:800; font-variant-numeric:tabular-nums}
+#pCoins .hud-stats span{font-size:11px} #pCoins .hud-stats b{font-size:16px}
+#pCoins .hud-line{font-weight:600}
 #app[data-music="1"] #pCoins .hud .big{color:#FFC83D}
-#pCoins .pbar i.go{background:#FFC83D}
-#kBanner{position:absolute; left:50%; top:max(0px, calc(var(--hud-b, 156px) - 6px)); transform:translateX(-50%); max-width:92%; text-align:center; padding:8px 12px; background:#1A0820; color:#FFC83D; border:2px solid #FFC83D;
-  font-size:14px; opacity:0; transition:opacity .25s; pointer-events:none}
+#pCoins .pbar{border-radius:8px; border-color:#12040F; background:rgba(255,255,255,.1); box-shadow:none}
+#pCoins .pbar i{border-radius:6px; background:linear-gradient(#FFB36B, #E8752C)} #pCoins .pbar i.go{background:linear-gradient(#FFE07A, #F0A91F)}
+#pCoins .pbar .avg{background:#FFF6E0; box-shadow:0 0 0 2px #12040F; border-radius:2px} #pCoins .eff::before{background:#FFF6E0; box-shadow:0 0 0 1px #12040F}
+#kBanner{position:absolute; left:50%; top:max(0px, calc(var(--hud-b, 156px) - 6px)); transform:translateX(-50%); max-width:92%; text-align:center; padding:9px 16px; background:rgba(26,8,32,.92); color:#FFC83D; border:2px solid #FFC83D; border-radius:14px;
+  font-size:15px; font-weight:800; opacity:0; transition:opacity .25s; pointer-events:none}
 #kBanner.on{opacity:1}
 
 /* ---------- theme bar: each theme's icon under the scene; the current one lit on a tinted tab, a locked one faint with a padlock ---------- */
@@ -540,13 +549,13 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
   /* after a session the bar holds New session and Summary: the longer label gets the room it needs, on one line */
   #app[data-chrome="pixel"][data-state="stopped"] #controls button{padding-left:4px; padding-right:4px; white-space:nowrap}
   #app[data-chrome="pixel"][data-state="stopped"] #btnStart{flex-grow:1.55}
-  @media (max-width:419px){ #app[data-skin="dash"][data-chrome="pixel"][data-state="stopped"] #controls button{font-size:15px} }
+  @media (max-width:419px){ #app[data-skin="dash"][data-chrome="pixel"][data-state="stopped"] #controls button, #app[data-skin="coins"][data-chrome="pixel"][data-state="stopped"] #controls button{font-size:15px} }
   @media (max-width:389px){ #app[data-chrome="pixel"][data-state="stopped"] #controls{gap:8px} #app[data-skin="city"][data-state="stopped"] #controls{gap:12px} }
   @media (max-width:359px){ #app[data-chrome="pixel"][data-state="stopped"]:not([data-skin="city"]) #controls button{font-size:11px} #app[data-chrome="pixel"][data-state="stopped"] #btnStart{flex-grow:1.4} }   /* 320 px phones */
   #app[data-chrome="pixel"] #controls{padding:8px 12px 10px; gap:10px}
   #app[data-chrome="pixel"] #controls button{min-height:46px}
   #app[data-skin="city"] #controls{padding:8px 15px 10px; gap:14px}
-  #app[data-skin="dash"][data-chrome="pixel"] #controls{padding:6px 12px 10px}   /* room for the drop shadow, and the same height as the others, so the scenes match */
+  #app[data-skin="dash"][data-chrome="pixel"] #controls, #app[data-skin="coins"][data-chrome="pixel"] #controls{padding:6px 12px 10px}   /* room for the drop shadow, and the same height as the others, so the scenes match */
   #app[data-chrome="pixel"] #notice{margin-top:8px}
   #app[data-chrome="pixel"] #demoBar{display:flex; align-items:center; gap:6px; padding:6px 8px; margin-top:8px}   /* demo sound on one line */
   #app[data-chrome="pixel"] #demoBar .lab{display:none}
@@ -579,7 +588,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
   .app-icon{width:42px; height:42px; border-radius:12px}
   #top h1{font-size:24px} .tagline{font-size:14px}
   #app[data-chrome="pixel"] #top h1{font-size:18px}
-  #app[data-skin="dash"][data-chrome="pixel"] #top h1{font-size:24px}
+  #app[data-skin="dash"][data-chrome="pixel"] #top h1, #app[data-skin="coins"][data-chrome="pixel"] #top h1{font-size:24px}
   .icon-btn{min-height:44px}
   #btnSettings svg{width:22px; height:22px}
   #app[data-chrome="pixel"] .icon-btn{width:44px; height:44px}
@@ -609,7 +618,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
   #app[data-skin] #controls button{flex:1 1 0; max-width:300px; min-height:58px; font-size:19px}
   #app[data-chrome="pixel"] #controls button{font-size:17px}
   #app[data-skin="city"] #controls button{font-size:15px}
-  #app[data-skin="dash"][data-chrome="pixel"] #controls button{font-size:20px}
+  #app[data-skin="dash"][data-chrome="pixel"] #controls button, #app[data-skin="coins"][data-chrome="pixel"] #controls button{font-size:20px}
   #app #controls #btnPause, #app #controls #btnResume{max-width:620px}
   #app #controls #btnStop{max-width:220px}
 
@@ -874,7 +883,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
           <div class="hud-row">
             <div class="hud-play"><span class="k">Play time</span><span class="big" id="kPlay">00:00</span></div>
             <div class="hud-side">
-              <div><canvas class="px-trophy badge" id="kTrophy" width="16" height="16"></canvas>Goal <b id="kGoal">30:00</b></div>
+              <div><svg class="trophy badge" viewBox="0 0 64 64" aria-hidden="true"><path d="M19 13H9c0 10 5 15 12 16M45 13h10c0 10-5 15-12 16" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><path fill="currentColor" d="M18 7h28v15c0 10-6 17-14 17s-14-7-14-17zM29 38h6v9h-6zM22 47h20a2 2 0 0 1 2 2v3H20v-3a2 2 0 0 1 2-2zM17 52h30a2 2 0 0 1 2 2v4H15v-4a2 2 0 0 1 2-2z"/><path d="M25 12v9c0 4 1 7 3 10" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="3" stroke-linecap="round"/></svg>Goal <b id="kGoal">30:00</b></div>
               <div id="kGoalLeft">30:00 left</div>
             </div>
           </div>

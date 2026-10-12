@@ -69,7 +69,7 @@ const TROPHY_PX = ['....YYYYYYYY....', '.YY.YWYYYYYD.YY.', '.Y..YWYYYYYD..Y.', '
   '......YYYD......', '.......YD.......', '.......YD.......', '......YYYD......', '.....DDDDDD.....', '....BBBBBBBB....', '....BbbbbbbB....', '................'];
 function drawPixelTrophy(cv) { const g = cv.getContext('2d'), pal = { Y: '#FFD23F', W: '#FFF3B0', D: '#C99A1E', B: '#8A5A2B', b: '#6E4420' };
   TROPHY_PX.forEach((row, j) => { for (let i = 0; i < row.length; i++) if (pal[row[i]]) { g.fillStyle = pal[row[i]]; g.fillRect(i, j, 1, 1); } }); }
-drawPixelTrophy($('rTrophy')); drawPixelTrophy($('awardPx')); drawPixelTrophy($('yTrophy')); drawPixelTrophy($('kTrophy'));
+drawPixelTrophy($('rTrophy')); drawPixelTrophy($('awardPx')); drawPixelTrophy($('yTrophy'));
 let awardT = 0;
 function goalText(goal) { return Math.round(goal / 60) + '-minute'; }
 function award(goal) {
@@ -750,6 +750,7 @@ function visible(i) { return !homeOn && (i === skin || (dragging && i === peek))
 function setSkin(i, animate) {
   skin = i; app.dataset.skin = SKINS[i]; app.dataset.chrome = i === 0 ? 'clean' : 'pixel'; S.skin = SKINS[i]; saveS();
   if (i === 2) city.ensure();
+  if (i === 4) coinView.ensure();
   track.style.transition = animate && !reduceMotion ? 'transform .3s cubic-bezier(.2,.8,.2,1)' : 'none';
   track.style.transform = 'translateX(' + (-open.indexOf(i) * 100 / open.length) + '%)';
   PANELS.forEach((id, j) => { $(id).inert = j !== i; });
