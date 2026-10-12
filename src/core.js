@@ -1115,6 +1115,51 @@ function detectionTests(sr) {
     const s = new Session(); s.start(); for (let i = 0; i < 30; i++) s.tick(1, true); for (let i = 0; i < 10; i++) s.tick(1, false);
     const m = s.minute, ok = m.length === 60 && m.slice(0, 20).every(v => v === null) && m.slice(20, 50).every(v => v === 1) && m.slice(50).every(v => v === 0);
     return { name: 'Session: the last minute, a second at a time', expect: '20 empty seconds, 30 played, 10 quiet', got: m.map(v => v == null ? '.' : v >= 0.5 ? '#' : '_').join(''), pass: ok }; } });
+  list.push({ name: 'Summary: the columns add up for any length of session', run: () => {
+    const runsFor = secs => { const s = new Session(); s.start(); for (let t = 0; t < secs; t += 7) s.tick(Math.min(7, secs - t), Math.floor(t / 100) % 3 !== 2); s.stop(); return s.runs; };
+    const near = (a, b) => Math.abs(a - b) < 1e-6, rows = [60, 61, 3000, 10800, 144000].map(secs => { const R = sessionReport(runsFor(secs)), c = R.columns;
+      const t = c.reduce((a, x) => a + x.t, 0), all = c.reduce((a, x) => a + x.play + x.quiet + x.paused, 0), play = c.reduce((a, x) => a + x.play, 0);
+      return { secs: secs, bin: R.bin, n: c.length, ok: near(t, secs) && near(all, secs) && near(play, R.play) && near(R.total, secs) && c.length === Math.ceil(secs / R.bin) && c.every(x => x.t > 0 && x.t <= R.bin + 1e-9) && (c.length <= 45 || R.bin === 3600) }; });
+    const ok = rows.every(r => r.ok) && rows.map(r => r.bin).join() === '60,60,120,300,3600' && rows.map(r => r.n).join() === '1,2,25,36,40';
+    return { name: 'Summary: the columns add up for any length of session', expect: 'sessions of 1 min, 61 s, 50 min, 3 h and 40 h get columns of 60, 60, 120, 300 and 3600 s (1, 2, 25, 36 and 40 of them, the 61 s session ending in a column of 1 s) whose times add up to the whole session and whose playing adds up to the playing',
+      got: rows.map(r => clockText(r.secs) + ': ' + r.n + ' columns of ' + r.bin + ' s' + (r.ok ? '' : ', which do not add up')).join('; '), pass: ok }; } });
+  list.push({ name: 'Summary: the best window needs 10 minutes, and the thirds need running time', run: () => {
+    const best = runs => { const b = sessionReport(runs).best; return b ? clockText(b.a) + '+' + b.len : 'none'; }, th = runs => sessionReport(runs).thirds.map(x => x == null ? '-' : Math.round(x * 100)).join('/');
+    const E = sessionReport([]), Z = sessionReport([2, 100]), got = [best([0, 300, 1, 299]), best([0, 300, 1, 300]), best([1, 600, 0, 599]), best([1, 600, 0, 600]), th([0, 100, 2, 200]), th([1, 100, 0, 100]), th([2, 100]), th([])];
+    const want = ['none', '0:00+300', '10:00+300', '10:00+600', '100/-/-', '0/50/100', '-/-/-', '-/-/-'];
+    const ok = got.every((g, i) => g === want[i]) && E.total === 0 && E.columns.length === 0 && E.best === null && E.longest.a === 0 && E.longest.b === 0 && E.efficiency === 0
+      && Z.total === 100 && Z.paused === 100 && Z.pauses === 1 && Z.active === 0 && Z.efficiency === 0 && Z.best === null && Z.columns.length === 2 && Z.columns[1].paused === 40 && Z.longest.b === 0;
+    return { name: 'Summary: the best window needs 10 minutes, and the thirds need running time', expect: 'no best window under 10 minutes, the best 5 minutes from 10 minutes and the best 10 from 20, placed where the playing is; a third with no running time is blank; no runs at all, or one long pause, give an empty report',
+      got: got.join(' | ') + ' | empty: ' + E.columns.length + ' columns | one pause: ' + Z.paused + ' s paused, ' + Z.columns.length + ' columns', pass: ok }; } });
+  list.push({ name: 'Session: away while paused, calls out of turn, and the hold', run: () => {
+    const s = new Session(); s.start(); s.tick(10, true); s.pause(); s.away(30); const a = [s.pauses, s.total, s.runs.join()];   // away while paused: the pause goes on
+    s.resume(); s.away(0); s.away(-5); s.away(NaN); const b = [s.total, s.runs.join()]; s.away(5); const c = [s.pauses, s.runs.join(), s.playing];
+    const i = new Session(), idle = [i.pause(), i.resume(), i.stop(), i.tick(1, true), i.total]; i.start(); const r = [i.resume(), i.pause(), i.pause(), i.pauses, i.resume(), i.stop(), i.stop(), i.tick(1, true), i.total, i.resume(), i.pause(), i.state];
+    const m = new Session(); m.start(); for (let k = 0; k < 60; k++) m.tick(1, true); for (let k = 0; k < 59; k++) m.tick(1, false); const r119 = m.recentEfficiency; m.tick(1, false); const r120 = m.recentEfficiency, eff = m.efficiency;
+    const h = new Session(); h.hold = 5; h.start(); const hl = [h.holdLeft]; h.tick(1, true); hl.push(h.holdLeft); h.tick(2, false); hl.push(h.holdLeft); h.tick(3, false); hl.push(h.holdLeft, h.playing); h.tick(1, false); hl.push(h.holdLeft, h.playing);
+    h.tick(1, true); h.pause(); hl.push(h.holdLeft); h.resume(); h.tick(1, false); hl.push(h.holdLeft, h.playing); h.tick(1, true); h.tick(2, false); hl.push(h.holdLeft); h.stop(); hl.push(h.holdLeft);
+    const ok = a.join() === '1,40,0,10,2,30' && b.join() === '40,0,10,2,30' && c.join() === '2,0,10,2,35,false' && idle.join() === 'false,false,false,false,0' && r.join() === 'false,true,false,1,true,true,false,false,0,false,false,stopped'
+      && Math.abs(r119 - 1 / 60) < 1e-9 && r120 === 0 && Math.abs(eff - 0.5) < 1e-9 && hl.join() === '0,0,3,0,true,0,false,0,0,false,3,0';
+    return { name: 'Session: away while paused, calls out of turn, and the hold', expect: 'away while paused lengthens the pause without counting another; away for 0 s, a negative time or NaN changes nothing; pause, resume, stop and tick out of turn return false and change nothing; after exactly 120 s the last minute has let the first go; the hold counts down from 5 s and is 0 while playing is heard, once it has run out, while paused, after a resume and after End even mid-way',
+      got: 'away while paused: ' + a.join(' ') + ' | out of turn: ' + idle.join(' ') + ' / ' + r.join(' ') + ' | last minute at 119 s ' + Math.round(r119 * 1000) / 10 + '%, at 120 s ' + Math.round(r120 * 100) + '% | hold ' + hl.join(' '), pass: ok }; } });
+  list.push({ name: 'Swipe: a press has to start, go sideways and lock before it counts', run: () => {
+    const d = new DragSwipe(), go = (dx, ms, x) => { d.down(1, 200, 300, 0, 390); d.move(200 + dx, 300); return d.up(x === undefined ? 200 + dx : x, ms); };
+    const got = [d.move(10, 10), d.up(10, 100), d.has(1)];                                  // nothing pressed
+    d.down(1, 200, 300, 0, 390); got.push(d.has(2), d.move(210, 300), d.locked, d.move(211, 300), d.locked, d.move(211, 400), d.up(159, 349));   // 10 px is still a tap, 11 px locks, then it stays locked however far down
+    d.down(1, 200, 300, 0, 390); got.push(d.move(200, 315), d.has(1), d.move(100, 315), d.up(100, 500));   // a scroll took it: later sideways moves are ignored
+    got.push(go(-41, 349), go(-41, 350), go(-40, 100), go(97.5, 1000), go(98, 1000), go(-200, 400, null), d.has(1));   // the flick and quarter edges; taken away after the lock it goes back
+    d.down(1, 200, 300, 0, 390); d.move(100, 300); d.down(2, 50, 50, 10, 390); got.push(d.has(1), d.locked, d.move(40, 50), d.up(40, 100));   // a second finger starts over
+    const want = [null, null, false, false, null, false, 11, true, 11, 1, null, false, null, null, 1, 0, 0, 0, -1, 0, false, false, false, null, null];
+    return { name: 'Swipe: a press has to start, go sideways and lock before it counts', expect: 'moving or letting go with nothing pressed is nothing; 10 px sideways is still a tap and 11 px locks the swipe, which then follows the finger whatever it does up or down; after a scroll takes the press, sideways moves and letting go count for nothing; a 41 px flick under 350 ms steps, 40 px or 350 ms does not; a quarter of the way (97.5 px) stays, a px more steps; taken away after the lock it goes back; a second finger starts over',
+      got: got.map(String).join(' '), pass: got.length === want.length && got.every((g, i) => g === want[i]) }; } });
+  list.push({ name: 'Trackpad: small nudges, a change of mind and a reset', run: () => {
+    const w = new WheelSwipe(), f = (t, dx) => w.feed({ t: t, now: t, drawn: t - 8, dx: dx });
+    const got = [f(0, 20), f(16, 20), f(32, 19), f(48, 1), f(64, 30), f(80, 10), f(2000, 70)];   // 59 px is not a swipe, 60 is; the momentum after it is not another; a fresh swipe after a pause is
+    w.reset(); got.push(f(0, 30), f(16, -10), f(32, 40), f(48, 30), f(64, -70), f(80, 70));         // a few px back wipe the count (else 30 + 40 would step); after a step, the other way is a new swipe
+    w.reset(); got.push(f(0, 200), f(16, 150), f(32, 100)); w.reset(); got.push(f(48, 100), f(64, 0), f(80, 0));   // a reset lets the next event count at once; events of 0 px do nothing
+    const want = [0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, -1, 1, 1, 0, 0, 1, 0, 0];
+    return { name: 'Trackpad: small nudges, a change of mind and a reset', expect: 'nudges add up to a step at 60 px and the momentum after it does not step again; a few px the other way start the count again, while the other way after a step is a new swipe; after a reset the next event counts afresh',
+      got: got.join(' '), pass: got.length === want.length && got.every((g, i) => g === want[i]) }; } });
   list.push({ name: 'Themes: the player turns off the ones they don\'t like', run: () => {
     const all = ['classic', 'rocket', 'city', 'dash', 'race', 'fireworks'];
     const got = [themesOn(all, '').join(' '), themesOn(all, 'city,dash').join(' '), themesOn(all, 'classic,rocket,city,dash,race,fireworks').join(' '), themesOn(all, 'space,dash').join(' '),
