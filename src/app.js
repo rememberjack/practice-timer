@@ -38,7 +38,7 @@ const dash = new MT.DashSim(), dashView = makeDashView($('dashCv'), $('dashHud')
 let pendingOnsets = 0, onsetN = 0, dashAt = 0;      // note starts waiting to be used; a running count for followers; when the course last moved
 const race = new MT.RaceSim(), raceView = makeRaceView($('raceCv'), $('raceHud'), race, MT);
 let raceNotes = 0, raceDoneAt = 0;                  // note starts for the sparks under the car; when the chequered flag fell
-const fw = new MT.FireworkSim(), fwView = makeFireworkView($('fireCv'), $('fireHud'), fw, MT);
+const fw = new MT.FireworkSim(), fwView = makeFireworkView($('pFire'), $('fireHud'), fw, MT);
 let fwNotes = 0;                                    // note starts waiting to send shells up
 const NB = 44, bars = new Float32Array(NB), shown = new Float32Array(NB);
 const heard = { label: '', detail: '', note: '', midi: null };      // midi: the pitch heard, as a (fractional) piano key number
@@ -823,6 +823,7 @@ function visible(i) { return !homeOn && (i === skin || (dragging && i === peek))
 function setSkin(i, animate) {
   skin = i; app.dataset.skin = SKINS[i]; app.dataset.chrome = i === 0 ? 'clean' : 'pixel'; S.skin = SKINS[i]; saveS();
   if (i === 2) city.ensure();
+  if (i === 5) fwView.ensure();
   track.style.transition = animate && !reduceMotion ? 'transform .3s cubic-bezier(.2,.8,.2,1)' : 'none';
   track.style.transform = 'translateX(' + (-open.indexOf(i) * 100 / open.length) + '%)';
   PANELS.forEach((id, j) => { $(id).inert = j !== i; });
@@ -1284,7 +1285,7 @@ function dbgFrame(ms) {
     'play ' + fmt(session.play) + ' of ' + fmt(session.active) + (session.holdLeft > 0 ? '  hold ' + f1(session.holdLeft) + ' s' : ''),
     'rocket ' + sim.mode + ', ' + Math.round(sim.fp) + ' s flown, power ' + Math.round(sim.power * 100) + '%',
     'race ' + race.mode + (race.pit ? ' (pit ' + race.pit.phase + ')' : '') + ', P' + race.pos + ', lap ' + race.lap,
-    'fireworks ' + fw.shells + ' shells, ' + fw.colours + ' colours' + (fw.inFinale ? ', finale' : '') + ', ' + fwView.busy() + ' in the air',
+    'fireworks ' + fw.shells + ' shells, ' + fw.colours + ' colours' + (fw.inFinale ? ', finale' : '') + ', ' + fwView.busy() + ' in the air' + (fwView.is3d ? ', 3D' : ', flat'),
   ].filter(Boolean).join('\n');
 }
 $('dbgReadIn').onchange = () => { DBG.readout = $('dbgReadIn').checked; saveDbg(); paintDbg(); };

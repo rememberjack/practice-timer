@@ -614,7 +614,8 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 #app[data-skin="fireworks"][data-chrome="pixel"] .award-card h3{font-family:var(--sans); font-size:24px; font-weight:800; color:#FFC94D}
 #app[data-skin="fireworks"][data-chrome="pixel"] .award-card p{font-size:14px; color:#B4B9E0}
 #pFire{background:#060818; color:#FFFFFF; font-family:var(--sans)}
-#fireCv{position:absolute; inset:0; width:100%; height:100%; display:block}
+#fireCv, #fire3d{position:absolute; inset:0; width:100%; height:100%; display:block}
+#fireCv[hidden], #fire3d[hidden]{display:none}
 .fw-hud{background:rgba(8,10,32,.72); border-color:rgba(255,255,255,.16)}       /* the Dash card's layout (dash-hud), a little more see-through for the glow behind */
 .fw-hud .k, .fw-hud .dh-side, .fw-hud .dh-stats span, .fw-hud .dh-line.dim{color:#B4B9E0}
 .fw-hud .dh-bar{border-color:#05061A}
@@ -1020,6 +1021,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
       </section>
       <section class="panel" id="pFire" aria-label="Fireworks theme">
         <canvas id="fireCv" aria-hidden="true"></canvas>
+        <canvas id="fire3d" aria-hidden="true" hidden></canvas>
         <div class="dash-hud fw-hud" id="fireHud">
           <div class="dh-prog"><span class="k">Finale</span><div class="dh-bar"><i id="fBar"></i></div><b id="fPct">0%</b></div>
           <div class="dh-top">

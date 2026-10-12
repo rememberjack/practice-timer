@@ -96,7 +96,7 @@ async function run(wsUrl) {
   await touch(right, y, left, y); check(await skin() === 'fireworks', 'one more swipe left reaches Fireworks, the last theme (got ' + await skin() + ')');
   await touch(right, y, left, y); check(await skin() === 'fireworks', 'a swipe past the last theme stays on it (got ' + await skin() + ')');
   await sleep(1500);   // let the fireworks draw for a while
-  check(await js('(() => { const c = document.getElementById("fireCv"); return c.width > 0 && c.height > 0; })()'), 'the Fireworks scene has a canvas to draw on');
+  check(await js('(() => { const c = document.querySelector("#pFire canvas:not([hidden])"); return !!c && c.width > 0 && c.height > 0; })()'), 'the Fireworks scene has a canvas to draw on (3D, or flat when three.js cannot load)');
   check(!errors.length, 'no errors on the page' + (errors.length ? ': ' + [...new Set(errors)].slice(0, 3).join('; ') : ''));
   ws.close();
 }

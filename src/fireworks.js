@@ -1,8 +1,34 @@
-/* Fireworks theme renderer: a night show over a harbour. Shells rise from behind the skyline and burst in the colour of the note played, and the
-   water below shows them again. Everything about the show (when a shell goes up, its colour, height, size and kind, the finale) comes from
-   FireworkSim in the core; this only draws it. Nothing here makes a sound: the microphone is listening. */
+/* Fireworks theme renderer: a night show over a harbour. Shells rise and burst in the colour of the note played, and the water below shows them
+   again. It is drawn in 3D (src/fireworks3d.js) once three.js has loaded, as City loads it; until then, or if it cannot load (no network, no
+   WebGL), the flat drawing here stands in. Everything about the show (when a shell goes up, its colour, height, size and kind, the finale) comes
+   from FireworkSim in the core; this only draws it. Nothing here makes a sound: the microphone is listening. */
 /* exported makeFireworkView */   // used by src/app.js, which the build puts after this file
-function makeFireworkView(cv, hud, sim, MT) {
+function makeFireworkView(host, hud, sim, MT) {
+  'use strict';
+  const THREE_URL = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
+  const cv2 = host.querySelector('#fireCv'), cv3 = host.querySelector('#fire3d'), flat = makeFirework2D(cv2, hud, sim, MT);
+  let deep = null, loading = null, failedAt = 0;
+  function loadThree() {
+    return new Promise((res, rej) => {
+      if (window.THREE) return res();
+      const s = [...document.scripts].find(x => x.src === THREE_URL) || document.head.appendChild(Object.assign(document.createElement('script'), { src: THREE_URL, async: true }));   // City may be loading it already
+      s.addEventListener('load', () => res()); s.addEventListener('error', () => { s.remove(); rej(new Error('three.js did not load')); });
+    });
+  }
+  /* called when the theme is shown: load three.js and move to 3D; after a failure, try again at most every 10 s */
+  function ensure() {
+    if (deep || loading || Date.now() - failedAt < 10e3) return;
+    loading = loadThree().then(() => { deep = makeFirework3D(cv3, hud, MT); cv3.hidden = false; cv2.hidden = true; deep.resize(); })
+      .catch(() => { deep = null; failedAt = Date.now(); cv3.hidden = true; cv2.hidden = false; })
+      .then(() => { loading = null; });
+  }
+  const now = () => deep || flat;
+  return { ensure: ensure, resize: () => { flat.resize(); if (deep) deep.resize(); }, draw: (v, dt) => now().draw(v, dt), event: e => now().event(e),
+    reset: () => { flat.reset(); if (deep) deep.reset(); }, busy: () => now().busy(), get is3d() { return !!deep; } };
+}
+
+/* the flat drawing, on a 2D canvas: the stand-in for the 3D one */
+function makeFirework2D(cv, hud, sim, MT) {
   'use strict';
   const g = cv.getContext('2d'), RM = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches, TAU = Math.PI * 2;
   const MAX = RM ? 700 : 2600;                        // sparks in the air at once; a fast run on a phone stays smooth
