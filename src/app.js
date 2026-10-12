@@ -480,7 +480,8 @@ function paintRace(st, label) {
   }
   const tw = $('gTower'); if (cache.get(tw) !== html) { cache.set(tw, html); tw.innerHTML = html; }
 }
-/* Fireworks read-outs: the bar fills toward the goal and its grand finale; Colours counts the notes (each its own colour) sent up so far */
+/* Fireworks read-outs: the bar fills toward the goal and its grand finale; Colours counts the notes (each its own colour) sent up so far;
+   Intensity is the last minute of playing (what the other themes call Power): how many shells are in the sky at once, and how big */
 let fBannerT = 0;
 function fireBanner(msg) { const b = $('fBanner'); b.textContent = msg; b.classList.add('on'); clearTimeout(fBannerT); fBannerT = setTimeout(() => b.classList.remove('on'), 3200); }
 function hideFireBanner() { clearTimeout(fBannerT); $('fBanner').classList.remove('on'); }
@@ -492,7 +493,7 @@ function fireHint(st) {
   if (fw.inFinale) return 'Grand finale!';
   if (!V.music) return 'The sky is waiting. Play a note';
   if (fw.finaleDone) return 'Goal reached. Every note is an encore';
-  if (V.pw < 0.3) return 'Keep playing for bigger fireworks';
+  if (V.pw < 0.3) return 'Keep playing: the more you play, the more fireworks';
   if (n < 12) return 'Each note has its own colour: ' + n + ' of 12 so far';
   return 'All twelve colours! Shells grow as you play';
 }
