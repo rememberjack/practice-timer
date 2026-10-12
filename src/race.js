@@ -77,7 +77,7 @@ function makeRaceView(cv, hud, sim, MT) {
       for (let x = 6; x < 636; x += 9) if (rnd() > 0.12) { c.fillStyle = cols[(rnd() * cols.length) | 0]; c.fillRect(x, 80 + r * 18, 5, 8); c.fillStyle = '#E7C3A2'; c.fillRect(x + 1, 78 + r * 18, 3, 3); } }
     c.fillStyle = '#0F1322'; c.fillRect(0, 222, 640, 28);
     c.fillStyle = '#F4F4F4'; c.font = '800 italic 22px "Barlow Condensed", "Arial Narrow", sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
-    const t = 'MUSIC TIMER GRAND PRIX', step = c.measureText(t).width + 48;   // spaced by the text's own width, whatever font it gets
+    const t = MT.tr('MUSIC TIMER GRAND PRIX'), step = c.measureText(t).width + 48;   // spaced by the text's own width, whatever font it gets
     for (let x = step / 2; x < 640 + step; x += step) c.fillText(t, x, 237);
     return cv;
   }
@@ -98,7 +98,7 @@ function makeRaceView(cv, hud, sim, MT) {
     c.fillStyle = '#20232D'; for (let i = 0; i < 3; i++) { c.beginPath(); c.arc(110 + i * 60, 248, 26, 0, Math.PI * 2); c.fill(); }   // tyre sets on the rack
     c.fillStyle = col; c.fillRect(330, 120, 140, 70);
     c.fillStyle = ours ? '#0D2A22' : '#FFFFFF'; c.font = '800 italic 42px "Barlow Condensed", "Arial Narrow", sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
-    c.fillText(ours ? 'YOU' : 'PIT', 400, 157);
+    c.fillText(MT.tr(ours ? 'YOU' : 'PIT'), 400, 157);
     return cv;
   }
   let TREES, STAND, BOARDS, GARAGES, OURS;
@@ -246,10 +246,10 @@ function makeRaceView(cv, hud, sim, MT) {
     g.font = '800 24px ' + F; g.fillText(sim.v < 30 ? 'N' : String(gear), gx + 11, by + 45);
     g.textAlign = 'left'; g.font = '800 italic 30px ' + F;
     const sp = String(Math.round(kmh)), sw = g.measureText(sp).width; g.fillText(sp, bx + 9, by + 48);
-    g.font = '600 11px ' + F; g.fillStyle = '#A9B0C6'; if (bx + 12 + sw + g.measureText('KM/H').width < gx - 2) g.fillText('KM/H', bx + 12 + sw, by + 48);
-    g.font = '600 10px ' + F; g.fillStyle = '#A9B0C6'; g.fillText('LAST MINUTE', bx + 8, by + 64);
+    g.font = '600 11px ' + F; g.fillStyle = '#A9B0C6'; const unit = MT.tr('KM/H'); if (bx + 12 + sw + g.measureText(unit).width < gx - 2) g.fillText(unit, bx + 12 + sw, by + 48);
+    g.font = '600 10px ' + F; g.fillStyle = '#A9B0C6'; g.fillText(MT.tr('LAST MINUTE'), bx + 8, by + 64);
     minuteStrip(bx + 8, by + 67, bw - 16, 9, minute);
-    g.font = '700 10px ' + F; const pills = [['DRS', sim.drs, '#3BD16F']]; if (sim.mode === 'red') pills.push(['RED FLAG', true, '#FF2B2B']); else if (sim.limiter) pills.push(['PIT LIMIT', true, '#FFC23D']);
+    g.font = '700 10px ' + F; const pills = [['DRS', sim.drs, '#3BD16F']]; if (sim.mode === 'red') pills.push([MT.tr('RED FLAG'), true, '#FF2B2B']); else if (sim.limiter) pills.push([MT.tr('PIT LIMIT'), true, '#FFC23D']);
     let px = bx + 8;
     for (const [t, on, col] of pills) { const tw = g.measureText(t).width + 10; g.fillStyle = on ? col : '#1C2238'; g.beginPath(); if (g.roundRect) g.roundRect(px, by + 79, tw, 12, 3); else g.rect(px, by + 79, tw, 12); g.fill();
       g.fillStyle = on ? '#0B1020' : '#56607E'; g.fillText(t, px + 5, by + 88.5); px += tw + 5; }

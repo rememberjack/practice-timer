@@ -97,6 +97,14 @@ async function run(wsUrl) {
   await touch(right, y, left, y); check(await skin() === 'fireworks', 'a swipe past the last theme stays on it (got ' + await skin() + ')');
   await sleep(1500);   // let the fireworks draw for a while
   check(await js('(() => { const c = document.querySelector("#pFire canvas:not([hidden])"); return !!c && c.width > 0 && c.height > 0; })()'), 'the Fireworks scene has a canvas to draw on (3D, or flat when three.js cannot load)');
+  // Settings, Language: the words change at once, during a session too, and back again
+  const words = () => js('[document.getElementById("btnPause").textContent, document.getElementById("btnResume").textContent, document.querySelector("#setMain .lab").textContent, document.getElementById("fHint").textContent, document.documentElement.lang].join(" | ")');
+  const pickLang = async i => { await js('document.querySelectorAll("#langList .lrow")[' + i + '].click()'); await sleep(300); };
+  await js('document.getElementById("btnSettings").click(); document.getElementById("openLang").click()'); await sleep(200);
+  await pickLang(1); const english = await words(); await pickLang(3); const french = await words(); await pickLang(2); const chinese = await words(); await pickLang(1);
+  check(/^Pause \| Resume \| Practice goal \| .+ \| en$/.test(english) && /^Pause \| Reprendre \| Objectif de pratique \| .+ \| fr$/.test(french) && /^暂停 \| 继续 \| 练习目标 \| .+ \| zh-CN$/.test(chinese) && await words() === english,
+    'choosing a language changes the words at once, and English brings them back (' + [english, french, chinese].join(' / ') + ')');
+  await pickLang(0); await js('document.getElementById("setClose").click()');   // back to Automatic
   check(!errors.length, 'no errors on the page' + (errors.length ? ': ' + [...new Set(errors)].slice(0, 3).join('; ') : ''));
   ws.close();
 }
