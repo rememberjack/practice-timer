@@ -328,11 +328,11 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 .tg:checked::after{transform:translateX(20px)}
 .tg:disabled{opacity:.5; cursor:default}
 #themesNote{margin:10px 2px 0; min-height:18px}
-/* Settings fills the screen; on a wide screen its rows keep to a 520px column in the middle */
-#dlgSettings{position:fixed; inset:0; width:100%; max-width:none; height:100%; max-height:none; margin:0; border:0; border-radius:0;
+/* Settings and the practice log fill the screen; on a wide screen their rows keep to a 520px column in the middle */
+#dlgSettings, #dlgLog{position:fixed; inset:0; width:100%; max-width:none; height:100%; max-height:none; margin:0; border:0; border-radius:0;
   padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
-#dlgSettings .sh-head, #dlgSettings .sh-body{padding-left:max(16px, calc((100% - 520px) / 2)); padding-right:max(16px, calc((100% - 520px) / 2))}
-#dlgSettings .sh-body{padding-bottom:24px}
+#dlgSettings .sh-head, #dlgSettings .sh-body, #dlgLog .sh-head, #dlgLog .sh-body{padding-left:max(16px, calc((100% - 520px) / 2)); padding-right:max(16px, calc((100% - 520px) / 2))}
+#dlgSettings .sh-body, #dlgLog .sh-body{padding-bottom:24px}
 /* About (from Settings): the credits fill the screen on near-black, rolling up and fading in at the bottom and out at the top.
    With reduced motion they stand still and scroll */
 #dlgCredits{position:fixed; inset:0; width:100%; max-width:none; height:100%; max-height:none; margin:0; border:0; border-radius:0; background:#070B12;
