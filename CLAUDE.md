@@ -47,7 +47,7 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
   the first one on, Classic. The ids turned off are kept in
   the settings as `themesOff` (`themesOn`, `themeSwitch`, `themeLanding` in `src/core.js`), so a new theme starts on and a removed one is forgotten.
 - Settings, About opens the credits over the whole screen (`#dlgCredits`, over Settings) and rolls them up like the end of a film (`CREDITS`, `rollCredits` in
-  `src/app.js`; Claude's name has a sunburst before it, `#ico-claude`); a tap pauses them, holding speeds them up, and with reduced motion they stand still in a box that scrolls.
+  `src/app.js`; Claude's name has a sunburst before it, `#ico-claude`); a tap pauses them, holding speeds them up, dragging moves them (down goes back), and with reduced motion they stand still in a box that scrolls.
 - Settings fills the whole screen (`#dlgSettings`; on a wide screen its rows keep to a column in the middle) and always has the Classic look; only the goal's hint follows the theme it is opened from (`GOAL_HINT` in `src/app.js`).
   The rocket's power, the cannons and the Dash speed follow the last minute of playing (`Session.recentEfficiency`); there is no
   setting for it. The Rocket and City bars fill to that as Power, with a tick and a figure for the whole session's Efficiency

@@ -925,19 +925,29 @@ const CREDITS = [
 ];
 $('rollIn').innerHTML = '<li class="t">Music Timer</li><li class="lead">Music Timer counts your practice only while it hears your instrument, so every minute it shows is a minute you played.</li>' + CREDITS.map(([h, rows]) => '<li class="h">' + h + '</li>' +
   rows.map(([r, n]) => '<li><span class="r">' + r + '</span><span class="n">' + (n === 'Claude' ? '<svg class="ai" aria-hidden="true"><use href="#ico-claude"/></svg>' : '') + n + '</span></li>').join('')).join('') + '<li class="end">Starring you, every time you play.</li>';
-let rollAnim = null, rollHold = 0, rollFast = false, rollDown = false;
+let rollAnim = null, rollHold = 0, rollFast = false, rollDown = false, rollDrag = false, rollWasPaused = false, rollY0 = 0, rollT0 = 0;
 function rollCredits(on) {
-  clearTimeout(rollHold); rollFast = rollDown = false; if (rollAnim) { rollAnim.cancel(); rollAnim = null; }
+  clearTimeout(rollHold); rollFast = rollDown = rollDrag = false; if (rollAnim) { rollAnim.cancel(); rollAnim = null; }
   if (!on || reduceMotion || !$('rollIn').animate) return;
   const h = $('roll').clientHeight, len = $('rollIn').offsetHeight;
   rollAnim = $('rollIn').animate([{ transform: 'translateY(' + h + 'px)' }, { transform: 'translateY(' + -len + 'px)' }], { duration: (h + len) / 32 * 1000, iterations: Infinity });   // 32 px a second
   rollAnim.currentTime = h * 0.6 / 32 * 1000;   // the first time round, the title starts on screen rather than below it
 }
-function rollHint() { $('rollHint').textContent = rollAnim && rollAnim.playState === 'paused' ? 'Tap to carry on.' : 'Tap to pause. Hold to speed up.'; }
+function rollHint() { $('rollHint').textContent = rollAnim && rollAnim.playState === 'paused' ? 'Tap to carry on.' : 'Tap to pause. Hold to speed up. Drag to move.'; }
 function pauseRoll() { if (!rollAnim) return; if (rollAnim.playState === 'paused') rollAnim.play(); else rollAnim.pause(); rollHint(); }
-function rollLetGo(tap) { clearTimeout(rollHold); const down = rollDown; rollDown = false; if (!rollAnim || !down) return; if (rollFast) { rollAnim.playbackRate = 1; rollFast = false; } else if (tap) pauseRoll(); }
-$('roll').onpointerdown = e => { if (!rollAnim || e.button > 0) return; clearTimeout(rollHold); rollFast = false; rollDown = true; try { $('roll').setPointerCapture(e.pointerId); } catch (x) {}   // held for a moment: six times as fast until let go, even from paused
+function rollLetGo(tap) { clearTimeout(rollHold); const down = rollDown; rollDown = false; if (!rollAnim || !down) return;
+  if (rollDrag) { rollDrag = false; if (!rollWasPaused) rollAnim.play(); rollHint(); return; }   // let go after a drag: carry on from there, or stay paused
+  if (rollFast) { rollAnim.playbackRate = 1; rollFast = false; } else if (tap) pauseRoll(); }
+$('roll').onpointerdown = e => { if (!rollAnim || e.button > 0) return; clearTimeout(rollHold); rollFast = false; rollDown = true; rollDrag = false; rollY0 = e.clientY; try { $('roll').setPointerCapture(e.pointerId); } catch (x) {}   // held for a moment: six times as fast until let go, even from paused
   rollHold = setTimeout(() => { rollFast = true; rollAnim.playbackRate = 6; rollAnim.play(); rollHint(); }, 250); };
+$('roll').onpointermove = e => {   // a finger dragged up or down moves the credits with it, like scrubbing a film; down goes back
+  if (!rollDown || !rollAnim) return;
+  if (!rollDrag) { if (Math.abs(e.clientY - rollY0) < 8) return;
+    rollDrag = true; clearTimeout(rollHold); if (rollFast) { rollAnim.playbackRate = 1; rollFast = false; }
+    rollWasPaused = rollAnim.playState === 'paused'; rollAnim.pause(); rollT0 = rollAnim.currentTime; }   // from where the finger went down, so the names stay under it
+  const D = rollAnim.effect.getTiming().duration;
+  rollAnim.currentTime = ((rollT0 - (e.clientY - rollY0) / 32 * 1000) % D + D) % D;   // 32 px a second, as it rolls; round and round either way
+};
 $('roll').onpointerup = () => rollLetGo(true);
 $('roll').onpointercancel = () => rollLetGo(false);   // the browser took the touch over: back to normal speed, no pause
 $('roll').oncontextmenu = e => { if (rollAnim) e.preventDefault(); };   // a long press would open the menu over the credits
