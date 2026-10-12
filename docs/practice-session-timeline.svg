@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 340" role="img" aria-label="Every note relationship is read from onsets and offsets on one clock" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
+  <rect width="760" height="340" fill="#ffffff"/>
+  <text x="24" y="28" font-size="15" font-weight="600" fill="#1f1f1f">Every note relationship is read from onsets and offsets on one clock</text>
+  <text x="24" y="48" font-size="11.5" fill="#6b6b6b">Schematic of one session on τ, not to scale; numbers match the table below</text>
+
+  <!-- Guides: Pause, Resume, capture gap edges -->
+  <g stroke="#d8d6cc" stroke-width="1" stroke-dasharray="3 3">
+    <line x1="480" x2="480" y1="100" y2="300"/>
+    <line x1="540" x2="540" y1="100" y2="300"/>
+    <line x1="640" x2="640" y1="100" y2="300"/>
+    <line x1="680" x2="680" y1="100" y2="300"/>
+  </g>
+
+  <!-- Session state -->
+  <rect x="176" y="76" width="304" height="24" rx="4" fill="#ecebe6" stroke="#b8b6aa" stroke-width="1"/>
+  <rect x="480" y="76" width="60" height="24" rx="4" fill="none" stroke="#b8b6aa" stroke-width="1" stroke-dasharray="3 3"/>
+  <rect x="540" y="76" width="196" height="24" rx="4" fill="#ecebe6" stroke="#b8b6aa" stroke-width="1"/>
+  <text x="24" y="92" fill="#1f1f1f">Session state</text>
+  <text x="328" y="92" text-anchor="middle" font-size="11.5" fill="#1f1f1f">Running</text>
+  <text x="510" y="92" text-anchor="middle" font-size="11.5" fill="#1f1f1f">Paused</text>
+  <text x="638" y="92" text-anchor="middle" font-size="11.5" fill="#1f1f1f">Running</text>
+  <text x="176" y="68" font-size="11.5" fill="#6b6b6b">Start</text>
+  <text x="480" y="68" text-anchor="middle" font-size="11.5" fill="#6b6b6b">Pause</text>
+  <text x="540" y="68" text-anchor="middle" font-size="11.5" fill="#6b6b6b">Resume</text>
+  <text x="736" y="68" text-anchor="end" font-size="11.5" fill="#6b6b6b">Stop</text>
+
+  <!-- Listening -->
+  <line x1="176" x2="480" y1="122" y2="122" stroke="#b8b6aa" stroke-width="4"/>
+  <line x1="540" x2="640" y1="122" y2="122" stroke="#b8b6aa" stroke-width="4"/>
+  <line x1="680" x2="736" y1="122" y2="122" stroke="#b8b6aa" stroke-width="4"/>
+  <rect x="640" y="114" width="40" height="16" rx="3" fill="#e8a317" fill-opacity="0.2" stroke="#e8a317" stroke-width="1.25"/>
+  <text x="24" y="126" fill="#1f1f1f">Listening</text>
+  <text x="660" y="146" text-anchor="middle" font-size="11.5" fill="#6b6b6b">gap</text>
+
+  <!-- Student notes (row height = pitch); dashed = sounding but not captured -->
+  <g fill="#3b7dd8" fill-opacity="0.2" stroke="#3b7dd8" stroke-width="1.25">
+    <rect x="196" y="232" width="104" height="16" rx="4"/>
+    <rect x="196" y="200" width="48" height="16" rx="4"/>
+    <rect x="244" y="200" width="48" height="16" rx="4"/>
+    <rect x="324" y="168" width="44" height="16" rx="4"/>
+    <rect x="348" y="200" width="64" height="16" rx="4"/>
+    <rect x="432" y="232" width="48" height="16" rx="4"/>
+    <rect x="556" y="232" width="84" height="16" rx="4"/>
+    <rect x="680" y="232" width="40" height="16" rx="4"/>
+    <rect x="580" y="168" width="36" height="16" rx="4"/>
+  </g>
+  <g fill="none" stroke="#3b7dd8" stroke-width="1.25" stroke-dasharray="3 3">
+    <rect x="480" y="232" width="32" height="16" rx="4"/>
+    <rect x="640" y="232" width="40" height="16" rx="4"/>
+  </g>
+  <text x="24" y="212" fill="#1f1f1f">Student notes</text>
+  <text x="24" y="228" font-size="11.5" fill="#6b6b6b">row height = pitch</text>
+
+  <!-- Talking -->
+  <rect x="396" y="276" width="68" height="16" rx="4" fill="#e0663a" fill-opacity="0.2" stroke="#e0663a" stroke-width="1.25"/>
+  <text x="24" y="288" fill="#1f1f1f">Talking (voice)</text>
+
+  <!-- Relation markers -->
+  <g fill="none" stroke="#b8b6aa" stroke-width="1">
+    <circle cx="184" cy="224" r="8"/>
+    <circle cx="244" cy="188" r="8"/>
+    <circle cx="312" cy="208" r="8"/>
+    <circle cx="358" cy="152" r="8"/>
+    <circle cx="382" cy="284" r="8"/>
+    <circle cx="496" cy="264" r="8"/>
+    <circle cx="598" cy="208" r="8"/>
+    <circle cx="660" cy="264" r="8"/>
+  </g>
+  <g font-size="11.5" font-weight="600" fill="#1f1f1f" text-anchor="middle">
+    <text x="184" y="228">1</text>
+    <text x="244" y="192">2</text>
+    <text x="312" y="212">3</text>
+    <text x="358" y="156">4</text>
+    <text x="382" y="288">5</text>
+    <text x="496" y="268">6</text>
+    <text x="598" y="212">7</text>
+    <text x="660" y="268">8</text>
+  </g>
+
+  <text x="176" y="324" font-size="11.5" fill="#6b6b6b">Solid bars were heard; dashed parts kept sounding but were not captured</text>
+</svg>
