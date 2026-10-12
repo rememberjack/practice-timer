@@ -482,7 +482,7 @@ function paintRace(st, label) {
   }
   const tw = $('gTower'); if (cache.get(tw) !== html) { cache.set(tw, html); tw.innerHTML = html; }
 }
-/* Speedrun read-outs: the splits, as on a speedrun timer, and a banner for each one */
+/* Speedrun read-outs: the checkpoints (a speedrun's splits), and a banner for each one */
 const RUN_BLOCK = { log: 'a tree', stone: 'stone', iron: 'iron ore', diamond: 'diamonds', obsidian: 'obsidian', brick: 'fortress bricks', glow: 'glowing rock', stonebrick: 'stone bricks', crystal: 'a crystal' };
 let sBannerT = 0;
 function runBanner(msg, sub) {
@@ -493,7 +493,7 @@ function hideRunBanner() { clearTimeout(sBannerT); $('srBanner').classList.remov
 function runEvent(e) {
   if (visible(5)) { runView.event(e); run3d.event(e); }
   const k = run.split - 1, n = MT.RUN.SPLITS.length;
-  if (e === 'split') runBanner(MT.RUN.SPLITS[k][0], 'Split ' + run.split + ' of ' + n + ' at ' + fmt(run.times[k]));
+  if (e === 'split') runBanner(MT.RUN.SPLITS[k][0], 'Checkpoint ' + run.split + ' of ' + n + ' at ' + fmt(run.times[k]));
   else if (e === 'done') runBanner('Dragon beaten!', 'Run time ' + fmt(run.times[k]));
 }
 function runHint(st) {
@@ -504,7 +504,7 @@ function runHint(st) {
   if (run.done) return 'Dragon beaten! Mining on for fun';
   if (!V.music) return 'Play to keep going';
   const next = S[run.split][0] + ' in ' + fmt(Math.ceil(S[run.split][1] * V.goal - V.play));
-  return run.mode === 'mine' ? 'Mining ' + RUN_BLOCK[run.target.type] + '. ' + next : 'Next split: ' + next;
+  return run.mode === 'mine' ? 'Mining ' + RUN_BLOCK[run.target.type] + '. ' + next : 'Next checkpoint: ' + next;
 }
 function paintRun(st, label) {
   const playTxt = fmt(V.play), el = $('srPlay'), cls = playTxt.length > 5 ? 'big long' : 'big', reached = st !== 'idle' && V.play >= V.goal, S = MT.RUN.SPLITS;
@@ -515,7 +515,7 @@ function paintRun(st, label) {
   text($('srPw'), Math.round(V.pw * 100) + '%'); text($('srEff'), Math.round(V.eff * 100) + '%');
   text($('srHeard'), st === 'running' ? label : st === 'paused' ? 'Paused: not listening' : st === 'idle' ? 'Press Start, then play' : 'Session finished');
   text($('srHint'), runHint(st));
-  // the splits: a few around the one being run, as on a speedrun timer, and the last one always
+  // the checkpoints: a few around the one being run, as on a speedrun timer, and the last one always
   const from = Math.max(0, Math.min(run.split - 1, S.length - 5)), rows = [];
   for (let k = from; k < from + 4; k++) rows.push(k); rows.push(S.length - 1);
   let html = '';
@@ -955,7 +955,7 @@ const GOAL_HINT = {
   city: 'The total play time to reach.',
   dash: 'The total play time to reach. It is also the length of the course.',
   race: 'The total play time to reach. The race runs until you reach it.',
-  speedrun: 'The total play time to reach. The run\'s last split, the dragon, comes when you reach it.',
+  speedrun: 'The total play time to reach. The run\'s last checkpoint, the dragon, comes when you reach it.',
 };
 function paintSettingsSkin() { $('goalHint').textContent = GOAL_HINT[SKINS[skin]]; }
 /* Settings, Themes: a page of its own in the sheet, with a switch for each theme. The last one on can't be turned off;
@@ -966,7 +966,7 @@ const THEME_LINE = {
   city: 'Playing fires the cannons that keep the city safe.',
   dash: 'Playing runs the course; your goal is its length.',
   race: 'Playing races a car; your last minute is its speed.',
-  speedrun: 'Playing runs a blocky world in splits, up to a dragon.',
+  speedrun: 'Playing runs a blocky world, checkpoint by checkpoint, up to a dragon.',
 };
 const themeRows = SKINS.map((id, i) => { const li = document.createElement('li'), sw = document.createElement('input'); li.className = 'trow'; li.dataset.theme = id;
   li.innerHTML = '<span class="tile" aria-hidden="true"><svg><use href="#ico-' + id + '"/></svg></span><span class="tx"><b>' + SKIN_NAMES[i] + '</b><span>' + THEME_LINE[id] + '</span></span>';

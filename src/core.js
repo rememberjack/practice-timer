@@ -1020,13 +1020,13 @@ function detectionTests(sr) {
       got: E.map((e, j) => Math.round(e * 100) + '%: P1 in ' + Math.round(p[j] * 100) + '%, average P' + avg[j].toFixed(1)).join('; '), pass: ok }; } });
   /* Speedrun: a session of steps; e is the share of running time with music heard, recent the last minute's efficiency */
   const srRun = (s, secs, dt, inp, e) => { for (let i = 0, n = Math.round(secs / dt); i < n; i++) { const r = inp.state === 'running'; if (r) inp.active += dt; inp.music = r && i % 10 < e * 10 - 1e-9; if (inp.music) inp.play += dt; s.update(dt, inp); } };
-  list.push({ name: 'Speedrun: splits at shares of the goal, timed on run time', run: () => {
+  list.push({ name: 'Speedrun: checkpoints at shares of the goal, timed on run time', run: () => {
     const s = new RunSim(); s.reset(600, 3); const inp = { state: 'running', music: true, recent: 0.8, play: 0, active: 0, goal: 600 }, ev = [];
     for (let t = 0; t < 800; t++) { srRun(s, 1, 0.1, inp, 0.8); while (s.events.length) ev.push(s.events.shift()); }
     const want = RUN.SPLITS.map(r => r[1] * 600 / 0.8), worst = Math.max(...s.times.map((t, k) => Math.abs(t - want[k])));
     const ok = s.times.length === 10 && s.done && worst < 0.3 && ev.filter(e => e === 'split').length === 9 && ev.filter(e => e === 'done').length === 1 && s.worldAt(s.x) === 3;
-    return { name: 'Speedrun: splits at shares of the goal, timed on run time', expect: 'at 80% efficiency a 10-minute goal takes 12:30 of run time; each split comes at its share of that, the last one ends the run in the End',
-      got: s.times.length + ' splits, worst ' + worst.toFixed(2) + ' s off; ' + s.times.map(t => clockText(t)).join(' '), pass: ok }; } });
+    return { name: 'Speedrun: checkpoints at shares of the goal, timed on run time', expect: 'at 80% efficiency a 10-minute goal takes 12:30 of run time; each checkpoint comes at its share of that, the last one ends the run in the End',
+      got: s.times.length + ' checkpoints, worst ' + worst.toFixed(2) + ' s off; ' + s.times.map(t => clockText(t)).join(' '), pass: ok }; } });
   list.push({ name: 'Speedrun: only playing moves the player, and a steadier minute moves it faster', run: () => {
     const s = new RunSim(); s.reset(1800, 5); const inp = { state: 'running', music: true, recent: 1, play: 0, active: 0, goal: 1800 };
     srRun(s, 30, 0.05, inp, 1); const x1 = s.x, m1 = s.mined, d1 = s.dig;
@@ -1900,9 +1900,9 @@ class RaceSim {
 /* a gap in laps, in words for the read-outs: seconds at full speed, or whole laps */
 function raceGap(l) { const a = Math.abs(l); return a >= 1 ? Math.floor(a) + (a >= 2 ? ' laps' : ' lap') : Math.max(0.1, a * RACE.LAPU / RACE.VNOM).toFixed(1); }
 
-/* ---------- Speedrun: a run through a blocky world in splits, timed like a speedrun ----------
-   The splits fall at set shares of the practice goal (play time), and each split's time is the run time (the session's time less
-   its pauses) when it was reached, so a steadier session reaches every split sooner. The player walks only while music is heard,
+/* ---------- Speedrun: a run through a blocky world in ten checkpoints (a speedrun's splits), timed like a speedrun ----------
+   The checkpoints fall at set shares of the practice goal (play time), and each checkpoint's time is the run time (the session's time less
+   its pauses) when it was reached, so a steadier session reaches every checkpoint sooner. The player walks only while music is heard,
    at a speed set by the last minute of playing, and mines the block in its way; nothing else moves it. A pause stops the run timer.
    The world (the ground and the blocks to mine) comes from the seed, so a following device runs through the same one. */
 const RUN = {
@@ -1952,7 +1952,7 @@ class RunSim {
     for (const o of this.obs) if (o.x > this.x + 8 && this.worldAt(o.x) === w) o.type = type;   // past the edge of the screen, in the new split's world
   }
   /* on session time. inp: {state, music (counted as playing, so play time grew by dt), recent (efficiency over the last minute), play, active (run time), goal}.
-     A split reached partway through a step is taken at its moment in the step, so the world is the same however time is cut up. */
+     A checkpoint reached partway through a step is taken at its moment in the step, so the world is the same however time is cut up. */
   update(dt, inp) {
     const st = inp.state, S = RUN.SPLITS, go = st === 'running' && inp.music && dt > 0;
     if (inp.goal > 0) this.goal = inp.goal;

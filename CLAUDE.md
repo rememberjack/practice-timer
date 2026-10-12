@@ -57,10 +57,10 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
   efficiency; a test checks the chances rise with efficiency. A pause is a red flag that freezes every car; the pit lane is only a picture
   (the car rejoins at the same distance, with nothing changed). The race runs until the practice goal; the trophy card names the place.
 - Speedrun (`RunSim` in `src/core.js`; drawn in 3D over the player's shoulder by `src/speedrun3d.js` once three.js has loaded, and flat by
-  `src/speedrun.js` until then or without it, both from the 16-pixel textures `src/speedrun.js` makes at load, no images) runs a blocky world in ten splits (`RUN.SPLITS`)
-  that fall at set shares of the practice goal's play time; each split's time is the run time (session time less pauses), so a steadier session splits
-  sooner. The player walks and mines only while music is heard, at a speed set by `Session.recentEfficiency`; a pause stops the run timer. New worlds
-  start through a portal ahead of the player; a split reached partway through a step is taken at its moment, so the world is the same however time is
+  `src/speedrun.js` until then or without it, both from the 16-pixel textures `src/speedrun.js` makes at load, no images) runs a blocky world in ten checkpoints (`RUN.SPLITS`;
+  a speedrun's splits, called checkpoints on screen for young players) that fall at set shares of the practice goal's play time; each checkpoint's time is
+  the run time (session time less pauses), so a steadier session reaches them sooner. The player walks and mines only while music is heard, at a speed set by `Session.recentEfficiency`; a pause stops the run timer. New worlds
+  start through a portal ahead of the player; a checkpoint reached partway through a step is taken at its moment, so the world is the same however time is
   cut up (a following device uses the race's seed). It is an original look in the spirit of block-building games: no names, textures or characters from one.
 - The Home Screen (`#home`) shows when the app opens and after a finished session's summary is closed; its words come
   from `homeCopy` in `src/core.js`. No theme scene is drawn while it covers them. Its greeting, headline and line are picked from

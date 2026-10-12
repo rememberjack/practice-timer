@@ -598,7 +598,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 @media (max-width:350px){ .gp-hud{font-size:13px; padding:7px 9px 6px} .gp-stats span{font-size:9px} .gp-stats b{font-size:16px} .gp-tower{width:112px} #app[data-skin="race"][data-chrome="pixel"] #controls button{font-size:16px} }
 @media (max-height:620px){ .gp-line.dim{display:none} }
 
-/* ---------- Speedrun theme: a blocky world run in splits. Pixel type, stone-grey bevelled panels and buttons, grass green ---------- */
+/* ---------- Speedrun theme: a blocky world run checkpoint by checkpoint. Pixel type, stone-grey bevelled panels and buttons, grass green ---------- */
 #app[data-skin="speedrun"]{--paper:#15110D; --surface:#3A3A3A; --ink:#F4F4F4; --mute:#CFCFCF; --rule:#111111; --accent:#7CC14A; --on-accent:#FFFFFF}
 #app[data-skin="speedrun"] #top h1{text-shadow:2px 2px 0 #3F3F3F}
 #app[data-skin="speedrun"] #controls button{background:#717171; border-color:#000; text-shadow:2px 2px 0 #383838; box-shadow:inset 2px 2px 0 #A8A8A8, inset -2px -3px 0 #4A4A4A}
@@ -622,12 +622,12 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 #app[data-music="1"] .sr-hud .big{color:#B6F27A}
 .sr-side{flex:none; text-align:right; white-space:nowrap; color:#CFCFCF}
 .sr-side b{color:#FFFFFF; font-weight:400}
-.sr-stats{display:grid; grid-template-columns:repeat(5, minmax(0, 1fr)); gap:0 4px; margin-top:5px; padding-top:5px; border-top:2px solid rgba(0,0,0,.5); text-align:center}
+.sr-stats{display:grid; grid-template-columns:minmax(0, 1.2fr) repeat(4, minmax(0, 1fr)); gap:0 4px; margin-top:5px; padding-top:5px; border-top:2px solid rgba(0,0,0,.5); text-align:center}
 .sr-stats span{display:block; font-size:9px; color:#CFCFCF; white-space:nowrap}
 .sr-stats b{display:block; font-size:14px; line-height:1.25; font-weight:400; white-space:nowrap}
 .sr-line{margin-top:4px; min-height:15px; font-family:var(--sans); font-weight:600; font-size:12px; text-shadow:1px 1px 0 rgba(0,0,0,.6); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .sr-line.dim{margin-top:0; font-weight:400; color:#CFCFCF}
-/* the splits, as on a speedrun timer: under the read-outs on the right, clear of the player */
+/* the checkpoints, as on a speedrun timer: under the read-outs on the right, clear of the player */
 .sr-splits{position:absolute; right:10px; top:calc(var(--hud-b, 170px) + 8px); width:150px; margin:0; padding:2px 0; list-style:none; font-size:11px; background:rgba(16,16,16,.72); border:2px solid #000; pointer-events:none; text-shadow:1px 1px 0 #000}
 .sr-splits li{display:flex; justify-content:space-between; gap:6px; padding:2px 7px; white-space:nowrap}
 .sr-splits .n{overflow:hidden; text-overflow:ellipsis}
@@ -640,7 +640,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
   box-shadow:inset 2px 2px 0 rgba(255,255,255,.16); color:#FFE36B; font-size:16px; line-height:1.15; text-shadow:2px 2px 0 #3F2F00; opacity:0; transition:opacity .25s; pointer-events:none}
 #srBanner small{display:block; margin-top:3px; font-size:11px; color:#F4F4F4; text-shadow:1px 1px 0 #000}
 #srBanner.on{opacity:1}
-@media (max-width:350px){ .sr-hud{font-size:10px; padding:7px 9px 6px} .sr-stats span{font-size:8px} .sr-stats b{font-size:12px} .sr-splits{width:132px; font-size:10px} }
+@media (max-width:350px){ .sr-hud{font-size:10px; padding:7px 9px 6px} .sr-stats{gap:0 1px} .sr-stats span{font-size:8px} .sr-stats b{font-size:12px} .sr-splits{width:132px; font-size:10px} }
 @media (max-height:620px){ .sr-line.dim{display:none} }
 
 /* ---------- theme bar: each theme's icon under the scene; the current one lit on a tinted tab, a locked one faint with a padlock ---------- */
@@ -1047,7 +1047,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
             </div>
           </div>
           <div class="sr-stats">
-            <div><span>Split</span><b id="srSplit">1/10</b></div>
+            <div><span>Checkpoint</span><b id="srSplit">1/10</b></div>
             <div><span>Mined</span><b id="srMined">0</b></div>
             <div><span>Run time</span><b id="srRta">00:00</b></div>
             <div><span>Power</span><b id="srPw">0%</b></div>
@@ -1056,7 +1056,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
           <div class="sr-line" id="srHeard">Press Start, then play</div>
           <div class="sr-line dim" id="srHint">Play to start the run</div>
         </div>
-        <ol class="sr-splits" id="srSplits" aria-label="Splits"></ol>
+        <ol class="sr-splits" id="srSplits" aria-label="Checkpoints"></ol>
         <div id="srBanner" role="status"></div>
       </section>
     </div>
