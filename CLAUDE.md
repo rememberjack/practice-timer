@@ -46,6 +46,10 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
   on and can't be turned off. A theme that is turned off while chosen (on the Home Screen, or the one on screen during a session) gives way to
   the first one on, Classic. The ids turned off are kept in
   the settings as `themesOff` (`themesOn`, `themeSwitch`, `themeLanding` in `src/core.js`), so a new theme starts on and a removed one is forgotten.
+- Settings, Storage (another page in the sheet, `paintStorage` in `src/app.js`) shows what Music Timer keeps in localStorage (`musicTimer.*` only; `storageUse`,
+  `sizeText` in `src/core.js`), whether the browser will keep it (`navigator.storage.persist`), a backup file of the practice log and restoring one
+  (`backupText`, `readBackup`, `mergeLog`: restoring only adds sessions, never replaces one), and deleting. Delete everything clears every `musicTimer.*`
+  key and reloads, so it is off while a session is under way.
 - Settings, About opens the credits over the whole screen (`#dlgCredits`, over Settings) and rolls them up like the end of a film (`CREDITS`, `rollCredits` in
   `src/app.js`); a tap pauses them, holding speeds them up, and with reduced motion they stand still in a box that scrolls.
 - Settings always has the Classic look; only the goal's hint follows the theme it is opened from (`GOAL_HINT` in `src/app.js`).

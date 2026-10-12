@@ -942,11 +942,16 @@ $('roll').onpointerup = () => rollLetGo(true);
 $('roll').onpointercancel = () => rollLetGo(false);   // the browser took the touch over: back to normal speed, no pause
 $('roll').oncontextmenu = e => { if (rollAnim) e.preventDefault(); };   // a long press would open the menu over the credits
 $('roll').onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pauseRoll(); } };
-function settingsPage(page) {   // '' for Settings itself, or 'themes'
-  $('setMain').hidden = !!page; $('setThemes').hidden = page !== 'themes'; $('setH').hidden = !!page; $('setBack').hidden = !page;
-  $('dlgSettings').setAttribute('aria-labelledby', page ? 'themesH' : 'setH'); paintThemes(false); (page ? $('setThemes') : $('setMain')).scrollTop = 0; }
+/* the pages in the Settings sheet: the page, its heading and the row that opens it */
+const SET_PAGES = { themes: ['setThemes', 'themesH', 'openThemes'], storage: ['setStorage', 'storageH', 'openStorage'] };
+let setPage = '';
+function settingsPage(page) {   // '' for Settings itself, 'themes' or 'storage'
+  const P = SET_PAGES[page]; setPage = page; disarm($('stClearLog'), 'Delete all sessions'); disarm($('stClearAll'), 'Delete everything'); $('stNote').textContent = '';
+  $('setMain').hidden = !!page; for (const k in SET_PAGES) $(SET_PAGES[k][0]).hidden = k !== page; $('setH').hidden = !!page; $('setBack').hidden = !page;
+  $('dlgSettings').setAttribute('aria-labelledby', P ? P[1] : 'setH'); paintThemes(false); paintStorage(); (P ? $(P[0]) : $('setMain')).scrollTop = 0; }
 $('openThemes').onclick = () => settingsPage('themes');
-$('setBack').onclick = () => { settingsPage(''); $('openThemes').focus(); };
+$('openStorage').onclick = () => settingsPage('storage');
+$('setBack').onclick = () => { const P = SET_PAGES[setPage]; settingsPage(''); if (P) $(P[2]).focus(); };
 $('openAbout').onclick = () => { $('dlgCredits').showModal(); rollCredits(true); rollHint(); };   // over Settings, which is still there when it closes
 $('creditsClose').onclick = () => $('dlgCredits').close();
 $('dlgCredits').addEventListener('close', () => { rollCredits(false); $('openAbout').focus(); });
@@ -1112,7 +1117,8 @@ twoTap($('sumDelete'), 'Delete session', 'Tap again to delete', () => {
   if (current && current.rec.id === id) current.note = { text: 'Deleted from your practice log.' };
   rocketAfterDelete(); $('dlgSummary').close(); if ($('dlgLog').open) renderLog(); toast('Session deleted');
 });
-twoTap($('logClear'), 'Delete all sessions', 'Tap again to delete all', () => { log = []; writeLog(); rocketAfterDelete(); logShown = 30; renderLog(); toast('All sessions deleted'); });
+function clearLog() { log = []; writeLog(); rocketAfterDelete(); logShown = 30; if ($('dlgLog').open) renderLog(); if (homeOn) renderHome(); toast('All sessions deleted'); }
+twoTap($('logClear'), 'Delete all sessions', 'Tap again to delete all', clearLog);
 const compact = s => { if (s <= 0) return ''; const m = Math.round(s / 60); return m < 1 ? '<1m' : m < 60 ? m + 'm' : Math.floor(m / 60) + 'h' + (m % 60 ? String(m % 60).padStart(2, '0') : ''); };
 const TROPHY_SVG = '<svg class="trophy" viewBox="0 0 64 64" aria-hidden="true"><path d="M19 13H9c0 10 5 15 12 16M45 13h10c0 10-5 15-12 16" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/><path fill="currentColor" d="M18 7h28v15c0 10-6 17-14 17s-14-7-14-17zM29 38h6v9h-6zM20 49h24v9H20z"/></svg>';
 function renderLog() {
@@ -1172,6 +1178,59 @@ function openLog() { pauseForSheet(); logShown = 30; disarm($('logClear'), 'Dele
 $('logClose').onclick = () => $('dlgLog').close();
 $('logOlder').onclick = () => { logShown += 30; renderLog(); };
 $('logStart').onclick = () => { $('dlgLog').close(); if ($('dlgSummary').open) $('dlgSummary').close(); start(); };
+
+/* ---------- Settings, Storage: what Music Timer keeps on this device (MT.storageUse), a backup file of the practice log, and deleting.
+   Everything lives in localStorage under musicTimer.*; other pages on the same site are left alone ---------- */
+const STORE_LINE = { settings: 'Your goal, name and choices.', live: 'The session so far, kept until you end it.', newFlight: 'When you last started a new rocket flight.', debug: 'The way back to the debug tools.' };
+const standalone = navigator.standalone === true || !!(window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+function storedEntries() { const out = []; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); out.push([k, localStorage.getItem(k)]); } } catch (e) {} return out; }
+const underWay = () => mode === 'local' && (session.state === 'running' || session.state === 'paused');
+const sessionsText = n => n === 1 ? '1 session' : n.toLocaleString() + ' sessions';
+function paintStorage() {
+  const U = MT.storageUse(storedEntries()), n = log.length, room = MT.LOG_MAX - n;
+  $('storageSum').textContent = (n ? sessionsText(n) + ', ' : '') + MT.sizeText(U.total) + ' on this device.';
+  if (setPage !== 'storage') return;
+  $('stTotal').textContent = MT.sizeText(U.total); $('stList').hidden = !U.parts.length;
+  $('stList').replaceChildren(...U.parts.map(p => { const li = el('li'), tx = el('span', 'tx');
+    tx.append(el('b', null, p.name), el('span', null, p.id === 'log' ? (n ? sessionsText(n) + ' since ' + new Date(log[0].start).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' }) + ', without recordings.' : 'No sessions yet.')
+      : STORE_LINE[p.id] || 'Left by an older version of Music Timer.'));
+    li.append(tx, el('span', 'sz', MT.sizeText(p.bytes))); return li; }));
+  $('stRoom').textContent = room > 0 ? 'The practice log has room for ' + room.toLocaleString() + (room === 1 ? ' more session' : ' more sessions') + '. After that, the oldest make way for new ones.' : 'The practice log is full, so the oldest sessions make way for new ones.';
+  $('stBackup').disabled = !n; $('stClearLog').disabled = !n; $('stClearAll').disabled = underWay();
+  $('stDelHint').textContent = underWay() ? 'Delete everything starts Music Timer afresh, so end the session first. Deleting cannot be undone, so back up first if you might want your sessions again.'
+    : 'Delete everything also resets Settings and the rocket flight, as if Music Timer were new. Deleting cannot be undone, so back up first if you might want your sessions again.';
+  paintKeep();
+}
+/* whether the browser will keep the storage: asked of it where it can say (navigator.storage), otherwise what is known of the platform */
+function paintKeep() {
+  const st = navigator.storage, say = t => { $('stKeep').textContent = t; }; $('stPersistRow').hidden = true;
+  say(standalone ? 'Opened from the Home Screen, Music Timer keeps what it saves even when you take a break. A backup brings it with you to a new phone.'
+    : iOS ? 'Safari can clear a website\'s storage when it has not been opened for a few weeks. Added to the Home Screen (Share, then Add to Home Screen), Music Timer keeps it. A backup keeps it safe either way.'
+    : 'A browser can clear a website\'s storage when the device runs short of space. A backup keeps your practice log safe either way.');
+  if (!st || typeof st.persisted !== 'function') return;
+  st.persisted().then(p => { if (p) say('This browser keeps Music Timer\'s storage until you delete it. A backup brings it with you to a new phone.');
+    else if (typeof st.persist === 'function' && !standalone) $('stPersistRow').hidden = false; }, () => {});
+}
+$('stPersist').onclick = () => navigator.storage.persist().then(p => { paintKeep();
+  $('stNote').textContent = p ? 'The browser will keep Music Timer\'s storage.' : 'The browser did not agree this time. A backup keeps your practice log safe.'; }, () => {});
+$('stBackup').onclick = () => { if (!log.length) return; const d = new Date(), p = x => String(x).padStart(2, '0');
+  saveFile('music-timer-backup-' + d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + '.json', new Blob([MT.backupText(log, Date.now())], { type: 'application/json' })); };
+$('stRestore').onclick = () => { $('stFile').value = ''; $('stFile').click(); };
+$('stFile').onchange = () => { const f = $('stFile').files && $('stFile').files[0]; if (!f) return;
+  f.text().then(t => {
+    const recs = MT.readBackup(t), say = m => { $('stNote').textContent = m; toast(m); };
+    if (!recs) return say('This file is not a Music Timer backup.');
+    if (!recs.length) return say('This backup has no sessions in it.');
+    const was = log, M = MT.mergeLog(log, recs); if (!M.added) return say('Your practice log already has every session in this backup.');
+    log = M.log; if (!writeLog()) { log = was; return say('The backup could not be saved on this device.'); }
+    rocketAfterDelete(); if (homeOn) renderHome(); paintStorage(); say('Added ' + sessionsText(M.added) + ' from the backup.');
+  }, () => toast('The file could not be read.')); };
+twoTap($('stClearLog'), 'Delete all sessions', 'Tap again to delete all', () => { clearLog(); paintStorage(); });
+/* everything Music Timer keeps, then a fresh start (the page loads again), as if it had just been added */
+twoTap($('stClearAll'), 'Delete everything', 'Tap again to delete everything', () => {
+  if (underWay()) return; clearLive();
+  try { for (const [k] of storedEntries()) if (k.indexOf('musicTimer.') === 0) localStorage.removeItem(k); } catch (e) {}
+  location.reload(); });
 
 /* ---------- Home Screen: shown when the app opens and after a finished session's summary is closed. Start playing goes into the chosen theme ---------- */
 const homeEl = $('home');

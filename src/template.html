@@ -328,6 +328,23 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 .tg:checked::after{transform:translateX(20px)}
 .tg:disabled{opacity:.5; cursor:default}
 #themesNote{margin:10px 2px 0; min-height:18px}
+/* Settings, Storage: the total, then each thing kept with its size */
+#storageH{font-weight:800; font-size:22px; letter-spacing:-.01em; margin:0 0 4px; line-height:1.1}
+#setStorage > .hint{font-size:13px; color:var(--mute); margin:3px 0 0}
+.st-total{display:flex; align-items:baseline; gap:8px; margin:14px 0 0}
+.st-total b{font-size:28px; font-weight:800; font-variant-numeric:tabular-nums}
+.st-total span{font-size:14px; color:var(--mute)}
+.slist{list-style:none; margin:10px 0 0; padding:0; border:1px solid var(--rule); border-radius:16px; background:var(--surface); overflow:hidden}
+.slist li{display:flex; align-items:center; gap:12px; padding:10px 12px; border-top:1px solid var(--rule)}
+.slist li:first-child{border-top:0}
+.slist .tx{flex:1; min-width:0}
+.slist .tx b{display:block; font-size:15px}
+.slist .tx span{display:block; font-size:13px; color:var(--mute)}
+.slist .sz{flex:none; font-size:14px; font-weight:700; font-variant-numeric:tabular-nums; color:var(--mute)}
+#setStorage > .field:first-of-type{margin-top:14px}
+#stClearLog.armed, #stClearAll.armed{background:var(--alert); border-color:var(--alert); color:#2B0F08}
+#stNote{margin:10px 2px 0; min-height:18px}
+#setStorage > #stRoom{margin:8px 2px 12px}
 /* About (from Settings): the credits fill the screen on near-black, rolling up and fading in at the bottom and out at the top.
    With reduced motion they stand still and scroll */
 #dlgCredits{position:fixed; inset:0; width:100%; max-width:none; height:100%; max-height:none; margin:0; border:0; border-radius:0; background:#070B12;
@@ -1081,6 +1098,9 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
       <p class="hint">Keeps an audio recording of the session (microphone only) that you can save when you stop.</p>
     </div>
     <div class="field">
+      <button type="button" class="navrow" id="openStorage"><span class="txt"><span class="lab">Storage</span><span class="hint" id="storageSum"></span></span><svg class="chev" aria-hidden="true"><use href="#ico-next"/></svg></button>
+    </div>
+    <div class="field">
       <button type="button" class="navrow" id="openAbout"><span class="txt"><span class="lab">About</span><span class="hint">Music Timer and the people who made it.</span></span><svg class="chev" aria-hidden="true"><use href="#ico-next"/></svg></button>
     </div>
     <div class="btn-row" id="setDebugRow" hidden><button class="btn" id="setDebug">Debug tools</button></div>
@@ -1091,6 +1111,30 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
     <p class="hint">Turn off any theme you would rather not play with. It leaves the swipe and the theme bar. Your play time is kept either way, and you can turn it back on whenever you like. Classic is always on.</p>
     <ul class="tlist" id="themeList"></ul>
     <p class="hint" id="themesNote" role="status"></p>
+  </div>
+  <div class="sh-body" id="setStorage" hidden>
+    <h2 id="storageH">Storage</h2>
+    <p class="hint">Music Timer keeps your practice on this device, in this browser. Nothing is sent anywhere, and recordings are never kept.</p>
+    <div class="st-total"><b id="stTotal"></b><span>used on this device</span></div>
+    <ul class="slist" id="stList"></ul>
+    <p class="hint" id="stRoom"></p>
+    <div class="field">
+      <span class="lab">Keep it safe</span>
+      <p class="hint" id="stKeep"></p>
+      <div class="btn-row" id="stPersistRow" hidden><button class="btn" id="stPersist">Ask the browser to keep it</button></div>
+    </div>
+    <div class="field">
+      <span class="lab">Backup</span>
+      <p class="hint">A backup is a small file with all your sessions. Keep it somewhere safe, or restore it on another phone or browser to bring your practice log with you. Restoring adds its sessions to the ones here, so nothing here is lost.</p>
+      <div class="btn-row"><button class="btn" id="stBackup">Back up</button><button class="btn" id="stRestore">Restore from a backup</button></div>
+      <input type="file" id="stFile" accept=".json,application/json" hidden>
+    </div>
+    <div class="field">
+      <span class="lab">Delete</span>
+      <p class="hint" id="stDelHint"></p>
+      <div class="btn-row"><button class="btn" id="stClearLog">Delete all sessions</button><button class="btn" id="stClearAll">Delete everything</button></div>
+    </div>
+    <p class="hint" id="stNote" role="status"></p>
   </div>
 </dialog>
 
