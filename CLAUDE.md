@@ -45,6 +45,13 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
   The rocket's power, the cannons and the Dash speed follow the last minute of playing (`Session.recentEfficiency`); there is no
   setting for it. The Rocket and City bars fill to that as Power, with a tick and a figure for the whole session's Efficiency
   (`powerBar` in `src/app.js`), like a car's instant and trip-average fuel figures; Dash shows both as figures.
+- Grand Prix (`RaceSim` in `src/core.js`, drawn by `src/race.js`) is a ten-car race on session time. Every car's speed is its player's
+  efficiency over the last minute (100% is 300 km/h; yours is `Session.recentEfficiency`), so the car that covers the most distance played
+  most of the time, and a higher session efficiency gives a better chance of first place. Only playing makes the car faster: nothing else may.
+  The nine rivals are simulated players (`RacePractiser`), the same field for everyone, each with a form for the day; each has its own random
+  stream, so a following device races the same field (the seed is shared). The field is tuned so first place comes about half the time at 80%
+  efficiency; a test checks the chances rise with efficiency. A pause is a red flag that freezes every car; the pit lane is only a picture
+  (the car rejoins at the same distance, with nothing changed). The race runs until the practice goal; the trophy card names the place.
 - The Home Screen (`#home`) shows when the app opens and after a finished session's summary is closed; its words come
   from `homeCopy` in `src/core.js`. No theme scene is drawn while it covers them. Its greeting, headline and line are picked from
   playful words for young players (`HOME_HELLO`, `HOME_WORDS`), new each time it shows; they must fit an iPhone SE without wrapping more.

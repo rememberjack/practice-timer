@@ -974,6 +974,54 @@ function detectionTests(sr) {
   const notches = (n, gap) => Array.from({ length: n }, (_, i) => ({ t: i * gap, dx: 100, dy: 0 }));
   wheelTest('Mouse wheel: sideways clicks of 100 px each move one theme', 'a 100 px sideways wheel click (as Chrome and Edge send on Windows) every 260 or 400 ms steps each time; a quick spin steps once', [
     ['every 400 ms', notches(3, 400), 'next next next'], ['every 260 ms', notches(3, 260), 'next next next'], ['a quick spin', notches(3, 100), 'next']]);
+  // Grand Prix
+  const gpRun = (s, sec, inp, dt) => { dt = dt || 0.05; for (let t = 0; t < sec - 1e-9; t += dt) { if (inp.state === 'running' && inp.music) inp.play = (inp.play || 0) + dt; s.update(dt, inp); s.move(dt); } };
+  const gpStart = s => { const inp = { state: 'running', music: true, recent: 1, play: 0 }; for (let i = 0; i < 200 && s.mode !== 'race'; i++) gpRun(s, 0.1, inp); return inp; };
+  list.push({ name: 'Grand Prix: the start lights', run: () => {
+    const s = new RaceSim(); s.reset(1800, 3); const ev = [], inp = { state: 'running', music: true, recent: 1, play: 0 }, take = () => { while (s.events.length) ev.push(s.events.shift()); };
+    gpRun(s, 3.02, inp); take(); const a = s.lit; inp.music = false; gpRun(s, 3, inp); take(); const b = s.lit, mb = s.mode, d0 = s.dist;
+    inp.music = true; gpRun(s, 2.02, inp); take(); const c = s.lit; gpRun(s, 2, inp); take();
+    const ok = a === 3 && b === 3 && mb === 'lights' && d0 === 0 && c === 5 && s.mode === 'race' && ev.filter(e => e === 'light').length === 5 && ev.filter(e => e === 'go').length === 1;
+    return { name: 'Grand Prix: the start lights', expect: 'a light for each second of playing, none while quiet and the cars still, then lights out once', got: 'lights ' + a + ', ' + b + ' (' + mb + '), ' + c + ', then ' + s.mode + '; events ' + ev.join(' '), pass: ok }; } });
+  list.push({ name: 'Grand Prix: speed is the last minute', run: () => {
+    const s = new RaceSim(); s.reset(1800, 5); const inp = gpStart(s); inp.recent = 0.75; const d0 = s.dist;
+    gpRun(s, 120, inp); const want = 0.75 * RACE.VNOM * 120, kmh = s.v * 300 / RACE.VNOM;
+    inp.recent = 0; gpRun(s, 10, inp); const stopped = s.v, d1 = s.dist;
+    const ok = Math.abs(s.dist - d0 - want) < 1 && Math.abs(kmh - 225) < 1 && stopped === 0 && d1 === s.dist && s.lap === 1 + Math.floor(s.dist / RACE.LAPU);
+    return { name: 'Grand Prix: speed is the last minute', expect: 'at 75% of the last minute the car runs at 225 km/h and covers 75% of full-speed distance; at 0% it stops',
+      got: Math.round((s.dist - d0) / want * 1000) / 10 + '% of the distance expected, ' + Math.round(kmh) + ' km/h, then ' + Math.round(stopped) + ' km/h at 0%, lap ' + s.lap, pass: ok }; } });
+  list.push({ name: 'Grand Prix: a pause freezes the race and parks the car in the pit lane', run: () => {
+    const s = new RaceSim(); s.reset(1800, 9); const inp = gpStart(s); inp.recent = 0.8; gpRun(s, 60, inp);
+    const pos = s.pos, mine = s.dist, theirs = s.cars.map(c => c.dist).join(), ev = [];
+    inp.state = 'paused'; gpRun(s, 1, inp); const red = s.mode; gpRun(s, 300, inp, 0.5); while (s.events.length) ev.push(s.events.shift());
+    const frozen = s.dist === mine && s.cars.map(c => c.dist).join() === theirs, boxed = s.pit && s.pit.phase === 'box' && s.v === 0 && Math.abs(s.x - 1.48) < 0.05;
+    inp.state = 'running'; s.update(0, inp); const back = s.mode, samePos = s.pos === pos; gpRun(s, 12, inp); while (s.events.length) ev.push(s.events.shift());
+    const ok = red === 'red' && frozen && boxed && back === 'race' && samePos && !s.pit && Math.abs(s.x) < 0.7 && ['red', 'box', 'green', 'release', 'exit'].every(e => ev.includes(e));
+    return { name: 'Grand Prix: a pause freezes the race and parks the car in the pit lane', expect: 'red flag; no car moves on while paused; the car waits in its box; on resume it rejoins in the same place and leaves the pit lane',
+      got: red + ', ' + (frozen ? 'frozen' : 'moved') + ', ' + (boxed ? 'in the box' : 'not in the box') + ', back in ' + back + ' at P' + s.pos + ' (P' + pos + ' before), ' + (s.pit ? 'still in the pit lane' : 'out of the pit lane') + '; ' + ev.join(' '), pass: ok }; } });
+  list.push({ name: 'Grand Prix: the same field however time is cut up', run: () => {
+    const a = new RaceSim(), b = new RaceSim(); a.reset(1800, 42); b.reset(1800, 42);
+    for (const s of [a, b]) { s.mode = 'race'; s.st = 'running'; }
+    for (let i = 0; i < 300; i++) a.update(1, { state: 'running', music: true, recent: 0.8, play: i });
+    for (let t = 0; t < 300 - 1e-9; t += 0.046) b.update(Math.min(0.046, 300 - t), { state: 'running', music: true, recent: 0.8, play: t });
+    const worst = Math.max(...a.cars.map((c, i) => Math.abs(c.dist - b.cars[i].dist) / c.dist));
+    return { name: 'Grand Prix: the same field however time is cut up', expect: 'one-second steps and 46 ms steps give the rivals the same distances (a following device races the same field)',
+      got: 'largest difference ' + (worst * 100).toFixed(4) + '%', pass: worst < 1e-6 }; } });
+  list.push({ name: 'Grand Prix: the steadier the session, the better the chance of first place', run: () => {
+    const E = [0.7, 0.8, 0.9], wins = E.map(() => 0), place = E.map(() => 0), N = 60;
+    for (let k = 0; k < N; k++) {
+      const s = new RaceSim(); s.reset(600, 1000 + k * 7919); s.mode = 'race'; s.st = 'running';
+      for (let t = 0; t < 600; t++) s.update(1, { state: 'running', music: true, recent: 0, play: 0 });   // the rivals race; you stand still, then are placed at each efficiency
+      E.forEach((e, j) => { const mine = e * RACE.VNOM * 600, ahead = s.cars.filter(c => c.dist > mine).length; if (!ahead) wins[j]++; place[j] += 1 + ahead; });
+    }
+    const p = wins.map(w => w / N), avg = place.map(x => x / N);
+    const ok = p[0] <= 0.15 && p[1] >= 0.25 && p[1] <= 0.75 && p[2] >= 0.8 && p[0] < p[1] && p[1] < p[2] && avg[0] > avg[1] && avg[1] > avg[2];
+    return { name: 'Grand Prix: the steadier the session, the better the chance of first place', expect: 'in 10-minute races, first place rarely at 70% efficiency, about half the time at 80%, nearly always at 90%',
+      got: E.map((e, j) => Math.round(e * 100) + '%: P1 in ' + Math.round(p[j] * 100) + '%, average P' + avg[j].toFixed(1)).join('; '), pass: ok }; } });
+  list.push({ name: 'Session: the last minute, a second at a time', run: () => {
+    const s = new Session(); s.start(); for (let i = 0; i < 30; i++) s.tick(1, true); for (let i = 0; i < 10; i++) s.tick(1, false);
+    const m = s.minute, ok = m.length === 60 && m.slice(0, 20).every(v => v === null) && m.slice(20, 50).every(v => v === 1) && m.slice(50).every(v => v === 0);
+    return { name: 'Session: the last minute, a second at a time', expect: '20 empty seconds, 30 played, 10 quiet', got: m.map(v => v == null ? '.' : v >= 0.5 ? '#' : '_').join(''), pass: ok }; } });
   return list;
 }
 function runDetectionTests(sr) { return detectionTests(sr).map(t => t.run()); }
@@ -1022,6 +1070,8 @@ class Session {
   }
   get efficiency() { return this.active > 0 ? Math.min(1, this.play / this.active) : 0; }
   get recentEfficiency() { let a = this.ba, p = this.bp; for (let i = 0; i < this.buckets.length; i += 2) { a += this.buckets[i]; p += this.buckets[i + 1]; } return a > 0 ? Math.min(1, p / a) : 0; }
+  /* the last minute, oldest first: 60 values, each the share of that second spent playing, null before the session had run that long */
+  get minute() { const out = new Array(60).fill(null), n = this.buckets.length / 2; for (let i = 0; i < n; i++) out[60 - n + i] = this.buckets[i * 2] > 0 ? this.buckets[i * 2 + 1] / this.buckets[i * 2] : 0; return out; }
 }
 
 /* ---------- Session report: where the time went, for the summary ---------- */
@@ -1659,7 +1709,150 @@ class DashSim {
   }
 }
 
-const api = { LIFTOFF, OnsetTracker, DragSwipe, WheelSwipe, DashSim, DASH, dashSpeed, MusicDetector, Session, RocketSim, WORLD, MILESTONES, SENSITIVITY, CLIPS, DETECTION_CASES,
+/* ---------- Grand Prix: a ten-car race whose speeds are each player's efficiency over the last minute ----------
+   You start at the back of the grid. Five seconds of playing light the start lights; then every car's speed is the share of its
+   last minute spent playing (100% is 300 km/h), so the car that covers the most distance has played most of the time, and the
+   higher your session efficiency, the better your chance of first place. The nine rivals are simulated players: the same field
+   for everyone (from Bach, who usually plays 78% of the time, to Schubert at 46%), each with a form for the day and good and bad
+   spells within the race. A pause is a red flag: the race and every rival stop, and your car waits in the pit lane, which is only
+   a picture (it changes nothing about the car); on resume you rejoin at the same distance. The race runs until the practice goal. */
+const RACE = { SEG: 200, ROADW: 2000, LAP: 3000, VNOM: 10000, LIMIT: 2700, PZ: 900, GRIDGAP: 6, START: 80, FORM: 0.07, SWING: 0.05,
+  RIVALS: [['BAC', '#C8102E', '#F5F5F5', 0.78], ['MOZ', '#1E5BC6', '#FFD23F', 0.74], ['BEE', '#30323A', '#FF7A1A', 0.70], ['CHO', '#0A7F5A', '#E8E8E8', 0.66],
+    ['VIV', '#EDEDED', '#D3313A', 0.62], ['DEB', '#6B3FA0', '#7FE3FF', 0.58], ['HAN', '#FF8A00', '#1B1B1B', 0.54], ['RAV', '#0E9AA7', '#F6D55C', 0.50], ['SCH', '#8C1C3A', '#F2C14E', 0.46]],
+  YOU: ['YOU', '#15213D', '#86DCC0'] };   // a lap (LAP segments of SEG) is one minute at full speed, VNOM a second; PZ: the camera sits this far behind your car
+RACE.LAPU = RACE.LAP * RACE.SEG;
+const raceGridX = p => p % 2 ? -0.42 : 0.42;                 // grid slot p (1 at the front): odd slots on the left
+const raceWrap = l => l - Math.round(l);                    // a lead in laps, as the nearest place on the circuit
+function raceRng(seed) { let s = (seed >>> 0) % 2147483647 || 1; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
+/* the circuit: [enter, hold, leave, curve, hill (in segment lengths), board by the corner]; it closes at the height it starts */
+const RACE_SECTIONS = [
+  [0, 160, 0, 0, 0],
+  [20, 50, 20, 4.5, -12, 'ALLEGRO'], [0, 70, 0, 0, -6], [25, 70, 25, -2.6, 0, 'ANDANTE'], [0, 120, 0, 0, 26, 'CRESCENDO'],
+  [12, 18, 12, 5.5, 0, 'STACCATO'], [12, 18, 12, -5.5, 0], [0, 260, 0, 0, -16, 'PRESTO'], [18, 60, 18, -7, 4, 'FERMATA'],
+  [0, 90, 0, 0, 8], [16, 26, 16, 3.2, 0, 'LEGATO'], [16, 26, 16, -3.2, 0], [16, 26, 16, 3.2, 0],
+  [35, 110, 35, 2, 12, 'RUBATO'], [0, 140, 0, 0, -10], [22, 45, 22, -4.2, 0, 'DA CAPO'], [0, 120, 0, 0, null]];
+function raceTrack() {
+  const curve = [], y = [0], boards = [], io = (a, b, p) => a + (b - a) * (0.5 - Math.cos(p * Math.PI) / 2);
+  let h = 0;
+  for (const [en, ho, le, c, hill, board] of RACE_SECTIONS) {
+    const n = en + ho + le, h0 = h, h1 = hill == null ? 0 : h + hill * RACE.SEG;
+    if (board) boards.push({ at: curve.length, text: board, side: c > 0 ? -1 : 1 });   // on the outside of the corner
+    for (let i = 0; i < n; i++) { curve.push(i < en ? c * (i / en) * (i / en) : i < en + ho ? c : io(c, 0, (i - en - ho) / le)); h = io(h0, h1, (i + 1) / n); y.push(h); }
+  }
+  const N = curve.length, ahead = new Float32Array(N);   // the bend coming up, for the racing line
+  for (let i = 0; i < N; i++) { let s = 0; for (let j = 4; j < 30; j++) s += curve[(i + j) % N]; ahead[i] = s / 26; }
+  return { n: N, curve: Float32Array.from(curve), y: Float32Array.from(y), ahead: ahead, boards: boards };
+}
+/* A rival's player: phrases and quiet gaps in the proportion of its steadiness, which drifts through good and bad spells of a few
+   minutes, and its efficiency over the last minute, counted like yours (60 one-second buckets). The same seed gives the same
+   playing however the time is cut into steps, so a device following a session races the same field. */
+class RacePractiser {
+  constructor(steady, rnd) {
+    this.base = steady; this.rnd = rnd; this.t = -60; this.per = 240 + rnd() * 300; this.ph = rnd() * Math.PI * 2;
+    this.buf = new Float32Array(60); this.bi = 0; this.acc = 0; this.ap = 0; this.sum = 0;
+    this.playing = rnd() < steady; this.left = this.dur();
+    this.step(60);   // a minute of practice before the start, so the window is full
+  }
+  get s() { return Math.max(0.2, Math.min(0.98, this.base + RACE.SWING * Math.sin(this.t / this.per * Math.PI * 2 + this.ph))); }
+  dur() { const r = this.rnd(), s = this.s; return this.playing ? 6 + r * 26 : 19 * (1 - s) / s * (0.3 + r * 1.4); }
+  /* plays on for dt seconds; returns the distance covered, as seconds at full speed */
+  step(dt) {
+    let run = 0;
+    while (dt > 1e-9) {
+      const k = Math.min(dt, this.left, 1 - this.acc); run += this.eff * k; this.acc += k; this.t += k; if (this.playing) this.ap += k; this.left -= k; dt -= k;
+      if (this.left <= 1e-9) { this.playing = !this.playing; this.left = this.dur(); }
+      if (this.acc >= 1 - 1e-9) { this.sum += this.ap - this.buf[this.bi]; this.buf[this.bi] = this.ap; this.bi = (this.bi + 1) % 60; this.acc = 0; this.ap = 0; }
+    }
+    return run;
+  }
+  get eff() { return clamp01(this.sum / 60); }
+}
+class RaceSim {
+  constructor() { this.T = raceTrack(); this.events = []; this.reset(1800, 7); }
+  reset(goal, seed) {
+    const R = RACE; this.goal = goal || 1800; this.seed = seed || 7;
+    this.mode = 'grid'; this.st = 'idle'; this.lit = 0; this.litT = 0; this.hold = 0; this.finished = false; this.finishPos = 0; this.events.length = 0;
+    this.dist = 0; this.eff = 0;                                              // your race distance, and speed as a share of full speed
+    this.d = (R.START - 4 - 9 * R.GRIDGAP) * R.SEG - R.PZ; this.v = 0; this.x = raceGridX(10); this.tx = this.x; this.drs = false; this.pit = null; this.limiter = false;
+    const rnd = raceRng(this.seed), gauss = () => { let u = 0; for (let i = 0; i < 6; i++) u += rnd(); return (u - 3) / Math.sqrt(0.5); };   // a rival's form for the day
+    this.cars = R.RIVALS.map((r, i) => ({ code: r[0], c1: r[1], c2: r[2], i: i, p: new RacePractiser(Math.max(0.3, Math.min(0.97, r[3] + R.FORM * gauss())), raceRng(this.seed * 31 + i * 7717 + 1)),   // each its own stream, so step sizes do not reorder the draws
+      dist: (9 - i) * R.GRIDGAP * R.SEG, lead: 0, x: raceGridX(i + 1) }));
+    this.order();
+  }
+  get racing() { return this.mode === 'race' || this.mode === 'red'; }
+  get inPit() { return !!this.pit && !this.pit.exitAt; }
+  get lap() { return Math.floor(this.dist / RACE.LAPU) + 1; }
+  order() {
+    let pos = 1, ahead = null, behind = null;
+    for (const c of this.cars) { c.lead = (c.dist - this.dist) / RACE.LAPU;
+      if (c.lead > 0) { pos++; if (!ahead || c.lead < ahead.lead) ahead = c; } else if (!behind || c.lead > behind.lead) behind = c; }
+    this.pos = pos; this.ahead = ahead; this.behind = behind;
+  }
+  /* the race, on session time. inp: {state, music, recent (efficiency over the last minute), play (play time)} */
+  update(dt, inp) {
+    const ev = this.events, st = inp.state, run = st === 'running', music = !!inp.music && run; this.st = st;
+    if (!(dt > 0)) dt = 0;
+    if (this.mode === 'grid' && run) this.mode = 'lights';
+    if (this.mode === 'lights' && run) {                                     // a light for each second of playing, then a short wait, then lights out
+      if (this.lit < 5) { if (music) { this.litT += dt; const n = Math.min(5, Math.floor(this.litT)); if (n > this.lit) { this.lit = n; ev.push('light'); if (n === 5) this.hold = 0.5 + raceRng(this.seed + 1)() * 1.3; } } }
+      else if ((this.hold -= dt) <= 0) { this.mode = 'race'; this.lit = 0; ev.push('go'); }
+    }
+    if (this.mode === 'race' && st === 'paused') { this.mode = 'red'; ev.push('red'); this.pitIn(); }
+    if (this.mode === 'red' && run) { this.mode = 'race'; ev.push('green'); }
+    if (this.mode === 'race' && run && dt > 0) {                            // only while the session runs: a pause freezes every car
+      this.eff = clamp01(inp.recent || 0); this.dist += this.eff * RACE.VNOM * dt;
+      for (const c of this.cars) c.dist += c.p.step(dt) * RACE.VNOM;
+    }
+    const was = this.pos; this.order();
+    if (this.racing && this.pos < was) ev.push('up');
+    if (!this.finished && this.racing && inp.play >= this.goal) { this.finished = true; this.finishPos = this.pos; ev.push('finish'); }
+  }
+  /* under the red flag your car drives into the pit lane and stops in its box: only the picture moves, the race stays frozen */
+  pitIn() {
+    const R = RACE, inLane = this.inPit, D = inLane ? 24 * R.SEG : Math.max(this.v < 6000 ? 30 * R.SEG : 55 * R.SEG, this.v * this.v / (2 * 3800));
+    if (!inLane) this.pit = { a: Math.floor((this.d + R.PZ) / R.SEG) + 3, b: Infinity };
+    Object.assign(this.pit, { phase: 'in', box: this.d + D, dec: Math.max(2400, this.v * this.v / (2 * D)), crew: 0, out: 0, exitAt: false });
+    this.pit.boxSeg = Math.floor((this.pit.box + R.PZ) / R.SEG); this.limiter = true;
+  }
+  /* the motion on screen, on real time: the car runs at its speed, takes the racing line, passes on the side away from the car ahead,
+     and goes into the pit lane and out again */
+  move(rdt) {
+    const R = RACE, st = this.st, run = st === 'running', P = this.pit;
+    if (!(rdt > 0)) return;
+    const seg = Math.floor((this.d + R.PZ) / R.SEG), ahead = this.T.ahead[seg % this.T.n];
+    let vt = this.mode === 'race' && run ? this.eff * R.VNOM : 0;
+    if (P && P.phase === 'in') {
+      const rem = P.box - this.d;
+      this.v = Math.min(this.v + 2500 * rdt, Math.sqrt(Math.max(0, 2 * P.dec * rem)));
+      if (rem < 3 || (this.v < 30 && rem < 300)) { this.d = P.box; this.v = 0; P.phase = 'box'; this.events.push('box'); }
+    } else if (P && P.phase === 'box') {
+      P.crew += rdt; this.v = 0;
+      if (run) { P.phase = 'out'; P.out = this.d; this.events.push('release'); }
+    } else {
+      if (P && !P.exitAt) { vt = run ? R.LIMIT : 0;
+        if (this.d - P.out > 40 * R.SEG) { P.exitAt = true; this.limiter = false; P.b = seg + 46; this.events.push('exit'); } }
+      if (this.v < vt) this.v = Math.min(vt, this.v + (this.v < 3000 ? 3600 : 2400) * rdt);
+      else this.v = Math.max(vt, this.v - (st === 'stopped' ? 6500 : 2400) * rdt);
+    }
+    if (P && P.exitAt && seg > P.b + 2) this.pit = null;
+    this.d += this.v * rdt;
+    const line = Math.max(-0.45, Math.min(0.45, ahead * 0.07));
+    if (this.inPit) { if (this.pit.phase !== 'in' || (this.d + R.PZ) / R.SEG > this.pit.a + 2) this.tx = 1.48; }
+    else if (this.racing) {
+      let tx = line;
+      for (const c of this.cars) { const rel = raceWrap(c.lead) * R.LAP; if (rel > -5 && rel < 30 && (rel < 7 || Math.abs(c.x - tx) < 0.62)) tx = c.x > 0 ? Math.min(tx, c.x - 0.8) : Math.max(tx, c.x + 0.8); }
+      this.tx = Math.max(-0.66, Math.min(0.66, tx));
+    }
+    this.drs = this.mode === 'race' && !this.inPit && this.v > 3000 && Math.abs(ahead) < 0.4 && !!this.ahead && this.ahead.lead * R.LAPU / R.VNOM < 1;   // within a second of the car ahead
+    const k = Math.min(1, rdt * (this.inPit ? 2.6 : 1.9)) * (this.v > 300 ? 1 : 0);   // no steering while standing still
+    this.x += (this.tx - this.x) * k;
+    for (const c of this.cars) { const want = this.racing ? (c.i % 2 ? 0.4 : -0.4) + line * 0.4 : raceGridX(c.i + 1); c.x += (want - c.x) * k * 0.45; }
+  }
+}
+/* a gap in laps, in words for the read-outs: seconds at full speed, or whole laps */
+function raceGap(l) { const a = Math.abs(l); return a >= 1 ? Math.floor(a) + (a >= 2 ? ' laps' : ' lap') : Math.max(0.1, a * RACE.LAPU / RACE.VNOM).toFixed(1); }
+
+const api = { LIFTOFF, OnsetTracker, DragSwipe, WheelSwipe, DashSim, DASH, dashSpeed, RaceSim, RACE, raceTrack, raceGap, raceRng, RacePractiser, MusicDetector, Session, RocketSim, WORLD, MILESTONES, SENSITIVITY, CLIPS, DETECTION_CASES,
   detectionTests, runDetectionTests, analyzeClip, sessionReport, clockText, sessionRecord, worthKeeping, liveSnapshot, liveRecord, rocketCarry, buildOf, newerBuild, practiceStats, dayRecap, dayLine, practiceNudge, homeCopy, weekLine, durationText, dayKey, LOG_MAX, LEVEL_MIN, SAMPLE_LOGS, sampleLog, rocketAt, fraction, heardAs, noteOf, smooth, pchip, clamp01 };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.MT = api;
 })(typeof self !== 'undefined' ? self : this);
