@@ -42,7 +42,10 @@ function makeRunView(cv, hud, sim) {
     endstone: noise('#DCDDA0', 0.16, 17, (x, r) => { for (let n = 0; n < 9; n++) px(x, '#BDBD82', [Math.floor(r() * 16), Math.floor(r() * 16)]); }),
     frame: noise('#3F6F5E', 0.3, 18, x => { x.fillStyle = '#DCDDA0'; x.fillRect(0, 0, 16, 4); x.fillStyle = '#1F4A3C'; x.fillRect(5, 6, 6, 6); x.fillStyle = '#7CE0B8'; x.fillRect(7, 8, 2, 2); }),
     crystal: noise('#C04FA8', 0.3, 19, x => { x.fillStyle = '#FFB8EE'; x.fillRect(4, 4, 8, 8); x.fillStyle = '#FFFFFF'; x.fillRect(6, 6, 4, 4); x.fillStyle = '#7A2B6C'; x.fillRect(0, 0, 16, 1); x.fillRect(0, 15, 16, 1); x.fillRect(0, 0, 1, 16); x.fillRect(15, 0, 1, 16); }),
-    lava: noise('#E2581C', 0.3, 20, (x, r) => { for (let n = 0; n < 6; n++) { x.fillStyle = '#FFAA33'; x.fillRect(Math.floor(r() * 14), Math.floor(r() * 15), 3, 1); } })
+    lava: noise('#E2581C', 0.3, 20, (x, r) => { for (let n = 0; n < 6; n++) { x.fillStyle = '#FFAA33'; x.fillRect(Math.floor(r() * 14), Math.floor(r() * 15), 3, 1); } }),
+    grassTop: noise('#5DA032', 0.35, 22),                                                                // the tops of grass and logs, for the 3D view
+    logTop: noise('#A0824E', 0.2, 23, x => { x.fillStyle = '#6B4F2A'; x.fillRect(0, 0, 16, 1); x.fillRect(0, 15, 16, 1); x.fillRect(0, 0, 1, 16); x.fillRect(15, 0, 1, 16);
+      x.strokeStyle = '#8A6B3C'; x.lineWidth = 1; x.strokeRect(3.5, 3.5, 9, 9); x.strokeRect(6.5, 6.5, 3, 3); })
   };
   { const x = T.mossy.getContext('2d'), r = rng(21); for (let n = 0; n < 18; n++) px(x, n % 2 ? '#4E7A32' : '#5F8F3C', [Math.floor(r() * 16), Math.floor(r() * 16)]); }
   /* the colours a broken block falls apart into */
@@ -218,5 +221,5 @@ function makeRunView(cv, hud, sim) {
     g.globalAlpha = 1;
     if (flash > 0) { g.globalAlpha = Math.min(1, flash); g.fillStyle = world === 1 ? '#FFB27A' : world === 3 ? '#E2B8FF' : '#FFFFFF'; g.fillRect(0, 0, W, H); g.globalAlpha = 1; flash -= dt * 1.8; }
   }
-  return { resize: resize, draw: draw, event: event, reset: reset };
+  return { resize: resize, draw: draw, event: event, reset: reset, T: T, TOOL: TOOL, CRACK: CRACK, BITS: BITS, surface: surface, hash: hash };   // the 3D view uses the same textures and world
 }

@@ -1940,7 +1940,8 @@ class RunSim {
     while (last < this.x + RUN.AHEAD) {
       const r = runHash(this.seed, ++this.n); last += RUN.GAP[0] + Math.floor(r * (RUN.GAP[1] - RUN.GAP[0] + 1));
       if (this.portals.some(p => last >= p - 3 && last <= p + 3)) continue;   // nothing to mine in a portal
-      this.obs.push({ x: last, type: RUN.SPLITS[Math.min(this.split, RUN.SPLITS.length - 1)][2] });
+      const k = Math.min(this.split, RUN.SPLITS.length - 1), same = this.worldAt(last) === RUN.SPLITS[k][3];   // short of a new world's portal: the last split's block
+      this.obs.push({ x: last, type: RUN.SPLITS[same || !k ? k : k - 1][2] });
     }
   }
   /* a split reached: the blocks well ahead become the next split's, and a new world starts through a portal ahead */

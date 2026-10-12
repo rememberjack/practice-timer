@@ -38,7 +38,7 @@ const dash = new MT.DashSim(), dashView = makeDashView($('dashCv'), $('dashHud')
 let pendingOnsets = 0, onsetN = 0, dashAt = 0;      // note starts waiting to be used; a running count for followers; when the course last moved
 const race = new MT.RaceSim(), raceView = makeRaceView($('raceCv'), $('raceHud'), race, MT);
 let raceNotes = 0, raceDoneAt = 0;                  // note starts for the sparks under the car; when the chequered flag fell
-const run = new MT.RunSim(), runView = makeRunView($('runCv'), $('runHud'), run);
+const run = new MT.RunSim(), runView = makeRunView($('runCv'), $('runHud'), run), run3d = makeRun3DView($('run3dCv'), $('runHud'), run, runView);   // drawn in 3D once three.js is in; flat until then
 let runNotes = 0;                                   // note starts, for the pickaxe
 const NB = 44, bars = new Float32Array(NB), shown = new Float32Array(NB);
 const heard = { label: '', detail: '', note: '', midi: null };      // midi: the pitch heard, as a (fractional) piano key number
@@ -202,7 +202,7 @@ async function start() {
   session.goal = S.goalMin * 60; session.hold = +S.hold; session.start(); const carried = carryRocket() && !forced; DBG.rocket = ''; rocket.reset(); city.reset(); cityBannerAt = 0;
   dash.reset(); dashView.reset(); onsets.reset(); pendingOnsets = 0;
   race.reset(session.goal, 1 + Math.floor(Math.random() * 2e9)); raceView.reset(); raceNotes = 0; hideRaceBanner();   // a new field each session
-  run.reset(session.goal, race.seed); runView.reset(); runNotes = 0; hideRunBanner();   // and a new world, from the same seed
+  run.reset(session.goal, race.seed); runView.reset(); run3d.reset(); runNotes = 0; hideRunBanner();   // and a new world, from the same seed
   music = false; goalHit = false; vote = {}; bars.fill(0); hideAward();
   if (carried) banner('Carrying on from earlier today');
   heard.label = 'Listening'; heard.detail = 'Play your instrument to start the clock'; heard.note = ''; heard.midi = null;
@@ -299,7 +299,7 @@ function onPeers(ch) {
 function applyRemote(m) {
   const first = !R, prev = R; R = m;
   if (prev && prev.play < prev.goal && m.play >= m.goal && m.st === 'running') award(m.goal);
-  if (first) { sim.reset(); rocket.reset(); city.reset(); dash.reset(); dashView.reset(); pendingOnsets = 0; sim.l = m.rl; sim.th = m.ra; race.reset(m.goal, m.gs || 7); raceView.reset(); run.reset(m.goal, m.gs || 7); runView.reset(); }   // the same field and world as the device followed
+  if (first) { sim.reset(); rocket.reset(); city.reset(); dash.reset(); dashView.reset(); pendingOnsets = 0; sim.l = m.rl; sim.th = m.ra; race.reset(m.goal, m.gs || 7); raceView.reset(); run.reset(m.goal, m.gs || 7); runView.reset(); run3d.reset(); }   // the same field and world as the device followed
   else if (m.on > prev.on) { pendingOnsets += Math.min(3, m.on - prev.on); raceNotes += Math.min(3, m.on - prev.on); runNotes += Math.min(3, m.on - prev.on); }
   else {
     if (prev.rm === 'pad' && m.rm === 'ascent') fire('liftoff');
@@ -322,7 +322,7 @@ function startFollow(peer) {
   onPeers({ peers: room.peers() }); if (!R) { stopFollow(); return; }
   paintControls(); paintDemoBar();
 }
-function stopFollow() { hideAward(); mode = 'local'; followPeer = ''; R = null; carryRocket(); rocket.reset(); city.reset(); dash.reset(); dashView.reset(); race.reset(); raceView.reset(); hideRaceBanner(); run.reset(); runView.reset(); hideRunBanner(); bars.fill(0); session.reset(); paintControls(); paintDemoBar(); }
+function stopFollow() { hideAward(); mode = 'local'; followPeer = ''; R = null; carryRocket(); rocket.reset(); city.reset(); dash.reset(); dashView.reset(); race.reset(); raceView.reset(); hideRaceBanner(); run.reset(); runView.reset(); run3d.reset(); hideRunBanner(); bars.fill(0); session.reset(); paintControls(); paintDemoBar(); }
 function followStep(dt) {
   if (!R) return;
   if (R.st === 'running') { R.total += dt; R.active += dt; if (R.music) R.play += dt; } else if (R.st === 'paused') R.total += dt;
@@ -491,7 +491,7 @@ function runBanner(msg, sub) {
 }
 function hideRunBanner() { clearTimeout(sBannerT); $('srBanner').classList.remove('on'); }
 function runEvent(e) {
-  if (visible(5)) runView.event(e);
+  if (visible(5)) { runView.event(e); run3d.event(e); }
   const k = run.split - 1, n = MT.RUN.SPLITS.length;
   if (e === 'split') runBanner(MT.RUN.SPLITS[k][0], 'Split ' + run.split + ' of ' + n + ' at ' + fmt(run.times[k]));
   else if (e === 'done') runBanner('Dragon beaten!', 'Run time ' + fmt(run.times[k]));
@@ -526,6 +526,12 @@ function paintRun(st, label) {
     html += '<li' + (done ? ' class="done"' : now ? ' class="now"' : '') + '><span class="n">' + S[k][0] + '</span><span class="t">' + t + '</span></li>';
   });
   const tw = $('srSplits'); if (cache.get(tw) !== html) { cache.set(tw, html); tw.innerHTML = html; }
+}
+/* the speedrun scene: in 3D once three.js has loaded (on first showing the theme), flat until then or if it can't load */
+function drawRun(dt) {
+  const v = { running: V.st === 'running', music: V.music }, d3 = run3d.ready;
+  if (d3) run3d.draw(v, dt); else { run3d.ensure(); runView.draw(v, dt); }
+  if ($('runCv').hidden !== d3) { $('runCv').hidden = d3; $('run3dCv').hidden = !d3; }
 }
 /* city theme read-outs */
 const CITY_TEXT = { impact: 'Impact!', building: 'A building was hit', cannonLost: 'A cannon was hit', cannonBack: 'Cannon repaired', rebuilt: 'Building rebuilt' };
@@ -815,8 +821,8 @@ function frame(t) {
   if (raceNotes) { if (visible(4) && V.music && race.racing) raceView.event('note'); raceNotes = 0; }
   if (visible(4)) raceView.draw({ minute: mode === 'follow' ? null : session.minute }, dt);
   while (run.events.length) runEvent(run.events.shift());
-  if (runNotes) { if (visible(5) && V.music) runView.event('note'); runNotes = 0; }
-  if (visible(5)) runView.draw({ running: V.st === 'running', music: V.music }, dt);
+  if (runNotes) { if (visible(5) && V.music) { runView.event('note'); run3d.event('note'); } runNotes = 0; }
+  if (visible(5)) drawRun(dt);
   requestAnimationFrame(frame);
 }
 
@@ -865,7 +871,7 @@ function paintSkinBar() {
   });
 }
 /* Event banners sit just under the read-outs, clear of the scene: each panel gets --hud-b, the bottom of its read-outs, for the CSS to use */
-function layoutChanged() { requestAnimationFrame(() => { rocket.resize(); city.resize(); dashView.resize(); raceView.resize(); runView.resize();
+function layoutChanged() { requestAnimationFrame(() => { rocket.resize(); city.resize(); dashView.resize(); raceView.resize(); runView.resize(); run3d.resize();
   for (const [p, h] of [['pRocket', 'hud'], ['pCity', 'cityHud'], ['pDash', 'dashHud'], ['pRace', 'raceHud'], ['pRun', 'runHud']]) { const el = $(h); $(p).style.setProperty('--hud-b', el.offsetTop + el.offsetHeight + 'px'); } }); }
 const swipe = new MT.DragSwipe();
 stage.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse' && e.button !== 0) return; swipe.down(e.pointerId, e.clientX, e.clientY, performance.now(), stage.clientWidth); });
