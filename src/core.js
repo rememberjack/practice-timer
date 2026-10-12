@@ -1083,48 +1083,57 @@ function detectionTests(sr) {
     for (let t = 0; t < secs - 1e-9; t += 0.05) { owed += (notesPerSec || 0) * 0.05; const n = Math.floor(owed + 1e-9); owed -= n;
       s.update(0.05, Object.assign({}, inp, { notes: n })); while (s.events.length) ev.push(s.events.shift()); }
     return ev; };
-  list.push({ name: 'Fireworks: only playing sends shells up', run: () => {
+  const fwKinds = (ev, k) => ev.filter(e => e.k === k).length;
+  list.push({ name: 'Fireworks: shells go up while you play, and notes set them off', run: () => {
     const s = new FireworkSim(); s.reset(1800, 3);
     const a = fwRun(s, 20, { state: 'paused', music: true, midi: 60, recent: 0.8, play: 0 }, 1).length,
       b = fwRun(s, 20, { state: 'running', music: false, midi: 60, recent: 0.8, play: 0 }, 1).length,
-      c = fwRun(s, 20, { state: 'stopped', music: true, midi: 60, recent: 0.8, play: 0 }, 1).length,
-      d = fwRun(s, 20, { state: 'running', music: true, midi: 60, recent: 0, play: 0 }, 1).filter(e => e.k === 'shell').length;
-    return { name: 'Fireworks: only playing sends shells up', expect: 'none while paused, quiet or stopped, however intense; with no intensity, one for each note played (20 notes, 20 shells)',
-      got: a + ' paused, ' + b + ' quiet, ' + c + ' stopped, ' + d + ' playing; ' + s.shells + ' counted', pass: a === 0 && b === 0 && c === 0 && d === 20 && s.shells === 20 }; } });
-  list.push({ name: 'Fireworks: each note is a colour, higher notes burst higher', run: () => {
-    const s = new FireworkSim(); s.reset(1800, 5); const shot = midi => { s.tokens = FW.BURST; s.update(0.05, { state: 'running', music: true, notes: 1, midi: midi, recent: 0, play: 0 }); return s.events.pop(); };
-    const lo = [], hi = []; for (let k = 0; k < 20; k++) { lo.push(shot(48)); hi.push(shot(84)); }
+      c = fwRun(s, 20, { state: 'stopped', music: true, midi: 60, recent: 0.8, play: 0 }, 1).length;
+    const ev = fwRun(s, 20, { state: 'running', music: true, midi: 60, recent: 0.5, play: 0 }, 1), sent = ev.filter(e => e.k === 'launch').map(e => e.id), bursts = ev.filter(e => e.k === 'burst');
+    const ok = a === 0 && b === 0 && c === 0 && sent.length >= 25 && bursts.length >= 18 && bursts.length <= 20 && bursts.every(e => sent.includes(e.id)) && s.shells === bursts.length && ev[0].k === 'launch';
+    return { name: 'Fireworks: shells go up while you play, and notes set them off', expect: 'nothing while paused, quiet or stopped; while playing at 50%, about 1.5 shells a second go up (one at once) and each of 20 notes sets one off',
+      got: a + ' paused, ' + b + ' quiet, ' + c + ' stopped; ' + sent.length + ' went up, ' + bursts.length + ' set off, ' + s.shells + ' counted', pass: ok }; } });
+  list.push({ name: 'Fireworks: a note sets off the shell at its height, in its colour', run: () => {
+    const s = new FireworkSim(); s.reset(1800, 5); let near = true, n = 0;
+    const shot = midi => { s.update(0.4, { state: 'running', music: true, notes: 0, midi: midi, recent: 1, play: 0 });   // shells keep going up, until one is ready
+      for (let k = 0; k < 40 && !s.air.some(q => s.ready(q)); k++) s.update(0.1, { state: 'running', music: true, notes: 0, midi: midi, recent: 1, play: 0 }); s.events.length = 0;
+      const want = 0.45 + Math.max(0, Math.min(1, (midi - 40) / 50)) * 0.45, gap = Math.min(...s.air.filter(q => s.ready(q)).map(q => Math.abs(q.h - want)));
+      s.update(0.001, { state: 'running', music: true, notes: 1, midi: midi, recent: 1, play: 0 }); const e = s.events.find(q => q.k === 'burst'); s.events.length = 0;
+      if (e) { n++; if (Math.abs(Math.abs(e.h - want) - gap) > 1e-9) near = false; } return e; };
+    const lo = [], hi = []; for (let k = 0; k < 20; k++) { lo.push(shot(45)); hi.push(shot(88)); }
     const avg = a => a.reduce((x, e) => x + e.h, 0) / a.length, c4 = shot(60), c5 = shot(72), g4 = shot(67);
-    const before = s.colours; for (let m = 60; m < 72; m++) shot(m);
-    const hues = new Set(); for (let pc = 0; pc < 12; pc++) hues.add(fwHue(pc));
-    const ok = c4.hue === c5.hue && c4.hue !== g4.hue && avg(hi) > avg(lo) + 0.2 && before === 2 && s.colours === 12 && hues.size === 12;
-    return { name: 'Fireworks: each note is a colour, higher notes burst higher', expect: 'C4 and C5 the same colour, G another; C6 bursts well above C3; twelve notes, twelve colours',
-      got: 'C4 ' + c4.hue + ', C5 ' + c5.hue + ', G4 ' + g4.hue + '; height ' + avg(lo).toFixed(2) + ' low, ' + avg(hi).toFixed(2) + ' high; colours ' + before + ' then ' + s.colours + ', ' + hues.size + ' hues', pass: ok }; } });
-  list.push({ name: 'Fireworks: fast scales do not flood the sky', run: () => {
-    const s = new FireworkSim(); s.reset(1800, 7);
-    const ev = fwRun(s, 10, { state: 'running', music: true, midi: 64, recent: 1, play: 0 }, 12).filter(e => e.k === 'shell');
-    const cap = (FW.RATE + FW.PER) * 10 + FW.BURST + FW.BURSTPER, big = ev.filter(e => e.size > 1.01).length;
-    return { name: 'Fireworks: fast scales do not flood the sky', expect: '12 notes a second for 10 s sends up at most ' + cap + ' shells, the notes over that making shells bigger',
-      got: ev.length + ' shells for 120 notes, ' + big + ' bigger than full size', pass: ev.length <= cap && ev.length >= cap - 6 && big > 0 }; } });
+    const ok = near && n === 43 && c4.hue === c5.hue && c4.hue !== g4.hue && c4.hue === fwHue(0) && avg(hi) > avg(lo) + 0.2;
+    return { name: 'Fireworks: a note sets off the shell at its height, in its colour', expect: 'always the ready shell nearest the note\'s height; C4 and C5 the same colour, G another; high notes set off high shells',
+      got: n + ' set off' + (near ? ', each the nearest' : ', not always the nearest') + '; C4 ' + c4.hue + ', C5 ' + c5.hue + ', G4 ' + g4.hue + '; height ' + avg(lo).toFixed(2) + ' low, ' + avg(hi).toFixed(2) + ' high', pass: ok }; } });
+  list.push({ name: 'Fireworks: fast runs set off what is in the sky, and the extra notes make bigger bursts', run: () => {
+    const s = new FireworkSim(); s.reset(1800, 7); let most = 0;
+    const ev = []; for (let t = 0, owed = 0; t < 10; t += 0.05) { owed += 0.6; const n = Math.floor(owed + 1e-9); owed -= n; s.update(0.05, { state: 'running', music: true, notes: n, midi: 64, recent: 1, play: 0 }); most = Math.max(most, s.air.length); while (s.events.length) ev.push(s.events.shift()); }
+    const up = fwKinds(ev, 'launch'), set = ev.filter(e => e.k === 'burst'), big = set.filter(e => e.size > 1.01).length;
+    return { name: 'Fireworks: fast runs set off what is in the sky, and the extra notes make bigger bursts', expect: '12 notes a second for 10 s at full intensity set off the shells that go up (about ' + FW.PACE * 10 + '), no more, the extra notes making them bigger',
+      got: up + ' went up, ' + set.length + ' set off for 120 notes, ' + big + ' bigger than full size', pass: set.length <= up && set.length >= up - 2 && up <= FW.PACE * 10 + 2 && big > set.length / 2 }; } });
   list.push({ name: 'Fireworks: the last minute sets the size and the kinds', run: () => {
-    const kinds = recent => { const s = new FireworkSim(); s.reset(1800, 11); const ev = fwRun(s, 60, { state: 'running', music: true, midi: 62, recent: recent, play: 0 }, 1);
+    const kinds = recent => { const s = new FireworkSim(); s.reset(1800, 11); const ev = fwRun(s, 60, { state: 'running', music: true, midi: 62, recent: recent, play: 0 }, 1).filter(e => e.k === 'burst');
       return { size: ev.reduce((x, e) => x + e.size, 0) / ev.length, kinds: new Set(ev.filter(e => e.kind !== 'symbol').map(e => e.kind)) }; };   // symbols are a surprise of their own
     const lo = kinds(0.2), mid = kinds(0.5), hi = kinds(0.9);
     const ok = hi.size > mid.size && mid.size > lo.size && lo.kinds.size === 1 && lo.kinds.has('peony') && !mid.kinds.has('willow') && mid.kinds.has('ring') && hi.kinds.has('willow') && hi.kinds.size >= 5;
-    return { name: 'Fireworks: the last minute sets the size and the kinds', expect: 'bigger shells with more of the last minute played; round ones only at 20%, rings at 50%, willows and more at 90%',
+    return { name: 'Fireworks: the last minute sets the size and the kinds', expect: 'bigger bursts with more of the last minute played; round ones only at 20%, rings at 50%, willows and more at 90%',
       got: [['20%', lo], ['50%', mid], ['90%', hi]].map(p => p[0] + ': size ' + p[1].size.toFixed(2) + ', ' + [...p[1].kinds].sort().join(' ')).join('; '), pass: ok }; } });
-  list.push({ name: 'Fireworks: a held note still sends shells up', run: () => {
-    const s = new FireworkSim(); s.reset(1800, 13); const ev = fwRun(s, 20, { state: 'running', music: true, midi: 55, recent: 0.7, play: 0 }, 0).filter(e => e.k === 'shell');
-    const want = FW.PACE * 0.7 * 20, same = ev.every(e => e.pc === 7);
-    return { name: 'Fireworks: a held note still sends shells up', expect: 'the pace of the intensity (about ' + Math.round(want) + ' in 20 s of one long G at 70%), all in its colour',
-      got: ev.length + ' shells' + (same ? ', all G' : ', not all G'), pass: same && ev.length >= want - 2 && ev.length <= want + 1 }; } });
+  list.push({ name: 'Fireworks: a shell no note sets off fades and falls', run: () => {
+    const s = new FireworkSim(); s.reset(1800, 13); let most = 0;
+    const ev = []; for (let t = 0; t < 30; t += 0.05) { s.update(0.05, { state: 'running', music: true, notes: 0, midi: 55, recent: 0.7, play: 0 }); most = Math.max(most, s.air.length); while (s.events.length) ev.push(s.events.shift()); }
+    const up = fwKinds(ev, 'launch'), gone = fwKinds(ev, 'fizzle'), set = fwKinds(ev, 'burst');
+    const s2 = new FireworkSim(); s2.reset(1800, 13); fwRun(s2, 3, { state: 'running', music: true, midi: 55, recent: 0.7, play: 0 }, 0); const waiting = s2.air.length;
+    const held = fwRun(s2, 20, { state: 'paused', music: false, midi: 55, recent: 0.7, play: 0 }, 0).length, stop = fwRun(s2, 0.1, { state: 'stopped', music: false, midi: 55, recent: 0.7, play: 0 }, 0);
+    const ok = up > 10 && set === 0 && gone >= up - Math.ceil(s.cap) && most <= Math.ceil(s.cap) && waiting > 0 && held === 0 && stop.length === waiting && stop.every(e => e.k === 'fizzle') && !s2.air.length;
+    return { name: 'Fireworks: a shell no note sets off fades and falls', expect: 'with no notes, shells go up but none bursts; each fades ' + FW.WAIT + ' s after reaching the sky, never more than ' + Math.ceil(s.cap) + ' waiting; a pause holds them; stopping lets them all fall',
+      got: up + ' went up, ' + set + ' set off, ' + gone + ' faded, at most ' + most + ' waiting; ' + waiting + ' waiting, ' + held + ' events in a pause, ' + stop.length + ' fell at the stop', pass: ok }; } });
   list.push({ name: 'Fireworks: the higher the intensity, the more shells in the sky at once', run: () => {
     const E = [0.2, 0.5, 0.9], slow = [], fast = [];
     for (const [rate, out] of [[1, slow], [8, fast]]) for (const e of E) { const s = new FireworkSim(); s.reset(1800, 21); let sum = 0, n = 0, owed = 0;
       for (let t = 0; t < 60; t += 0.05) { owed += rate * 0.05; const k = Math.floor(owed + 1e-9); owed -= k; s.update(0.05, { state: 'running', music: true, notes: k, midi: 64, recent: e, play: t }); s.events.length = 0; if (t > 10) { sum += s.aloft; n++; } }
       out.push(sum / n); }
     const up = a => a[0] < a[1] && a[1] < a[2], ok = up(slow) && up(fast) && slow[2] >= slow[0] * 2 && fast[2] >= fast[0] * 2;
-    return { name: 'Fireworks: the higher the intensity, the more shells in the sky at once', expect: 'more shells aloft at 50% than 20%, more again at 90% (at least twice as many as at 20%), for slow notes and fast runs alike',
+    return { name: 'Fireworks: the higher the intensity, the more shells in the sky at once', expect: 'more shells in the sky (waiting and bursting) at 50% than 20%, more again at 90% (at least twice as many as at 20%), for slow notes and fast runs alike',
       got: E.map((e, j) => Math.round(e * 100) + '%: ' + slow[j].toFixed(1) + ' (1 note/s), ' + fast[j].toFixed(1) + ' (8 notes/s)').join('; '), pass: ok }; } });
   list.push({ name: 'Fireworks: a grand finale at the goal, once, ending in a trophy', run: () => {
     const s = new FireworkSim(); s.reset(60, 17); const ev = [], take = () => { while (s.events.length) ev.push(s.events.shift()); };
@@ -1139,7 +1148,7 @@ function detectionTests(sr) {
     return { name: 'Fireworks: a grand finale at the goal, once, ending in a trophy', expect: 'nothing while the theme is not shown; then one finale of ' + FW.FINALE + ' shells, held through a pause, the last a trophy, then the end of the finale (for the trophy card); not counted as the player\'s shells',
       got: away + ' events away, ' + starts + ' finale, ' + shells.length + ' shells (' + early + ' before the pause, ' + paused + ' after it), last ' + (last && last.kind) + ', ' + ends + ' end' + (endAt > lastAt ? ' after it' : ' before it') + ', ' + s.shells + ' counted', pass: ok }; } });
   list.push({ name: 'Fireworks: now and then a shell bursts into a musical symbol', run: () => {
-    const s = new FireworkSim(); s.reset(3600, 31); const ev = fwRun(s, 600, { state: 'running', music: true, midi: 62, recent: 0.8, play: 0 }, 2).filter(e => e.k === 'shell');
+    const s = new FireworkSim(); s.reset(3600, 31); const ev = fwRun(s, 600, { state: 'running', music: true, midi: 62, recent: 0.8, play: 0 }, 2).filter(e => e.k === 'burst');
     const sym = ev.filter(e => e.kind === 'symbol'), names = new Set(sym.map(e => e.symbol)), share = sym.length / ev.length;
     let gaps = true, repeats = false, at = -1e9, last = ''; for (const e of ev) { if (e.kind === 'symbol') { if (e.symbol === last) repeats = true; last = e.symbol; } }
     const s2 = new FireworkSim(); s2.reset(3600, 31); let tt = 0; for (let k = 0; k < 600 * 20; k++) { s2.update(0.05, { state: 'running', music: true, notes: k % 10 === 0 ? 1 : 0, midi: 62, recent: 0.8, play: 0 }); tt += 0.05;
@@ -2214,19 +2223,21 @@ class RaceSim {
 /* a gap in laps, in words for the read-outs: seconds at full speed, or whole laps */
 function raceGap(l) { const a = Math.abs(l); return a >= 1 ? trn(Math.floor(a), '{n} lap', '{n} laps') : Math.max(0.1, a * RACE.LAPU / RACE.VNOM).toFixed(1); }
 
-/* ---------- Fireworks: every note played sends a shell up into the night ----------
-   A note starting launches a shell. Its colour is the note (the twelve notes are twelve colours, a fifth apart round the colour wheel, so the
-   notes of a scale all look different) and its height is how high the note is. The last minute of playing (Session.recentEfficiency) sets how
-   intense the show is, shown as Intensity: how many shells are in the sky at once, how big they are, and which kinds go up (small round ones at
-   first, rings and chrysanthemums, then willows, palms and crossettes). While the music plays the show keeps a pace of PACE shells a second at
-   full intensity: every note sends one up, and when the notes come slower than the pace, more go up in the colour of the note sounding (so a
-   held note keeps the sky busy too). Only playing sends shells up: nothing goes up while quiet, paused or stopped. Fast runs cannot flood the
-   sky: shells go up at most RATE + PER x intensity a second, and the notes over that make the next shell bigger. Reaching the practice goal sets
-   off a grand finale once: FINALE shells over FINALE_T seconds, the last one bursting into the shape of a trophy (fwTrophyShape), then a
-   'finaleEnd' event TROPHY_T seconds later, when the trophy card can show. The finale only plays while the theme is on screen (shown), so it waits
-   for the player to come to it, and it holds through a pause like the clock. Now and then (SYMBOL) a shell bursts into a musical symbol
-   (fwSymbolShape) in the colour of its note. src/fireworks.js only draws what this decides. */
-const FW = { PACE: 3, RATE: 1, PER: 4, BURST: 2, BURSTPER: 3, AIR: 3.5, CHARGE: 0.15, FINALE: 28, FINALE_T: 7, LULL: 1.4, TROPHY_T: 3.6, SYMBOL: 0.13, SYMBOL_GAP: 6,   // SYMBOL: the chance a shell bursts into a musical symbol, at most one every SYMBOL_GAP s   // LULL: the quiet before the trophy goes up   // AIR: about how long a shell is in the sky, rising and burning
+/* ---------- Fireworks: shells rise while you play, and every note sets one off ----------
+   While the music plays, shells go up and wait in the sky as glowing embers: a pace of PACE shells a second at full intensity (FLOOR at the
+   least), up to AIRMAX + AIRPER x intensity waiting at once. The last minute of playing (Session.recentEfficiency) is that intensity, shown as
+   Intensity. Each note starting sets off the shell in the sky (waiting, or READY of the way up) whose height is nearest the note's (low notes the low ones,
+   high notes the high ones), and it bursts in the note's colour (the twelve notes are twelve colours, a fifth apart round the colour wheel,
+   so the notes of a scale all look different), its size and kind from the intensity (small round ones at first, rings and chrysanthemums, then
+   willows, palms and crossettes). A note with no shell ready makes the next burst bigger. A shell no note sets off for WAIT seconds fades
+   and falls. When the music starts a shell goes up at once, so the first note has something to set off. Nothing goes up while quiet; a pause
+   holds everything where it is; stopping lets every waiting shell fall. Now and then (SYMBOL) a burst takes the shape of a musical symbol
+   (fwSymbolShape). Reaching the practice goal sets off a grand finale once: FINALE shells over FINALE_T seconds that burst by themselves, the
+   last into the shape of a trophy (fwTrophyShape), then a 'finaleEnd' event TROPHY_T seconds later, when the trophy card can show. The finale
+   only plays while the theme is on screen (shown), so it waits for the player to come to it, and it holds through a pause like the clock.
+   Events: {k:'launch', id, x, h}, {k:'burst', id, x, h, size, hue, hue2, kind, pc, symbol}, {k:'fizzle', id}, and for the finale {k:'finale'},
+   {k:'shell', ...} (goes up and bursts by itself) and {k:'finaleEnd'}. src/fireworks.js only draws what this decides. */
+const FW = { PACE: 3, FLOOR: 0.5, AIRMAX: 3, AIRPER: 7, WAIT: 5, READY: 0.8, AIR: 3.5, CHARGE: 0.15, FINALE: 28, FINALE_T: 7, LULL: 1.4, TROPHY_T: 3.6, SYMBOL: 0.13, SYMBOL_GAP: 6,
   KINDS: [[0, 'peony'], [0.3, 'ring'], [0.3, 'chrysanthemum'], [0.6, 'willow'], [0.6, 'palm'], [0.6, 'crossette']] };   // [intensity needed, kind]
 function fwHue(pc) { return ((pc * 7) % 12) * 30; }                            // C red, G orange, D yellow, A lime, E green... round the circle of fifths
 /* the finale's last burst: points along the outline of a trophy (the cup, its two handles, the stem and the base), about step apart, in units where
@@ -2284,26 +2295,33 @@ class FireworkSim {
   constructor() { this.reset(0, 1); }
   reset(goal, seed) {
     this.goal = goal || 0; this.seed = seed || 1; this.rnd = raceRng(this.seed);
-    this.shells = 0; this.notes = 0; this.tokens = FW.BURST; this.charge = 0; this.due = 0; this.lastHue = -1; this.t = 0; this.up = []; this.symbolAt = -1e9; this.symbol = '';
+    this.shells = 0; this.notes = 0; this.charge = 0; this.due = 0; this.lastHue = -1; this.t = 0; this.up = []; this.symbolAt = -1e9; this.symbol = '';
+    this.air = []; this.nid = 0; this.clock = 0; this.was = false; this.intensity = 0;                // the shells in the sky, each {id, x, h, at (clock when sent), rise (s)}
     this.finaleDone = false; this.finaleLeft = 0; this.finaleT = 0; this.finaleOn = false; this.events = [];
   }
   get colours() { let n = 0; for (let b = this.notes; b; b &= b - 1) n++; return n; }   // how many of the twelve notes have gone up
   get inFinale() { return this.finaleOn; }
-  get aloft() { return this.up.length; }                                   // the player's shells sent up in the last AIR seconds: about how many are in the sky now
+  get aloft() { return this.air.length + this.up.length; }                    // about how many are in the sky now: waiting, and set off in the last AIR seconds
+  get cap() { return FW.AIRMAX + FW.AIRPER * this.intensity; }
   /* i: {state, music, notes (note starts since the last update), midi (the pitch heard, fractional key number, or null), recent (last minute, 0..1), play (s),
      shown (the theme is on screen)} */
   update(dt, i) {
-    const recent = Math.max(0, Math.min(1, i.recent || 0)), running = i.state === 'running';
+    const recent = this.intensity = Math.max(0, Math.min(1, i.recent || 0)), running = i.state === 'running';
     this.t += dt; while (this.up.length && this.t - this.up[0] > FW.AIR) this.up.shift();
-    this.tokens = Math.min(FW.BURST + FW.BURSTPER * recent, this.tokens + dt * (FW.RATE + FW.PER * recent));
-    if (running && i.music) {
-      let n = i.notes || 0;
-      this.due += dt * FW.PACE * recent;                                        // the pace the intensity asks for; the notes played count toward it
-      while (n > 0 && this.tokens >= 1) { this.launch(i.midi, recent); this.due = Math.max(-2, this.due - 1); n--; }   // notes ahead of the pace hold the extra shells back a little
-      if (n > 0) this.charge = Math.min(1, this.charge + n * FW.CHARGE);         // too many notes for the sky: the next shell goes up bigger
-      while (this.due >= 1 && this.tokens >= 1) { this.launch(i.midi, recent); this.due -= 1; }
-      this.due = Math.min(this.due, 2);
-    } else this.due = 0;
+    if (running) {
+      this.clock += dt;
+      if (i.music) {
+        this.due += dt * Math.max(FW.FLOOR, FW.PACE * recent);
+        if (!this.was && !this.air.length) this.due = Math.max(this.due, 1);   // the music starts: a shell goes up at once
+        while (this.due >= 1 && this.air.length < this.cap) { this.send(); this.due -= 1; }
+        this.due = Math.min(this.due, 1);
+        let n = i.notes || 0;
+        while (n > 0 && this.air.some(a => this.ready(a))) { this.burst(i.midi, recent); n--; }
+        if (n > 0) this.charge = Math.min(1, this.charge + n * FW.CHARGE);         // notes with nothing ready in the sky: the next burst is bigger
+      }
+      for (let k = this.air.length - 1; k >= 0; k--) { const a = this.air[k]; if (this.clock - a.at > a.rise + FW.WAIT) { this.air.splice(k, 1); this.events.push({ k: 'fizzle', id: a.id }); } }
+    } else if (i.state !== 'paused') { for (const a of this.air) this.events.push({ k: 'fizzle', id: a.id }); this.air.length = 0; }   // a pause holds them; stopping lets them fall
+    this.was = running && !!i.music;
     if (running && !this.finaleDone && this.goal > 0 && i.play >= this.goal) { this.finaleDone = true; this.finaleOn = true; this.finaleLeft = FW.FINALE; this.finaleT = 0; }
     if (running && i.shown && this.finaleOn) {                                   // the finale waits for the theme to be on screen, and holds through a pause
       if (this.finaleT === 0) this.events.push({ k: 'finale' });
@@ -2318,16 +2336,25 @@ class FireworkSim {
       if (this.finaleLeft === 0 && this.finaleT >= FW.FINALE_T + FW.TROPHY_T) { this.finaleOn = false; this.events.push({ k: 'finaleEnd' }); }
     }
   }
-  launch(midi, recent) {
+  /* a shell goes up to wait; rise is about how long it takes to get there, as the renderers draw it */
+  send() {
+    const r = this.rnd, h = 0.4 + r() * 0.45, a = { id: ++this.nid, x: 0.15 + r() * 0.7, h: h, at: this.clock, rise: 0.8 + 0.55 * h };
+    this.air.push(a); this.events.push({ k: 'launch', id: a.id, x: a.x, h: a.h });
+  }
+  /* a shell a note can set off: nearly at the top of its climb (READY of the way), so a burst never happens down among the roofs */
+  ready(a) { return this.clock - a.at >= a.rise * FW.READY; }
+  /* a note sets off the ready shell nearest its height, in its colour */
+  burst(midi, recent) {
     const r = this.rnd, known = midi != null && isFinite(midi), pc = known ? ((Math.round(midi) % 12) + 12) % 12 : Math.floor(r() * 12), hue = fwHue(pc);
-    const kinds = FW.KINDS.filter(k => recent >= k[0]).map(k => k[1]), kind = kinds[Math.floor(r() * kinds.length)];
-    const h = known ? 0.45 + Math.max(0, Math.min(1, (midi - 40) / 50)) * 0.45 + (r() - 0.5) * 0.08 : 0.55 + r() * 0.25;   // low notes burst low, high notes high
-    const size = Math.min(1.25, 0.3 + 0.7 * recent + this.charge * 0.4), e = { k: 'shell', x: 0.12 + r() * 0.76, h: Math.max(0.35, Math.min(0.95, h)), size: size, hue: hue, hue2: recent >= 0.6 && this.lastHue !== hue ? this.lastHue : -1, kind: kind, pc: pc };
-    if (this.t - this.symbolAt >= FW.SYMBOL_GAP && r() < FW.SYMBOL) {   // now and then the shell bursts into a musical symbol, in the note's colour; never the same one twice running
+    const want = known ? 0.45 + Math.max(0, Math.min(1, (midi - 40) / 50)) * 0.45 : 0.4 + r() * 0.45;   // low notes the low shells, high notes the high ones
+    let best = -1; for (let k = 0; k < this.air.length; k++) if (this.ready(this.air[k]) && (best < 0 || Math.abs(this.air[k].h - want) < Math.abs(this.air[best].h - want))) best = k;
+    const a = this.air.splice(best, 1)[0], kinds = FW.KINDS.filter(k => recent >= k[0]).map(k => k[1]), kind = kinds[Math.floor(r() * kinds.length)];
+    const e = { k: 'burst', id: a.id, x: a.x, h: a.h, size: Math.min(1.25, 0.3 + 0.7 * recent + this.charge * 0.4), hue: hue, hue2: recent >= 0.6 && this.lastHue !== hue ? this.lastHue : -1, kind: kind, pc: pc };
+    if (this.t - this.symbolAt >= FW.SYMBOL_GAP && r() < FW.SYMBOL) {   // now and then the burst takes the shape of a musical symbol, in the note's colour; never the same one twice running
       const pick = FW_SYMBOLS.filter(n => n !== this.symbol); e.kind = 'symbol'; e.symbol = this.symbol = pick[Math.floor(r() * pick.length)]; e.hue2 = -1; this.symbolAt = this.t;
     }
     this.events.push(e);
-    this.tokens -= 1; this.charge = 0; this.lastHue = hue; this.shells++; this.notes |= 1 << pc; this.up.push(this.t);
+    this.charge = 0; this.lastHue = hue; this.shells++; this.notes |= 1 << pc; this.up.push(this.t);
   }
 }
 

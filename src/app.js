@@ -104,7 +104,7 @@ drawPixelTrophy($('rTrophy')); drawPixelTrophy($('awardPx')); drawPixelTrophy($(
 let awardT = 0;
 function award(goal) {
   const place = SKINS[skin] === 'race' && race.racing ? tr('You finished the race in P{n}.', { n: race.finished ? race.finishPos : race.pos })
-    : SKINS[skin] === 'fireworks' && fw.shells ? trn(fw.shells, 'You sent up {n} firework.', 'You sent up {n} fireworks.') : '', reachedLine = tr('You reached your {n}-minute practice goal.', { n: Math.round(goal / 60) });
+    : SKINS[skin] === 'fireworks' && fw.shells ? trn(fw.shells, 'You set off {n} firework.', 'You set off {n} fireworks.') : '', reachedLine = tr('You reached your {n}-minute practice goal.', { n: Math.round(goal / 60) });
   $('awardSub').textContent = place ? MT.both(reachedLine, place) : reachedLine;
   const el = $('award'); el.hidden = true; void el.offsetWidth; el.hidden = false;          // restart the entrance
   clearTimeout(awardT); awardT = setTimeout(hideAward, 7000);
@@ -520,7 +520,7 @@ function fireBanner(msg) { const b = $('fBanner'); b.textContent = msg; b.classL
 function hideFireBanner() { clearTimeout(fBannerT); $('fBanner').classList.remove('on'); }
 function fireHint(st) {
   const shells = fw.shells;
-  if (st === 'idle') return tr('Every note you play sends up a firework');
+  if (st === 'idle') return tr('Every note you play sets off a firework');
   if (st === 'stopped') return shells ? trn(shells, '{n} firework lit up the sky', '{n} fireworks lit up the sky') : tr('Press Start for a new show');
   if (st === 'paused') return tr(fw.inFinale ? 'Paused. The finale waits for you' : 'Paused. The sky waits for you');
   if (fw.inFinale) return tr('Grand finale!');
@@ -973,7 +973,7 @@ const THEME_LINE = {
   city: 'Playing fires the cannons that keep the city safe.',
   dash: 'Playing runs the course; your goal is its length.',
   race: 'Playing races a car; your last minute is its speed.',
-  fireworks: 'Every note sends up a firework in its own colour.',
+  fireworks: 'Every note sets off a firework in its own colour.',
 };
 const themeRows = SKINS.map(id => { const li = document.createElement('li'), sw = document.createElement('input'); li.className = 'trow'; li.dataset.theme = id;
   li.innerHTML = '<span class="tile" aria-hidden="true"><svg><use href="#ico-' + id + '"/></svg></span><span class="tx"><b></b><span></span></span>';

@@ -81,14 +81,24 @@ function makeFirework2D(cv, hud, sim, MT) {
   function reset() { rockets.length = 0; sparks.length = 0; glows.length = 0; smoke.length = 0; flash = 0; idleT = 1.5; }
 
   /* a shell from the core: {x, h, size, hue, hue2, kind, finale} */
+  /* the size of a burst, and where a shell bursts: a symbol is kept whole in the sky */
+  const sizeR = e => e.kind === 'trophy' ? Math.min(0.4 * SKY, 0.55 * W) : e.kind === 'symbol' ? Math.min(0.3 * SKY, 0.38 * W) * (0.85 + 0.25 * Math.min(1, e.size)) : (0.12 + 0.2 * e.size) * Math.min(W, SKY * 1.5);
+  const keep = (r, R) => { r.x = Math.max(R * 0.85, Math.min(W - R * 0.85, r.x)); r.y = Math.max(top + R * 0.95, Math.min(GY - R * 0.9, r.y)); };
+  /* a shell from the core. {k:'shell'} goes up and bursts by itself (the finale, and the shows before the start); {k:'launch'} goes up and waits
+     for a note to set it off ({k:'burst'}), or fades and falls ({k:'fizzle'}) */
   function launch(e) {
     if (!W && !resize()) return;
-    const trophy = e.kind === 'trophy', symbol = e.kind === 'symbol', R = trophy ? Math.min(0.4 * SKY, 0.55 * W) : symbol ? Math.min(0.3 * SKY, 0.38 * W) * (0.85 + 0.25 * Math.min(1, e.size)) : (0.12 + 0.2 * e.size) * Math.min(W, SKY * 1.5);
-    const ty = trophy ? top + SKY * 0.46 : symbol ? Math.max(top + R * 0.95, Math.min(GY - R * 0.9, GY - e.h * SKY)) : Math.max(top + R * 0.6, GY - e.h * SKY), x = symbol ? Math.max(R * 0.85, Math.min(W - R * 0.85, e.x * W)) : e.x * W;   // a symbol stays whole in the sky
-    rockets.push({ x: x, x0: x, y: GY, y0: GY, ty: ty, t: 0, dur: 0.75 + 0.55 * e.h + Math.random() * 0.15, drift: trophy || symbol ? 0 : (Math.random() - 0.5) * W * 0.05, e: e, R: R });
+    const wait = e.k === 'launch', trophy = e.kind === 'trophy', symbol = e.kind === 'symbol', R = wait ? sizeR({ size: 0.8 }) : sizeR(e);
+    const ty = trophy ? top + SKY * 0.46 : wait ? Math.max(top + SKY * 0.14, GY - e.h * SKY) : symbol ? Math.max(top + R * 0.95, Math.min(GY - R * 0.9, GY - e.h * SKY)) : Math.max(top + R * 0.6, GY - e.h * SKY), x = symbol ? Math.max(R * 0.85, Math.min(W - R * 0.85, e.x * W)) : e.x * W;
+    rockets.push({ x: x, x0: x, y: GY, y0: GY, ty: ty, t: 0, dur: 0.75 + 0.55 * e.h + Math.random() * 0.15, drift: trophy || symbol ? 0 : (Math.random() - 0.5) * W * 0.05, e: e, R: R, id: wait ? e.id : 0, wait: wait });
   }
   function event(e) {
-    if (e.k === 'shell') launch(e);
+    if (e.k === 'shell' || e.k === 'launch') launch(e);
+    else if (e.k === 'burst') {                                         // a note sets a shell off where it is, rising or waiting
+      if (!W && !resize()) return;
+      const i = rockets.findIndex(r => r.id === e.id), r = i >= 0 ? rockets.splice(i, 1)[0] : { x: e.x * W, y: Math.max(top + SKY * 0.14, GY - e.h * SKY) };   // one sent up before the theme was on screen bursts where it would be
+      r.e = e; r.R = sizeR(e); if (e.kind === 'symbol') keep(r, r.R); burst(r);
+    } else if (e.k === 'fizzle') { const r = rockets.find(q => q.id === e.id); if (r) { r.fz = 0; r.vy = 0; } }
     else if (e.k === 'finale') flash = RM ? 0 : 0.35;
   }
   function spark(p) { if (sparks.length < MAX) sparks.push(p); }
@@ -162,10 +172,19 @@ function makeFirework2D(cv, hud, sim, MT) {
       if (o.t < 0.12 && !RM) { g.globalAlpha = 1 - o.t / 0.12; g.fillStyle = '#FFFFFF'; g.beginPath(); g.arc(o.x, o.y, 2 + o.r * 0.03, 0, TAU); g.fill(); g.globalAlpha = 1; } }
     // shells on the way up, with a trail of sparks
     for (let i = rockets.length - 1; i >= 0; i--) { const r = rockets[i]; r.t += dt; const p = Math.min(1, r.t / r.dur), q = 1 - (1 - p) * (1 - p);
-      r.x = r.x0 + r.drift * q; r.y = r.y0 + (r.ty - r.y0) * q;
-      if (!RM || Math.random() < 0.3) spark({ x: r.x + (Math.random() - 0.5) * 1.5, y: r.y + 2, vx: (Math.random() - 0.5) * 12, vy: 10 + Math.random() * 20, k: 2, gr: 30, t: 0, life: 0.35 + Math.random() * 0.25, s: 1.4, n: 0, h: 34, sat: 100, l: 70 });
-      g.fillStyle = '#FFE9B8'; g.fillRect(r.x - 1.2, r.y - 1.2, 2.4, 2.4);
-      if (p >= 1) { rockets.splice(i, 1); burst(r); } }
+      if (r.fz != null) {                                               // no note set it off: it fades as it falls
+        r.fz += dt; r.vy += 45 * dt; r.y += r.vy * dt; const a = 1 - r.fz / 1.5; if (a <= 0) { rockets.splice(i, 1); continue; }
+        if (!RM && Math.random() < dt * 8) spark({ x: r.x, y: r.y, vx: (Math.random() - 0.5) * 8, vy: 6, k: 2, gr: 20, t: 0, life: 0.4, s: 1.2, n: 0, h: 30, sat: 80, l: 45 });
+        g.globalAlpha = a; g.fillStyle = '#E8B070'; g.fillRect(r.x - 1, r.y - 1, 2, 2); g.globalAlpha = 1; continue;
+      }
+      if (p < 1) { r.x = r.x0 + r.drift * q; r.y = r.y0 + (r.ty - r.y0) * q;
+        if (!RM || Math.random() < 0.3) spark({ x: r.x + (Math.random() - 0.5) * 1.5, y: r.y + 2, vx: (Math.random() - 0.5) * 12, vy: 10 + Math.random() * 20, k: 2, gr: 30, t: 0, life: 0.35 + Math.random() * 0.25, s: 1.4, n: 0, h: 34, sat: 100, l: 70 }); }
+      else if (r.wait) { r.y = r.ty + (RM ? 0 : Math.sin(clock * 1.7 + r.id) * 1.6);   // waiting for a note: an ember that hovers and flickers
+        if (!RM && Math.random() < dt * 14) spark({ x: r.x + (Math.random() - 0.5) * 3, y: r.y + 1, vx: (Math.random() - 0.5) * 10, vy: 8 + Math.random() * 12, k: 2, gr: 30, t: 0, life: 0.7, s: 1.6, n: 1, h: 36, sat: 100, l: 62, glit: true });
+        const pulse = RM ? 0.8 : 0.65 + 0.35 * Math.sin(clock * 6 + r.id * 2), rr = 9 + 3 * pulse, halo = g.createRadialGradient(r.x, r.y, 0, r.x, r.y, rr);   // its glow
+        halo.addColorStop(0, 'rgba(255,190,110,' + (0.55 * pulse).toFixed(3) + ')'); halo.addColorStop(1, 'rgba(255,150,60,0)'); g.globalCompositeOperation = 'lighter'; g.fillStyle = halo; g.fillRect(r.x - rr, r.y - rr, rr * 2, rr * 2); }
+      g.globalAlpha = 1; g.fillStyle = '#FFE9B8'; const hs = r.wait && p >= 1 ? 3.6 : 2.6; g.fillRect(r.x - hs / 2, r.y - hs / 2, hs, hs);
+      if (p >= 1 && !r.wait) { rockets.splice(i, 1); burst(r); } }
     // the sparks
     const kf = {};
     for (let i = sparks.length - 1; i >= 0; i--) { const p = sparks[i]; p.t += dt;
