@@ -11,7 +11,7 @@ function width(el, f) { const s = Math.round(Math.max(0, Math.min(1, f)) * 1000)
 function left(el, f) { const s = Math.round(Math.max(0, Math.min(1, f)) * 1000) / 10 + '%'; if (cache.get(el) !== s) { cache.set(el, s); el.style.left = s; } }
 
 /* ---------- settings ---------- */
-const DEF = { v: 2, goalMin: 30, name: '', sens: 'normal', hold: '5', record: false, source: 'mic', skin: 'classic', viz: 'piano', inst: '' };
+const DEF = { v: 2, goalMin: 30, name: '', sens: 'normal', hold: '5', record: false, source: 'mic', skin: 'classic', themesOff: '', viz: 'piano', inst: '' };
 const S = Object.assign({}, DEF);
 try { const j = JSON.parse(localStorage.getItem('musicTimer.settings') || 'null');
   if (j && typeof j === 'object') { for (const k in DEF) if (typeof j[k] === typeof DEF[k]) S[k] = j[k];
@@ -703,12 +703,15 @@ let skin = Math.max(0, SKINS.indexOf(S.skin)), dragging = false, peek = -1;   //
    and call refreshSkins() when the condition changes. A locked theme keeps its icon in the theme bar (faint, with a padlock) but leaves the swipe
    track, so swipes, arrow keys and the bar all skip it. Classic is always open, so there is somewhere to land. */
 function skinOpen(i) { return true; }   // eslint-disable-line no-unused-vars -- i is for when a theme is held back
+/* Themes the player turned off (Settings, Themes; S.themesOff) leave the swipe track and the theme bar altogether, with no padlock: nothing to earn back */
+function skinOn(i) { return MT.themesOn(SKINS, S.themesOff).includes(SKINS[i]); }
 let open = [];   // indices of the open themes, in swipe order
 function refreshSkins() {
-  open = SKINS.map((_, i) => i).filter(i => i === 0 || skinOpen(i));
+  open = SKINS.map((_, i) => i).filter(i => (i === 0 || skinOpen(i)) && skinOn(i));
+  if (!open.length) open = [0];
   PANELS.forEach((id, i) => { $(id).hidden = !open.includes(i); });
   track.style.width = open.length * 100 + '%';
-  setSkin(open.includes(skin) ? skin : 0, false);
+  setSkin(SKINS.indexOf(MT.themeLanding(SKINS, open.map(i => SKINS[i]), SKINS[skin])), false);
 }
 function stepSkin(d) { const p = open.indexOf(skin) + d; return open[Math.max(0, Math.min(open.length - 1, p))]; }   // the next open theme that way, or the same one at either end
 /* Only the theme on screen is drawn, plus the one a swipe is revealing. Each scene is costly (City is WebGL), so drawing every theme while a finger is down made swipes lag.
@@ -732,7 +735,7 @@ SKINS.forEach((id, i) => { const b = document.createElement('button'); b.type = 
 function paintSkinBar() {
   [...skinBar.children].forEach((b, i) => {
     const locked = !open.includes(i), on = i === skin;
-    b.disabled = locked; b.dataset.state = locked ? 'locked' : on ? 'on' : 'off';
+    b.hidden = !skinOn(i); b.disabled = locked; b.dataset.state = locked ? 'locked' : on ? 'on' : 'off';
     if (on) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current');
     b.setAttribute('aria-label', SKIN_NAMES[i] + ' theme' + (locked ? ', locked' : '')); b.title = SKIN_NAMES[i] + (locked ? ' (locked)' : '');
   });
@@ -823,7 +826,32 @@ const GOAL_HINT = {
   dash: 'The total play time to reach. It is also the length of the course.',
 };
 function paintSettingsSkin() { $('goalHint').textContent = GOAL_HINT[SKINS[skin]]; }
-$('btnSettings').onclick = () => { if (heldOpen()) return; pauseForSheet(); paintSettingsSkin(); paintGoal(); paintControls(); paintDbg(); $('dlgSettings').showModal(); $('dlgSettings').querySelector('.sh-body').scrollTop = 0; };
+/* Settings, Themes: a page of its own in the sheet, with a switch for each theme. The last one on can't be turned off;
+   turning off the one on screen moves to the next one on (MT.themeLanding), during a session too */
+const THEME_LINE = {
+  classic: 'The clock, with your play time and efficiency.',
+  rocket: 'Playing flies a rocket up to Moon orbit.',
+  city: 'Playing fires the cannons that keep the city safe.',
+  dash: 'Playing runs the course; your goal is its length.',
+};
+const themeRows = SKINS.map((id, i) => { const li = document.createElement('li'), sw = document.createElement('input'); li.className = 'trow'; li.dataset.theme = id;
+  li.innerHTML = '<span class="tile" aria-hidden="true"><svg><use href="#ico-' + id + '"/></svg></span><span class="tx"><b>' + SKIN_NAMES[i] + '</b><span>' + THEME_LINE[id] + '</span></span>';
+  sw.type = 'checkbox'; sw.setAttribute('role', 'switch'); sw.className = 'tg'; sw.setAttribute('aria-label', SKIN_NAMES[i]);
+  sw.onchange = () => { const was = skin; S.themesOff = MT.themeSwitch(SKINS, S.themesOff, id, sw.checked); saveS(); refreshSkins(); paintThemes(skin !== was); };
+  li.append(sw); $('themeList').append(li); return li; });
+function paintThemes(moved) {
+  const on = MT.themesOn(SKINS, S.themesOff), names = on.map(id => SKIN_NAMES[SKINS.indexOf(id)]);
+  themeRows.forEach((li, i) => { const sw = li.querySelector('input'), o = on.includes(SKINS[i]); sw.checked = o; sw.disabled = o && on.length === 1; li.classList.toggle('off', !o); });
+  $('themesSum').textContent = on.length === SKINS.length ? 'All of them are on.' : on.length === 1 ? 'Only ' + names[0] + ' is on.' : names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1] + ' are on.';
+  $('themesMini').innerHTML = on.map(id => '<i data-theme="' + id + '"><svg><use href="#ico-' + id + '"/></svg></i>').join('');
+  $('themesNote').textContent = on.length === 1 ? 'One theme always stays on, so there is always something to play with.' : moved ? 'Now playing with ' + SKIN_NAMES[skin] + '.' : '';
+}
+function settingsPage(themes) {
+  $('setMain').hidden = themes; $('setThemes').hidden = !themes; $('setH').hidden = themes; $('setBack').hidden = !themes;
+  $('dlgSettings').setAttribute('aria-labelledby', themes ? 'themesH' : 'setH'); paintThemes(false); (themes ? $('setThemes') : $('setMain')).scrollTop = 0; }
+$('openThemes').onclick = () => settingsPage(true);
+$('setBack').onclick = () => { settingsPage(false); $('openThemes').focus(); };
+$('btnSettings').onclick = () => { if (heldOpen()) return; pauseForSheet(); paintSettingsSkin(); paintGoal(); paintControls(); paintDbg(); $('dlgSettings').showModal(); settingsPage(false); };
 $('setClose').onclick = () => $('dlgSettings').close();
 for (const d of document.querySelectorAll('dialog')) d.addEventListener('click', e => { if (e.target === d && !heldOpen()) d.close(); });   // not the lift of the finger that held Settings down
 
