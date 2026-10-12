@@ -439,7 +439,7 @@ function raceHint(st) {
   if (st === 'stopped') return race.racing ? (race.finished ? 'Finished P' + race.finishPos : 'P' + race.pos) + ' after ' + lapsTxt : 'Press Start for a new race';
   if (race.mode === 'grid' || race.mode === 'lights') return st === 'paused' ? 'Paused on the grid' : race.lit < 5 ? 'Keep playing to light the start lights: ' + race.lit + ' of 5' : 'Lights out any moment now';
   if (race.mode === 'red') return race.pit && race.pit.phase === 'in' ? 'Red flag. Heading into the pit lane' : 'Waiting in the pit. Every car holds its place';
-  if (race.inPit) return 'Pit lane speed limit. Rejoining in P' + race.pos;
+  if (race.inPit) return (race.limiter ? 'Pit lane speed limit. ' : 'Leaving the pit lane. ') + 'Rejoining in P' + race.pos;
   if (race.finished && performance.now() - raceDoneAt < 8000) return 'Chequered flag. You finished P' + race.finishPos;
   if (!V.music) return b && -b.lead * MT.RACE.LAPU / MT.RACE.VNOM < 1.2 ? 'Quiet seconds slow you. ' + b.code + ' is ' + MT.raceGap(b.lead) + ' s behind' : 'Quiet seconds are slowing you down';
   if (!a) return b ? 'Leading the race by ' + MT.raceGap(b.lead) + (Math.abs(b.lead) >= 1 ? '' : ' s') : 'Leading the race';
