@@ -1022,6 +1022,14 @@ function detectionTests(sr) {
     const s = new Session(); s.start(); for (let i = 0; i < 30; i++) s.tick(1, true); for (let i = 0; i < 10; i++) s.tick(1, false);
     const m = s.minute, ok = m.length === 60 && m.slice(0, 20).every(v => v === null) && m.slice(20, 50).every(v => v === 1) && m.slice(50).every(v => v === 0);
     return { name: 'Session: the last minute, a second at a time', expect: '20 empty seconds, 30 played, 10 quiet', got: m.map(v => v == null ? '.' : v >= 0.5 ? '#' : '_').join(''), pass: ok }; } });
+  list.push({ name: 'Themes: the player turns off the ones they don\'t like', run: () => {
+    const all = ['classic', 'rocket', 'city', 'dash', 'race'];
+    const got = [themesOn(all, '').join(' '), themesOn(all, 'city,dash').join(' '), themesOn(all, 'classic,rocket,city,dash,race').join(' '), themesOn(all, 'space,dash').join(' '),
+      themeSwitch(all, '', 'city', false), themeSwitch(all, 'city', 'classic', false), themeSwitch(all, 'classic,city', 'city', true), themeSwitch(all, 'classic,rocket,city,dash', 'race', false),
+      themeSwitch(all, 'space', 'rocket', false), themeLanding(all, ['classic', 'dash'], 'rocket'), themeLanding(all, ['classic', 'rocket'], 'dash'), themeLanding(all, ['city'], 'city'), themeLanding(all, ['rocket'], 'gone'), themeLanding(all, ['classic', 'city'], 'race')];
+    const want = ['classic rocket city dash race', 'classic rocket race', 'classic rocket city dash race', 'classic rocket city race', 'city', 'classic,city', 'classic', 'classic,rocket,city,dash', 'rocket', 'dash', 'rocket', 'city', 'rocket', 'city'];
+    return { name: 'Themes: the player turns off the ones they don\'t like', expect: 'off themes leave the list, unknown ids are ignored, the last one on stays on, and turning off the one on screen lands on the next one on (' + want.join(' | ') + ')',
+      got: got.join(' | '), pass: got.every((g, i) => g === want[i]) }; } });
   return list;
 }
 function runDetectionTests(sr) { return detectionTests(sr).map(t => t.run()); }
@@ -1031,6 +1039,22 @@ function runDetectionTests(sr) { return detectionTests(sr).map(t => t.run()); }
 function buildOf(html) { const m = /<meta name="build" content="([^"]*)"/.exec(html || ''); return m && m[1].indexOf('__') < 0 ? m[1].trim() : ''; }
 /* is the live page (its html) a different build from the one running? Never for an unbuilt page */
 function newerBuild(running, html) { const b = buildOf(html); return !!running && running.indexOf('__') < 0 && !!b && b !== running; }
+
+/* ---------- theme choice: the player can turn off themes they don't like (Settings, Themes) ---------- */
+/* all: every theme id, in swipe order; off: the ids turned off, saved as text ('city,dash'). Ids no longer in all are left out,
+   so a removed theme is forgotten and a new one starts on. One theme always stays on: with every one off, all come back. */
+function themesOff(all, off) { const ids = String(off || '').split(','); return all.filter(id => ids.indexOf(id) >= 0); }
+function themesOn(all, off) { const o = themesOff(all, off), on = all.filter(id => o.indexOf(id) < 0); return on.length ? on : all.slice(); }
+/* turns one theme on or off; the new off text. The last theme on can't be turned off */
+function themeSwitch(all, off, id, want) {
+  const o = themesOff(all, off).filter(x => x !== id); if (!want && all.indexOf(id) >= 0) o.push(id);
+  return o.length < all.length ? all.filter(x => o.indexOf(x) >= 0).join(',') : themesOff(all, off).join(',');
+}
+/* the theme to show when cur is not among those on: the next one on after it in swipe order, else the nearest before it */
+function themeLanding(all, on, cur) {
+  if (on.indexOf(cur) >= 0) return cur; const i = all.indexOf(cur);
+  return all.slice(i + 1).find(x => on.indexOf(x) >= 0) || all.slice(0, Math.max(0, i)).reverse().find(x => on.indexOf(x) >= 0) || on[0];
+}
 
 /* ---------- Session clock ---------- */
 class Session {
@@ -1853,6 +1877,6 @@ class RaceSim {
 function raceGap(l) { const a = Math.abs(l); return a >= 1 ? Math.floor(a) + (a >= 2 ? ' laps' : ' lap') : Math.max(0.1, a * RACE.LAPU / RACE.VNOM).toFixed(1); }
 
 const api = { LIFTOFF, OnsetTracker, DragSwipe, WheelSwipe, DashSim, DASH, dashSpeed, RaceSim, RACE, raceTrack, raceGap, raceRng, RacePractiser, MusicDetector, Session, RocketSim, WORLD, MILESTONES, SENSITIVITY, CLIPS, DETECTION_CASES,
-  detectionTests, runDetectionTests, analyzeClip, sessionReport, clockText, sessionRecord, worthKeeping, liveSnapshot, liveRecord, rocketCarry, buildOf, newerBuild, practiceStats, dayRecap, dayLine, practiceNudge, homeCopy, weekLine, durationText, dayKey, LOG_MAX, LEVEL_MIN, SAMPLE_LOGS, sampleLog, rocketAt, fraction, heardAs, noteOf, smooth, pchip, clamp01 };
+  detectionTests, runDetectionTests, analyzeClip, sessionReport, clockText, sessionRecord, worthKeeping, liveSnapshot, liveRecord, rocketCarry, buildOf, newerBuild, themesOn, themeSwitch, themeLanding, practiceStats, dayRecap, dayLine, practiceNudge, homeCopy, weekLine, durationText, dayKey, LOG_MAX, LEVEL_MIN, SAMPLE_LOGS, sampleLog, rocketAt, fraction, heardAs, noteOf, smooth, pchip, clamp01 };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.MT = api;
 })(typeof self !== 'undefined' ? self : this);
