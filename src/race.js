@@ -141,9 +141,11 @@ function makeRaceView(cv, hud, sim, MT) {
   }
   function resize() {
     const r = cv.parentElement, w = r.clientWidth, h = r.clientHeight; if (w < 10 || h < 10) return false;
-    dpr = Math.min(2, window.devicePixelRatio || 1); W = w; H = h;
+    const d = Math.min(2, window.devicePixelRatio || 1), t = hud.offsetTop + hud.offsetHeight;
+    if (w === W && h === H && d === dpr && t === top) return true;   // every theme change asks, after the frame is drawn: setting the canvas size clears it, and a blank frame would show
+    dpr = d; W = w; H = h; top = t;
     cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
-    top = hud.offsetTop + hud.offsetHeight; const free = H - top;
+    const free = H - top;
     GY = H - Math.max(8, free * 0.04);
     let gap = (GY - top) * 0.62; gap = Math.min(gap, 0.46 * W * CAMH / 760); HY = GY - gap;   // the car fills no more than 46% of the width
     K = gap * PZ / (CD * CAMH);
