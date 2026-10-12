@@ -38,6 +38,8 @@ const dash = new MT.DashSim(), dashView = makeDashView($('dashCv'), $('dashHud')
 let pendingOnsets = 0, onsetN = 0, dashAt = 0;      // note starts waiting to be used; a running count for followers; when the course last moved
 const race = new MT.RaceSim(), raceView = makeRaceView($('raceCv'), $('raceHud'), race, MT);
 let raceNotes = 0, raceDoneAt = 0;                  // note starts for the sparks under the car; when the chequered flag fell
+const run = new MT.RunSim(), runView = makeRunView($('runCv'), $('runHud'), run);
+let runNotes = 0;                                   // note starts, for the pickaxe
 const NB = 44, bars = new Float32Array(NB), shown = new Float32Array(NB);
 const heard = { label: '', detail: '', note: '', midi: null };      // midi: the pitch heard, as a (fractional) piano key number
 let mode = 'local';            // 'local' | 'follow'
@@ -73,7 +75,7 @@ drawPixelTrophy($('rTrophy')); drawPixelTrophy($('awardPx')); drawPixelTrophy($(
 let awardT = 0;
 function goalText(goal) { return Math.round(goal / 60) + '-minute'; }
 function award(goal) {
-  const place = SKINS[skin] === 'race' && race.racing ? ' You finished the race in P' + (race.finished ? race.finishPos : race.pos) + '.' : '';
+  const place = SKINS[skin] === 'race' && race.racing ? ' You finished the race in P' + (race.finished ? race.finishPos : race.pos) + '.' : SKINS[skin] === 'speedrun' && run.done ? ' You beat the dragon in a run time of ' + fmt(run.times[run.times.length - 1]) + '.' : '';
   $('awardSub').textContent = 'You reached your ' + goalText(goal) + ' practice goal.' + place;
   const el = $('award'); el.hidden = true; void el.offsetWidth; el.hidden = false;          // restart the entrance
   clearTimeout(awardT); awardT = setTimeout(hideAward, 7000);
@@ -200,6 +202,7 @@ async function start() {
   session.goal = S.goalMin * 60; session.hold = +S.hold; session.start(); const carried = carryRocket() && !forced; DBG.rocket = ''; rocket.reset(); city.reset(); cityBannerAt = 0;
   dash.reset(); dashView.reset(); onsets.reset(); pendingOnsets = 0;
   race.reset(session.goal, 1 + Math.floor(Math.random() * 2e9)); raceView.reset(); raceNotes = 0; hideRaceBanner();   // a new field each session
+  run.reset(session.goal, race.seed); runView.reset(); runNotes = 0; hideRunBanner();   // and a new world, from the same seed
   music = false; goalHit = false; vote = {}; bars.fill(0); hideAward();
   if (carried) banner('Carrying on from earlier today');
   heard.label = 'Listening'; heard.detail = 'Play your instrument to start the clock'; heard.note = ''; heard.midi = null;
@@ -219,6 +222,7 @@ function stop() {
   clearLive();                                   // ended here, so nothing was cut short
   clearInterval(timer); timer = 0; music = false; recCall('stop'); rec.mr = null; hideAward(); hideRaceBanner();
   race.update(0, { state: 'stopped', music: false, recent: 0, play: session.play });   // the car slows to a stop; the race order stays as it ended
+  run.update(0, { state: 'stopped', music: false, recent: 0, play: session.play, active: session.active, goal: session.goal });
   closeAudio(); letSleep(); paintControls(); push();
   current = finishSession(); openSummary(current.rec, false);
 }
@@ -235,7 +239,7 @@ function tick() {
       if (dt >= 1.5) session.quietFor = Infinity;   // and no hold across it
       heard.label = r.label; heard.detail = r.detail; heard.note = r.isMusic ? r.note : '';   // a note name only for an instrument, not for talking or noise
       heard.midi = r.pitch > 0 ? 69 + 12 * Math.log2(r.pitch / 440) : null; levelBars();
-      if (onsets.feed(dt, { music: m, midi: heard.midi, levelDb: r.levelDb })) { pendingOnsets++; onsetN++; raceNotes++; }
+      if (onsets.feed(dt, { music: m, midi: heard.midi, levelDb: r.levelDb })) { pendingOnsets++; onsetN++; raceNotes++; runNotes++; }
       if (A.kind === 'mic' && A.ctx && A.ctx.state !== 'running') { m = false; heard.label = 'The microphone is asleep'; heard.detail = 'Press Pause, then Resume to wake it'; heard.note = ''; heard.midi = null; }
       if (m && r.instrument) vote[r.instrument] = (vote[r.instrument] || 0) + dt; }
     let best = '', bs = 0; for (const k in vote) { vote[k] *= Math.exp(-dt / 25); if (vote[k] > bs) { bs = vote[k]; best = k; } }
@@ -248,6 +252,7 @@ function tick() {
   const pw = session.recentEfficiency;   // the rocket, cannons and course follow the last minute of playing
   sim.update(away ? 0 : dt * w, { running: session.state === 'running', playing: m, eff: pw, rdt: dt });
   race.update(away ? 0 : dt * w, { state: session.state, music: music, recent: pw, play: session.play });   // the race runs on session time, like the clock
+  run.update(away ? 0 : dt * w, { state: session.state, music: music, recent: pw, play: session.play, active: session.active, goal: session.goal });   // so does the speedrun
   if (!goalHit && session.play >= session.goal) { goalHit = true; award(session.goal); }
   if (now - dashAt > 250) dashStep(dt, session.state === 'running', m, pw, session.goal > 0 ? session.play / session.goal : 0);   // frames are not being drawn (tab in the background): keep the course moving
   if (now - lastPush > 330) push();
@@ -294,8 +299,8 @@ function onPeers(ch) {
 function applyRemote(m) {
   const first = !R, prev = R; R = m;
   if (prev && prev.play < prev.goal && m.play >= m.goal && m.st === 'running') award(m.goal);
-  if (first) { sim.reset(); rocket.reset(); city.reset(); dash.reset(); dashView.reset(); pendingOnsets = 0; sim.l = m.rl; sim.th = m.ra; race.reset(m.goal, m.gs || 7); raceView.reset(); }   // the same field as the device followed
-  else if (m.on > prev.on) { pendingOnsets += Math.min(3, m.on - prev.on); raceNotes += Math.min(3, m.on - prev.on); }
+  if (first) { sim.reset(); rocket.reset(); city.reset(); dash.reset(); dashView.reset(); pendingOnsets = 0; sim.l = m.rl; sim.th = m.ra; race.reset(m.goal, m.gs || 7); raceView.reset(); run.reset(m.goal, m.gs || 7); runView.reset(); }   // the same field and world as the device followed
+  else if (m.on > prev.on) { pendingOnsets += Math.min(3, m.on - prev.on); raceNotes += Math.min(3, m.on - prev.on); runNotes += Math.min(3, m.on - prev.on); }
   else {
     if (prev.rm === 'pad' && m.rm === 'ascent') fire('liftoff');
     if (m.rm === 'ascent' && prev.rf < MT.MILESTONES.tower && m.rf >= MT.MILESTONES.tower) fire('tower');
@@ -317,11 +322,12 @@ function startFollow(peer) {
   onPeers({ peers: room.peers() }); if (!R) { stopFollow(); return; }
   paintControls(); paintDemoBar();
 }
-function stopFollow() { hideAward(); mode = 'local'; followPeer = ''; R = null; carryRocket(); rocket.reset(); city.reset(); dash.reset(); dashView.reset(); race.reset(); raceView.reset(); hideRaceBanner(); bars.fill(0); session.reset(); paintControls(); paintDemoBar(); }
+function stopFollow() { hideAward(); mode = 'local'; followPeer = ''; R = null; carryRocket(); rocket.reset(); city.reset(); dash.reset(); dashView.reset(); race.reset(); raceView.reset(); hideRaceBanner(); run.reset(); runView.reset(); hideRunBanner(); bars.fill(0); session.reset(); paintControls(); paintDemoBar(); }
 function followStep(dt) {
   if (!R) return;
   if (R.st === 'running') { R.total += dt; R.active += dt; if (R.music) R.play += dt; } else if (R.st === 'paused') R.total += dt;
   race.update(dt, { state: R.st, music: R.music, recent: R.pw, play: R.play });
+  run.update(dt, { state: R.st, music: R.music, recent: R.pw, play: R.play, active: R.active, goal: R.goal });
   sim.l += (R.rl - sim.l) * Math.min(1, dt * 4);
   if (sim.down > 0) sim.down -= dt;
   if (sim.mode === 'orbit' && R.st === 'running') { sim.th += sim.wOrbit * dt; sim.spin(dt); }
@@ -389,6 +395,7 @@ function paint() {
   if (visible(2)) paintCity(st, fol, label);
   if (visible(3)) paintDash(st, label);
   if (visible(4)) paintRace(st, label);
+  if (visible(5)) paintRun(st, label);
 }
 /* the Rocket and City power bars: the fill and Power are the last minute of playing, the tick and Efficiency the whole session */
 function powerBar(p, cls) {
@@ -474,6 +481,51 @@ function paintRace(st, label) {
     last = i;
   }
   const tw = $('gTower'); if (cache.get(tw) !== html) { cache.set(tw, html); tw.innerHTML = html; }
+}
+/* Speedrun read-outs: the splits, as on a speedrun timer, and a banner for each one */
+const RUN_BLOCK = { log: 'a tree', stone: 'stone', iron: 'iron ore', diamond: 'diamonds', obsidian: 'obsidian', brick: 'fortress bricks', glow: 'glowing rock', stonebrick: 'stone bricks', crystal: 'a crystal' };
+let sBannerT = 0;
+function runBanner(msg, sub) {
+  const b = $('srBanner'); b.textContent = msg; if (sub) { const s = document.createElement('small'); s.textContent = sub; b.append(s); }
+  b.classList.add('on'); clearTimeout(sBannerT); sBannerT = setTimeout(() => b.classList.remove('on'), 2800);
+}
+function hideRunBanner() { clearTimeout(sBannerT); $('srBanner').classList.remove('on'); }
+function runEvent(e) {
+  if (visible(5)) runView.event(e);
+  const k = run.split - 1, n = MT.RUN.SPLITS.length;
+  if (e === 'split') runBanner(MT.RUN.SPLITS[k][0], 'Split ' + run.split + ' of ' + n + ' at ' + fmt(run.times[k]));
+  else if (e === 'done') runBanner('Dragon beaten!', 'Run time ' + fmt(run.times[k]));
+}
+function runHint(st) {
+  const S = MT.RUN.SPLITS, last = run.split - 1;
+  if (st === 'idle') return 'Play to start the run. It ends at your goal';
+  if (st === 'stopped') return run.done ? 'Dragon beaten in a run time of ' + fmt(run.times[last]) : run.split ? 'Reached ' + S[last][0] + ' at ' + fmt(run.times[last]) : 'Press Start for a new run';
+  if (st === 'paused') return 'Paused: the run timer is stopped';
+  if (run.done) return 'Dragon beaten! Mining on for fun';
+  if (!V.music) return 'Play to keep going';
+  const next = S[run.split][0] + ' in ' + fmt(Math.ceil(S[run.split][1] * V.goal - V.play));
+  return run.mode === 'mine' ? 'Mining ' + RUN_BLOCK[run.target.type] + '. ' + next : 'Next split: ' + next;
+}
+function paintRun(st, label) {
+  const playTxt = fmt(V.play), el = $('srPlay'), cls = playTxt.length > 5 ? 'big long' : 'big', reached = st !== 'idle' && V.play >= V.goal, S = MT.RUN.SPLITS;
+  text(el, playTxt); if (el.className !== cls) el.className = cls;
+  width($('srBar'), V.goal > 0 ? V.play / V.goal : 0); text($('srPct'), Math.min(100, Math.floor((V.goal > 0 ? V.play / V.goal : 0) * 100)) + '%');
+  text($('srGoal'), fmt(V.goal)); text($('srGoalLeft'), reached ? 'Reached' : fmt(Math.ceil(V.goal - V.play)) + ' left'); text($('srPauses'), String(V.pauses));
+  text($('srSplit'), Math.min(run.split + 1, S.length) + '/' + S.length); text($('srMined'), String(run.mined)); text($('srRta'), fmt(V.active));
+  text($('srPw'), Math.round(V.pw * 100) + '%'); text($('srEff'), Math.round(V.eff * 100) + '%');
+  text($('srHeard'), st === 'running' ? label : st === 'paused' ? 'Paused: not listening' : st === 'idle' ? 'Press Start, then play' : 'Session finished');
+  text($('srHint'), runHint(st));
+  // the splits: a few around the one being run, as on a speedrun timer, and the last one always
+  const from = Math.max(0, Math.min(run.split - 1, S.length - 5)), rows = [];
+  for (let k = from; k < from + 4; k++) rows.push(k); rows.push(S.length - 1);
+  let html = '';
+  rows.forEach((k, j) => {
+    if (j === 4 && k > rows[3] + 1) html += '<li class="gap"></li>';
+    if (j === 4 && k === rows[3]) return;
+    const done = k < run.split, now = k === run.split && st !== 'idle', t = done ? fmt(run.times[k]) : now && st !== 'stopped' ? fmt(V.active) : '–';
+    html += '<li' + (done ? ' class="done"' : now ? ' class="now"' : '') + '><span class="n">' + S[k][0] + '</span><span class="t">' + t + '</span></li>';
+  });
+  const tw = $('srSplits'); if (cache.get(tw) !== html) { cache.set(tw, html); tw.innerHTML = html; }
 }
 /* city theme read-outs */
 const CITY_TEXT = { impact: 'Impact!', building: 'A building was hit', cannonLost: 'A cannon was hit', cannonBack: 'Cannon repaired', rebuilt: 'Building rebuilt' };
@@ -762,11 +814,14 @@ function frame(t) {
   while (race.events.length) raceEvent(race.events.shift());
   if (raceNotes) { if (visible(4) && V.music && race.racing) raceView.event('note'); raceNotes = 0; }
   if (visible(4)) raceView.draw({ minute: mode === 'follow' ? null : session.minute }, dt);
+  while (run.events.length) runEvent(run.events.shift());
+  if (runNotes) { if (visible(5) && V.music) runView.event('note'); runNotes = 0; }
+  if (visible(5)) runView.draw({ running: V.st === 'running', music: V.music }, dt);
   requestAnimationFrame(frame);
 }
 
 /* ---------- themes: swipe (touch, mouse drag or trackpad) or arrow keys ---------- */
-const SKINS = ['classic', 'rocket', 'city', 'dash', 'race'], SKIN_NAMES = ['Classic', 'Rocket', 'City', 'Dash', 'Grand Prix'], PANELS = ['pClassic', 'pRocket', 'pCity', 'pDash', 'pRace'], stage = $('stage'), track = $('track');
+const SKINS = ['classic', 'rocket', 'city', 'dash', 'race', 'speedrun'], SKIN_NAMES = ['Classic', 'Rocket', 'City', 'Dash', 'Grand Prix', 'Speedrun'], PANELS = ['pClassic', 'pRocket', 'pCity', 'pDash', 'pRace', 'pRun'], stage = $('stage'), track = $('track');
 let skin = Math.max(0, SKINS.indexOf(S.skin)), dragging = false, peek = -1;   // peek: the theme a swipe is pulling into view
 /* Whether a theme can be chosen yet. Every theme is open for now; to hold one back until a condition is met, return false for it here
    and call refreshSkins() when the condition changes. A locked theme keeps its icon in the theme bar (faint, with a padlock) but leaves the swipe
@@ -810,8 +865,8 @@ function paintSkinBar() {
   });
 }
 /* Event banners sit just under the read-outs, clear of the scene: each panel gets --hud-b, the bottom of its read-outs, for the CSS to use */
-function layoutChanged() { requestAnimationFrame(() => { rocket.resize(); city.resize(); dashView.resize(); raceView.resize();
-  for (const [p, h] of [['pRocket', 'hud'], ['pCity', 'cityHud'], ['pDash', 'dashHud'], ['pRace', 'raceHud']]) { const el = $(h); $(p).style.setProperty('--hud-b', el.offsetTop + el.offsetHeight + 'px'); } }); }
+function layoutChanged() { requestAnimationFrame(() => { rocket.resize(); city.resize(); dashView.resize(); raceView.resize(); runView.resize();
+  for (const [p, h] of [['pRocket', 'hud'], ['pCity', 'cityHud'], ['pDash', 'dashHud'], ['pRace', 'raceHud'], ['pRun', 'runHud']]) { const el = $(h); $(p).style.setProperty('--hud-b', el.offsetTop + el.offsetHeight + 'px'); } }); }
 const swipe = new MT.DragSwipe();
 stage.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse' && e.button !== 0) return; swipe.down(e.pointerId, e.clientX, e.clientY, performance.now(), stage.clientWidth); });
 stage.addEventListener('pointermove', e => {
@@ -894,6 +949,7 @@ const GOAL_HINT = {
   city: 'The total play time to reach.',
   dash: 'The total play time to reach. It is also the length of the course.',
   race: 'The total play time to reach. The race runs until you reach it.',
+  speedrun: 'The total play time to reach. The run\'s last split, the dragon, comes when you reach it.',
 };
 function paintSettingsSkin() { $('goalHint').textContent = GOAL_HINT[SKINS[skin]]; }
 /* Settings, Themes: a page of its own in the sheet, with a switch for each theme. The last one on can't be turned off;
@@ -904,6 +960,7 @@ const THEME_LINE = {
   city: 'Playing fires the cannons that keep the city safe.',
   dash: 'Playing runs the course; your goal is its length.',
   race: 'Playing races a car; your last minute is its speed.',
+  speedrun: 'Playing runs a blocky world in splits, up to a dragon.',
 };
 const themeRows = SKINS.map((id, i) => { const li = document.createElement('li'), sw = document.createElement('input'); li.className = 'trow'; li.dataset.theme = id;
   li.innerHTML = '<span class="tile" aria-hidden="true"><svg><use href="#ico-' + id + '"/></svg></span><span class="tx"><b>' + SKIN_NAMES[i] + '</b><span>' + THEME_LINE[id] + '</span></span>';
@@ -1249,6 +1306,7 @@ function dbgFrame(ms) {
     'play ' + fmt(session.play) + ' of ' + fmt(session.active) + (session.holdLeft > 0 ? '  hold ' + f1(session.holdLeft) + ' s' : ''),
     'rocket ' + sim.mode + ', ' + Math.round(sim.fp) + ' s flown, power ' + Math.round(sim.power * 100) + '%',
     'race ' + race.mode + (race.pit ? ' (pit ' + race.pit.phase + ')' : '') + ', P' + race.pos + ', lap ' + race.lap,
+    'speedrun ' + run.mode + ', split ' + run.split + ', ' + run.mined + ' mined, ' + run.x.toFixed(1) + ' along',
   ].filter(Boolean).join('\n');
 }
 $('dbgReadIn').onchange = () => { DBG.readout = $('dbgReadIn').checked; saveDbg(); paintDbg(); };
@@ -1267,5 +1325,5 @@ if (S.source === 'mic' && (micPolicyBlocked() || !navigator.mediaDevices || !nav
   micNotice(framed ? MIC_FRAMED : micMessage({ name: window.isSecureContext === false ? 'Insecure' : 'Unsupported' }));
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { raceView.rebuild(); layoutChanged(); }, () => {});   // the race's boards and read-outs are drawn in its condensed type
 requestAnimationFrame(t => { lastF = t; frame(t); });
-window.__mt = { session: session, sim: sim, rocket: rocket, city: city, dash: dash, race: race, A: A, S: S, V: V, start: start, stop: stop };
+window.__mt = { session: session, sim: sim, rocket: rocket, city: city, dash: dash, race: race, run: run, A: A, S: S, V: V, start: start, stop: stop };
 })();

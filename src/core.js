@@ -1018,16 +1018,40 @@ function detectionTests(sr) {
     const ok = p[0] <= 0.15 && p[1] >= 0.25 && p[1] <= 0.75 && p[2] >= 0.8 && p[0] < p[1] && p[1] < p[2] && avg[0] > avg[1] && avg[1] > avg[2];
     return { name: 'Grand Prix: the steadier the session, the better the chance of first place', expect: 'in 10-minute races, first place rarely at 70% efficiency, about half the time at 80%, nearly always at 90%',
       got: E.map((e, j) => Math.round(e * 100) + '%: P1 in ' + Math.round(p[j] * 100) + '%, average P' + avg[j].toFixed(1)).join('; '), pass: ok }; } });
+  /* Speedrun: a session of steps; e is the share of running time with music heard, recent the last minute's efficiency */
+  const srRun = (s, secs, dt, inp, e) => { for (let i = 0, n = Math.round(secs / dt); i < n; i++) { const r = inp.state === 'running'; if (r) inp.active += dt; inp.music = r && i % 10 < e * 10 - 1e-9; if (inp.music) inp.play += dt; s.update(dt, inp); } };
+  list.push({ name: 'Speedrun: splits at shares of the goal, timed on run time', run: () => {
+    const s = new RunSim(); s.reset(600, 3); const inp = { state: 'running', music: true, recent: 0.8, play: 0, active: 0, goal: 600 }, ev = [];
+    for (let t = 0; t < 800; t++) { srRun(s, 1, 0.1, inp, 0.8); while (s.events.length) ev.push(s.events.shift()); }
+    const want = RUN.SPLITS.map(r => r[1] * 600 / 0.8), worst = Math.max(...s.times.map((t, k) => Math.abs(t - want[k])));
+    const ok = s.times.length === 10 && s.done && worst < 0.3 && ev.filter(e => e === 'split').length === 9 && ev.filter(e => e === 'done').length === 1 && s.worldAt(s.x) === 3;
+    return { name: 'Speedrun: splits at shares of the goal, timed on run time', expect: 'at 80% efficiency a 10-minute goal takes 12:30 of run time; each split comes at its share of that, the last one ends the run in the End',
+      got: s.times.length + ' splits, worst ' + worst.toFixed(2) + ' s off; ' + s.times.map(t => clockText(t)).join(' '), pass: ok }; } });
+  list.push({ name: 'Speedrun: only playing moves the player, and a steadier minute moves it faster', run: () => {
+    const s = new RunSim(); s.reset(1800, 5); const inp = { state: 'running', music: true, recent: 1, play: 0, active: 0, goal: 1800 };
+    srRun(s, 30, 0.05, inp, 1); const x1 = s.x, m1 = s.mined, d1 = s.dig;
+    srRun(s, 20, 0.05, inp, 0); const quiet = s.x === x1 && s.mined === m1 && s.dig === d1 && s.mode === 'wait';
+    inp.state = 'paused'; srRun(s, 20, 0.05, inp, 1); const paused = s.x === x1 && s.mined === m1 && s.mode === 'pause' && Math.abs(inp.play - 30) < 1e-6;
+    const far = r => { const q = new RunSim(); q.reset(1800, 5); const i = { state: 'running', music: true, recent: r, play: 0, active: 0, goal: 1800 }; srRun(q, 120, 0.05, i, 1); return q.x; };
+    const fast = far(1), slow = far(0.5), ok = x1 > 10 && m1 >= 4 && quiet && paused && fast > slow * 1.2;
+    return { name: 'Speedrun: only playing moves the player, and a steadier minute moves it faster', expect: 'quiet and paused seconds leave the player and its mining where they were; at 100% it gets further in 2 minutes than at 50%',
+      got: '30 s played: ' + x1.toFixed(1) + ' blocks along, ' + m1 + ' mined; quiet ' + (quiet ? 'held' : 'moved') + ', paused ' + (paused ? 'held' : 'moved') + '; 2 min at 100% ' + fast.toFixed(1) + ', at 50% ' + slow.toFixed(1), pass: ok }; } });
+  list.push({ name: 'Speedrun: the same world however time is cut up', run: () => {
+    const go = dt => { const s = new RunSim(); s.reset(300, 42); const inp = { state: 'running', music: true, recent: 0.9, play: 0, active: 0, goal: 300 }; srRun(s, 400, dt, inp, 1); return s; };
+    const a = go(1), b = go(0.05), same = JSON.stringify(a.obs) === JSON.stringify(b.obs) && JSON.stringify(a.portals) === JSON.stringify(b.portals);
+    const ok = same && a.mined === b.mined && Math.abs(a.x - b.x) < 1e-6 && a.portals.length === 3;
+    return { name: 'Speedrun: the same world however time is cut up', expect: 'one-second and 50 ms steps of playing mine the same blocks and pass the same three portals (a following device runs the same world)',
+      got: a.mined + ' and ' + b.mined + ' mined, ' + a.x.toFixed(4) + ' and ' + b.x.toFixed(4) + ' blocks along, portals at ' + a.portals.join(' ') + (same ? '' : ' (different worlds)'), pass: ok }; } });
   list.push({ name: 'Session: the last minute, a second at a time', run: () => {
     const s = new Session(); s.start(); for (let i = 0; i < 30; i++) s.tick(1, true); for (let i = 0; i < 10; i++) s.tick(1, false);
     const m = s.minute, ok = m.length === 60 && m.slice(0, 20).every(v => v === null) && m.slice(20, 50).every(v => v === 1) && m.slice(50).every(v => v === 0);
     return { name: 'Session: the last minute, a second at a time', expect: '20 empty seconds, 30 played, 10 quiet', got: m.map(v => v == null ? '.' : v >= 0.5 ? '#' : '_').join(''), pass: ok }; } });
   list.push({ name: 'Themes: the player turns off the ones they don\'t like', run: () => {
-    const all = ['classic', 'rocket', 'city', 'dash', 'race'];
-    const got = [themesOn(all, '').join(' '), themesOn(all, 'city,dash').join(' '), themesOn(all, 'classic,rocket,city,dash,race').join(' '), themesOn(all, 'space,dash').join(' '),
-      themeSwitch(all, '', 'city', false), themeSwitch(all, 'city', 'classic', false), themeSwitch(all, 'classic,city', 'city', true), themeSwitch(all, 'classic,rocket,city,dash', 'race', false),
-      themeSwitch(all, 'space', 'rocket', false), themeLanding(all, ['classic', 'dash'], 'rocket'), themeLanding(all, ['classic', 'rocket'], 'dash'), themeLanding(all, ['city'], 'city'), themeLanding(all, ['rocket'], 'gone'), themeLanding(all, ['classic', 'city'], 'race')];
-    const want = ['classic rocket city dash race', 'classic rocket race', 'classic rocket city dash race', 'classic rocket city race', 'city', 'classic,city', 'classic', 'classic,rocket,city,dash', 'rocket', 'dash', 'rocket', 'city', 'rocket', 'city'];
+    const all = ['classic', 'rocket', 'city', 'dash', 'race', 'speedrun'];
+    const got = [themesOn(all, '').join(' '), themesOn(all, 'city,dash').join(' '), themesOn(all, 'classic,rocket,city,dash,race,speedrun').join(' '), themesOn(all, 'space,dash').join(' '),
+      themeSwitch(all, '', 'city', false), themeSwitch(all, 'city', 'classic', false), themeSwitch(all, 'classic,city', 'city', true), themeSwitch(all, 'classic,rocket,city,dash,race', 'speedrun', false),
+      themeSwitch(all, 'space', 'rocket', false), themeLanding(all, ['classic', 'dash'], 'rocket'), themeLanding(all, ['classic', 'rocket'], 'dash'), themeLanding(all, ['city'], 'city'), themeLanding(all, ['rocket'], 'gone'), themeLanding(all, ['classic', 'city'], 'speedrun')];
+    const want = ['classic rocket city dash race speedrun', 'classic rocket race speedrun', 'classic rocket city dash race speedrun', 'classic rocket city race speedrun', 'city', 'classic,city', 'classic', 'classic,rocket,city,dash,race', 'rocket', 'dash', 'rocket', 'city', 'rocket', 'city'];
     return { name: 'Themes: the player turns off the ones they don\'t like', expect: 'off themes leave the list, unknown ids are ignored, the last one on stays on, and turning off the one on screen lands on the next one on (' + want.join(' | ') + ')',
       got: got.join(' | '), pass: got.every((g, i) => g === want[i]) }; } });
   return list;
@@ -1876,7 +1900,87 @@ class RaceSim {
 /* a gap in laps, in words for the read-outs: seconds at full speed, or whole laps */
 function raceGap(l) { const a = Math.abs(l); return a >= 1 ? Math.floor(a) + (a >= 2 ? ' laps' : ' lap') : Math.max(0.1, a * RACE.LAPU / RACE.VNOM).toFixed(1); }
 
-const api = { LIFTOFF, OnsetTracker, DragSwipe, WheelSwipe, DashSim, DASH, dashSpeed, RaceSim, RACE, raceTrack, raceGap, raceRng, RacePractiser, MusicDetector, Session, RocketSim, WORLD, MILESTONES, SENSITIVITY, CLIPS, DETECTION_CASES,
+/* ---------- Speedrun: a run through a blocky world in splits, timed like a speedrun ----------
+   The splits fall at set shares of the practice goal (play time), and each split's time is the run time (the session's time less
+   its pauses) when it was reached, so a steadier session reaches every split sooner. The player walks only while music is heard,
+   at a speed set by the last minute of playing, and mines the block in its way; nothing else moves it. A pause stops the run timer.
+   The world (the ground and the blocks to mine) comes from the seed, so a following device runs through the same one. */
+const RUN = {
+  // name, share of the goal, the block mined on the way to it, the world it is in (0 green land, 1 fire world, 2 stronghold, 3 the End)
+  SPLITS: [['Wood', 0.06, 'log', 0], ['Stone tools', 0.13, 'stone', 0], ['Iron', 0.23, 'iron', 0], ['Diamonds', 0.35, 'diamond', 0], ['Portal', 0.45, 'obsidian', 0],
+    ['Fortress', 0.58, 'brick', 1], ['Fire rods', 0.69, 'glow', 1], ['Stronghold', 0.81, 'stonebrick', 2], ['The End', 0.9, 'stonebrick', 2], ['Dragon', 1, 'crystal', 3]],
+  SPEED: 3.4,           // blocks a second at full power; a little under half that with no recent playing
+  MINE: 1.6,            // seconds of playing to break a block at full power
+  GAP: [4, 10],         // blocks between one block to mine and the next
+  AHEAD: 24,            // how far ahead the blocks to mine are laid out
+  PORTAL: 12,           // a new world starts this far ahead of the player, through a portal
+  STAND: 0.75           // the player stops this far before a block to mine it
+};
+const runWorld = k => k < RUN.SPLITS.length ? RUN.SPLITS[k][3] : 3;
+function runHash(seed, i) { let h = (Math.imul(i | 0, 374761393) + Math.imul(seed | 0, 668265263)) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
+class RunSim {
+  constructor() { this.events = []; this.reset(1800, 7); }
+  reset(goal, seed) {
+    if (goal) this.goal = goal; if (seed != null) this.seed = seed >>> 0;
+    this.x = 0; this.dig = 0; this.mined = 0; this.split = 0; this.times = []; this.mode = 'idle'; this.events.length = 0;
+    this.worlds = [{ x: -Infinity, w: 0 }]; this.portals = []; this.n = 0; this.obs = []; this.broke = null; this.fill();
+  }
+  get done() { return this.split >= RUN.SPLITS.length; }
+  get target() { return this.obs[0]; }
+  worldAt(c) { let w = 0; for (const p of this.worlds) if (c >= p.x) w = p.w; return w; }
+  /* the ground's height (0 to 2 blocks) under column c: rolling hills from the seed, flat around a portal and along the stronghold's corridor */
+  groundAt(c) {
+    for (const p of this.portals) if (c >= p - 3 && c <= p + 3) c = p;
+    const s = this.seed % 1000, h = 1 + Math.sin(c * 0.23 + s) * 0.75 + Math.sin(c * 0.071 + s * 1.7) * 0.6;
+    return this.worldAt(c) === 2 ? 0 : Math.max(0, Math.min(2, Math.round(h)));
+  }
+  /* blocks to mine, laid out ahead; each its own draw from the seed, so how time is cut into steps changes nothing */
+  fill() {
+    let last = this.obs.length ? this.obs[this.obs.length - 1].x : 2;
+    while (last < this.x + RUN.AHEAD) {
+      const r = runHash(this.seed, ++this.n); last += RUN.GAP[0] + Math.floor(r * (RUN.GAP[1] - RUN.GAP[0] + 1));
+      if (this.portals.some(p => last >= p - 3 && last <= p + 3)) continue;   // nothing to mine in a portal
+      this.obs.push({ x: last, type: RUN.SPLITS[Math.min(this.split, RUN.SPLITS.length - 1)][2] });
+    }
+  }
+  /* a split reached: the blocks well ahead become the next split's, and a new world starts through a portal ahead */
+  nextSplit() {
+    const k = Math.min(this.split, RUN.SPLITS.length - 1), type = RUN.SPLITS[k][2], w = runWorld(this.split);
+    if (w !== this.worldAt(Infinity)) { const p = Math.ceil(this.x - 1e-6) + RUN.PORTAL; this.portals.push(p); this.worlds.push({ x: p + 1, w: w });
+      this.obs = this.obs.filter(o => o.x < p - 3); this.fill(); }
+    for (const o of this.obs) if (o.x > this.x + 8 && this.worldAt(o.x) === w) o.type = type;   // past the edge of the screen, in the new split's world
+  }
+  /* on session time. inp: {state, music (counted as playing, so play time grew by dt), recent (efficiency over the last minute), play, active (run time), goal}.
+     A split reached partway through a step is taken at its moment in the step, so the world is the same however time is cut up. */
+  update(dt, inp) {
+    const st = inp.state, S = RUN.SPLITS, go = st === 'running' && inp.music && dt > 0;
+    if (inp.goal > 0) this.goal = inp.goal;
+    const p = Math.max(0, Math.min(1, inp.recent || 0));
+    let left = go ? dt : 0, play = inp.play - left;
+    while (st !== 'idle' && !this.done && inp.play >= S[this.split][1] * this.goal - 1e-9) {
+      const at = Math.min(left, Math.max(0, S[this.split][1] * this.goal - play));
+      if (at > 0) { this.move(at, p); left -= at; play += at; }
+      this.times.push(inp.active - left); this.split++; this.events.push(this.done ? 'done' : 'split'); this.nextSplit();
+    }
+    if (st !== 'running') { this.mode = st === 'paused' ? 'pause' : st === 'stopped' ? 'stop' : 'idle'; return; }
+    if (!go) { this.mode = 'wait'; return; }
+    this.move(left, p);
+  }
+  /* t seconds of playing at power p: walk up to the next block, mine it, and on to the next */
+  move(t, p) {
+    const v = RUN.SPEED * (0.45 + 0.55 * p), rate = (0.5 + 0.5 * p) / RUN.MINE;
+    let left = t;
+    while (left > 1e-12) {
+      const o = this.obs[0], stop = o.x - RUN.STAND;
+      if (this.x < stop - 1e-12) { const w = Math.min(left, (stop - this.x) / v); this.x = w === left ? this.x + v * w : stop; left -= w; this.mode = 'walk'; continue; }
+      this.mode = 'mine'; const need = (1 - this.dig) / rate;
+      if (need > left) { this.dig += left * rate; break; }
+      left -= need; this.dig = 0; this.mined++; this.broke = this.obs.shift(); this.events.push('break'); this.fill();
+    }
+  }
+}
+
+const api = { LIFTOFF, OnsetTracker, DragSwipe, WheelSwipe, DashSim, DASH, dashSpeed, RaceSim, RACE, raceTrack, RunSim, RUN, raceGap, raceRng, RacePractiser, MusicDetector, Session, RocketSim, WORLD, MILESTONES, SENSITIVITY, CLIPS, DETECTION_CASES,
   detectionTests, runDetectionTests, analyzeClip, sessionReport, clockText, sessionRecord, worthKeeping, liveSnapshot, liveRecord, rocketCarry, buildOf, newerBuild, themesOn, themeSwitch, themeLanding, practiceStats, dayRecap, dayLine, practiceNudge, homeCopy, weekLine, durationText, dayKey, LOG_MAX, LEVEL_MIN, SAMPLE_LOGS, sampleLog, rocketAt, fraction, heardAs, noteOf, smooth, pchip, clamp01 };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.MT = api;
 })(typeof self !== 'undefined' ? self : this);

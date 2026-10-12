@@ -41,6 +41,7 @@ body:has(> #app[data-skin="rocket"]){background:#070A14}
 body:has(> #app[data-skin="city"]){background:#0E1130}
 body:has(> #app[data-skin="dash"]){background:#07071F}
 body:has(> #app[data-skin="race"]){background:#0A0E1C}
+body:has(> #app[data-skin="speedrun"]){background:#15110D}
 
 /* ---------- chrome (classic look; the rocket theme overrides it below) ---------- */
 #top{display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:10px; padding:12px 0 12px; margin:0 auto 6px; max-width:560px; width:calc(100% - 36px); border-bottom:1px solid var(--rule)}
@@ -101,7 +102,11 @@ body:has(> #app[data-skin="race"]){background:#0A0E1C}
 .ask[data-skin="race"] h2{font-family:var(--cond); font-style:italic; font-weight:800; font-size:24px; text-transform:uppercase; letter-spacing:.01em}
 .ask[data-skin="race"] .btn{font-family:var(--cond); font-style:italic; font-weight:800; font-size:17px; text-transform:uppercase; letter-spacing:.03em; border:0; border-radius:12px; background:#252E4E; color:#F5F6FA}
 .ask[data-skin="race"] .btn.solid{background:#86DCC0; color:#0D2A22}
-@media (max-width:560px){ .ask[data-skin="rocket"], .ask[data-skin="city"]{border-radius:0} .ask[data-skin="dash"]{border-radius:24px 24px 0 0; border-width:3px 0 0} }
+.ask[data-skin="speedrun"]{--sheet:#2B2B2B; --surface:#3A3A3A; --ink:#F4F4F4; --mute:#CFCFCF; --rule:#111111; --accent:#5B8C32; --on-accent:#FFFFFF; border:3px solid #000; border-radius:0; box-shadow:inset 3px 3px 0 #555, inset -3px -3px 0 #1A1A1A}
+.ask[data-skin="speedrun"] h2{font-family:var(--pixel); font-weight:400; letter-spacing:0; font-size:18px; color:#FFFFFF; text-shadow:2px 2px 0 #3F3F3F}
+.ask[data-skin="speedrun"] .btn{font-family:var(--pixel); font-weight:400; font-size:13px; border:2px solid #000; border-radius:0; background:#717171; color:#fff; text-shadow:2px 2px 0 #383838; box-shadow:inset 2px 2px 0 #A8A8A8, inset -2px -3px 0 #4A4A4A}
+.ask[data-skin="speedrun"] .btn.solid{background:#5B8C32; box-shadow:inset 2px 2px 0 #8CC45A, inset -2px -3px 0 #355A1A}
+@media (max-width:560px){ .ask[data-skin="rocket"], .ask[data-skin="city"], .ask[data-skin="speedrun"]{border-radius:0} .ask[data-skin="dash"]{border-radius:24px 24px 0 0; border-width:3px 0 0} }
 /* New flight, at the end of the Rocket read-outs' last line while the rocket is off the pad */
 .hud-flight{position:absolute; right:12px; bottom:6px; min-height:28px; padding:3px 7px; border:2px solid #05070D; border-radius:0; background:#7B8293; color:#fff;
   font-family:var(--pixel); font-size:10px; text-shadow:1px 1px 0 rgba(0,0,0,.45); box-shadow:inset -2px -2px 0 rgba(0,0,0,.25); cursor:pointer}
@@ -311,7 +316,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 .navrow .mini i{width:24px; height:24px; border-radius:7px}
 .navrow .mini svg{width:14px; height:14px}
 .navrow .chev{flex:none; width:18px; height:18px; color:var(--mute-2)}
-[data-theme="classic"]{--g:#121A27; --t:#86DCC0} [data-theme="rocket"]{--g:#070A14; --t:#FFD23F} [data-theme="city"]{--g:#0E1130; --t:#F2C94C} [data-theme="dash"]{--g:#07071F; --t:#7CFF4F} [data-theme="race"]{--g:#0A0E1C; --t:#FF5A5F}
+[data-theme="classic"]{--g:#121A27; --t:#86DCC0} [data-theme="rocket"]{--g:#070A14; --t:#FFD23F} [data-theme="city"]{--g:#0E1130; --t:#F2C94C} [data-theme="dash"]{--g:#07071F; --t:#7CFF4F} [data-theme="race"]{--g:#0A0E1C; --t:#FF5A5F} [data-theme="speedrun"]{--g:#2A1E14; --t:#7CC14A}
 #themesH{font-weight:800; font-size:22px; letter-spacing:-.01em; margin:0 0 4px; line-height:1.1}
 .tlist{list-style:none; margin:10px 0 0; padding:0; display:grid; gap:8px}
 .trow{display:flex; align-items:center; gap:12px; padding:10px 12px; border:1px solid var(--rule); border-radius:16px; background:var(--surface)}
@@ -328,7 +333,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 .tg:checked::after{transform:translateX(20px)}
 .tg:disabled{opacity:.5; cursor:default}
 #themesNote{margin:10px 2px 0; min-height:18px}
-@media (max-height:700px){ .tlist{gap:6px; margin-top:8px} .trow{padding:6px 12px} }   /* an iPhone SE: all five themes and the note fit without scrolling */
+@media (max-height:700px){ .tlist{gap:5px; margin-top:8px} .trow{padding:4px 10px; gap:10px} .trow .tile{width:40px; height:40px; border-radius:10px} .trow .tx b{font-size:15px} .trow .tx span{font-size:12px; line-height:1.3} }   /* an iPhone SE: all six themes and the note fit without scrolling */
 #tests{list-style:none; margin:10px 0 0; padding:0; font-size:13px}
 #tests li{display:grid; grid-template-columns:44px 1fr; gap:2px 8px; padding:6px 0; border-top:1px solid var(--rule)}
 #tests .r{font-weight:600}
@@ -593,6 +598,50 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 @media (max-width:350px){ .gp-hud{font-size:13px; padding:7px 9px 6px} .gp-stats span{font-size:9px} .gp-stats b{font-size:16px} .gp-tower{width:112px} #app[data-skin="race"][data-chrome="pixel"] #controls button{font-size:16px} }
 @media (max-height:620px){ .gp-line.dim{display:none} }
 
+/* ---------- Speedrun theme: a blocky world run in splits. Pixel type, stone-grey bevelled panels and buttons, grass green ---------- */
+#app[data-skin="speedrun"]{--paper:#15110D; --surface:#3A3A3A; --ink:#F4F4F4; --mute:#CFCFCF; --rule:#111111; --accent:#7CC14A; --on-accent:#FFFFFF}
+#app[data-skin="speedrun"] #top h1{text-shadow:2px 2px 0 #3F3F3F}
+#app[data-skin="speedrun"] #controls button{background:#717171; border-color:#000; text-shadow:2px 2px 0 #383838; box-shadow:inset 2px 2px 0 #A8A8A8, inset -2px -3px 0 #4A4A4A}
+#app[data-skin="speedrun"] #controls button.primary{background:#5B8C32; box-shadow:inset 2px 2px 0 #8CC45A, inset -2px -3px 0 #355A1A}
+#app[data-skin="speedrun"] #controls button:active{box-shadow:inset 2px 3px 0 #3A3A3A}
+#app[data-skin="speedrun"] .icon-btn{background:#717171; border:2px solid #000; box-shadow:inset 2px 2px 0 #A8A8A8, inset -2px -2px 0 #4A4A4A}
+#pRun{background:#15110D; color:#F4F4F4; font-family:var(--pixel)}
+#runCv{position:absolute; inset:0; width:100%; height:100%; display:block; image-rendering:pixelated}
+.sr-hud{position:absolute; left:10px; right:10px; top:8px; padding:8px 11px 7px; font-size:11px; line-height:1.35; background:rgba(24,24,24,.8); border:2px solid #000; box-shadow:inset 2px 2px 0 rgba(255,255,255,.16), inset -2px -2px 0 rgba(0,0,0,.45); text-shadow:2px 2px 0 rgba(0,0,0,.6)}
+.sr-hud .k{color:#CFCFCF}
+.sr-prog{display:flex; align-items:center; gap:8px}
+.sr-bar{flex:1; min-width:0; height:10px; background:#2A2A2A; border:2px solid #000; box-shadow:inset 0 2px 0 rgba(0,0,0,.4)}
+.sr-bar i{display:block; height:100%; width:0; background:#7CC14A; box-shadow:inset 0 -3px 0 #4E8A2A}   /* the experience bar's green */
+#srPct{flex:none; min-width:4ch; text-align:right; font-size:12px; color:#B6F27A}
+.sr-top{display:flex; justify-content:space-between; align-items:flex-end; gap:10px; margin-top:5px}
+.sr-play{min-width:0}
+.sr-play .k{display:block; white-space:nowrap}
+.sr-hud .big{display:block; font-size:clamp(28px, 9vw, 42px); line-height:1.05; white-space:nowrap}
+.sr-hud .big.long{font-size:clamp(20px, 6.6vw, 32px)}
+#app[data-music="1"] .sr-hud .big{color:#B6F27A}
+.sr-side{flex:none; text-align:right; white-space:nowrap; color:#CFCFCF}
+.sr-side b{color:#FFFFFF; font-weight:400}
+.sr-stats{display:grid; grid-template-columns:repeat(5, minmax(0, 1fr)); gap:0 4px; margin-top:5px; padding-top:5px; border-top:2px solid rgba(0,0,0,.5); text-align:center}
+.sr-stats span{display:block; font-size:9px; color:#CFCFCF; white-space:nowrap}
+.sr-stats b{display:block; font-size:14px; line-height:1.25; font-weight:400; white-space:nowrap}
+.sr-line{margin-top:4px; min-height:15px; font-family:var(--sans); font-weight:600; font-size:12px; text-shadow:1px 1px 0 rgba(0,0,0,.6); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.sr-line.dim{margin-top:0; font-weight:400; color:#CFCFCF}
+/* the splits, as on a speedrun timer: under the read-outs on the right, clear of the player */
+.sr-splits{position:absolute; right:10px; top:calc(var(--hud-b, 170px) + 8px); width:150px; margin:0; padding:2px 0; list-style:none; font-size:11px; background:rgba(16,16,16,.72); border:2px solid #000; pointer-events:none; text-shadow:1px 1px 0 #000}
+.sr-splits li{display:flex; justify-content:space-between; gap:6px; padding:2px 7px; white-space:nowrap}
+.sr-splits .n{overflow:hidden; text-overflow:ellipsis}
+.sr-splits .t{flex:none; color:#CFCFCF}
+.sr-splits li.done .t{color:#B6F27A}
+.sr-splits li.now{background:rgba(124,193,74,.3)}
+.sr-splits li.now .t{color:#FFFFFF}
+.sr-splits li.gap{height:4px; padding:0; border-top:2px dotted rgba(255,255,255,.18); margin:2px 7px 0}
+#srBanner{position:absolute; left:10px; top:calc(var(--hud-b, 170px) + 8px); width:max-content; max-width:calc(100% - 186px); padding:8px 12px 7px; background:rgba(16,16,16,.88); border:2px solid #000;
+  box-shadow:inset 2px 2px 0 rgba(255,255,255,.16); color:#FFE36B; font-size:16px; line-height:1.15; text-shadow:2px 2px 0 #3F2F00; opacity:0; transition:opacity .25s; pointer-events:none}
+#srBanner small{display:block; margin-top:3px; font-size:11px; color:#F4F4F4; text-shadow:1px 1px 0 #000}
+#srBanner.on{opacity:1}
+@media (max-width:350px){ .sr-hud{font-size:10px; padding:7px 9px 6px} .sr-stats span{font-size:8px} .sr-stats b{font-size:12px} .sr-splits{width:132px; font-size:10px} }
+@media (max-height:620px){ .sr-line.dim{display:none} }
+
 /* ---------- theme bar: each theme's icon under the scene; the current one lit on a tinted tab, a locked one faint with a padlock ---------- */
 #skinBar{display:flex; justify-content:center; gap:6px; flex:none; height:28px; margin-top:4px; --tint:var(--accent)}
 #skinBar button{position:relative; width:38px; height:28px; padding:0; border:0; background:none; color:var(--tint); display:grid; place-items:center}
@@ -611,6 +660,8 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 #app[data-skin="city"] #skinBar{--tint:#F2C94C}
 #app[data-skin="dash"] #skinBar{--tint:#7CFF4F}
 #app[data-skin="race"] #skinBar{--tint:#86DCC0}
+#app[data-skin="speedrun"] #skinBar{--tint:#7CC14A}
+#app[data-skin="speedrun"] #skinBar button::before{border-radius:0}
 
 /* ---------- more room for the Rocket and City scenes ---------- */
 @media (max-width:699px), (max-width:760px) and (max-height:599px){   /* phones: the title row with Settings stays at the top, as in Classic */
@@ -839,6 +890,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
   <symbol id="ico-city" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M2.5 11.5h5.5V21H2.5zM9 6h6v15H9zM16 9.5h5.5V21H16zM10.6 8h1.2v1.6h-1.2zM12.2 8h1.2v1.6h-1.2zM10.6 11.6h1.2v1.6h-1.2zM12.2 11.6h1.2v1.6h-1.2zM4.3 14h1.8v1.6H4.3zM17.8 12h1.8v1.6h-1.8zM2 21h20v1.6H2z"/><circle cx="17.3" cy="5.2" r="2.2" fill="currentColor"/><path fill="currentColor" opacity=".6" d="M15.7 3.6L22.6.4 18.9 6.8z"/></symbol>
   <symbol id="ico-dash" viewBox="0 0 24 24"><rect x="3.6" y="3.6" width="16.8" height="16.8" rx="3" fill="none" stroke="currentColor" stroke-width="2.6"/><path fill="currentColor" d="M12 7.2l4.8 4.8-4.8 4.8L7.2 12z"/></symbol>
   <symbol id="ico-race" viewBox="0 0 24 24"><path fill="currentColor" d="M3.2 2h2v20h-2z"/><path fill="currentColor" fill-rule="evenodd" d="M5.2 3h15.6v11H5.2zM6.9 4.7v2.5h3.1V4.7zM13.1 4.7v2.5h3.1V4.7zM10 7.2v2.6h3.1V7.2zM16.2 7.2v2.6h3V7.2zM6.9 9.8v2.5h3.1V9.8zM13.1 9.8v2.5h3.1V9.8z"/></symbol>
+  <symbol id="ico-speedrun" viewBox="0 0 24 24"><path fill="currentColor" d="M12 1.8l9.2 5.1L12 12 2.8 6.9z"/><path fill="currentColor" opacity=".7" d="M2.8 6.9L12 12v10.2l-9.2-5.1z"/><path fill="currentColor" opacity=".42" d="M21.2 6.9V17.1L12 22.2V12z"/><path fill="currentColor" d="M2.8 6.9l9.2 5.1v3.1l-2.3-1.3v1.6L7.4 14.1v-1.9L5.1 11v1.4L2.8 11.1zM21.2 6.9L12 12v3.1l2.3-1.3v2.3l2.3-1.3v-2.6l2.3-1.3v1.1l2.3-1.3z"/></symbol>
   <symbol id="ico-next" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
   <symbol id="ico-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
   <symbol id="ico-lock" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="3" d="M7.5 11V8a4.5 4.5 0 0 1 9 0v3"/><rect x="4" y="11" width="16" height="11" rx="2" fill="currentColor"/></symbol>
@@ -979,6 +1031,31 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
         <ol class="gp-tower" id="gTower" aria-label="Race order"></ol>
         <div class="gp-lights" id="gLights" hidden aria-hidden="true"><div><i></i><i></i></div><div><i></i><i></i></div><div><i></i><i></i></div><div><i></i><i></i></div><div><i></i><i></i></div></div>
         <div id="gBanner" role="status"></div>
+      </section>
+      <section class="panel" id="pRun" aria-label="Speedrun theme">
+        <canvas id="runCv" aria-hidden="true"></canvas>
+        <div class="sr-hud" id="runHud">
+          <div class="sr-prog"><div class="sr-bar"><i id="srBar"></i></div><b id="srPct">0%</b></div>
+          <div class="sr-top">
+            <div class="sr-play"><span class="k">Play time</span><span class="big" id="srPlay">00:00</span></div>
+            <div class="sr-side">
+              <div>Goal <b id="srGoal">30:00</b></div>
+              <div id="srGoalLeft">30:00 left</div>
+              <div>Pauses <b id="srPauses">0</b></div>
+            </div>
+          </div>
+          <div class="sr-stats">
+            <div><span>Split</span><b id="srSplit">1/10</b></div>
+            <div><span>Mined</span><b id="srMined">0</b></div>
+            <div><span>Run time</span><b id="srRta">00:00</b></div>
+            <div><span>Power</span><b id="srPw">0%</b></div>
+            <div><span>Efficiency</span><b id="srEff">0%</b></div>
+          </div>
+          <div class="sr-line" id="srHeard">Press Start, then play</div>
+          <div class="sr-line dim" id="srHint">Play to start the run</div>
+        </div>
+        <ol class="sr-splits" id="srSplits" aria-label="Splits"></ol>
+        <div id="srBanner" role="status"></div>
       </section>
     </div>
     <div id="award" hidden role="status">
