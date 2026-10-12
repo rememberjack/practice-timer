@@ -15,9 +15,9 @@ function makeCityView(host) {
     view.loading = true; let s = null;
     promise = new Promise((res, rej) => {
       if (window.THREE) return res();
-      s = document.createElement('script'); s.src = THREE_URL; s.async = true;
-      s.onload = () => res(); s.onerror = () => rej(new Error('three.js did not load'));
-      document.head.appendChild(s);
+      s = [...document.scripts].find(x => x.src === THREE_URL);   // Fireworks may be loading it already: wait for that one rather than load it twice
+      if (!s) { s = document.createElement('script'); s.src = THREE_URL; s.async = true; document.head.appendChild(s); }
+      s.addEventListener('load', () => res()); s.addEventListener('error', () => rej(new Error('three.js did not load')));
     }).then(() => { api = build(); view.ready = true; view.failed = false; view.loading = false; view.resize(); })
       .catch(e => { view.failed = true; view.loading = false; view.error = String(e && e.message || e); failedAt = Date.now(); promise = null; if (s) s.remove(); });
     return promise;
