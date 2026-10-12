@@ -952,7 +952,9 @@ $('creditsClose').onclick = () => $('dlgCredits').close();
 $('dlgCredits').addEventListener('close', () => { rollCredits(false); $('openAbout').focus(); });
 $('btnSettings').onclick = () => { if (heldOpen()) return; pauseForSheet(); paintSettingsSkin(); paintGoal(); paintControls(); paintDbg(); $('dlgSettings').showModal(); settingsPage(''); };
 $('setClose').onclick = () => $('dlgSettings').close();
-for (const d of document.querySelectorAll('dialog')) d.addEventListener('click', e => { if (e.target === d && !heldOpen()) d.close(); });   // not the lift of the finger that held Settings down
+for (const d of document.querySelectorAll('dialog')) d.addEventListener('click', e => {   // a tap on the backdrop closes; not on a sheet's own edge (Settings fills the screen), nor the lift of the finger that held Settings down
+  const r = d.getBoundingClientRect(), out = e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+  if (e.target === d && out && !heldOpen()) d.close(); });
 
 let testing = false;
 $('btnTests').onclick = async () => {
@@ -1189,8 +1191,9 @@ $('homeFlightGo').onclick = () => askFlight(true);
 let homeSeed = 0;                                                     // which playful words: new each time the Home Screen shows, the same while it stays
 function renderHome() {
   const now = Date.now(), P = MT.practiceStats(log, now), c = MT.homeCopy(P, log.length ? log[log.length - 1] : null, now, { seed: homeSeed, name: S.name });
-  $('homeHello').textContent = c.hello;
-  $('homeName').hidden = !!S.name;
+  // with no name set, the word for the player ("Ahoy, Captain") is the link that adds one
+  $('homeHello').textContent = c.friend ? c.hello.slice(0, -c.friend.length) : c.hello;
+  $('homeName').hidden = !c.friend; $('homeName').textContent = c.friend || ''; $('homeName').setAttribute('aria-label', c.friend ? c.friend + '. Add your name' : '');
   $('homeHead').textContent = c.head; $('homeLede').textContent = c.lede;
   $('homeFirst').hidden = c.kind !== 'first'; $('homeWeek').hidden = c.kind === 'first';
   if (c.kind !== 'first') {

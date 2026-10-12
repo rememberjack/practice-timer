@@ -48,7 +48,7 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
   the settings as `themesOff` (`themesOn`, `themeSwitch`, `themeLanding` in `src/core.js`), so a new theme starts on and a removed one is forgotten.
 - Settings, About opens the credits over the whole screen (`#dlgCredits`, over Settings) and rolls them up like the end of a film (`CREDITS`, `rollCredits` in
   `src/app.js`); a tap pauses them, holding speeds them up, and with reduced motion they stand still in a box that scrolls.
-- Settings always has the Classic look; only the goal's hint follows the theme it is opened from (`GOAL_HINT` in `src/app.js`).
+- Settings fills the whole screen (`#dlgSettings`; on a wide screen its rows keep to a column in the middle) and always has the Classic look; only the goal's hint follows the theme it is opened from (`GOAL_HINT` in `src/app.js`).
   The rocket's power, the cannons and the Dash speed follow the last minute of playing (`Session.recentEfficiency`); there is no
   setting for it. The Rocket and City bars fill to that as Power, with a tick and a figure for the whole session's Efficiency
   (`powerBar` in `src/app.js`), like a car's instant and trip-average fuel figures; Dash shows both as figures.
@@ -81,7 +81,8 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
   (`liveSnapshot`, every 5 s and when the app is hidden), cleared at End, and offered back on the next open (`liveRecord`, `#dlgLost`).
 - Time the app could not listen during a session (the phone asleep, the app in the background: a tick of 1.5 s or more) counts like a
   pause (`Session.away`), so it never lowers efficiency or the last minute's power.
-- While no name is set, a quiet "Add your name" link follows the Home Screen greeting and opens Settings at the name field.
+- While no name is set, the Home Screen greeting calls the player a fun word instead ("Hi there, rock star", or the greeting's own title: "Ahoy, Captain";
+  `HOME_FRIEND`, `friend` from `homeCopy`), and that word is a link that opens Settings at the name field.
 - The practice goal is for one session. The practice log never marks a day as reaching it: the week bars compare days by time
   played, and the calendar shades days by minutes (`LEVEL_MIN` in `src/core.js`). Only a session's trophy is gold.
 
