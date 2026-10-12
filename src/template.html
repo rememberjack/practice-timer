@@ -328,6 +328,19 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 .tg:checked::after{transform:translateX(20px)}
 .tg:disabled{opacity:.5; cursor:default}
 #themesNote{margin:10px 2px 0; min-height:18px}
+/* Settings, About: the credits roll up through a window, fading in at the bottom and out at the top. With reduced motion they stand still and scroll */
+#aboutH{font-weight:800; font-size:22px; letter-spacing:-.01em; margin:0 0 4px; line-height:1.1}
+#setAbout .hint{font-size:13px; color:var(--mute); margin:3px 0 0}
+.roll{position:relative; height:min(320px, 46vh); margin:12px 0 8px; overflow:hidden; border:1px solid var(--rule); border-radius:16px; background:var(--paper); cursor:pointer;
+  -webkit-mask-image:linear-gradient(transparent, #000 18%, #000 82%, transparent); mask-image:linear-gradient(transparent, #000 18%, #000 82%, transparent)}
+.roll-in{list-style:none; margin:0; padding:0 16px; text-align:center; will-change:transform}
+.roll-in li{margin:0 0 14px}
+.roll-in .t{font-weight:800; font-size:24px; letter-spacing:-.01em; color:var(--accent); margin:0 0 26px}
+.roll-in .h{font-size:12px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--mute-2); margin:26px 0 12px}
+.roll-in .r{display:block; font-size:13px; color:var(--mute)}
+.roll-in .n{display:block; font-size:17px; font-weight:700}
+.roll-in .end{margin:30px 0 0; font-size:17px; font-weight:700; color:var(--gold)}
+@media (prefers-reduced-motion: reduce){ .roll{overflow-y:auto; touch-action:pan-y pinch-zoom; cursor:auto; -webkit-mask-image:none; mask-image:none} .roll-in{padding:18px 16px} #rollHint{display:none} }
 @media (max-height:700px){ .tlist{gap:6px; margin-top:8px} .trow{padding:6px 12px} }   /* an iPhone SE: all five themes and the note fit without scrolling */
 #tests{list-style:none; margin:10px 0 0; padding:0; font-size:13px}
 #tests li{display:grid; grid-template-columns:44px 1fr; gap:2px 8px; padding:6px 0; border-top:1px solid var(--rule)}
@@ -1062,8 +1075,17 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
       <label class="switch" for="recIn"><span>Record the playing</span><input type="checkbox" id="recIn"></label>
       <p class="hint">Keeps an audio recording of the session (microphone only) that you can save when you stop.</p>
     </div>
+    <div class="field">
+      <button type="button" class="navrow" id="openAbout"><span class="txt"><span class="lab">About</span><span class="hint">Music Timer and the people who made it.</span></span><svg class="chev" aria-hidden="true"><use href="#ico-next"/></svg></button>
+    </div>
     <div class="btn-row" id="setDebugRow" hidden><button class="btn" id="setDebug">Debug tools</button></div>
     <p class="hint" id="ver" style="margin:14px 0 0;font-size:12px;color:var(--mute-2)"></p>
+  </div>
+  <div class="sh-body" id="setAbout" hidden>
+    <h2 id="aboutH">About</h2>
+    <p class="hint">Music Timer counts your practice only while it hears your instrument, so every minute it shows is a minute you played.</p>
+    <div class="roll" id="roll" tabindex="0"><ol class="roll-in" id="rollIn" aria-label="Credits"></ol></div>
+    <p class="hint" id="rollHint">Tap the credits to pause them.</p>
   </div>
   <div class="sh-body" id="setThemes" hidden>
     <h2 id="themesH">Themes</h2>
