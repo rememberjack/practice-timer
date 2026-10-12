@@ -505,7 +505,7 @@ function paintFire(st, label) {
   text(el, playTxt); if (el.className !== cls) el.className = cls;
   width($('fBar'), p); text($('fPct'), Math.min(100, Math.floor(p * 100)) + '%');
   text($('fGoal'), fmt(V.goal)); text($('fGoalLeft'), reached ? 'Reached' : fmt(Math.ceil(V.goal - V.play)) + ' left'); text($('fPauses'), String(V.pauses));
-  text($('fShells'), String(fw.shells)); text($('fCols'), fw.colours + '/12'); text($('fSize'), MT.fwCalibre(V.pw) + '″'); text($('fPw'), Math.round(V.pw * 100) + '%'); text($('fEff'), Math.round(V.eff * 100) + '%');
+  text($('fShells'), String(fw.shells)); text($('fCols'), fw.colours + '/12'); text($('fPw'), Math.round(V.pw * 100) + '%'); text($('fEff'), Math.round(V.eff * 100) + '%');
   text($('fHeard'), st === 'running' ? label : st === 'paused' ? 'Paused: not listening' : st === 'idle' ? 'Press Start, then play' : 'Session finished');
   text($('fHint'), fireHint(st));
 }

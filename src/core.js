@@ -1076,7 +1076,7 @@ function detectionTests(sr) {
     const kinds = recent => { const s = new FireworkSim(); s.reset(1800, 11); const ev = fwRun(s, 60, { state: 'running', music: true, midi: 62, recent: recent, play: 0 }, 1);
       return { size: ev.reduce((x, e) => x + e.size, 0) / ev.length, kinds: new Set(ev.map(e => e.kind)) }; };
     const lo = kinds(0.2), mid = kinds(0.5), hi = kinds(0.9);
-    const ok = hi.size > mid.size && mid.size > lo.size && lo.kinds.size === 1 && lo.kinds.has('peony') && !mid.kinds.has('willow') && mid.kinds.has('ring') && hi.kinds.has('willow') && hi.kinds.size >= 5 && fwCalibre(0.2) < fwCalibre(0.9) && fwCalibre(1) === 12;
+    const ok = hi.size > mid.size && mid.size > lo.size && lo.kinds.size === 1 && lo.kinds.has('peony') && !mid.kinds.has('willow') && mid.kinds.has('ring') && hi.kinds.has('willow') && hi.kinds.size >= 5;
     return { name: 'Fireworks: the last minute sets the size and the kinds', expect: 'bigger shells with more of the last minute played; round ones only at 20%, rings at 50%, willows and more at 90%',
       got: [['20%', lo], ['50%', mid], ['90%', hi]].map(p => p[0] + ': size ' + p[1].size.toFixed(2) + ', ' + [...p[1].kinds].sort().join(' ')).join('; '), pass: ok }; } });
   list.push({ name: 'Fireworks: a held note still sends shells up', run: () => {
@@ -2021,8 +2021,7 @@ function raceGap(l) { const a = Math.abs(l); return a >= 1 ? Math.floor(a) + (a 
    'finaleEnd' event TROPHY_T seconds later, when the trophy card can show. The finale only plays while the theme is on screen (shown), so it waits
    for the player to come to it, and it holds through a pause like the clock. src/fireworks.js only draws what this decides. */
 const FW = { PACE: 3, RATE: 1, PER: 4, BURST: 2, BURSTPER: 3, AIR: 3.5, CHARGE: 0.15, FINALE: 28, FINALE_T: 7, LULL: 1.4, TROPHY_T: 3.6,   // LULL: the quiet before the trophy goes up   // AIR: about how long a shell is in the sky, rising and burning
-  KINDS: [[0, 'peony'], [0.3, 'ring'], [0.3, 'chrysanthemum'], [0.6, 'willow'], [0.6, 'palm'], [0.6, 'crossette']],   // [intensity needed, kind]
-  CALIBRE: [2, 3, 4, 5, 6, 8, 10, 12] };                                    // shell sizes in inches, as real shells are measured, for the read-outs
+  KINDS: [[0, 'peony'], [0.3, 'ring'], [0.3, 'chrysanthemum'], [0.6, 'willow'], [0.6, 'palm'], [0.6, 'crossette']] };   // [intensity needed, kind]
 function fwHue(pc) { return ((pc * 7) % 12) * 30; }                            // C red, G orange, D yellow, A lime, E green... round the circle of fifths
 /* the finale's last burst: points along the outline of a trophy (the cup, its two handles, the stem and the base), about step apart, in units where
    the trophy is 1.5 high and centred on 0, y up. The renderers throw a spark at each point, so the burst opens into the shape and holds it a moment */
@@ -2038,7 +2037,6 @@ function fwTrophyShape(step) {
   seg(-0.32, -0.45, 0.32, -0.45); seg(0.32, -0.45, 0.42, -0.75); seg(0.42, -0.75, -0.42, -0.75); seg(-0.42, -0.75, -0.32, -0.45);   // the base
   return out;
 }
-function fwCalibre(recent) { return FW.CALIBRE[Math.max(0, Math.min(FW.CALIBRE.length - 1, Math.floor(recent * FW.CALIBRE.length)))]; }
 class FireworkSim {
   constructor() { this.reset(0, 1); }
   reset(goal, seed) {
@@ -2087,7 +2085,7 @@ class FireworkSim {
   }
 }
 
-const api = { LIFTOFF, OnsetTracker, DragSwipe, WheelSwipe, DashSim, DASH, dashSpeed, RaceSim, RACE, RACE_PIT, raceTrack, FireworkSim, FW, fwHue, fwCalibre, fwTrophyShape, raceGap, raceRng, RacePractiser, MusicDetector, Session, RocketSim, WORLD, MILESTONES, SENSITIVITY, CLIPS, DETECTION_CASES,
+const api = { LIFTOFF, OnsetTracker, DragSwipe, WheelSwipe, DashSim, DASH, dashSpeed, RaceSim, RACE, RACE_PIT, raceTrack, FireworkSim, FW, fwHue, fwTrophyShape, raceGap, raceRng, RacePractiser, MusicDetector, Session, RocketSim, WORLD, MILESTONES, SENSITIVITY, CLIPS, DETECTION_CASES,
   detectionTests, runDetectionTests, analyzeClip, sessionReport, clockText, sessionRecord, worthKeeping, liveSnapshot, liveRecord, rocketCarry, buildOf, newerBuild, themesOn, themeSwitch, themeLanding, practiceStats, dayRecap, dayLine, practiceNudge, homeCopy, weekLine, durationText, dayKey, LOG_MAX, LEVEL_MIN, SAMPLE_LOGS, sampleLog, rocketAt, fraction, heardAs, noteOf, smooth, pchip, clamp01 };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.MT = api;
 })(typeof self !== 'undefined' ? self : this);
