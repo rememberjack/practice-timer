@@ -1015,7 +1015,7 @@ function detectionTests(sr) {
   list.push({ name: 'Grand Prix: the car brakes for the bends, and the race does not', run: () => {
     const s = new RaceSim(); s.reset(1800, 4); const inp = gpStart(s); s.cars = []; const T = s.T, at = [], d0 = s.dist; let t = 0;
     for (; t < 60; t += 1 / 60) { s.update(1 / 60, inp); s.move(1 / 60); at.push([Math.floor((s.d + RACE.PZ) / RACE.SEG) % T.n, s.v]); }
-    const slowest = {}, entry = {}; let top = 0;
+    const slowest = {}; let top = 0;
     for (const [i, v] of at) { if (T.corner[i] >= 1) top = Math.max(top, v); if (Math.abs(T.curve[i]) > 3) slowest[i] = Math.min(slowest[i] == null ? 1e9 : slowest[i], v); }
     const corners = []; for (let i = 0; i < T.n;) { if (Math.abs(T.curve[i]) <= 3) { i++; continue; } let e = i, lim = 1; while (e < T.n && Math.abs(T.curve[e]) > 3) lim = Math.min(lim, T.corner[e++]); corners.push({ s: i, e: e, lim: lim }); i = e; }
     const kmh = v => Math.round(v * 300 / RACE.VNOM), bad = [];
