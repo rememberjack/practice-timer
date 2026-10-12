@@ -952,7 +952,9 @@ $('creditsClose').onclick = () => $('dlgCredits').close();
 $('dlgCredits').addEventListener('close', () => { rollCredits(false); $('openAbout').focus(); });
 $('btnSettings').onclick = () => { if (heldOpen()) return; pauseForSheet(); paintSettingsSkin(); paintGoal(); paintControls(); paintDbg(); $('dlgSettings').showModal(); settingsPage(''); };
 $('setClose').onclick = () => $('dlgSettings').close();
-for (const d of document.querySelectorAll('dialog')) d.addEventListener('click', e => { if (e.target === d && !heldOpen()) d.close(); });   // not the lift of the finger that held Settings down
+for (const d of document.querySelectorAll('dialog')) d.addEventListener('click', e => {   // a tap on the backdrop closes; not on a sheet's own edge (Settings fills the screen), nor the lift of the finger that held Settings down
+  const r = d.getBoundingClientRect(), out = e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+  if (e.target === d && out && !heldOpen()) d.close(); });
 
 let testing = false;
 $('btnTests').onclick = async () => {
