@@ -42,8 +42,9 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
 - Every theme keeps the title row with Settings at the top. During a session Pause (or Resume) is the big button and End the small
   one, and End asks to confirm (`askEnd`, `#dlgEnd`).
 - Settings, Themes (its own page in the Settings sheet, `settingsPage` in `src/app.js`) lets the player turn off themes they don't like. A theme
-  turned off leaves the swipe, the theme bar and the Home Screen choices, with no padlock (there is nothing to earn back). One theme always
-  stays on, any one; turning off the theme on screen moves to the next one on, during a session too. The ids turned off are kept in
+  turned off leaves the swipe, the theme bar and the Home Screen choices, with no padlock (there is nothing to earn back). Classic is always
+  on and can't be turned off. A theme that is turned off while chosen (on the Home Screen, or the one on screen during a session) gives way to
+  the first one on, Classic. The ids turned off are kept in
   the settings as `themesOff` (`themesOn`, `themeSwitch`, `themeLanding` in `src/core.js`), so a new theme starts on and a removed one is forgotten.
 - Settings always has the Classic look; only the goal's hint follows the theme it is opened from (`GOAL_HINT` in `src/app.js`).
   The rocket's power, the cannons and the Dash speed follow the last minute of playing (`Session.recentEfficiency`); there is no

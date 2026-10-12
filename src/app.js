@@ -776,11 +776,10 @@ function skinOpen(i) { return true; }   // eslint-disable-line no-unused-vars --
 function skinOn(i) { return MT.themesOn(SKINS, S.themesOff).includes(SKINS[i]); }
 let open = [];   // indices of the open themes, in swipe order
 function refreshSkins() {
-  open = SKINS.map((_, i) => i).filter(i => (i === 0 || skinOpen(i)) && skinOn(i));
-  if (!open.length) open = [0];
+  open = SKINS.map((_, i) => i).filter(i => i === 0 || (skinOpen(i) && skinOn(i)));
   PANELS.forEach((id, i) => { $(id).hidden = !open.includes(i); });
   track.style.width = open.length * 100 + '%';
-  setSkin(SKINS.indexOf(MT.themeLanding(SKINS, open.map(i => SKINS[i]), SKINS[skin])), false);
+  setSkin(SKINS.indexOf(MT.themeLanding(open.map(i => SKINS[i]), SKINS[skin])), false);
 }
 function stepSkin(d) { const p = open.indexOf(skin) + d; return open[Math.max(0, Math.min(open.length - 1, p))]; }   // the next open theme that way, or the same one at either end
 /* Only the theme on screen is drawn, plus the one a swipe is revealing. Each scene is costly (City is WebGL), so drawing every theme while a finger is down made swipes lag.
@@ -896,8 +895,8 @@ const GOAL_HINT = {
   race: 'The total play time to reach. The race runs until you reach it.',
 };
 function paintSettingsSkin() { $('goalHint').textContent = GOAL_HINT[SKINS[skin]]; }
-/* Settings, Themes: a page of its own in the sheet, with a switch for each theme. The last one on can't be turned off;
-   turning off the one on screen moves to the next one on (MT.themeLanding), during a session too */
+/* Settings, Themes: a page of its own in the sheet, with a switch for each theme. Classic is always on and its switch can't be turned off;
+   turning off the one on screen moves to Classic, the first one on (MT.themeLanding), during a session too */
 const THEME_LINE = {
   classic: 'The clock, with your play time and efficiency.',
   rocket: 'Playing flies a rocket up to Moon orbit.',
@@ -912,10 +911,10 @@ const themeRows = SKINS.map((id, i) => { const li = document.createElement('li')
   li.append(sw); $('themeList').append(li); return li; });
 function paintThemes(moved) {
   const on = MT.themesOn(SKINS, S.themesOff), names = on.map(id => SKIN_NAMES[SKINS.indexOf(id)]);
-  themeRows.forEach((li, i) => { const sw = li.querySelector('input'), o = on.includes(SKINS[i]); sw.checked = o; sw.disabled = o && on.length === 1; li.classList.toggle('off', !o); });
+  themeRows.forEach((li, i) => { const sw = li.querySelector('input'), o = on.includes(SKINS[i]); sw.checked = o; sw.disabled = i === 0; li.classList.toggle('off', !o); });
   $('themesSum').textContent = on.length === SKINS.length ? 'All of them are on.' : on.length === 1 ? 'Only ' + names[0] + ' is on.' : names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1] + ' are on.';
   $('themesMini').innerHTML = on.map(id => '<i data-theme="' + id + '"><svg><use href="#ico-' + id + '"/></svg></i>').join('');
-  $('themesNote').textContent = on.length === 1 ? 'One theme always stays on, so there is always something to play with.' : moved ? 'Now playing with ' + SKIN_NAMES[skin] + '.' : '';
+  $('themesNote').textContent = moved ? 'Now playing with ' + SKIN_NAMES[skin] + '.' : '';
 }
 function settingsPage(themes) {
   $('setMain').hidden = themes; $('setThemes').hidden = !themes; $('setH').hidden = themes; $('setBack').hidden = !themes;
