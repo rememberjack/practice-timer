@@ -41,8 +41,9 @@ let raceNotes = 0, raceDoneAt = 0;                  // note starts for the spark
 const fw = new MT.FireworkSim(), fwView = makeFireworkView($('pFire'), $('fireHud'), fw, MT);
 let fwNotes = 0;                                    // note starts waiting to send shells up
 let awardWait = 0;                                  // a goal whose trophy card waits for the fireworks finale to end
-/* the goal is reached: the trophy card, except on Fireworks, where the grand finale goes first and the card follows it (on 'finaleEnd') */
-function goalReached(goal) { if (visible(5)) awardWait = goal; else award(goal); }
+/* the goal is reached: the trophy card, except on Fireworks, where the grand finale goes first and the card follows it (on 'finaleEnd').
+   The finale plays once a session: if it has already ended (the goal was raised during it, then reached again), the card shows at once */
+function goalReached(goal) { if (visible(5) && (!fw.finaleDone || fw.inFinale)) awardWait = goal; else award(goal); }
 const NB = 44, bars = new Float32Array(NB), shown = new Float32Array(NB);
 const heard = { label: '', detail: '', note: '', midi: null };      // midi: the pitch heard, as a (fractional) piano key number
 let mode = 'local';            // 'local' | 'follow'
