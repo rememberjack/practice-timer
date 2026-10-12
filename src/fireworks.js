@@ -83,8 +83,9 @@ function makeFirework2D(cv, hud, sim, MT) {
   /* a shell from the core: {x, h, size, hue, hue2, kind, finale} */
   function launch(e) {
     if (!W && !resize()) return;
-    const trophy = e.kind === 'trophy', R = trophy ? Math.min(0.4 * SKY, 0.55 * W) : (0.12 + 0.2 * e.size) * Math.min(W, SKY * 1.5), ty = trophy ? top + SKY * 0.46 : Math.max(top + R * 0.6, GY - e.h * SKY);
-    rockets.push({ x: e.x * W, x0: e.x * W, y: GY, y0: GY, ty: ty, t: 0, dur: 0.75 + 0.55 * e.h + Math.random() * 0.15, drift: trophy ? 0 : (Math.random() - 0.5) * W * 0.05, e: e, R: R });
+    const trophy = e.kind === 'trophy', symbol = e.kind === 'symbol', R = trophy ? Math.min(0.4 * SKY, 0.55 * W) : symbol ? Math.min(0.3 * SKY, 0.38 * W) * (0.85 + 0.25 * Math.min(1, e.size)) : (0.12 + 0.2 * e.size) * Math.min(W, SKY * 1.5);
+    const ty = trophy ? top + SKY * 0.46 : symbol ? Math.max(top + R * 0.95, Math.min(GY - R * 0.9, GY - e.h * SKY)) : Math.max(top + R * 0.6, GY - e.h * SKY), x = symbol ? Math.max(R * 0.85, Math.min(W - R * 0.85, e.x * W)) : e.x * W;   // a symbol stays whole in the sky
+    rockets.push({ x: x, x0: x, y: GY, y0: GY, ty: ty, t: 0, dur: 0.75 + 0.55 * e.h + Math.random() * 0.15, drift: trophy || symbol ? 0 : (Math.random() - 0.5) * W * 0.05, e: e, R: R });
   }
   function event(e) {
     if (e.k === 'shell') launch(e);
@@ -98,10 +99,11 @@ function makeFirework2D(cv, hud, sim, MT) {
     const sphere = (N, k, gr, life, s, trail, l, extra) => {   // sparks spread over a ball, seen from the side
       for (let i = 0; i < N; i++) { const a = Math.random() * TAU, u = Math.random(), sp = R * k * Math.sqrt(1 - u * u) * (0.92 + Math.random() * 0.12);
         spark(Object.assign({ x: x, y: y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, k: k, gr: gr, t: 0, life: life * (0.85 + Math.random() * 0.3), s: s, n: trail, h: hueOf(i), sat: 100, l: l }, extra)); } };
-    if (e.kind === 'trophy') {   // the finale's last shell opens into a gold trophy, holds it, then lets it fall
-      const k = 2.4, at = (px, py, q) => sparks.push(Object.assign({ x: x, y: y, vx: px * R * k, vy: -py * R * k, k: k, gr: R * 0.35, hold: 1.8, t: 0, life: 3.6, s: 3, n: 1, h: 44, sat: 95, l: 60, glit: true }, q));
-      for (const q of MT.fwTrophyShape(0.05)) at(q[0], q[1]);
-      for (let i = 0; i <= 8; i++) at(-0.3 + 0.06 * Math.sin(i / 8 * 1.6), 0.66 - i * 0.05, { h: 48, sat: 100, l: 80, s: 2 });   // the shine down the cup, as on the trophy card
+    if (e.kind === 'trophy' || e.kind === 'symbol') {   // a shape: the finale's gold trophy, or a musical symbol in the note's colour; it opens, holds a moment, then falls
+      const k = 2.4, trophy = e.kind === 'trophy', at = (px, py, q) => sparks.push(Object.assign({ x: x, y: y, vx: px * R * k, vy: -py * R * k, k: k, gr: R * 0.35, hold: trophy ? 1.8 : 1.4, t: 0, life: trophy ? 3.6 : 3, s: 3, n: 1,
+        h: trophy ? 44 : e.hue, sat: trophy ? 95 : 100, l: trophy ? 60 : 62, glit: true }, q));
+      for (const q of trophy ? MT.fwTrophyShape(0.05) : MT.fwSymbolShape(e.symbol, 0.05)) at(q[0], q[1]);
+      if (trophy) for (let i = 0; i <= 8; i++) at(-0.3 + 0.06 * Math.sin(i / 8 * 1.6), 0.66 - i * 0.05, { h: 48, sat: 100, l: 80, s: 2 });   // the shine down the cup, as on the trophy card
     } else if (e.kind === 'peony') sphere(Math.round(90 * n), 1.7, R * 0.3, 1.3, 2.2, 1, 60);
     else if (e.kind === 'chrysanthemum') sphere(Math.round(100 * n), 1.5, R * 0.35, 1.7, 1.8, 4, 60, { glit: true });
     else if (e.kind === 'ring') {

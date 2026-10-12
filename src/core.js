@@ -1096,7 +1096,7 @@ function detectionTests(sr) {
       got: ev.length + ' shells for 120 notes, ' + big + ' bigger than full size', pass: ev.length <= cap && ev.length >= cap - 6 && big > 0 }; } });
   list.push({ name: 'Fireworks: the last minute sets the size and the kinds', run: () => {
     const kinds = recent => { const s = new FireworkSim(); s.reset(1800, 11); const ev = fwRun(s, 60, { state: 'running', music: true, midi: 62, recent: recent, play: 0 }, 1);
-      return { size: ev.reduce((x, e) => x + e.size, 0) / ev.length, kinds: new Set(ev.map(e => e.kind)) }; };
+      return { size: ev.reduce((x, e) => x + e.size, 0) / ev.length, kinds: new Set(ev.filter(e => e.kind !== 'symbol').map(e => e.kind)) }; };   // symbols are a surprise of their own
     const lo = kinds(0.2), mid = kinds(0.5), hi = kinds(0.9);
     const ok = hi.size > mid.size && mid.size > lo.size && lo.kinds.size === 1 && lo.kinds.has('peony') && !mid.kinds.has('willow') && mid.kinds.has('ring') && hi.kinds.has('willow') && hi.kinds.size >= 5;
     return { name: 'Fireworks: the last minute sets the size and the kinds', expect: 'bigger shells with more of the last minute played; round ones only at 20%, rings at 50%, willows and more at 90%',
@@ -1126,6 +1126,20 @@ function detectionTests(sr) {
     const ok = away === 0 && starts === 1 && shells.length === FW.FINALE && last.kind === 'trophy' && ends === 1 && endAt > lastAt && early > 0 && early < FW.FINALE && paused === early && s.shells === 0 && !s.inFinale;
     return { name: 'Fireworks: a grand finale at the goal, once, ending in a trophy', expect: 'nothing while the theme is not shown; then one finale of ' + FW.FINALE + ' shells, held through a pause, the last a trophy, then the end of the finale (for the trophy card); not counted as the player\'s shells',
       got: away + ' events away, ' + starts + ' finale, ' + shells.length + ' shells (' + early + ' before the pause, ' + paused + ' after it), last ' + (last && last.kind) + ', ' + ends + ' end' + (endAt > lastAt ? ' after it' : ' before it') + ', ' + s.shells + ' counted', pass: ok }; } });
+  list.push({ name: 'Fireworks: now and then a shell bursts into a musical symbol', run: () => {
+    const s = new FireworkSim(); s.reset(3600, 31); const ev = fwRun(s, 600, { state: 'running', music: true, midi: 62, recent: 0.8, play: 0 }, 2).filter(e => e.k === 'shell');
+    const sym = ev.filter(e => e.kind === 'symbol'), names = new Set(sym.map(e => e.symbol)), share = sym.length / ev.length;
+    let gaps = true, repeats = false, at = -1e9, last = ''; for (const e of ev) { if (e.kind === 'symbol') { if (e.symbol === last) repeats = true; last = e.symbol; } }
+    const s2 = new FireworkSim(); s2.reset(3600, 31); let tt = 0; for (let k = 0; k < 600 * 20; k++) { s2.update(0.05, { state: 'running', music: true, notes: k % 10 === 0 ? 1 : 0, midi: 62, recent: 0.8, play: 0 }); tt += 0.05;
+      for (const e of s2.events) if (e.kind === 'symbol') { if (tt - at < FW.SYMBOL_GAP - 1e-6) gaps = false; at = tt; } s2.events.length = 0; }
+    const colour = sym.every(e => e.hue === fwHue(2) && e.pc === 2);
+    const ok = share > 0.03 && share < 0.12 && names.size >= 6 && gaps && !repeats && colour && sym.every(e => FW_SYMBOLS.includes(e.symbol));
+    return { name: 'Fireworks: now and then a shell bursts into a musical symbol', expect: 'a few in a hundred shells, at least ' + FW.SYMBOL_GAP + ' s apart, never the same twice running, in the note\'s colour, many different symbols',
+      got: sym.length + ' of ' + ev.length + ' shells (' + (share * 100).toFixed(1) + '%), ' + names.size + ' symbols' + (gaps ? '' : ', too close') + (repeats ? ', a repeat' : '') + (colour ? '' : ', wrong colour'), pass: ok }; } });
+  list.push({ name: 'Fireworks: every musical symbol is drawn', run: () => {
+    const bad = FW_SYMBOLS.filter(n => { const p = fwSymbolShape(n, 0.05), xs = p.map(q => q[0]), ys = p.map(q => q[1]);
+      return p.length < 40 || p.length > 220 || Math.max(...ys) > 0.8 || Math.min(...ys) < -0.8 || Math.max(...xs.map(Math.abs)) > 0.8 || Math.max(...ys) - Math.min(...ys) < 0.5; });
+    return { name: 'Fireworks: every musical symbol is drawn', expect: FW_SYMBOLS.length + ' symbols, each 40 to 220 points inside the trophy\'s box', got: FW_SYMBOLS.map(n => n + ' ' + fwSymbolShape(n, 0.05).length).join(', ') + (bad.length ? '; wrong: ' + bad.join(' ') : ''), pass: !bad.length && fwSymbolShape('nothing').length === 0 }; } });
   list.push({ name: 'Fireworks: the trophy burst is a trophy', run: () => {
     const p = fwTrophyShape(0.05), xs = p.map(q => q[0]), ys = p.map(q => q[1]), key = q => Math.round(q[0] * 20) + ',' + Math.round(q[1] * 20), set = new Set(p.map(key));
     const mirrored = p.filter(q => set.has(Math.round(-q[0] * 20) + ',' + Math.round(q[1] * 20))).length / p.length;
@@ -2186,8 +2200,9 @@ function raceGap(l) { const a = Math.abs(l); return a >= 1 ? trn(Math.floor(a), 
    sky: shells go up at most RATE + PER x intensity a second, and the notes over that make the next shell bigger. Reaching the practice goal sets
    off a grand finale once: FINALE shells over FINALE_T seconds, the last one bursting into the shape of a trophy (fwTrophyShape), then a
    'finaleEnd' event TROPHY_T seconds later, when the trophy card can show. The finale only plays while the theme is on screen (shown), so it waits
-   for the player to come to it, and it holds through a pause like the clock. src/fireworks.js only draws what this decides. */
-const FW = { PACE: 3, RATE: 1, PER: 4, BURST: 2, BURSTPER: 3, AIR: 3.5, CHARGE: 0.15, FINALE: 28, FINALE_T: 7, LULL: 1.4, TROPHY_T: 3.6,   // LULL: the quiet before the trophy goes up   // AIR: about how long a shell is in the sky, rising and burning
+   for the player to come to it, and it holds through a pause like the clock. Now and then (SYMBOL) a shell bursts into a musical symbol
+   (fwSymbolShape) in the colour of its note. src/fireworks.js only draws what this decides. */
+const FW = { PACE: 3, RATE: 1, PER: 4, BURST: 2, BURSTPER: 3, AIR: 3.5, CHARGE: 0.15, FINALE: 28, FINALE_T: 7, LULL: 1.4, TROPHY_T: 3.6, SYMBOL: 0.13, SYMBOL_GAP: 6,   // SYMBOL: the chance a shell bursts into a musical symbol, at most one every SYMBOL_GAP s   // LULL: the quiet before the trophy goes up   // AIR: about how long a shell is in the sky, rising and burning
   KINDS: [[0, 'peony'], [0.3, 'ring'], [0.3, 'chrysanthemum'], [0.6, 'willow'], [0.6, 'palm'], [0.6, 'crossette']] };   // [intensity needed, kind]
 function fwHue(pc) { return ((pc * 7) % 12) * 30; }                            // C red, G orange, D yellow, A lime, E green... round the circle of fifths
 /* the finale's last burst: points along the outline of a trophy (the cup, its two handles, the stem and the base), about step apart, in units where
@@ -2204,11 +2219,48 @@ function fwTrophyShape(step) {
   seg(-0.32, -0.45, 0.32, -0.45); seg(0.32, -0.45, 0.42, -0.75); seg(0.42, -0.75, -0.42, -0.75); seg(-0.42, -0.75, -0.32, -0.45);   // the base
   return out;
 }
+/* the musical symbols a shell now and then bursts into: points along each outline, about step apart, in the trophy's units (1.5 high, centred on 0,
+   y up). Note heads are tilted ovals, filled ones drawn as two rings; the clefs and the flat are smooth curves through a few points */
+const FW_SYMBOLS = ['quarter', 'eighth', 'beamed', 'half', 'whole', 'treble', 'bass', 'sharp', 'flat'];
+function fwSymbolShape(name, step) {
+  step = step || 0.05; const out = [], dot = (x, y) => out.push([x, y]);
+  const seg = (x0, y0, x1, y1) => { const n = Math.max(1, Math.round(Math.hypot(x1 - x0, y1 - y0) / step)); for (let i = 0; i <= n; i++) dot(x0 + (x1 - x0) * i / n, y0 + (y1 - y0) * i / n); };
+  const oval = (cx, cy, rx, ry, tilt) => { const n = Math.max(6, Math.round(Math.PI * (rx + ry) / step)), c = Math.cos(tilt), sn = Math.sin(tilt);
+    for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2, x = Math.cos(a) * rx, y = Math.sin(a) * ry; dot(cx + x * c - y * sn, cy + x * sn + y * c); } };
+  const curve = pts => {                                                    // a smooth line through the points (Catmull-Rom), spaced step apart
+    const P = [pts[0]].concat(pts, [pts[pts.length - 1]]), fine = [];
+    for (let k = 1; k < P.length - 2; k++) for (let t = 0; t < 1; t += 0.05) { const [a, b, c, d] = [P[k - 1], P[k], P[k + 1], P[k + 2]], t2 = t * t, t3 = t2 * t;
+      fine.push([0, 1].map(m => 0.5 * (2 * b[m] + (c[m] - a[m]) * t + (2 * a[m] - 5 * b[m] + 4 * c[m] - d[m]) * t2 + (3 * b[m] - a[m] - 3 * c[m] + d[m]) * t3))); }
+    fine.push(pts[pts.length - 1]); let left = 0; dot(fine[0][0], fine[0][1]);
+    for (let k = 1; k < fine.length; k++) { left += Math.hypot(fine[k][0] - fine[k - 1][0], fine[k][1] - fine[k - 1][1]); if (left >= step) { dot(fine[k][0], fine[k][1]); left = 0; } } };
+  const head = (x, y, filled) => { oval(x, y, 0.27, 0.18, 0.38); if (filled) oval(x, y, 0.13, 0.07, 0.38); };
+  if (name === 'quarter' || name === 'eighth' || name === 'half') {
+    head(-0.12, -0.57, name !== 'half'); seg(0.13, -0.5, 0.13, 0.75);
+    if (name === 'eighth') curve([[0.13, 0.75], [0.3, 0.52], [0.48, 0.3], [0.42, 0.05]]);   // the flag
+  } else if (name === 'beamed') {
+    head(-0.42, -0.55, true); head(0.3, -0.4, true); seg(-0.17, -0.48, -0.17, 0.62); seg(0.55, -0.33, 0.55, 0.75);
+    seg(-0.17, 0.62, 0.55, 0.75); seg(-0.17, 0.5, 0.55, 0.63);               // the beam
+  } else if (name === 'whole') { oval(0, 0, 0.42, 0.27, 0); oval(0, 0, 0.11, 0.2, -0.75); }
+  else if (name === 'treble') {
+    curve([[0.04, -0.2], [0.16, -0.26], [0.18, -0.1], [0.04, 0.02], [-0.17, -0.06], [-0.25, -0.28], [-0.12, -0.48], [0.12, -0.5], [0.3, -0.36], [0.31, -0.1],
+      [0.13, 0.12], [-0.1, 0.3], [-0.2, 0.5], [-0.12, 0.7], [0.02, 0.76], [0.08, 0.58], [0.01, 0.36], [-0.04, 0], [-0.02, -0.4], [0.0, -0.66], [-0.08, -0.75], [-0.2, -0.7]]);
+    oval(-0.18, -0.64, 0.06, 0.06, 0);
+  } else if (name === 'bass') {
+    curve([[-0.32, 0.18], [-0.24, 0.36], [-0.04, 0.42], [0.16, 0.32], [0.22, 0.1], [0.1, -0.16], [-0.12, -0.38], [-0.36, -0.56]]);
+    oval(-0.3, 0.16, 0.07, 0.07, 0); oval(0.4, 0.28, 0.05, 0.05, 0); oval(0.4, 0.02, 0.05, 0.05, 0);
+  } else if (name === 'sharp') {
+    seg(-0.15, -0.68, -0.15, 0.62); seg(0.15, -0.62, 0.15, 0.68);
+    for (const y of [-0.2, 0.2]) { seg(-0.42, y - 0.08, 0.42, y + 0.08); seg(-0.42, y - 0.18, 0.42, y - 0.02); }
+  } else if (name === 'flat') {
+    seg(-0.2, -0.5, -0.2, 0.75); curve([[-0.2, -0.05], [0.05, 0.08], [0.24, 0.0], [0.16, -0.24], [-0.2, -0.5]]);
+  }
+  return out;
+}
 class FireworkSim {
   constructor() { this.reset(0, 1); }
   reset(goal, seed) {
     this.goal = goal || 0; this.seed = seed || 1; this.rnd = raceRng(this.seed);
-    this.shells = 0; this.notes = 0; this.tokens = FW.BURST; this.charge = 0; this.due = 0; this.lastHue = -1; this.t = 0; this.up = [];
+    this.shells = 0; this.notes = 0; this.tokens = FW.BURST; this.charge = 0; this.due = 0; this.lastHue = -1; this.t = 0; this.up = []; this.symbolAt = -1e9; this.symbol = '';
     this.finaleDone = false; this.finaleLeft = 0; this.finaleT = 0; this.finaleOn = false; this.events = [];
   }
   get colours() { let n = 0; for (let b = this.notes; b; b &= b - 1) n++; return n; }   // how many of the twelve notes have gone up
@@ -2246,13 +2298,16 @@ class FireworkSim {
     const r = this.rnd, known = midi != null && isFinite(midi), pc = known ? ((Math.round(midi) % 12) + 12) % 12 : Math.floor(r() * 12), hue = fwHue(pc);
     const kinds = FW.KINDS.filter(k => recent >= k[0]).map(k => k[1]), kind = kinds[Math.floor(r() * kinds.length)];
     const h = known ? 0.45 + Math.max(0, Math.min(1, (midi - 40) / 50)) * 0.45 + (r() - 0.5) * 0.08 : 0.55 + r() * 0.25;   // low notes burst low, high notes high
-    const size = Math.min(1.25, 0.3 + 0.7 * recent + this.charge * 0.4);
-    this.events.push({ k: 'shell', x: 0.12 + r() * 0.76, h: Math.max(0.35, Math.min(0.95, h)), size: size, hue: hue, hue2: recent >= 0.6 && this.lastHue !== hue ? this.lastHue : -1, kind: kind, pc: pc });
+    const size = Math.min(1.25, 0.3 + 0.7 * recent + this.charge * 0.4), e = { k: 'shell', x: 0.12 + r() * 0.76, h: Math.max(0.35, Math.min(0.95, h)), size: size, hue: hue, hue2: recent >= 0.6 && this.lastHue !== hue ? this.lastHue : -1, kind: kind, pc: pc };
+    if (this.t - this.symbolAt >= FW.SYMBOL_GAP && r() < FW.SYMBOL) {   // now and then the shell bursts into a musical symbol, in the note's colour; never the same one twice running
+      const pick = FW_SYMBOLS.filter(n => n !== this.symbol); e.kind = 'symbol'; e.symbol = this.symbol = pick[Math.floor(r() * pick.length)]; e.hue2 = -1; this.symbolAt = this.t;
+    }
+    this.events.push(e);
     this.tokens -= 1; this.charge = 0; this.lastHue = hue; this.shells++; this.notes |= 1 << pc; this.up.push(this.t);
   }
 }
 
-const api = { LANGS, addWords, setLang, getLang, pickLang, locale, tr, trn, inLang, both, LIFTOFF, OnsetTracker, DragSwipe, WheelSwipe, DashSim, DASH, dashSpeed, RaceSim, RACE, RACE_PIT, raceTrack, FireworkSim, FW, fwHue, fwTrophyShape, raceGap, raceRng, RacePractiser, MusicDetector, Session, RocketSim, WORLD, MILESTONES, SENSITIVITY, CLIPS, DETECTION_CASES,
+const api = { LANGS, addWords, setLang, getLang, pickLang, locale, tr, trn, inLang, both, LIFTOFF, OnsetTracker, DragSwipe, WheelSwipe, DashSim, DASH, dashSpeed, RaceSim, RACE, RACE_PIT, raceTrack, FireworkSim, FW, fwHue, fwTrophyShape, fwSymbolShape, FW_SYMBOLS, raceGap, raceRng, RacePractiser, MusicDetector, Session, RocketSim, WORLD, MILESTONES, SENSITIVITY, CLIPS, DETECTION_CASES,
   detectionTests, runDetectionTests, analyzeClip, sessionReport, clockText, sessionRecord, worthKeeping, liveSnapshot, liveRecord, rocketCarry, buildOf, newerBuild, themesOn, themeSwitch, themeLanding, practiceStats, dayRecap, dayLine, practiceNudge, homeCopy, weekLine, durationText, dayKey, LOG_MAX, LEVEL_MIN, SAMPLE_LOGS, sampleLog, rocketAt, fraction, heardAs, noteOf, smooth, pchip, clamp01 };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.MT = api;
 })(typeof self !== 'undefined' ? self : this);

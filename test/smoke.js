@@ -22,6 +22,7 @@ for (const name of ['favicon.ico', 'favicon.png', 'apple-touch-icon.png'])
 check(/<meta name="viewport"[^>]*viewport-fit=cover/.test(html), 'viewport tag');
 check(html.includes('cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js'), 'City theme loads three.js r128 from cdnjs');
 // a tripwire against the page growing unnoticed, not a hard limit: this is the raw file (comments and the icon included); GitHub Pages sends it
-// compressed, about a third of this. Main was 525 KB, the Fireworks theme took it to about 608 KB and the Chinese and French words to about 676 KB
-check(html.length < 700 * 1024, 'size under 700 KB (' + Math.round(html.length / 1024) + ' KB)');
+// compressed, about a third of this. Main was 525 KB, the Fireworks theme took it to about 608 KB, the Chinese and French words to about 696 KB
+// and the Fireworks musical symbols to about 704 KB
+check(html.length < 900 * 1024, 'size under 900 KB (' + Math.round(html.length / 1024) + ' KB)');
 process.exit(bad ? 1 : 0);

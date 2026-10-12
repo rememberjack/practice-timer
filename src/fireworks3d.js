@@ -226,12 +226,14 @@ function makeFirework3D(cv, hud, MT) {
   function launch(e) {
     if (!W && !resize()) return;
     placeCamera();
-    const trophy = e.kind === 'trophy', py = trophy ? top + (H - top) * 0.36 : top + (1 - e.h) * (H - top) * 0.64, d = trophy ? 130 : rnd(85, 165);   // the trophy goes up in the middle of the sky
-    ray.set(trophy ? 0 : (e.x * 2 - 1) * 0.86, 1 - 2 * py / H, 0.5).unproject(camera); cam.copy(camera.position); ray.sub(cam).normalize();
+    const trophy = e.kind === 'trophy', symbol = e.kind === 'symbol', Hf = H - top, Spx = symbol ? Math.min(0.2 * Hf, 0.38 * W) * (0.85 + 0.25 * Math.min(1, e.size)) : 0;
+    let py = trophy ? top + Hf * 0.36 : top + (1 - e.h) * Hf * 0.64, nx = trophy ? 0 : (e.x * 2 - 1) * 0.86, d = trophy ? 130 : rnd(85, 165);   // the trophy goes up in the middle of the sky
+    if (symbol) { py = Math.max(top + Spx * 0.95, Math.min(top + Hf * 0.69 - Spx * 0.85, py)); const lim = Math.max(0, 1 - 1.8 * Spx / W); nx = Math.max(-lim, Math.min(lim, nx)); }   // a symbol stays whole in the sky
+    ray.set(nx, 1 - 2 * py / H, 0.5).unproject(camera); cam.copy(camera.position); ray.sub(cam).normalize();
     const at = cam.clone().addScaledVector(ray, d), depth = d * ray.dot(camera.getWorldDirection(fwd));   // d away along the ray; its depth in front of the camera
     at.y = Math.max(14, at.y);
-    const per = 2 * depth * TANF / ((H - top) * SHIFT), R = (trophy ? Math.min(0.29 * (H - top), 0.55 * W) : (0.12 + 0.2 * e.size) * Math.min(W, (H - top) * 1.1)) * per;   // the burst's size on the screen, in the world at that depth
-    const sx = trophy ? 0 : rnd(-4, 4);
+    const per = 2 * depth * TANF / ((H - top) * SHIFT), R = (trophy ? Math.min(0.29 * (H - top), 0.55 * W) : symbol ? Spx : (0.12 + 0.2 * e.size) * Math.min(W, (H - top) * 1.1)) * per;   // the burst's size on the screen, in the world at that depth
+    const sx = trophy || symbol ? 0 : rnd(-4, 4);
     rockets.push({ p: new V(at.x + sx, 0.6, at.z), from: new V(at.x + sx, 0.6, at.z), to: at, t: 0, dur: 0.8 + 0.55 * e.h + Math.random() * 0.15, e: e, R: R });
   }
   function event(e) { if (e.k === 'shell') launch(e); else if (e.k === 'finale' && !RM) flash.setRGB(0.12, 0.1, 0.08); }
@@ -244,11 +246,11 @@ function makeFirework3D(cv, hud, MT) {
     const gold = hsl(40, 92, 52), add = (dir, sp, q) => spark(Object.assign({ x: o.x, y: o.y, z: o.z, vx: dir.x * sp, vy: dir.y * sp, vz: dir.z * sp, t: 0 }, q));
     const ball = (N, k, g, life, s, tr, c, extra) => { for (let i = 0; i < N; i++) add(unit(), R * k * (0.93 + Math.random() * 0.1), Object.assign({ k: k, g: g, life: life * (0.85 + Math.random() * 0.3), s: s, tr: tr, c: c === 'two' ? (i % 2 ? cb : ca) : c }, extra)); };
     const s0 = R * 0.035;   // a star's size, in the world
-    if (e.kind === 'trophy') {   // the finale's last shell opens into a gold trophy facing the viewer, holds it, then lets it fall
-      const right = new V().setFromMatrixColumn(camera.matrixWorld, 0), up = new V().setFromMatrixColumn(camera.matrixWorld, 1), k = 2.4, pale = hsl(48, 100, 80), cup = hsl(44, 95, 58);
-      const at = (px, py, q) => { const d = right.clone().multiplyScalar(px * R).addScaledVector(up, py * R); sparks.push(Object.assign({ x: o.x, y: o.y, z: o.z, vx: d.x * k, vy: d.y * k, vz: d.z * k, k: k, g: R * 0.35, hold: 1.8, t: 0, life: 3.6, s: s0 * 1.5, tr: 0.05, c: cup, glit: true }, q)); };
-      for (const q of MT.fwTrophyShape(0.05)) at(q[0], q[1]);
-      for (let i = 0; i <= 8; i++) at(-0.3 + 0.06 * Math.sin(i / 8 * 1.6), 0.66 - i * 0.05, { c: pale, s: s0 * 0.9 });   // the shine down the cup, as on the trophy card
+    if (e.kind === 'trophy' || e.kind === 'symbol') {   // a shape facing the viewer: the finale's gold trophy, or a musical symbol in the note's colour; it opens, holds a moment, then falls
+      const right = new V().setFromMatrixColumn(camera.matrixWorld, 0), up = new V().setFromMatrixColumn(camera.matrixWorld, 1), k = 2.4, trophy = e.kind === 'trophy', pale = hsl(48, 100, 80), c = trophy ? hsl(44, 95, 58) : hsl(e.hue, 100, 62);
+      const at = (px, py, q) => { const d = right.clone().multiplyScalar(px * R).addScaledVector(up, py * R); sparks.push(Object.assign({ x: o.x, y: o.y, z: o.z, vx: d.x * k, vy: d.y * k, vz: d.z * k, k: k, g: R * 0.35, hold: trophy ? 1.8 : 1.4, t: 0, life: trophy ? 3.6 : 3, s: s0 * 1.5, tr: 0.05, c: c, glit: true }, q)); };
+      for (const q of trophy ? MT.fwTrophyShape(0.05) : MT.fwSymbolShape(e.symbol, 0.05)) at(q[0], q[1]);
+      if (trophy) for (let i = 0; i <= 8; i++) at(-0.3 + 0.06 * Math.sin(i / 8 * 1.6), 0.66 - i * 0.05, { c: pale, s: s0 * 0.9 });   // the shine down the cup, as on the trophy card
     } else if (e.kind === 'peony') ball(Math.round(110 * n), 1.7, R * 0.3, 1.3, s0, 0.05, 'two');
     else if (e.kind === 'chrysanthemum') ball(Math.round(120 * n), 1.5, R * 0.35, 1.7, s0 * 0.85, 0.16, 'two', { glit: true });
     else if (e.kind === 'ring') {   // a ring, tilted any way in the sky

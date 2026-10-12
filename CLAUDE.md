@@ -66,6 +66,8 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
   notes are twelve colours, `fwHue`) and its height how high the note is. The last minute of playing is shown as Intensity (Power in the other
   themes): it sets the pace, so the higher it is the more shells are in the sky at once (`FW.PACE`; a held note keeps them going up), and their
   size and kinds. Only playing sends shells up, and fast runs are capped (the extra notes make the next shell bigger). It makes no sound.
+  Now and then (about one shell in twenty, at most one every 6 s, `FW.SYMBOL`) a shell bursts into a musical symbol in its note's colour: notes, a clef,
+  a sharp or a flat (`fwSymbolShape`, `FW_SYMBOLS`); it opens, holds the shape a moment, then falls, like the finale's trophy.
   The goal sets off a grand finale once, ending in a shell that bursts into a gold trophy (`fwTrophyShape`); on Fireworks the trophy card waits
   for the finale to end (`goalReached`, `awardWait` in `src/app.js`). The finale only plays while the theme is on screen: reached on another theme,
   the card shows there at once and the finale waits; leaving Fireworks mid-finale shows the card then.
