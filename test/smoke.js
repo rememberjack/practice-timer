@@ -7,7 +7,7 @@ check(scripts.length === 2, 'two inline scripts');
 scripts.forEach((s, i) => { try { new vm.Script(s); check(true, 'script ' + (i + 1) + ' parses'); } catch (e) { check(false, 'script ' + (i + 1) + ' parses: ' + e.message); } });
 const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map(m => m[1]);
 check(new Set(ids).size === ids.length, 'element ids are unique');
-for (const id of ['app', 'btnStart', 'btnPause', 'btnResume', 'btnStop', 'cClock', 'vizBox', 'rk', 'hud', 'dlgSettings', 'dlgSummary', 'dlgLog', 'dlgEnd', 'award', 'ver', 'pCity', 'cityCv', 'cityHud', 'yPlay', 'pDash', 'dashCv', 'dashHud', 'dPlay', 'pRace', 'raceCv', 'raceHud', 'gPlay', 'gTower', 'gBanner', 'skinBar', 'ico-classic', 'ico-rocket', 'ico-city', 'ico-dash', 'ico-race', 'ico-lock'])
+for (const id of ['app', 'btnStart', 'btnPause', 'btnResume', 'btnStop', 'cClock', 'vizBox', 'rk', 'hud', 'dlgSettings', 'dlgSummary', 'dlgLog', 'dlgEnd', 'award', 'ver', 'pCity', 'cityCv', 'cityHud', 'yPlay', 'pDash', 'dashCv', 'dashHud', 'dPlay', 'pRace', 'raceCv', 'raceHud', 'gPlay', 'gTower', 'gBanner', 'pFire', 'fireCv', 'fireHud', 'fPlay', 'fBanner', 'skinBar', 'ico-classic', 'ico-rocket', 'ico-city', 'ico-dash', 'ico-race', 'ico-fireworks', 'ico-lock'])
   check(ids.includes(id), 'has #' + id);
 check(!html.includes('__BUILD__') && !html.includes('/*__CORE__*/') && !html.includes('/*__APP__*/'), 'no placeholders left');
 check(/<meta name="build" content="(\d+|dev)">/.test(html), 'the version is a plain number');

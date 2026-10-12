@@ -1018,16 +1018,65 @@ function detectionTests(sr) {
     const ok = p[0] <= 0.15 && p[1] >= 0.25 && p[1] <= 0.75 && p[2] >= 0.8 && p[0] < p[1] && p[1] < p[2] && avg[0] > avg[1] && avg[1] > avg[2];
     return { name: 'Grand Prix: the steadier the session, the better the chance of first place', expect: 'in 10-minute races, first place rarely at 70% efficiency, about half the time at 80%, nearly always at 90%',
       got: E.map((e, j) => Math.round(e * 100) + '%: P1 in ' + Math.round(p[j] * 100) + '%, average P' + avg[j].toFixed(1)).join('; '), pass: ok }; } });
+  // Fireworks
+  const fwRun = (s, secs, inp, notesPerSec) => { const ev = []; let owed = 0;
+    for (let t = 0; t < secs - 1e-9; t += 0.05) { owed += (notesPerSec || 0) * 0.05; const n = Math.floor(owed + 1e-9); owed -= n;
+      s.update(0.05, Object.assign({}, inp, { notes: n })); while (s.events.length) ev.push(s.events.shift()); }
+    return ev; };
+  list.push({ name: 'Fireworks: only playing sends shells up', run: () => {
+    const s = new FireworkSim(); s.reset(1800, 3);
+    const a = fwRun(s, 20, { state: 'paused', music: true, midi: 60, recent: 0.8, play: 0 }, 1).length,
+      b = fwRun(s, 20, { state: 'running', music: false, midi: 60, recent: 0.8, play: 0 }, 1).length,
+      c = fwRun(s, 20, { state: 'stopped', music: true, midi: 60, recent: 0.8, play: 0 }, 1).length,
+      d = fwRun(s, 20, { state: 'running', music: true, midi: 60, recent: 0.8, play: 0 }, 1).filter(e => e.k === 'shell').length;
+    return { name: 'Fireworks: only playing sends shells up', expect: 'none while paused, quiet or stopped; one for each note played (20 notes, 20 shells)',
+      got: a + ' paused, ' + b + ' quiet, ' + c + ' stopped, ' + d + ' playing; ' + s.shells + ' counted', pass: a === 0 && b === 0 && c === 0 && d === 20 && s.shells === 20 }; } });
+  list.push({ name: 'Fireworks: each note is a colour, higher notes burst higher', run: () => {
+    const s = new FireworkSim(); s.reset(1800, 5); const shot = midi => { s.tokens = FW.BURST; s.update(0.05, { state: 'running', music: true, notes: 1, midi: midi, recent: 0.5, play: 0 }); return s.events.pop(); };
+    const lo = [], hi = []; for (let k = 0; k < 20; k++) { lo.push(shot(48)); hi.push(shot(84)); }
+    const avg = a => a.reduce((x, e) => x + e.h, 0) / a.length, c4 = shot(60), c5 = shot(72), g4 = shot(67);
+    const before = s.colours; for (let m = 60; m < 72; m++) shot(m);
+    const hues = new Set(); for (let pc = 0; pc < 12; pc++) hues.add(fwHue(pc));
+    const ok = c4.hue === c5.hue && c4.hue !== g4.hue && avg(hi) > avg(lo) + 0.2 && before === 2 && s.colours === 12 && hues.size === 12;
+    return { name: 'Fireworks: each note is a colour, higher notes burst higher', expect: 'C4 and C5 the same colour, G another; C6 bursts well above C3; twelve notes, twelve colours',
+      got: 'C4 ' + c4.hue + ', C5 ' + c5.hue + ', G4 ' + g4.hue + '; height ' + avg(lo).toFixed(2) + ' low, ' + avg(hi).toFixed(2) + ' high; colours ' + before + ' then ' + s.colours + ', ' + hues.size + ' hues', pass: ok }; } });
+  list.push({ name: 'Fireworks: fast scales do not flood the sky', run: () => {
+    const s = new FireworkSim(); s.reset(1800, 7);
+    const ev = fwRun(s, 10, { state: 'running', music: true, midi: 64, recent: 1, play: 0 }, 12).filter(e => e.k === 'shell');
+    const cap = (FW.RATE + FW.PER) * 10 + FW.BURST, big = ev.filter(e => e.size > 1.01).length;
+    return { name: 'Fireworks: fast scales do not flood the sky', expect: '12 notes a second for 10 s sends up at most ' + cap + ' shells, the notes over that making shells bigger',
+      got: ev.length + ' shells for 120 notes, ' + big + ' bigger than full size', pass: ev.length <= cap && ev.length >= cap - 6 && big > 0 }; } });
+  list.push({ name: 'Fireworks: the last minute sets the size and the kinds', run: () => {
+    const kinds = recent => { const s = new FireworkSim(); s.reset(1800, 11); const ev = fwRun(s, 60, { state: 'running', music: true, midi: 62, recent: recent, play: 0 }, 1);
+      return { size: ev.reduce((x, e) => x + e.size, 0) / ev.length, kinds: new Set(ev.map(e => e.kind)) }; };
+    const lo = kinds(0.2), mid = kinds(0.5), hi = kinds(0.9);
+    const ok = hi.size > mid.size && mid.size > lo.size && lo.kinds.size === 1 && lo.kinds.has('peony') && !mid.kinds.has('willow') && mid.kinds.has('ring') && hi.kinds.has('willow') && hi.kinds.size >= 5 && fwCalibre(0.2) < fwCalibre(0.9) && fwCalibre(1) === 12;
+    return { name: 'Fireworks: the last minute sets the size and the kinds', expect: 'bigger shells with more of the last minute played; round ones only at 20%, rings at 50%, willows and more at 90%',
+      got: [['20%', lo], ['50%', mid], ['90%', hi]].map(p => p[0] + ': size ' + p[1].size.toFixed(2) + ', ' + [...p[1].kinds].sort().join(' ')).join('; '), pass: ok }; } });
+  list.push({ name: 'Fireworks: a held note still sends shells up', run: () => {
+    const s = new FireworkSim(); s.reset(1800, 13); const ev = fwRun(s, 20, { state: 'running', music: true, midi: 55, recent: 0.7, play: 0 }, 0).filter(e => e.k === 'shell');
+    return { name: 'Fireworks: a held note still sends shells up', expect: 'a few a second at most, but not none, over 20 s of one long note', got: ev.length + ' shells', pass: ev.length >= 8 && ev.length <= 20 }; } });
+  list.push({ name: 'Fireworks: a grand finale at the goal, once', run: () => {
+    const s = new FireworkSim(); s.reset(60, 17); const ev = [], take = () => { while (s.events.length) ev.push(s.events.shift()); };
+    for (let t = 0; t < 64; t += 0.05) { s.update(0.05, { state: 'running', music: false, notes: 0, midi: null, recent: 0.8, play: t }); take(); }
+    const early = ev.filter(e => e.finale).length;
+    for (let t = 0; t < 5; t += 0.05) { s.update(0.05, { state: 'paused', music: false, notes: 0, midi: null, recent: 0.8, play: 64 }); take(); }
+    const paused = ev.filter(e => e.finale).length;
+    for (let t = 0; t < 20; t += 0.05) { s.update(0.05, { state: 'running', music: false, notes: 0, midi: null, recent: 0.8, play: 64 + t }); take(); }
+    const starts = ev.filter(e => e.k === 'finale').length, shells = ev.filter(e => e.finale).length;
+    const ok = starts === 1 && shells === FW.FINALE && early > 0 && early < FW.FINALE && paused === early && s.shells === 0 && !s.inFinale;
+    return { name: 'Fireworks: a grand finale at the goal, once', expect: 'one finale of ' + FW.FINALE + ' shells, held through a pause, not counted as the player\'s shells',
+      got: starts + ' finale, ' + shells + ' shells (' + early + ' before the pause, ' + paused + ' after it), ' + s.shells + ' counted', pass: ok }; } });
   list.push({ name: 'Session: the last minute, a second at a time', run: () => {
     const s = new Session(); s.start(); for (let i = 0; i < 30; i++) s.tick(1, true); for (let i = 0; i < 10; i++) s.tick(1, false);
     const m = s.minute, ok = m.length === 60 && m.slice(0, 20).every(v => v === null) && m.slice(20, 50).every(v => v === 1) && m.slice(50).every(v => v === 0);
     return { name: 'Session: the last minute, a second at a time', expect: '20 empty seconds, 30 played, 10 quiet', got: m.map(v => v == null ? '.' : v >= 0.5 ? '#' : '_').join(''), pass: ok }; } });
   list.push({ name: 'Themes: the player turns off the ones they don\'t like', run: () => {
-    const all = ['classic', 'rocket', 'city', 'dash', 'race'];
-    const got = [themesOn(all, '').join(' '), themesOn(all, 'city,dash').join(' '), themesOn(all, 'classic,rocket,city,dash,race').join(' '), themesOn(all, 'space,dash').join(' '),
-      themeSwitch(all, '', 'city', false), themeSwitch(all, 'city', 'classic', false), themeSwitch(all, 'classic,city', 'city', true), themeSwitch(all, 'classic,rocket,city,dash', 'race', false),
-      themeSwitch(all, 'space', 'rocket', false), themeLanding(all, ['classic', 'dash'], 'rocket'), themeLanding(all, ['classic', 'rocket'], 'dash'), themeLanding(all, ['city'], 'city'), themeLanding(all, ['rocket'], 'gone'), themeLanding(all, ['classic', 'city'], 'race')];
-    const want = ['classic rocket city dash race', 'classic rocket race', 'classic rocket city dash race', 'classic rocket city race', 'city', 'classic,city', 'classic', 'classic,rocket,city,dash', 'rocket', 'dash', 'rocket', 'city', 'rocket', 'city'];
+    const all = ['classic', 'rocket', 'city', 'dash', 'race', 'fireworks'];
+    const got = [themesOn(all, '').join(' '), themesOn(all, 'city,dash').join(' '), themesOn(all, 'classic,rocket,city,dash,race,fireworks').join(' '), themesOn(all, 'space,dash').join(' '),
+      themeSwitch(all, '', 'city', false), themeSwitch(all, 'city', 'classic', false), themeSwitch(all, 'classic,city', 'city', true), themeSwitch(all, 'classic,rocket,city,dash,race', 'fireworks', false),
+      themeSwitch(all, 'space', 'rocket', false), themeLanding(all, ['classic', 'dash'], 'rocket'), themeLanding(all, ['classic', 'rocket'], 'dash'), themeLanding(all, ['city'], 'city'), themeLanding(all, ['rocket'], 'gone'), themeLanding(all, ['classic', 'city'], 'race'), themeLanding(all, ['classic', 'rocket', 'fireworks'], 'dash')];
+    const want = ['classic rocket city dash race fireworks', 'classic rocket race fireworks', 'classic rocket city dash race fireworks', 'classic rocket city race fireworks', 'city', 'classic,city', 'classic', 'classic,rocket,city,dash,race', 'rocket', 'dash', 'rocket', 'city', 'rocket', 'city', 'fireworks'];
     return { name: 'Themes: the player turns off the ones they don\'t like', expect: 'off themes leave the list, unknown ids are ignored, the last one on stays on, and turning off the one on screen lands on the next one on (' + want.join(' | ') + ')',
       got: got.join(' | '), pass: got.every((g, i) => g === want[i]) }; } });
   return list;
@@ -1876,7 +1925,60 @@ class RaceSim {
 /* a gap in laps, in words for the read-outs: seconds at full speed, or whole laps */
 function raceGap(l) { const a = Math.abs(l); return a >= 1 ? Math.floor(a) + (a >= 2 ? ' laps' : ' lap') : Math.max(0.1, a * RACE.LAPU / RACE.VNOM).toFixed(1); }
 
-const api = { LIFTOFF, OnsetTracker, DragSwipe, WheelSwipe, DashSim, DASH, dashSpeed, RaceSim, RACE, raceTrack, raceGap, raceRng, RacePractiser, MusicDetector, Session, RocketSim, WORLD, MILESTONES, SENSITIVITY, CLIPS, DETECTION_CASES,
+/* ---------- Fireworks: every note played sends a shell up into the night ----------
+   A note starting launches a shell. Its colour is the note (the twelve notes are twelve colours, a fifth apart round the colour wheel, so the
+   notes of a scale all look different) and its height is how high the note is. The last minute of playing (Session.recentEfficiency) sets how
+   big the shells are and which kinds go up: small round ones at first, rings and chrysanthemums, then willows, palms and crossettes. Only playing
+   sends shells up: nothing goes up while quiet, paused or stopped. A note held on (or a run the note tracker hears as one) still sends one up now
+   and then. Fast runs cannot flood the sky: shells go up at most a few a second, and the notes over that make the next shell bigger. Reaching
+   the practice goal sets off a grand finale once. src/fireworks.js only draws what this decides. */
+const FW = { RATE: 2, PER: 3, BURST: 4, HOLD: 1.6, CHARGE: 0.15, FINALE: 28, FINALE_T: 7,
+  KINDS: [[0, 'peony'], [0.3, 'ring'], [0.3, 'chrysanthemum'], [0.6, 'willow'], [0.6, 'palm'], [0.6, 'crossette']],   // [last minute needed, kind]
+  CALIBRE: [2, 3, 4, 5, 6, 8, 10, 12] };                                    // shell sizes in inches, as real shells are measured, for the read-outs
+function fwHue(pc) { return ((pc * 7) % 12) * 30; }                            // C red, G orange, D yellow, A lime, E green... round the circle of fifths
+function fwCalibre(recent) { return FW.CALIBRE[Math.max(0, Math.min(FW.CALIBRE.length - 1, Math.floor(recent * FW.CALIBRE.length)))]; }
+class FireworkSim {
+  constructor() { this.reset(0, 1); }
+  reset(goal, seed) {
+    this.goal = goal || 0; this.seed = seed || 1; this.rnd = raceRng(this.seed);
+    this.shells = 0; this.notes = 0; this.tokens = FW.BURST; this.charge = 0; this.held = 0; this.lastHue = -1;
+    this.finaleDone = false; this.finaleLeft = 0; this.finaleT = 0; this.events = [];
+  }
+  get colours() { let n = 0; for (let b = this.notes; b; b &= b - 1) n++; return n; }   // how many of the twelve notes have gone up
+  get inFinale() { return this.finaleLeft > 0; }
+  /* i: {state, music, notes (note starts since the last update), midi (the pitch heard, fractional key number, or null), recent (last minute, 0..1), play (s)} */
+  update(dt, i) {
+    const recent = Math.max(0, Math.min(1, i.recent || 0)), running = i.state === 'running';
+    this.tokens = Math.min(FW.BURST, this.tokens + dt * (FW.RATE + FW.PER * recent));
+    if (running && i.music) {
+      let n = i.notes || 0;
+      if (n) this.held = 0; else this.held += dt;
+      while (n > 0 && this.tokens >= 1) { this.launch(i.midi, recent); n--; }
+      if (n > 0) this.charge = Math.min(1, this.charge + n * FW.CHARGE);         // too many notes for the sky: the next shell goes up bigger
+      if (this.held >= FW.HOLD * (1.3 - recent * 0.6) && this.tokens >= 1) this.launch(i.midi, recent);
+    } else this.held = 0;
+    if (running && !this.finaleDone && this.goal > 0 && i.play >= this.goal) { this.finaleDone = true; this.finaleLeft = FW.FINALE; this.finaleT = 0; this.events.push({ k: 'finale' }); }
+    if (running && this.finaleLeft > 0) {                                        // the finale holds still through a pause, like the clock
+      this.finaleT += dt;
+      while (this.finaleLeft > 0 && this.finaleT >= (FW.FINALE - this.finaleLeft) * FW.FINALE_T / FW.FINALE) {
+        const r = this.rnd, last = this.finaleLeft === 1;
+        this.events.push({ k: 'shell', finale: true, x: 0.1 + r() * 0.8, h: last ? 0.9 : 0.55 + r() * 0.4, size: last ? 1.4 : 0.9 + r() * 0.3, hue: Math.floor(r() * 12) * 30, hue2: -1,
+          kind: last ? 'willow' : ['peony', 'ring', 'chrysanthemum', 'willow', 'palm', 'crossette'][Math.floor(r() * 6)] });
+        this.finaleLeft--;
+      }
+    }
+  }
+  launch(midi, recent) {
+    const r = this.rnd, known = midi != null && isFinite(midi), pc = known ? ((Math.round(midi) % 12) + 12) % 12 : Math.floor(r() * 12), hue = fwHue(pc);
+    const kinds = FW.KINDS.filter(k => recent >= k[0]).map(k => k[1]), kind = kinds[Math.floor(r() * kinds.length)];
+    const h = known ? 0.45 + Math.max(0, Math.min(1, (midi - 40) / 50)) * 0.45 + (r() - 0.5) * 0.08 : 0.55 + r() * 0.25;   // low notes burst low, high notes high
+    const size = Math.min(1.25, 0.3 + 0.7 * recent + this.charge * 0.4);
+    this.events.push({ k: 'shell', x: 0.12 + r() * 0.76, h: Math.max(0.35, Math.min(0.95, h)), size: size, hue: hue, hue2: recent >= 0.6 && this.lastHue !== hue ? this.lastHue : -1, kind: kind, pc: pc });
+    this.tokens -= 1; this.charge = 0; this.held = 0; this.lastHue = hue; this.shells++; this.notes |= 1 << pc;
+  }
+}
+
+const api = { LIFTOFF, OnsetTracker, DragSwipe, WheelSwipe, DashSim, DASH, dashSpeed, RaceSim, RACE, raceTrack, FireworkSim, FW, fwHue, fwCalibre, raceGap, raceRng, RacePractiser, MusicDetector, Session, RocketSim, WORLD, MILESTONES, SENSITIVITY, CLIPS, DETECTION_CASES,
   detectionTests, runDetectionTests, analyzeClip, sessionReport, clockText, sessionRecord, worthKeeping, liveSnapshot, liveRecord, rocketCarry, buildOf, newerBuild, themesOn, themeSwitch, themeLanding, practiceStats, dayRecap, dayLine, practiceNudge, homeCopy, weekLine, durationText, dayKey, LOG_MAX, LEVEL_MIN, SAMPLE_LOGS, sampleLog, rocketAt, fraction, heardAs, noteOf, smooth, pchip, clamp01 };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.MT = api;
 })(typeof self !== 'undefined' ? self : this);

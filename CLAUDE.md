@@ -56,6 +56,9 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
   stream, so a following device races the same field (the seed is shared). The field is tuned so first place comes about half the time at 80%
   efficiency; a test checks the chances rise with efficiency. A pause is a red flag that freezes every car; the pit lane is only a picture
   (the car rejoins at the same distance, with nothing changed). The race runs until the practice goal; the trophy card names the place.
+- Fireworks (`FireworkSim` in `src/core.js`, drawn by `src/fireworks.js`) sends up a shell for each note played: its colour is the note (the twelve
+  notes are twelve colours, `fwHue`) and its height how high the note is; the last minute of playing sets the size and the kinds. Only playing sends
+  shells up, fast runs are capped (the extra notes make the next shell bigger), and the goal sets off a grand finale once. It makes no sound.
 - The Home Screen (`#home`) shows when the app opens and after a finished session's summary is closed; its words come
   from `homeCopy` in `src/core.js`. No theme scene is drawn while it covers them. Its greeting, headline and line are picked from
   playful words for young players (`HOME_HELLO`, `HOME_WORDS`), new each time it shows; they must fit an iPhone SE without wrapping more.

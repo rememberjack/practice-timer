@@ -41,6 +41,7 @@ body:has(> #app[data-skin="rocket"]){background:#070A14}
 body:has(> #app[data-skin="city"]){background:#0E1130}
 body:has(> #app[data-skin="dash"]){background:#07071F}
 body:has(> #app[data-skin="race"]){background:#0A0E1C}
+body:has(> #app[data-skin="fireworks"]){background:#060818}
 
 /* ---------- chrome (classic look; the rocket theme overrides it below) ---------- */
 #top{display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:10px; padding:12px 0 12px; margin:0 auto 6px; max-width:560px; width:calc(100% - 36px); border-bottom:1px solid var(--rule)}
@@ -101,6 +102,10 @@ body:has(> #app[data-skin="race"]){background:#0A0E1C}
 .ask[data-skin="race"] h2{font-family:var(--cond); font-style:italic; font-weight:800; font-size:24px; text-transform:uppercase; letter-spacing:.01em}
 .ask[data-skin="race"] .btn{font-family:var(--cond); font-style:italic; font-weight:800; font-size:17px; text-transform:uppercase; letter-spacing:.03em; border:0; border-radius:12px; background:#252E4E; color:#F5F6FA}
 .ask[data-skin="race"] .btn.solid{background:#86DCC0; color:#0D2A22}
+.ask[data-skin="fireworks"]{--sheet:#0C1030; --surface:#161C44; --ink:#FFFFFF; --mute:#B4B9E0; --rule:#2A3166; --accent:#FFC94D; --on-accent:#2A1A00; border:0; border-top:2px solid #FFC94D; box-shadow:0 -10px 40px rgba(255,201,77,.12)}
+.ask[data-skin="fireworks"] h2{font-size:24px; font-weight:800; color:#FFC94D}
+.ask[data-skin="fireworks"] .btn{border:0; border-radius:999px; background:#1E2554; color:#fff; font-weight:800; box-shadow:inset 0 0 0 2px rgba(255,255,255,.14)}
+.ask[data-skin="fireworks"] .btn.solid{background:linear-gradient(180deg, #FFD978, #FFB238); color:#2A1A00; box-shadow:none}
 @media (max-width:560px){ .ask[data-skin="rocket"], .ask[data-skin="city"]{border-radius:0} .ask[data-skin="dash"]{border-radius:24px 24px 0 0; border-width:3px 0 0} }
 /* New flight, at the end of the Rocket read-outs' last line while the rocket is off the pad */
 .hud-flight{position:absolute; right:12px; bottom:6px; min-height:28px; padding:3px 7px; border:2px solid #05070D; border-radius:0; background:#7B8293; color:#fff;
@@ -311,7 +316,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 .navrow .mini i{width:24px; height:24px; border-radius:7px}
 .navrow .mini svg{width:14px; height:14px}
 .navrow .chev{flex:none; width:18px; height:18px; color:var(--mute-2)}
-[data-theme="classic"]{--g:#121A27; --t:#86DCC0} [data-theme="rocket"]{--g:#070A14; --t:#FFD23F} [data-theme="city"]{--g:#0E1130; --t:#F2C94C} [data-theme="dash"]{--g:#07071F; --t:#7CFF4F} [data-theme="race"]{--g:#0A0E1C; --t:#FF5A5F}
+[data-theme="classic"]{--g:#121A27; --t:#86DCC0} [data-theme="rocket"]{--g:#070A14; --t:#FFD23F} [data-theme="city"]{--g:#0E1130; --t:#F2C94C} [data-theme="dash"]{--g:#07071F; --t:#7CFF4F} [data-theme="race"]{--g:#0A0E1C; --t:#FF5A5F} [data-theme="fireworks"]{--g:#060818; --t:#FFC94D}
 #themesH{font-weight:800; font-size:22px; letter-spacing:-.01em; margin:0 0 4px; line-height:1.1}
 .tlist{list-style:none; margin:10px 0 0; padding:0; display:grid; gap:8px}
 .trow{display:flex; align-items:center; gap:12px; padding:10px 12px; border:1px solid var(--rule); border-radius:16px; background:var(--surface)}
@@ -593,6 +598,34 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 @media (max-width:350px){ .gp-hud{font-size:13px; padding:7px 9px 6px} .gp-stats span{font-size:9px} .gp-stats b{font-size:16px} .gp-tower{width:112px} #app[data-skin="race"][data-chrome="pixel"] #controls button{font-size:16px} }
 @media (max-height:620px){ .gp-line.dim{display:none} }
 
+/* ---------- Fireworks theme: a night show over a harbour. Deep night blue, gold and rose, soft round shapes ---------- */
+#app[data-skin="fireworks"]{--paper:#060818; --surface:#141A3A; --ink:#FFFFFF; --mute:#B4B9E0; --rule:#2A3166; --accent:#FFC94D; --on-accent:#2A1A00}
+#app[data-skin="fireworks"][data-chrome="pixel"] #top h1{font-family:var(--sans); font-size:20px; font-weight:800; letter-spacing:-.01em}
+#app[data-skin="fireworks"][data-chrome="pixel"] .icon-btn{border-radius:999px}
+#app[data-skin="fireworks"][data-chrome="pixel"] #notice, #app[data-skin="fireworks"][data-chrome="pixel"] #demoBar{border-radius:14px}
+#app[data-skin="fireworks"][data-chrome="pixel"] .chips button{border-radius:999px}
+#app[data-skin="fireworks"][data-chrome="pixel"] .chips button[aria-pressed="true"], #app[data-skin="fireworks"][data-chrome="pixel"] #notice .act{background:var(--accent); color:var(--on-accent); border-color:var(--accent); font-weight:700; border-radius:999px}
+#app[data-skin="fireworks"][data-chrome="pixel"] #controls button{font-family:var(--sans); font-size:17px; font-weight:800; border-radius:999px; border:2px solid #2E3672; background:#1A2050; color:#FFFFFF; text-shadow:none; box-shadow:none}
+#app[data-skin="fireworks"][data-chrome="pixel"] #controls button.primary{background:linear-gradient(180deg, #FFD978, #FFB238); border-color:#FFC94D; color:#2A1A00; box-shadow:0 0 18px rgba(255,190,80,.3)}
+#app[data-skin="fireworks"][data-chrome="pixel"] #controls button:active{transform:translateY(1px)}
+#app[data-skin="fireworks"][data-chrome="pixel"] .award-card{background:#10143A; border:2px solid #FFC94D; border-radius:22px; font-family:var(--sans); box-shadow:0 0 40px rgba(255,201,77,.25), 0 10px 30px rgba(0,0,0,.5)}
+#app[data-skin="fireworks"][data-chrome="pixel"] .award-card .trophy{display:block}
+#app[data-skin="fireworks"][data-chrome="pixel"] .award-card .px-trophy{display:none}
+#app[data-skin="fireworks"][data-chrome="pixel"] .award-card h3{font-family:var(--sans); font-size:24px; font-weight:800; color:#FFC94D}
+#app[data-skin="fireworks"][data-chrome="pixel"] .award-card p{font-size:14px; color:#B4B9E0}
+#pFire{background:#060818; color:#FFFFFF; font-family:var(--sans)}
+#fireCv{position:absolute; inset:0; width:100%; height:100%; display:block}
+.fw-hud{background:rgba(8,10,32,.72); border-color:rgba(255,255,255,.16)}       /* the Dash card's layout (dash-hud), a little more see-through for the glow behind */
+.fw-hud .k, .fw-hud .dh-side, .fw-hud .dh-stats span, .fw-hud .dh-line.dim{color:#B4B9E0}
+.fw-hud .dh-bar{border-color:#05061A}
+.fw-hud .dh-bar i{background:linear-gradient(90deg, #FF5FA2, #FFC94D)}
+#app[data-music="1"] .fw-hud .big{color:#FFC94D}
+#fPct{flex:none; min-width:4ch; text-align:right; font-weight:800; font-size:13px; font-variant-numeric:tabular-nums}
+#fBanner{position:absolute; left:50%; bottom:16px; transform:translateX(-50%); width:max-content; max-width:calc(100% - 40px); padding:8px 16px; background:#0C1030; color:#FFC94D; border:2px solid #FFC94D; border-radius:999px;
+  font-size:15px; font-weight:800; text-align:center; opacity:0; transition:opacity .25s; pointer-events:none; box-shadow:0 0 24px rgba(255,201,77,.35)}
+#fBanner.on{opacity:1}
+@media (max-width:350px){ #app[data-skin="fireworks"][data-chrome="pixel"] #controls button{font-size:15px} }
+
 /* ---------- theme bar: each theme's icon under the scene; the current one lit on a tinted tab, a locked one faint with a padlock ---------- */
 #skinBar{display:flex; justify-content:center; gap:6px; flex:none; height:28px; margin-top:4px; --tint:var(--accent)}
 #skinBar button{position:relative; width:38px; height:28px; padding:0; border:0; background:none; color:var(--tint); display:grid; place-items:center}
@@ -611,6 +644,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 #app[data-skin="city"] #skinBar{--tint:#F2C94C}
 #app[data-skin="dash"] #skinBar{--tint:#7CFF4F}
 #app[data-skin="race"] #skinBar{--tint:#86DCC0}
+#app[data-skin="fireworks"] #skinBar{--tint:#FFC94D}
 
 /* ---------- more room for the Rocket and City scenes ---------- */
 @media (max-width:699px), (max-width:760px) and (max-height:599px){   /* phones: the title row with Settings stays at the top, as in Classic */
@@ -619,6 +653,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
   #app[data-chrome="pixel"][data-state="stopped"] #btnStart{flex-grow:1.55}
   @media (max-width:419px){ #app[data-skin="dash"][data-chrome="pixel"][data-state="stopped"] #controls button{font-size:15px} }
   @media (max-width:419px){ #app[data-skin="race"][data-chrome="pixel"][data-state="stopped"] #controls button{font-size:17px} }
+  @media (max-width:419px){ #app[data-skin="fireworks"][data-chrome="pixel"][data-state="stopped"] #controls button{font-size:15px} }
   @media (max-width:389px){ #app[data-chrome="pixel"][data-state="stopped"] #controls{gap:8px} #app[data-skin="city"][data-state="stopped"] #controls{gap:12px} }
   @media (max-width:359px){ #app[data-chrome="pixel"][data-state="stopped"]:not([data-skin="city"]) #controls button{font-size:11px} #app[data-chrome="pixel"][data-state="stopped"] #btnStart{flex-grow:1.4} }   /* 320 px phones */
   #app[data-chrome="pixel"] #controls{padding:8px 12px 10px; gap:10px}
@@ -659,6 +694,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
   #app[data-chrome="pixel"] #top h1{font-size:18px}
   #app[data-skin="dash"][data-chrome="pixel"] #top h1{font-size:24px}
   #app[data-skin="race"][data-chrome="pixel"] #top h1{font-size:26px}
+  #app[data-skin="fireworks"][data-chrome="pixel"] #top h1{font-size:24px}
   .icon-btn{min-height:44px}
   #btnSettings svg{width:22px; height:22px}
   #app[data-chrome="pixel"] .icon-btn{width:44px; height:44px}
@@ -690,6 +726,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
   #app[data-skin="city"] #controls button{font-size:15px}
   #app[data-skin="dash"][data-chrome="pixel"] #controls button{font-size:20px}
   #app[data-skin="race"][data-chrome="pixel"] #controls button{font-size:21px}
+  #app[data-skin="fireworks"][data-chrome="pixel"] #controls button{font-size:20px}
   #app #controls #btnPause, #app #controls #btnResume{max-width:620px}
   #app #controls #btnStop{max-width:220px}
 
@@ -745,8 +782,8 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
   .hud .engine, .city-hud .engine{grid-template-columns:auto auto minmax(0, 1fr) auto; grid-template-areas:"k n bar e"; align-items:center}
   .hud-stats, .ch-stats, .dh-stats, .gp-stats{grid-area:stats; margin:0}
   .gp-stats{padding-top:0; border-top:0}
-  #rHeard, #yHeard, #dHeard, #gHeard{grid-area:heard; margin:0; min-height:0}
-  #rNext, #yHint, #dHint, #gHint{grid-area:next; margin:0; min-height:0}
+  #rHeard, #yHeard, #dHeard, #gHeard, #fHeard{grid-area:heard; margin:0; min-height:0}
+  #rNext, #yHint, #dHint, #gHint, #fHint{grid-area:next; margin:0; min-height:0}
   .ch-line.dim, .dh-line.dim, .gp-line.dim{display:block}
   .hud .k, .city-hud .k, .dash-hud .k, .gp-hud .k{white-space:nowrap}
   .hud .big, .city-hud .big, .dash-hud .big, .gp-hud .big{font-size:clamp(44px, 7cqw, 58px); margin-top:2px}
@@ -755,8 +792,8 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
   .gp-bar{height:12px} .gp-line{font-size:14px} .gp-stats span{font-size:13px} .gp-stats b{font-size:23px}
   .gp-tower{left:var(--edge); top:calc(var(--hud-b, 0px) + 12px); width:150px; font-size:16px} .gp-tower li{height:26px; grid-template-columns:24px 4px 1fr auto}
   .dh-prog .k{display:block}                                                    /* the course bar gets a label, like Power in Rocket and City */
-  #rPwN, #yPwN, #rEff, #yEff, #dPct{display:inline-block; min-width:4ch; font-size:inherit}
-  #dPct{font-weight:800}
+  #rPwN, #yPwN, #rEff, #yEff, #dPct, #fPct{display:inline-block; min-width:4ch; font-size:inherit}
+  #dPct, #fPct{font-weight:800}
   .hud-stats span, .ch-stats span{font-size:12px} .hud-stats b, .ch-stats b{font-size:18px}
   .dh-stats span{font-size:13px} .dh-stats b{font-size:21px}
   /* landscape: the card becomes one strip. Play time on the left, goal on the right, the bar over the figures between them */
@@ -765,14 +802,14 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
       grid-template-areas:"play bar side" "play stats side" "heard heard next"}
     .hud-play, .ch-play, .dh-play, .gp-play{align-self:center}
     .hud-side, .ch-side, .dh-side, .gp-side{align-self:center}
-    #rNext, #yHint, #dHint, #gHint{text-align:right}
+    #rNext, #yHint, #dHint, #gHint, #fHint{text-align:right}
   }
   /* event banners: just under the read-outs, in the middle, in all three */
-  #rBanner, #yBanner, #dBanner{top:calc(var(--hud-b, 0px) + 14px); bottom:auto; margin:0}
+  #rBanner, #yBanner, #dBanner, #fBanner{top:calc(var(--hud-b, 0px) + 14px); bottom:auto; margin:0}
   #rBanner{font-size:17px; padding:10px 16px}
   #yBanner{font-size:15px; padding:9px 16px}
   #yMsg{font-size:15px; padding:14px 20px}
-  #dBanner{font-size:19px; padding:10px 18px}
+  #dBanner, #fBanner{font-size:19px; padding:10px 18px}
 }
 /* ---------- Home Screen: always in the Classic colours, whatever theme is chosen; calm, with one accent ---------- */
 #home{position:fixed; inset:0; z-index:4; background:var(--paper); color:var(--ink); font-family:var(--sans); padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -839,6 +876,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
   <symbol id="ico-city" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M2.5 11.5h5.5V21H2.5zM9 6h6v15H9zM16 9.5h5.5V21H16zM10.6 8h1.2v1.6h-1.2zM12.2 8h1.2v1.6h-1.2zM10.6 11.6h1.2v1.6h-1.2zM12.2 11.6h1.2v1.6h-1.2zM4.3 14h1.8v1.6H4.3zM17.8 12h1.8v1.6h-1.8zM2 21h20v1.6H2z"/><circle cx="17.3" cy="5.2" r="2.2" fill="currentColor"/><path fill="currentColor" opacity=".6" d="M15.7 3.6L22.6.4 18.9 6.8z"/></symbol>
   <symbol id="ico-dash" viewBox="0 0 24 24"><rect x="3.6" y="3.6" width="16.8" height="16.8" rx="3" fill="none" stroke="currentColor" stroke-width="2.6"/><path fill="currentColor" d="M12 7.2l4.8 4.8-4.8 4.8L7.2 12z"/></symbol>
   <symbol id="ico-race" viewBox="0 0 24 24"><path fill="currentColor" d="M3.2 2h2v20h-2z"/><path fill="currentColor" fill-rule="evenodd" d="M5.2 3h15.6v11H5.2zM6.9 4.7v2.5h3.1V4.7zM13.1 4.7v2.5h3.1V4.7zM10 7.2v2.6h3.1V7.2zM16.2 7.2v2.6h3V7.2zM6.9 9.8v2.5h3.1V9.8zM13.1 9.8v2.5h3.1V9.8z"/></symbol>
+  <symbol id="ico-fireworks" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M12 2.6v3.6M12 17.8v3.6M2.6 12h3.6M17.8 12h3.6M5.4 5.4l2.5 2.5M16.1 16.1l2.5 2.5M18.6 5.4l-2.5 2.5M7.9 16.1l-2.5 2.5"/><circle cx="12" cy="12" r="2.3" fill="currentColor"/></symbol>
   <symbol id="ico-next" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
   <symbol id="ico-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
   <symbol id="ico-lock" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="3" d="M7.5 11V8a4.5 4.5 0 0 1 9 0v3"/><rect x="4" y="11" width="16" height="11" rx="2" fill="currentColor"/></symbol>
@@ -979,6 +1017,30 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
         <ol class="gp-tower" id="gTower" aria-label="Race order"></ol>
         <div class="gp-lights" id="gLights" hidden aria-hidden="true"><div><i></i><i></i></div><div><i></i><i></i></div><div><i></i><i></i></div><div><i></i><i></i></div><div><i></i><i></i></div></div>
         <div id="gBanner" role="status"></div>
+      </section>
+      <section class="panel" id="pFire" aria-label="Fireworks theme">
+        <canvas id="fireCv" aria-hidden="true"></canvas>
+        <div class="dash-hud fw-hud" id="fireHud">
+          <div class="dh-prog"><span class="k">Finale</span><div class="dh-bar"><i id="fBar"></i></div><b id="fPct">0%</b></div>
+          <div class="dh-top">
+            <div class="dh-play"><span class="k">Play time</span><span class="big" id="fPlay">00:00</span></div>
+            <div class="dh-side">
+              <div><svg class="trophy badge" viewBox="0 0 64 64" aria-hidden="true"><path d="M19 13H9c0 10 5 15 12 16M45 13h10c0 10-5 15-12 16" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><path fill="currentColor" d="M18 7h28v15c0 10-6 17-14 17s-14-7-14-17zM29 38h6v9h-6zM22 47h20a2 2 0 0 1 2 2v3H20v-3a2 2 0 0 1 2-2zM17 52h30a2 2 0 0 1 2 2v4H15v-4a2 2 0 0 1 2-2z"/><path d="M25 12v9c0 4 1 7 3 10" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="3" stroke-linecap="round"/></svg>Goal <b id="fGoal">30:00</b></div>
+              <div id="fGoalLeft">30:00 left</div>
+              <div>Pauses <b id="fPauses">0</b></div>
+            </div>
+          </div>
+          <div class="dh-stats">
+            <div><span>Shells</span><b id="fShells">0</b></div>
+            <div><span>Colours</span><b id="fCols">0/12</b></div>
+            <div><span>Size</span><b id="fSize">2&Prime;</b></div>
+            <div><span>Power</span><b id="fPw">0%</b></div>
+            <div><span>Efficiency</span><b id="fEff">0%</b></div>
+          </div>
+          <div class="dh-line" id="fHeard">Press Start, then play</div>
+          <div class="dh-line dim" id="fHint">Every note you play sends up a firework</div>
+        </div>
+        <div id="fBanner" role="status"></div>
       </section>
     </div>
     <div id="award" hidden role="status">
