@@ -1123,6 +1123,74 @@ function detectionTests(sr) {
     const want = ['classic rocket city dash race fireworks', 'classic rocket race fireworks', 'classic', 'classic rocket city race fireworks', 'city', 'city', '', 'rocket,city,dash,race', 'rocket', 'classic', 'classic', 'city', 'classic', 'rocket,fireworks', 'fireworks'];
     return { name: 'Themes: the player turns off the ones they don\'t like', expect: 'off themes leave the list, unknown ids are ignored, Classic is always on, and a theme turned off lands on the first one on, Classic (' + want.join(' | ') + ')',
       got: got.join(' | '), pass: got.every((g, i) => g === want[i]) }; } });
+  list.push({ name: 'Practice log: the week turns on Monday, and at the turn of the year', run: () => {
+    const at = (y, m, d, h) => new Date(y, m - 1, d, h || 12).getTime(), rec = (t, play) => ({ start: t, play: play, goal: 1800, eff: 0.8, R: { active: play / 0.8 } });
+    const recs = [rec(at(2026, 10, 4), 900), rec(at(2026, 10, 5), 600), rec(at(2026, 10, 11), 300)];   // Sunday 4, Monday 5 and Sunday 11 October 2026
+    const S = practiceStats(recs, at(2026, 10, 11, 18)), M = practiceStats(recs, at(2026, 10, 12, 9)), Y = practiceStats([rec(at(2026, 12, 27), 120), rec(at(2026, 12, 28), 60), rec(at(2026, 12, 31), 600)], at(2027, 1, 1));
+    const keys = P => P.week[0].key + '..' + P.week[6].key, sum = P => ' (' + P.weekPlay + ', ' + P.lastWeekSoFar + ' of ' + P.lastWeekPlay + ')';
+    const shape = P => P.grid.length === 12 && P.grid.every(c => c.length === 7) && P.grid[11][0].key === P.week[0].key && P.grid[11][6].key === P.week[6].key;
+    const ok = keys(S) === '2026-10-05..2026-10-11' && S.week[6].today && !S.week.some(c => c.future) && S.weekPlay === 900 && S.lastWeekPlay === 900 && S.lastWeekSoFar === 900
+      && keys(M) === '2026-10-12..2026-10-18' && M.week[0].today && M.week.filter(c => c.future).length === 6 && M.weekPlay === 0 && M.lastWeekPlay === 900 && M.lastWeekSoFar === 600 && M.daysSince === 1
+      && keys(Y) === '2026-12-28..2027-01-03' && Y.weekPlay === 660 && Y.lastWeekPlay === 120 && Y.lastWeekSoFar === 0 && Y.grid[10][0].key === '2026-12-21'
+      && [S, M, Y].every(shape) && M.grid[0][0].key === '2026-07-27' && practiceStats([], at(2027, 1, 1), 3).grid.length === 3;
+    return { name: 'Practice log: the week turns on Monday, and at the turn of the year', expect: 'on Sunday 11 October the week is Monday 5 to Sunday 11 and last week so far is all of last week; on Monday 12 a new week starts with six days to come and only last Monday counted so far; New Year\'s Day sits in the week of 28 December; the calendar is 12 columns of 7 ending in this week',
+      got: keys(S) + sum(S) + ' | ' + keys(M) + sum(M) + ' | ' + keys(Y) + sum(Y), pass: ok }; } });
+  list.push({ name: 'Practice log: an empty log, records in any order and the shades of the calendar', run: () => {
+    const at = (d, h) => new Date(2026, 9, d, h || 12).getTime(), mon = at(12, 9), rec = (t, play, o) => Object.assign({ start: t, play: play, goal: 1800, eff: 0.8, R: { active: play / 0.8 } }, o);
+    const E = practiceStats([], mon), O = practiceStats([rec(at(12), 100), rec(at(1), 700), rec(at(7), 500)], mon), N = practiceStats([rec(at(12, 8), 600, { eff: 0.5, R: null }), rec(at(12, 9), 300, { eff: 0, R: null })], mon);
+    const level = plays => practiceStats(plays.map((p, i) => rec(at(12, 8 + i), p)), mon).today.level, levels = [[0], [1], [899], [900], [1799], [1800], [450, 450]].map(level).join('');
+    const L = practiceStats([rec(at(11, 23), 2400, { end: at(12, 0) + 25 * 6e4 })], mon);   // Sunday 23:00 to Monday 00:25 is filed under Sunday
+    const ok = E.sessions === 0 && E.totalPlay === 0 && E.efficiency === 0 && E.longest === null && E.daysSince === null && E.daysPlayed === 0 && E.weekPlay === 0 && E.today.level === 0 && E.grid.length === 12
+      && O.longest.play === 700 && O.daysSince === 0 && O.daysPlayed === 3 && O.sessions === 3 && O.totalPlay === 1300
+      && Math.abs(N.efficiency - 0.6) < 1e-9 && levels === '0112232' && LEVEL_MIN.join() === '15,30'
+      && !L.practicedToday && L.today.play === 0 && L.weekPlay === 0 && L.lastWeekPlay === 2400 && L.daysSince === 1;
+    return { name: 'Practice log: an empty log, records in any order and the shades of the calendar', expect: 'an empty log has no longest session and no days since; the longest and the days since come out the same in any order; a record with no report falls back to its efficiency (60%); the shades turn at exactly 15 and 30 minutes, two sessions adding up (0112232); a session over midnight is filed under the day it started',
+      got: 'empty: ' + E.sessions + ' sessions, longest ' + E.longest + ', days since ' + E.daysSince + ' | any order: longest ' + (O.longest && O.longest.play) + ' s, ' + O.daysSince + ' days since | no report: ' + Math.round(N.efficiency * 100) + '% | shades ' + levels + ' | over midnight: ' + L.lastWeekPlay + ' s last week', pass: ok }; } });
+  list.push({ name: 'Rocket: a new flight while a session is still running', run: () => {
+    const at = (d, h) => new Date(2026, 9, d, h).getTime(), now = at(12, 18), up = { mode: 'ascent', fp: 400 }, orb = { mode: 'orbit', fp: 2000 };
+    const got = [rocketCarry([{ start: at(12, 8), end: at(12, 9), rocket: up }], now, at(12, 9)),              // ended just as the new flight was chosen: the pad
+      rocketCarry([{ start: at(12, 8), rocket: up }], now, at(12, 8)),                                          // no end saved, and started by then: the pad
+      rocketCarry([{ start: at(12, 8), end: at(12, 20), rocket: up }], now, at(12, 19)),                        // chosen while it still ran: carries on
+      rocketCarry([{ start: at(12, 8), rocket: up }], now, at(12, 7)),                                          // chosen before it started: carries on
+      rocketCarry([{ start: at(12, 8), rocket: up }], now, 0), rocketCarry([{ start: at(12, 8), rocket: up }], now),   // never chosen
+      rocketCarry([{ start: at(12, 14), rocket: orb }, { start: at(11, 20), rocket: up }, { start: at(12, 8), rocket: up }], now),   // the day's latest, whatever the order
+      rocketCarry([], now), rocketCarry([{ start: at(12, 8) }], now), rocketCarry([{ start: at(11, 8), rocket: orb }], now)];
+    const want = [null, null, up, up, up, up, orb, null, null, null];
+    return { name: 'Rocket: a new flight while a session is still running', expect: 'a session that had ended (or, with no end saved, had started) by the time the new flight was chosen starts on the pad; one still running then, or started later, carries on; the latest session of the day wins in any order; yesterday, no sessions or no saved flight give the pad',
+      got: got.map(g => g ? g.mode : 'pad').join(', '), pass: got.every((g, i) => g === want[i]) }; } });
+  list.push({ name: 'A session cut short: every damaged snapshot is ignored', run: () => {
+    const s = new Session(); s.start(); for (let i = 0; i < 100; i++) s.tick(1, true); s.pause(); s.tick(5, false); s.resume(); s.tick(10, false);
+    const snap = JSON.parse(JSON.stringify(liveSnapshot(s, 'Ana', { mode: 'orbit', fp: 2000 }, s.startedAt + 200e3))), vary = (k, v) => { const c = JSON.parse(JSON.stringify(snap)); if (v === undefined) delete c[k]; else c[k] = v; return c; };
+    const bad = { 'no version': vary('v'), 'no start': vary('startedAt'), 'start 0': vary('startedAt', 0), 'no savedAt': vary('savedAt'), 'no goal': vary('goal'), 'goal 0': vary('goal', 0), 'no runs': vary('runs'), 'runs as text': vary('runs', '0,5'),
+      'kind 3': vary('runs', [3, 5]), 'kind as text': vary('runs', ['0', 5]), 'negative seconds': vary('runs', [0, -1]), 'NaN seconds': vary('runs', [0, NaN]), 'text': 'x', 'a number': 5, 'a list': [] };
+    const wrong = Object.keys(bad).filter(k => liveRecord(bad[k]) !== null), r = liveRecord(snap), r2 = liveRecord(vary('rocket', 'orbit')), r3 = liveRecord(vary('name', 5)), r4 = liveRecord(vary('runs', [])), r5 = liveRecord(vary('savedAt', snap.startedAt));
+    const ok = !wrong.length && r && r.play === 100 && r.end - r.start === 200e3 && r.rocket.mode === 'orbit' && r.name === 'Ana' && r.R.pauses === 1 && r2 && r2.rocket === null && r3 && r3.name === '' && r4 && r4.play === 0 && r4.R.columns.length === 0 && r5 && r5.end === r5.start;
+    return { name: 'A session cut short: every damaged snapshot is ignored', expect: Object.keys(bad).length + ' kinds of damage are ignored; a good one keeps its 100 s, its pause, its name and its rocket; a rocket that is not an object or a name that is not text is dropped; no runs at all is a session with nothing in it',
+      got: (wrong.length ? 'not ignored: ' + wrong.join(', ') : 'all ignored') + (r ? '; play ' + r.play + ' s, ' + r.R.pauses + ' pause, ' + r.name + ', rocket ' + (r.rocket && r.rocket.mode) : '; no record'), pass: !!ok }; } });
+  list.push({ name: 'Themes: Classic can\'t be turned off, and the saved text stays tidy', run: () => {
+    const all = ['classic', 'rocket', 'city', 'dash', 'race', 'fireworks'], off = themeSwitch(all, '', 'city', false), on = themeSwitch(all, off, 'city', true);
+    const got = [themeSwitch(all, '', 'classic', false), themeSwitch(all, 'rocket', 'classic', false), themesOn(all, 'classic').length, themesOn(all, null).length, themesOn(all, undefined).length, themesOn(all, 'bogus,classic,rocket').join(' '),
+      themeSwitch(all, 'rocket,bogus', 'city', false), themeSwitch(all, 'rocket,rocket', 'city', false), themeSwitch(all, 'rocket', 'rocket', false), on, themeLanding(themesOn(all, off), 'city'), themeLanding(themesOn(all, on), 'city')];
+    const want = ['', 'rocket', 6, 6, 6, 'classic city dash race fireworks', 'rocket,city', 'rocket,city', 'rocket', '', 'classic', 'city'];
+    return { name: 'Themes: Classic can\'t be turned off, and the saved text stays tidy', expect: 'turning Classic off changes nothing; nothing saved means all on; unknown and repeated ids go as soon as the text is written again; off then on gives back an empty text; the Home Screen lands on Classic while City is off and back on City once it is on',
+      got: got.join(' | '), pass: got.every((g, i) => g === want[i]) }; } });
+  list.push({ name: 'Clock and duration text at the edges, and the eleventh session of a day', run: () => {
+    const clock = [0, 59.9, 3599, 3600, 5400, 86400, -5].map(clockText).join(' '), dur = [0, 29.5, 59.4, 59.5, 89, 90, 3569, 3570, 3600, 5400, 86400, -3].map(durationText).join(' | ');
+    const at = (d, h) => new Date(2026, 9, d, h).getTime(), now = at(12, 20), rec = t => ({ id: t, start: t, play: 60, goal: 1800, eff: 0.8, R: { active: 75 } }), recs = []; for (let i = 0; i < 11; i++) recs.push(rec(at(12, 7 + i)));
+    const line = n => dayLine({ key: '2026-10-12', n: n, count: n, play: 600 }, now).text, D = dayRecap(recs.slice().reverse(), recs[10]), D1 = dayRecap(recs, recs[0]);
+    const ok = clock === '0:00 0:59 59:59 1:00:00 1:30:00 24:00:00 0:00' && dur === '0 s | 30 s | 59 s | 1 min | 1 min | 2 min | 59 min | 1 h | 1 h | 1 h 30 min | 24 h | 0 s'
+      && line(10) === 'This was your tenth session today.' && line(11) === 'This was session 11 today.' && dayLine({ key: '2026-10-12', n: 10, count: 11, play: 60 }, now).text === 'This was session 10 of 11 today.'
+      && dayLine({ key: '2026-10-11', n: 11, count: 11, play: 60 }, now).lead === '1 min of music that day.' && dayLine({ key: '2026-10-12', n: 1, count: 1, play: 60 }, now) === null && dayLine(null, now) === null
+      && D.n === 11 && D.count === 11 && D.before === 600 && D.upTo === 660 && D.play === 660 && D1.n === 1 && D1.before === 0 && D1.upTo === 60 && dayRecap(recs, rec(at(12, 19))) === null && dayRecap(recs, null) === null && dayRecap([], recs[0]) === null;
+    return { name: 'Clock and duration text at the edges, and the eleventh session of a day', expect: 'the clock shows whole seconds (59.9 s is 0:59) and hours from 1:00:00; durations round to the minute from 59.5 s and to the hour from 59.5 min; the tenth session is "your tenth", the eleventh "session 11"; a day with one session, or a session not in the log, has no line',
+      got: clock + ' | ' + dur + ' | ' + line(10) + ' ' + line(11) + ' | eleventh: ' + D.n + ' of ' + D.count + ', ' + D.before + ' s before it', pass: ok }; } });
+  list.push({ name: 'New versions: placeholders, dev builds and whitespace', run: () => {
+    const page = b => '<meta name="build" content="' + b + '">', P = '__' + 'BUILD__';
+    const got = [buildOf(page(' 12 ')), buildOf(page('dev')), buildOf(page('')), buildOf(null), buildOf('<meta name="build">'), buildOf(page('x__y')),
+      newerBuild('dev', page('dev')), newerBuild('12', page('dev')), newerBuild('dev', page('13')), newerBuild('12', page(' 12 ')), newerBuild(null, page('13')), newerBuild('12', null), newerBuild('12', page(P) + page('13'))];
+    const want = ['12', 'dev', '', '', '', '', false, true, true, false, false, false, false];
+    return { name: 'New versions: placeholders, dev builds and whitespace', expect: 'the stamp is trimmed; a page with no meta, no content or a placeholder has no stamp; dev against dev, or the same stamp with spaces round it, is not newer, while a dev page against a numbered build is; the first meta tag is the one that counts',
+      got: got.join(', '), pass: got.every((g, i) => g === want[i]) }; } });
   return list;
 }
 function runDetectionTests(sr) { return detectionTests(sr).map(t => t.run()); }
