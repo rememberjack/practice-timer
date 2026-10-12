@@ -62,6 +62,17 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
   line, runs past the garages and bends back into the track, and the car keeps to its middle, so it never cuts across the pit lane line. Where it bends
   out is set when the car turns in, so the garages never vanish. On track every car keeps to the racing line (`raceLine`, `RaceSim.lineAt`): wide on the
   way in, the inside tyres on the kerb at the apex, wide on the way out; close bends the other way go apex to apex. A test checks every corner. The race runs until the practice goal; the trophy card names the place.
+- Fireworks (`FireworkSim` in `src/core.js`, drawn by `src/fireworks.js`) sends up a shell for each note played: its colour is the note (the twelve
+  notes are twelve colours, `fwHue`) and its height how high the note is. The last minute of playing is shown as Intensity (Power in the other
+  themes): it sets the pace, so the higher it is the more shells are in the sky at once (`FW.PACE`; a held note keeps them going up), and their
+  size and kinds. Only playing sends shells up, and fast runs are capped (the extra notes make the next shell bigger). It makes no sound.
+  The goal sets off a grand finale once, ending in a shell that bursts into a gold trophy (`fwTrophyShape`); on Fireworks the trophy card waits
+  for the finale to end (`goalReached`, `awardWait` in `src/app.js`). The finale only plays while the theme is on screen: reached on another theme,
+  the card shows there at once and the finale waits; leaving Fireworks mid-finale shows the card then.
+  The scene is a harbour town at night under a low moon (hillside houses, a lighthouse, a Ferris wheel, boats, the moon's path on the water). It is
+  drawn in 3D (`src/fireworks3d.js`, three.js r128 like City: a level camera with a shifted lens, so the town stands straight under the read-outs);
+  `src/fireworks.js` loads three.js when the theme is shown and draws a flat version of the same waterfront until then, or if it cannot load.
+  Its look is its own, not Dash's: Fraunces serif (`--serif`), lantern amber and cream, square corners, hairlines (`.fw-hud`, the Finale bar a fuse).
 - The Home Screen (`#home`) shows when the app opens and after a finished session's summary is closed; its words come
   from `homeCopy` in `src/core.js`. No theme scene is drawn while it covers them. Its greeting, headline and line are picked from
   playful words for young players (`HOME_HELLO`, `HOME_WORDS`), new each time it shows; they must fit an iPhone SE without wrapping more.

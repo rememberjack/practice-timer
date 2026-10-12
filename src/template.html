@@ -12,7 +12,7 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png" sizes="180x180">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Silkscreen:wght@400;700&family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;1,700;1,800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Silkscreen:wght@400;700&family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;1,700;1,800&family=Fraunces:ital,opsz,wght@0,9..144,600;1,9..144,500;1,9..144,600&display=swap" rel="stylesheet">
 <style>
 :root{
   /* deep navy ground, slate panels, mint accent */
@@ -21,6 +21,7 @@
   --sans:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
   --pixel:"Silkscreen","Lucida Console","Courier New",ui-monospace,monospace;
   --cond:"Barlow Condensed","Arial Narrow","Roboto Condensed",system-ui,sans-serif;   /* Grand Prix: timing-screen type */
+  --serif:"Fraunces",Georgia,"Times New Roman",serif;   /* Fireworks: an evening programme */
   color-scheme:dark;
   box-sizing:border-box;
   padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
@@ -41,6 +42,7 @@ body:has(> #app[data-skin="rocket"]){background:#070A14}
 body:has(> #app[data-skin="city"]){background:#0E1130}
 body:has(> #app[data-skin="dash"]){background:#07071F}
 body:has(> #app[data-skin="race"]){background:#0A0E1C}
+body:has(> #app[data-skin="fireworks"]){background:#08131F}
 
 /* ---------- chrome (classic look; the rocket theme overrides it below) ---------- */
 #top{display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:10px; padding:12px 0 12px; margin:0 auto 6px; max-width:560px; width:calc(100% - 36px); border-bottom:1px solid var(--rule)}
@@ -101,6 +103,10 @@ body:has(> #app[data-skin="race"]){background:#0A0E1C}
 .ask[data-skin="race"] h2{font-family:var(--cond); font-style:italic; font-weight:800; font-size:24px; text-transform:uppercase; letter-spacing:.01em}
 .ask[data-skin="race"] .btn{font-family:var(--cond); font-style:italic; font-weight:800; font-size:17px; text-transform:uppercase; letter-spacing:.03em; border:0; border-radius:12px; background:#252E4E; color:#F5F6FA}
 .ask[data-skin="race"] .btn.solid{background:#86DCC0; color:#0D2A22}
+.ask[data-skin="fireworks"]{--sheet:#0B1724; --surface:#13212F; --ink:#F6ECDC; --mute:#A9B6C4; --rule:#24384A; --accent:#F2B35E; --on-accent:#1E1406; border:0; border-top:1px solid rgba(242,179,94,.6); border-radius:6px 6px 0 0}
+.ask[data-skin="fireworks"] h2{font-family:var(--serif); font-style:italic; font-weight:600; font-size:26px; letter-spacing:0}
+.ask[data-skin="fireworks"] .btn{font-family:var(--serif); font-style:italic; font-weight:600; font-size:18px; border:1px solid rgba(246,236,220,.45); border-radius:4px; background:transparent; color:#F6ECDC; box-shadow:none}
+.ask[data-skin="fireworks"] .btn.solid{background:#F6ECDC; border-color:#F6ECDC; color:#0B1A2A}
 @media (max-width:560px){ .ask[data-skin="rocket"], .ask[data-skin="city"]{border-radius:0} .ask[data-skin="dash"]{border-radius:24px 24px 0 0; border-width:3px 0 0} }
 /* New flight, at the end of the Rocket read-outs' last line while the rocket is off the pad */
 .hud-flight{position:absolute; right:12px; bottom:6px; min-height:28px; padding:3px 7px; border:2px solid #05070D; border-radius:0; background:#7B8293; color:#fff;
@@ -311,7 +317,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 .navrow .mini i{width:24px; height:24px; border-radius:7px}
 .navrow .mini svg{width:14px; height:14px}
 .navrow .chev{flex:none; width:18px; height:18px; color:var(--mute-2)}
-[data-theme="classic"]{--g:#121A27; --t:#86DCC0} [data-theme="rocket"]{--g:#070A14; --t:#FFD23F} [data-theme="city"]{--g:#0E1130; --t:#F2C94C} [data-theme="dash"]{--g:#07071F; --t:#7CFF4F} [data-theme="race"]{--g:#0A0E1C; --t:#FF5A5F}
+[data-theme="classic"]{--g:#121A27; --t:#86DCC0} [data-theme="rocket"]{--g:#070A14; --t:#FFD23F} [data-theme="city"]{--g:#0E1130; --t:#F2C94C} [data-theme="dash"]{--g:#07071F; --t:#7CFF4F} [data-theme="race"]{--g:#0A0E1C; --t:#FF5A5F} [data-theme="fireworks"]{--g:#08131F; --t:#F2B35E}
 #themesH{font-weight:800; font-size:22px; letter-spacing:-.01em; margin:0 0 4px; line-height:1.1}
 .tlist{list-style:none; margin:10px 0 0; padding:0; display:grid; gap:8px}
 .trow{display:flex; align-items:center; gap:12px; padding:10px 12px; border:1px solid var(--rule); border-radius:16px; background:var(--surface)}
@@ -618,6 +624,57 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 @media (max-width:350px){ .gp-hud{font-size:13px; padding:7px 9px 6px} .gp-stats span{font-size:9px} .gp-stats b{font-size:16px} .gp-tower{width:112px} #app[data-skin="race"][data-chrome="pixel"] #controls button{font-size:16px} }
 @media (max-height:620px){ .gp-line.dim{display:none} }
 
+/* ---------- Fireworks theme: an evening by the harbour. Serif type, lantern amber and cream on deep harbour blue, slim square corners, hairlines ---------- */
+#app[data-skin="fireworks"]{--paper:#08131F; --surface:#13212F; --ink:#F6ECDC; --mute:#A9B6C4; --rule:#24384A; --accent:#F2B35E; --on-accent:#1E1406}
+#app[data-skin="fireworks"][data-chrome="pixel"] #top h1{font-family:var(--serif); font-style:italic; font-size:23px; font-weight:600; letter-spacing:0}
+#app[data-skin="fireworks"][data-chrome="pixel"] .icon-btn{border-radius:4px; background:transparent; border:1px solid rgba(246,236,220,.3)}
+#app[data-skin="fireworks"][data-chrome="pixel"] #notice, #app[data-skin="fireworks"][data-chrome="pixel"] #demoBar{border-radius:4px; background:rgba(19,33,47,.85); border:1px solid rgba(246,236,220,.16)}
+#app[data-skin="fireworks"][data-chrome="pixel"] .chips button{border-radius:4px}
+#app[data-skin="fireworks"][data-chrome="pixel"] .chips button[aria-pressed="true"], #app[data-skin="fireworks"][data-chrome="pixel"] #notice .act{background:#F6ECDC; color:#0B1A2A; border-color:#F6ECDC; font-weight:600; border-radius:4px}
+#app[data-skin="fireworks"][data-chrome="pixel"] #controls button{font-family:var(--serif); font-style:italic; font-size:19px; font-weight:600; border-radius:4px; border:1px solid rgba(246,236,220,.45); background:transparent; color:#F6ECDC; text-shadow:none; box-shadow:none}
+#app[data-skin="fireworks"][data-chrome="pixel"] #controls button.primary{background:#F6ECDC; border-color:#F6ECDC; color:#0B1A2A}
+#app[data-skin="fireworks"][data-chrome="pixel"] #controls button:active{background:rgba(246,236,220,.14)}
+#app[data-skin="fireworks"][data-chrome="pixel"] #controls button.primary:active{background:#E4D3B6}
+#app[data-skin="fireworks"][data-chrome="pixel"] .award-card{background:rgba(7,16,28,.95); border:0; border-top:2px solid #F2B35E; border-radius:4px; font-family:var(--sans); box-shadow:0 20px 50px rgba(0,0,0,.5), 0 0 60px rgba(242,179,94,.12)}
+#app[data-skin="fireworks"][data-chrome="pixel"] .award-card .trophy{display:block; color:#F2B35E}
+#app[data-skin="fireworks"][data-chrome="pixel"] .award-card .px-trophy{display:none}
+#app[data-skin="fireworks"][data-chrome="pixel"] .award-card h3{font-family:var(--serif); font-style:italic; font-size:28px; font-weight:600; color:#F6ECDC}
+#app[data-skin="fireworks"][data-chrome="pixel"] .award-card p{font-size:14px; color:#A9B6C4}
+#pFire{background:#08131F; color:#F6ECDC; font-family:var(--sans)}
+#fireCv, #fire3d{position:absolute; inset:0; width:100%; height:100%; display:block}
+#fireCv[hidden], #fire3d[hidden]{display:none}
+/* the read-outs: no box, a dark veil fading down from an amber hairline, so the sky shows through under it */
+.fw-hud{position:absolute; left:10px; right:10px; top:8px; padding:10px 14px 9px; font-size:12px; line-height:1.4; color:#F6ECDC;
+  background:linear-gradient(180deg, rgba(7,16,28,.92), rgba(7,16,28,.66)); border-top:1px solid rgba(242,179,94,.6); border-radius:2px 2px 6px 6px; box-shadow:0 14px 30px rgba(0,0,0,.22)}
+.fw-hud .k{font-size:10px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:#A9B6C4}
+.fw-top{display:flex; justify-content:space-between; align-items:flex-end; gap:10px}
+.fw-play{min-width:0}
+.fw-play .k{display:block; white-space:nowrap}
+.fw-hud .big{display:block; margin-top:3px; font-family:var(--serif); font-size:clamp(34px, 10.4vw, 48px); line-height:1; font-weight:600; font-variant-numeric:tabular-nums lining-nums; white-space:nowrap}
+.fw-hud .big.long{font-size:clamp(26px, 8vw, 38px)}
+#app[data-music="1"] .fw-hud .big{color:#F2B35E; text-shadow:0 0 22px rgba(242,179,94,.35)}
+.fw-side{flex:none; text-align:right; white-space:nowrap; color:#A9B6C4}
+.fw-side b{color:#F6ECDC; font-family:var(--serif); font-weight:600; font-size:14px; font-variant-numeric:tabular-nums lining-nums}
+.fw-side .trophy{color:#F2B35E}
+/* the Finale bar is a fuse: it burns toward the grand finale, a spark at its end */
+.fw-prog{display:flex; align-items:center; gap:10px; margin-top:9px}
+.fw-prog .k{flex:none}
+.fw-bar{flex:1; min-width:0; height:2px; background:rgba(246,236,220,.18)}
+.fw-bar i{display:block; position:relative; height:100%; width:0; background:linear-gradient(90deg, rgba(242,179,94,.3), #F2B35E); transition:width .2s linear}
+.fw-bar i::after{content:""; position:absolute; right:-4px; top:50%; width:8px; height:8px; margin-top:-4px; border-radius:50%; background:#FFE6B8; box-shadow:0 0 8px 3px rgba(242,179,94,.75)}
+#fPct{flex:none; min-width:4ch; text-align:right; font-family:var(--serif); font-weight:600; font-size:14px; font-variant-numeric:tabular-nums lining-nums}
+.fw-stats{display:grid; grid-template-columns:repeat(5, minmax(0, 1fr)); margin-top:8px; text-align:center}
+.fw-stats > div + div{border-left:1px solid rgba(246,236,220,.14)}
+.fw-stats span{display:block; font-size:10px; color:#A9B6C4; white-space:nowrap}
+.fw-stats b{display:block; font-family:var(--serif); font-size:19px; line-height:1.25; font-weight:600; font-variant-numeric:tabular-nums lining-nums; white-space:nowrap}
+.fw-line{margin-top:6px; min-height:18px; font-family:var(--serif); font-style:italic; font-weight:500; font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.fw-line.dim{margin-top:0; font-family:var(--sans); font-style:normal; font-weight:400; font-size:12px; color:#A9B6C4}
+#fBanner{position:absolute; left:50%; bottom:16px; transform:translateX(-50%); width:max-content; max-width:calc(100% - 40px); padding:8px 18px; background:rgba(7,16,28,.92); color:#F2B35E; border:0; border-top:1px solid #F2B35E; border-radius:2px;
+  font-family:var(--serif); font-style:italic; font-size:17px; font-weight:600; text-align:center; opacity:0; transition:opacity .25s; pointer-events:none; box-shadow:0 10px 30px rgba(0,0,0,.35)}
+#fBanner.on{opacity:1}
+@media (max-width:350px){ .fw-hud{font-size:11px; padding:8px 10px 7px} .fw-stats span{font-size:9px} .fw-stats b{font-size:16px} #app[data-skin="fireworks"][data-chrome="pixel"] #controls button{font-size:17px} }
+@media (max-height:620px){ .fw-line.dim{display:none} }
+
 /* ---------- theme bar: each theme's icon under the scene; the current one lit on a tinted tab, a locked one faint with a padlock ---------- */
 #skinBar{display:flex; justify-content:center; gap:6px; flex:none; height:28px; margin-top:4px; --tint:var(--accent)}
 #skinBar button{position:relative; width:38px; height:28px; padding:0; border:0; background:none; color:var(--tint); display:grid; place-items:center}
@@ -636,6 +693,8 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 #app[data-skin="city"] #skinBar{--tint:#F2C94C}
 #app[data-skin="dash"] #skinBar{--tint:#7CFF4F}
 #app[data-skin="race"] #skinBar{--tint:#86DCC0}
+#app[data-skin="fireworks"] #skinBar{--tint:#F2B35E}
+#app[data-skin="fireworks"] #skinBar button::before{border-radius:4px}
 
 /* ---------- more room for the Rocket and City scenes ---------- */
 @media (max-width:699px), (max-width:760px) and (max-height:599px){   /* phones: the title row with Settings stays at the top, as in Classic */
@@ -644,6 +703,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
   #app[data-chrome="pixel"][data-state="stopped"] #btnStart{flex-grow:1.55}
   @media (max-width:419px){ #app[data-skin="dash"][data-chrome="pixel"][data-state="stopped"] #controls button{font-size:15px} }
   @media (max-width:419px){ #app[data-skin="race"][data-chrome="pixel"][data-state="stopped"] #controls button{font-size:17px} }
+  @media (max-width:419px){ #app[data-skin="fireworks"][data-chrome="pixel"][data-state="stopped"] #controls button{font-size:17px} }
   @media (max-width:389px){ #app[data-chrome="pixel"][data-state="stopped"] #controls{gap:8px} #app[data-skin="city"][data-state="stopped"] #controls{gap:12px} }
   @media (max-width:359px){ #app[data-chrome="pixel"][data-state="stopped"]:not([data-skin="city"]) #controls button{font-size:11px} #app[data-chrome="pixel"][data-state="stopped"] #btnStart{flex-grow:1.4} }   /* 320 px phones */
   #app[data-chrome="pixel"] #controls{padding:8px 12px 10px; gap:10px}
@@ -684,6 +744,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
   #app[data-chrome="pixel"] #top h1{font-size:18px}
   #app[data-skin="dash"][data-chrome="pixel"] #top h1{font-size:24px}
   #app[data-skin="race"][data-chrome="pixel"] #top h1{font-size:26px}
+  #app[data-skin="fireworks"][data-chrome="pixel"] #top h1{font-size:28px}
   .icon-btn{min-height:44px}
   #btnSettings svg{width:22px; height:22px}
   #app[data-chrome="pixel"] .icon-btn{width:44px; height:44px}
@@ -715,6 +776,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
   #app[data-skin="city"] #controls button{font-size:15px}
   #app[data-skin="dash"][data-chrome="pixel"] #controls button{font-size:20px}
   #app[data-skin="race"][data-chrome="pixel"] #controls button{font-size:21px}
+  #app[data-skin="fireworks"][data-chrome="pixel"] #controls button{font-size:22px}
   #app #controls #btnPause, #app #controls #btnResume{max-width:620px}
   #app #controls #btnStop{max-width:220px}
 
@@ -755,49 +817,53 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
     .classic > .monitor{grid-area:mon; margin-top:18px; min-height:0}
   }
 
-  /* ----- Rocket, City, Dash, Grand Prix: one read-out card, the same size and grid in all four ----- */
-  .hud, .city-hud, .dash-hud, .gp-hud{top:12px; left:var(--edge); right:var(--edge); line-height:1.4; font-size:14px;
+  /* ----- Rocket, City, Dash, Grand Prix, Fireworks: one read-out card, the same size and grid in all five ----- */
+  .hud, .city-hud, .dash-hud, .gp-hud, .fw-hud{top:12px; left:var(--edge); right:var(--edge); line-height:1.4; font-size:14px;
     display:grid; grid-template-columns:minmax(0, 1fr) auto; column-gap:24px; row-gap:6px; align-items:center;
     grid-template-rows:84px 26px 44px 22px 22px; grid-template-areas:"play side" "bar bar" "stats stats" "heard heard" "next next"}
   .hud{padding:12px 16px; background:rgba(7,10,20,.8); border:2px solid #2C3550; box-shadow:4px 4px 0 rgba(0,0,0,.35)}
   .city-hud{top:15px; left:calc(var(--edge) + 3px); right:calc(var(--edge) + 3px); padding:11px 15px}        /* its outline is drawn outside the box */
   .dash-hud{padding:12px 16px; font-size:15px; border-radius:20px}
   .gp-hud{padding:10px 16px 12px; font-size:16px; border-radius:16px}
-  .hud-row, .ch-top, .dh-top, .gp-top{display:contents}
-  .hud-play, .ch-play, .dh-play, .gp-play{grid-area:play; align-self:end}
-  .hud-side, .ch-side, .dh-side, .gp-side{grid-area:side; align-self:end; line-height:1.45}
-  .hud .engine, .city-hud .engine, .dh-prog, .gp-prog{grid-area:bar; margin:0; gap:12px}
+  .fw-hud{padding:12px 18px; font-size:14px}
+  .hud-row, .ch-top, .dh-top, .gp-top, .fw-top{display:contents}
+  .hud-play, .ch-play, .dh-play, .gp-play, .fw-play{grid-area:play; align-self:end}
+  .hud-side, .ch-side, .dh-side, .gp-side, .fw-side{grid-area:side; align-self:end; line-height:1.45}
+  .hud .engine, .city-hud .engine, .dh-prog, .gp-prog, .fw-prog{grid-area:bar; margin:0; gap:12px}
   .hud .engine, .city-hud .engine{grid-template-columns:auto auto minmax(0, 1fr) auto; grid-template-areas:"k n bar e"; align-items:center}
-  .hud-stats, .ch-stats, .dh-stats, .gp-stats{grid-area:stats; margin:0}
+  .hud-stats, .ch-stats, .dh-stats, .gp-stats, .fw-stats{grid-area:stats; margin:0}
   .gp-stats{padding-top:0; border-top:0}
-  #rHeard, #yHeard, #dHeard, #gHeard{grid-area:heard; margin:0; min-height:0}
-  #rNext, #yHint, #dHint, #gHint{grid-area:next; margin:0; min-height:0}
-  .ch-line.dim, .dh-line.dim, .gp-line.dim{display:block}
-  .hud .k, .city-hud .k, .dash-hud .k, .gp-hud .k{white-space:nowrap}
-  .hud .big, .city-hud .big, .dash-hud .big, .gp-hud .big{font-size:clamp(44px, 7cqw, 58px); margin-top:2px}
-  .hud .big.long, .city-hud .big.long, .dash-hud .big.long, .gp-hud .big.long{font-size:clamp(32px, 5cqw, 42px)}
+  #rHeard, #yHeard, #dHeard, #gHeard, #fHeard{grid-area:heard; margin:0; min-height:0}
+  #rNext, #yHint, #dHint, #gHint, #fHint{grid-area:next; margin:0; min-height:0}
+  .ch-line.dim, .dh-line.dim, .gp-line.dim, .fw-line.dim{display:block}
+  .hud .k, .city-hud .k, .dash-hud .k, .gp-hud .k, .fw-hud .k{white-space:nowrap}
+  .hud .big, .city-hud .big, .dash-hud .big, .gp-hud .big, .fw-hud .big{font-size:clamp(44px, 7cqw, 58px); margin-top:2px}
+  .hud .big.long, .city-hud .big.long, .dash-hud .big.long, .gp-hud .big.long, .fw-hud .big.long{font-size:clamp(32px, 5cqw, 42px)}
   .pbar, .city-hud .pbar, .dh-bar{height:18px}
   .gp-bar{height:12px} .gp-line{font-size:14px} .gp-stats span{font-size:13px} .gp-stats b{font-size:23px}
   .gp-tower{left:var(--edge); top:calc(var(--hud-b, 0px) + 12px); width:150px; font-size:16px} .gp-tower li{height:26px; grid-template-columns:24px 4px 1fr auto}
   .dh-prog .k{display:block}                                                    /* the course bar gets a label, like Power in Rocket and City */
   #rPwN, #yPwN, #rEff, #yEff, #dPct{display:inline-block; min-width:4ch; font-size:inherit}
   #dPct{font-weight:800}
+  #fPct{font-size:17px} .fw-hud .k{font-size:11px} .fw-side b{font-size:17px} .fw-line{font-size:17px} .fw-line.dim{font-size:14px}
   .hud-stats span, .ch-stats span{font-size:12px} .hud-stats b, .ch-stats b{font-size:18px}
   .dh-stats span{font-size:13px} .dh-stats b{font-size:21px}
+  .fw-stats span{font-size:13px} .fw-stats b{font-size:23px}
   /* landscape: the card becomes one strip. Play time on the left, goal on the right, the bar over the figures between them */
   @container (min-width:960px){
-    .hud, .city-hud, .dash-hud, .gp-hud{grid-template-columns:auto minmax(0, 1fr) auto; column-gap:36px; grid-template-rows:30px 44px 22px;
+    .hud, .city-hud, .dash-hud, .gp-hud, .fw-hud{grid-template-columns:auto minmax(0, 1fr) auto; column-gap:36px; grid-template-rows:30px 44px 22px;
       grid-template-areas:"play bar side" "play stats side" "heard heard next"}
-    .hud-play, .ch-play, .dh-play, .gp-play{align-self:center}
-    .hud-side, .ch-side, .dh-side, .gp-side{align-self:center}
-    #rNext, #yHint, #dHint, #gHint{text-align:right}
+    .hud-play, .ch-play, .dh-play, .gp-play, .fw-play{align-self:center}
+    .hud-side, .ch-side, .dh-side, .gp-side, .fw-side{align-self:center}
+    #rNext, #yHint, #dHint, #gHint, #fHint{text-align:right}
   }
   /* event banners: just under the read-outs, in the middle, in all three */
-  #rBanner, #yBanner, #dBanner{top:calc(var(--hud-b, 0px) + 14px); bottom:auto; margin:0}
+  #rBanner, #yBanner, #dBanner, #fBanner{top:calc(var(--hud-b, 0px) + 14px); bottom:auto; margin:0}
   #rBanner{font-size:17px; padding:10px 16px}
   #yBanner{font-size:15px; padding:9px 16px}
   #yMsg{font-size:15px; padding:14px 20px}
   #dBanner{font-size:19px; padding:10px 18px}
+  #fBanner{font-size:20px; padding:10px 22px}
 }
 /* ---------- Home Screen: always in the Classic colours, whatever theme is chosen; calm, with one accent ---------- */
 #home{position:fixed; inset:0; z-index:4; background:var(--paper); color:var(--ink); font-family:var(--sans); padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -865,9 +931,11 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
   <symbol id="ico-city" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M2.5 11.5h5.5V21H2.5zM9 6h6v15H9zM16 9.5h5.5V21H16zM10.6 8h1.2v1.6h-1.2zM12.2 8h1.2v1.6h-1.2zM10.6 11.6h1.2v1.6h-1.2zM12.2 11.6h1.2v1.6h-1.2zM4.3 14h1.8v1.6H4.3zM17.8 12h1.8v1.6h-1.8zM2 21h20v1.6H2z"/><circle cx="17.3" cy="5.2" r="2.2" fill="currentColor"/><path fill="currentColor" opacity=".6" d="M15.7 3.6L22.6.4 18.9 6.8z"/></symbol>
   <symbol id="ico-dash" viewBox="0 0 24 24"><rect x="3.6" y="3.6" width="16.8" height="16.8" rx="3" fill="none" stroke="currentColor" stroke-width="2.6"/><path fill="currentColor" d="M12 7.2l4.8 4.8-4.8 4.8L7.2 12z"/></symbol>
   <symbol id="ico-race" viewBox="0 0 24 24"><path fill="currentColor" d="M3.2 2h2v20h-2z"/><path fill="currentColor" fill-rule="evenodd" d="M5.2 3h15.6v11H5.2zM6.9 4.7v2.5h3.1V4.7zM13.1 4.7v2.5h3.1V4.7zM10 7.2v2.6h3.1V7.2zM16.2 7.2v2.6h3V7.2zM6.9 9.8v2.5h3.1V9.8zM13.1 9.8v2.5h3.1V9.8z"/></symbol>
+  <symbol id="ico-fireworks" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" d="M18.2 10.0L20.2 10.0M17.06 7.24L18.47 5.83M14.3 6.1L14.3 4.1M11.54 7.24L10.13 5.83M10.4 10.0L8.4 10.0M14.3 13.9L14.3 15.9M17.06 12.76L18.47 14.17M3.2 21.6Q5.6 16.4 11.1 12.9"/><circle cx="22.5" cy="10.0" r="1.4" fill="currentColor"/><circle cx="20.1" cy="4.2" r="1.4" fill="currentColor"/><circle cx="14.3" cy="1.8" r="1.4" fill="currentColor"/><circle cx="8.5" cy="4.2" r="1.4" fill="currentColor"/><circle cx="6.1" cy="10.0" r="1.4" fill="currentColor"/><circle cx="14.3" cy="18.2" r="1.4" fill="currentColor"/><circle cx="20.1" cy="15.8" r="1.4" fill="currentColor"/><circle cx="14.3" cy="10.0" r="2.3" fill="currentColor"/></symbol>
   <symbol id="ico-next" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
   <symbol id="ico-claude" viewBox="0 0 24 24"><path d="M14.2 12.3L21.9 13.4M13.7 13.4L18.5 17.0M12.8 14.0L15.5 20.7M11.7 14.2L10.9 19.5M10.6 13.7L5.8 19.9M10.0 12.8L4.0 15.2M9.8 11.7L2.9 10.7M10.3 10.6L5.9 7.2M11.2 10.0L8.3 2.9M12.3 9.8L13.2 3.7M13.4 10.3L17.9 4.4M14.0 11.2L19.4 9.0" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"/></symbol>
   <symbol id="ico-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="ico-trophy" viewBox="0 0 64 64"><path d="M19 13H9c0 10 5 15 12 16M45 13h10c0 10-5 15-12 16" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><path fill="currentColor" d="M18 7h28v15c0 10-6 17-14 17s-14-7-14-17zM29 38h6v9h-6zM22 47h20a2 2 0 0 1 2 2v3H20v-3a2 2 0 0 1 2-2zM17 52h30a2 2 0 0 1 2 2v4H15v-4a2 2 0 0 1 2-2z"/><path d="M25 12v9c0 4 1 7 3 10" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="3" stroke-linecap="round"/></symbol>
   <symbol id="ico-lock" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="3" d="M7.5 11V8a4.5 4.5 0 0 1 9 0v3"/><rect x="4" y="11" width="16" height="11" rx="2" fill="currentColor"/></symbol>
 </svg>
 <div id="app" data-skin="classic" data-state="idle" data-music="0">
@@ -896,7 +964,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
           <div class="clock" role="timer" aria-label="Play time"><span id="cClock"></span><span class="tenths" id="cTenths">.0</span></div>
           <div class="stats">
             <div class="stat"><div class="k">Efficiency</div><div class="v" id="cEff">0%</div><div class="meter"><i id="cEffBar"></i></div></div>
-            <div class="stat"><div class="k"><svg class="trophy badge" viewBox="0 0 64 64" aria-hidden="true"><path d="M19 13H9c0 10 5 15 12 16M45 13h10c0 10-5 15-12 16" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><path fill="currentColor" d="M18 7h28v15c0 10-6 17-14 17s-14-7-14-17zM29 38h6v9h-6zM22 47h20a2 2 0 0 1 2 2v3H20v-3a2 2 0 0 1 2-2zM17 52h30a2 2 0 0 1 2 2v4H15v-4a2 2 0 0 1 2-2z"/><path d="M25 12v9c0 4 1 7 3 10" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="3" stroke-linecap="round"/></svg><span id="cGoalK">Practice goal</span></div><div class="v"><span id="cGoalV">30:00</span> <small id="cGoal">30:00 left</small></div><div class="meter"><i id="cGoalBar"></i></div></div>
+            <div class="stat"><div class="k"><svg class="trophy badge" viewBox="0 0 64 64" aria-hidden="true"><use href="#ico-trophy"/></svg><span id="cGoalK">Practice goal</span></div><div class="v"><span id="cGoalV">30:00</span> <small id="cGoal">30:00 left</small></div><div class="meter"><i id="cGoalBar"></i></div></div>
             <div class="stat"><div class="k">Active session time</div><div class="v" id="cActive">00:00</div></div>
             <div class="stat"><div class="k">Total session time</div><div class="v"><span id="cTotal">00:00</span> <small id="cPauses">0 pauses</small></div></div>
           </div>
@@ -964,7 +1032,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
           <div class="dh-top">
             <div class="dh-play"><span class="k">Play time</span><span class="big" id="dPlay">00:00</span></div>
             <div class="dh-side">
-              <div><svg class="trophy badge" viewBox="0 0 64 64" aria-hidden="true"><path d="M19 13H9c0 10 5 15 12 16M45 13h10c0 10-5 15-12 16" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><path fill="currentColor" d="M18 7h28v15c0 10-6 17-14 17s-14-7-14-17zM29 38h6v9h-6zM22 47h20a2 2 0 0 1 2 2v3H20v-3a2 2 0 0 1 2-2zM17 52h30a2 2 0 0 1 2 2v4H15v-4a2 2 0 0 1 2-2z"/><path d="M25 12v9c0 4 1 7 3 10" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="3" stroke-linecap="round"/></svg>Goal <b id="dGoal">30:00</b></div>
+              <div><svg class="trophy badge" viewBox="0 0 64 64" aria-hidden="true"><use href="#ico-trophy"/></svg>Goal <b id="dGoal">30:00</b></div>
               <div id="dGoalLeft">30:00 left</div>
               <div>Pauses <b id="dPauses">0</b></div>
             </div>
@@ -988,7 +1056,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
           <div class="gp-top">
             <div class="gp-play"><span class="k">Play time</span><span class="big" id="gPlay">00:00</span></div>
             <div class="gp-side">
-              <div><svg class="trophy badge" viewBox="0 0 64 64" aria-hidden="true"><path d="M19 13H9c0 10 5 15 12 16M45 13h10c0 10-5 15-12 16" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><path fill="currentColor" d="M18 7h28v15c0 10-6 17-14 17s-14-7-14-17zM29 38h6v9h-6zM22 47h20a2 2 0 0 1 2 2v3H20v-3a2 2 0 0 1 2-2zM17 52h30a2 2 0 0 1 2 2v4H15v-4a2 2 0 0 1 2-2z"/><path d="M25 12v9c0 4 1 7 3 10" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="3" stroke-linecap="round"/></svg>Goal <b id="gGoal">30:00</b></div>
+              <div><svg class="trophy badge" viewBox="0 0 64 64" aria-hidden="true"><use href="#ico-trophy"/></svg>Goal <b id="gGoal">30:00</b></div>
               <div id="gGoalLeft">30:00 left</div>
               <div>Pauses <b id="gPauses">0</b></div>
             </div>
@@ -1007,10 +1075,35 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
         <div class="gp-lights" id="gLights" hidden aria-hidden="true"><div><i></i><i></i></div><div><i></i><i></i></div><div><i></i><i></i></div><div><i></i><i></i></div><div><i></i><i></i></div></div>
         <div id="gBanner" role="status"></div>
       </section>
+      <section class="panel" id="pFire" aria-label="Fireworks theme">
+        <canvas id="fireCv" aria-hidden="true"></canvas>
+        <canvas id="fire3d" aria-hidden="true" hidden></canvas>
+        <div class="fw-hud" id="fireHud">
+          <div class="fw-top">
+            <div class="fw-play"><span class="k">Play time</span><span class="big" id="fPlay">00:00</span></div>
+            <div class="fw-side">
+              <div><svg class="trophy badge" viewBox="0 0 64 64" aria-hidden="true"><use href="#ico-trophy"/></svg>Goal <b id="fGoal">30:00</b></div>
+              <div id="fGoalLeft">30:00 left</div>
+              <div>Pauses <b id="fPauses">0</b></div>
+            </div>
+          </div>
+          <div class="fw-prog"><span class="k">Finale</span><div class="fw-bar"><i id="fBar"></i></div><b id="fPct">0%</b></div>
+          <div class="fw-stats">
+            <div><span>Shells</span><b id="fShells">0</b></div>
+            <div><span>Colours</span><b id="fCols">0/12</b></div>
+            <div><span>Size</span><b id="fSize">2&Prime;</b></div>
+            <div><span>Intensity</span><b id="fPw">0%</b></div>
+            <div><span>Efficiency</span><b id="fEff">0%</b></div>
+          </div>
+          <div class="fw-line" id="fHeard">Press Start, then play</div>
+          <div class="fw-line dim" id="fHint">Every note you play sends up a firework</div>
+        </div>
+        <div id="fBanner" role="status"></div>
+      </section>
     </div>
     <div id="award" hidden role="status">
       <div class="award-card" id="awardCard">
-        <svg class="trophy" viewBox="0 0 64 64" aria-hidden="true"><path d="M19 13H9c0 10 5 15 12 16M45 13h10c0 10-5 15-12 16" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><path fill="currentColor" d="M18 7h28v15c0 10-6 17-14 17s-14-7-14-17zM29 38h6v9h-6zM22 47h20a2 2 0 0 1 2 2v3H20v-3a2 2 0 0 1 2-2zM17 52h30a2 2 0 0 1 2 2v4H15v-4a2 2 0 0 1 2-2z"/><path d="M25 12v9c0 4 1 7 3 10" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="3" stroke-linecap="round"/></svg>
+        <svg class="trophy" viewBox="0 0 64 64" aria-hidden="true"><use href="#ico-trophy"/></svg>
         <canvas class="px-trophy" id="awardPx" width="16" height="16"></canvas>
         <h3>Trophy earned</h3>
         <p id="awardSub"></p>
