@@ -21,5 +21,7 @@ for (const name of ['favicon.ico', 'favicon.png', 'apple-touch-icon.png'])
   check(html.includes('href="' + name + '"') && fs.existsSync(path.join(__dirname, '..', 'dist', name)), 'page links to built ' + name);
 check(/<meta name="viewport"[^>]*viewport-fit=cover/.test(html), 'viewport tag');
 check(html.includes('cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js'), 'City theme loads three.js r128 from cdnjs');
-check(html.length < 600 * 1024, 'size under 600 KB (' + Math.round(html.length / 1024) + ' KB)');
+// a tripwire against the page growing unnoticed, not a hard limit: this is the raw file (comments and the icon included); GitHub Pages sends it
+// compressed, about a third of this. Main was 525 KB and the Fireworks theme took it to about 608 KB
+check(html.length < 700 * 1024, 'size under 700 KB (' + Math.round(html.length / 1024) + ' KB)');
 process.exit(bad ? 1 : 0);
