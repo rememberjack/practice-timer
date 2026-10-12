@@ -919,9 +919,9 @@ function paintThemes(moved) {
 /* About, from Settings: the credits roll up over the whole screen like the end of a film, round and round while open; a tap pauses them, holding speeds them up.
    With reduced motion they stand still in a box that scrolls */
 const CREDITS = [
-  ['Product and design', [['Product Manager / Product Owner', 'Jack Chen'], ['UX Designer', 'Claude'], ['UI / Visual Designer', 'Claude'], ['Motion / Game Artist (2D and 3D)', 'Claude'], ['UX Writer / Copywriter', 'Claude']]],
+  ['Product and design', [['Product Manager', 'Jack Chen'], ['UX Designer', 'Claude'], ['UI / Visual Designer', 'Claude'], ['Motion / Game Artist (2D and 3D)', 'Claude'], ['UX Writer / Copywriter', 'Claude']]],
   ['Engineering', [['Front-end Developer (JavaScript / HTML / CSS)', 'Claude'], ['Audio / DSP Engineer', 'Claude'], ['Graphics / Game Developer', 'Claude'], ['Mobile Web / iOS Specialist', 'Claude']]],
-  ['Quality and operations', [['Student Beta Tester', 'Jayden Chen'], ['Test Engineer', 'Jack Chen'], ['Test Automation Engineer', 'Claude'], ['DevOps / Release Engineer', 'Claude']]],
+  ['Quality and operations', [['QA Engineer', 'Claude'], ['Human QA Engineer', 'Jack Chen'], ['Student Beta Tester', 'Jayden Chen'], ['Test Automation Engineer', 'Claude'], ['DevOps / Release Engineer', 'Claude']]],
 ];
 $('rollIn').innerHTML = '<li class="t">Music Timer</li><li class="lead">Music Timer counts your practice only while it hears your instrument, so every minute it shows is a minute you played.</li>' + CREDITS.map(([h, rows]) => '<li class="h">' + h + '</li>' +
   rows.map(([r, n]) => '<li><span class="r">' + r + '</span><span class="n">' + n + '</span></li>').join('')).join('') + '<li class="end">Starring you, every time you play.</li>';
