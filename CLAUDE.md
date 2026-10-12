@@ -38,7 +38,7 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
   `musicTimer.newFlight`, and `rocketCarry` skips sessions that had ended by then. Play time, the goal and the trophy stay.
 - Questions asked over a theme (End, a new flight) take its look (`themeSheet`, `.ask[data-skin]`); Settings keeps the Classic look.
 - Opening Settings pauses a running session (`pauseForSheet` in `src/app.js`); closing it resumes, unless the session had been
-  paused by hand. The practice log opens only from the Home Screen.
+  paused by hand. The practice log opens only from the Home Screen and, like Settings, fills the whole screen (`#dlgLog`).
 - Every theme keeps the title row with Settings at the top. During a session Pause (or Resume) is the big button and End the small
   one, and End asks to confirm (`askEnd`, `#dlgEnd`).
 - Settings, Themes (its own page in the Settings sheet, `settingsPage` in `src/app.js`) lets the player turn off themes they don't like. A theme
