@@ -11,7 +11,7 @@ function width(el, f) { const s = Math.round(Math.max(0, Math.min(1, f)) * 1000)
 function left(el, f) { const s = Math.round(Math.max(0, Math.min(1, f)) * 1000) / 10 + '%'; if (cache.get(el) !== s) { cache.set(el, s); el.style.left = s; } }
 
 /* ---------- settings ---------- */
-const DEF = { v: 2, goalMin: 30, name: '', sens: 'normal', hold: '5', record: false, source: 'mic', skin: 'classic', themesOff: '', viz: 'piano', inst: '' };
+const DEF = { v: 2, goalMin: 30, name: '', sens: 'normal', hold: '5', record: false, source: 'mic', skin: 'classic', themesOff: '', viz: 'piano', inst: '', lang: '' };
 const S = Object.assign({}, DEF);
 try { const j = JSON.parse(localStorage.getItem('musicTimer.settings') || 'null');
   if (j && typeof j === 'object') { for (const k in DEF) if (typeof j[k] === typeof DEF[k]) S[k] = j[k];
@@ -19,6 +19,7 @@ try { const j = JSON.parse(localStorage.getItem('musicTimer.settings') || 'null'
   S.v = 2; } catch (e) {}
 if (!(S.goalMin >= 5 && S.goalMin <= 180)) S.goalMin = 30;
 if (['0', '5', '10', '20'].indexOf(S.hold) < 0) S.hold = DEF.hold;
+if (S.lang && !MT.LANGS.some(l => l[0] === S.lang)) S.lang = '';
 function saveS() { try { localStorage.setItem('musicTimer.settings', JSON.stringify(S)); } catch (e) {} }
 /* debug tools, for the developer only: a sheet opened by holding a Settings button down (or by opening the page with ?debug).
    on: they have been opened on this device, so Settings shows a way back to them and the demo sound can be chosen.
@@ -28,6 +29,31 @@ try { const j = JSON.parse(localStorage.getItem('musicTimer.debug') || 'null'); 
 try { const q = new URLSearchParams(location.search).get('debug'); if (q != null) DBG.on = q !== '0'; } catch (e) {}
 if (!DBG.on && S.source === 'demo') S.source = 'mic';     // the demo sound is a debug tool now
 function saveDbg() { try { if (DBG.on) localStorage.setItem('musicTimer.debug', JSON.stringify({ on: true, readout: DBG.readout })); else localStorage.removeItem('musicTimer.debug'); } catch (e) {} }
+
+/* ---------- language: the one chosen in Settings (S.lang), or with none chosen the device's own. Every word comes from MT.tr,
+   which is given in English. The page's own words (in src/template.html) are kept here in English, so they can change language again;
+   what is marked translate="no" is left alone (the debug tools stay in English) ---------- */
+const tr = MT.tr, trn = MT.trn;
+const deviceLangs = () => navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || 'en'];
+const PAGE_WORDS = [];   // { n: a text node, or e and a: an element's attribute; en: its English; cur: what is shown }
+(function collect(n) {
+  if (n.nodeType === 3) { if (/[A-Za-z]/.test(n.nodeValue)) PAGE_WORDS.push({ n: n, en: n.nodeValue, cur: n.nodeValue }); return; }
+  if (n.nodeType !== 1 || /^(script|style|svg)$/i.test(n.nodeName) || n.getAttribute('translate') === 'no') return;   // the debug tools, and figures the app fills in
+  for (const a of ['aria-label', 'title']) if (n.hasAttribute(a)) PAGE_WORDS.push({ e: n, a: a, en: n.getAttribute(a), cur: n.getAttribute(a) });
+  for (const c of n.childNodes) collect(c);
+})(document.body);
+function applyLang() {
+  const id = MT.setLang(MT.pickLang(S.lang, deviceLangs())); document.documentElement.lang = id === 'zh' ? 'zh-CN' : id;
+  for (const w of PAGE_WORDS) { if ((w.n ? w.n.nodeValue : w.e.getAttribute(w.a)) !== w.cur) continue;   // the app has written its own words there since
+    const m = /^(\s*)([\s\S]*?)(\s*)$/.exec(w.en), x = tr(m[2]), cjk = /[\u3000-\u9FFF\uFF00-\uFFEF]/;   // no space beside Chinese
+    const t = (cjk.test(x[0]) ? '' : m[1]) + x + (cjk.test(x[x.length - 1]) ? '' : m[3]); w.cur = t; if (w.n) w.n.nodeValue = t; else w.e.setAttribute(w.a, t); }
+}
+applyLang();
+/* French names the notes do, ré, mi; the others keep the letters */
+const SOLFEGE = { C: 'Do', D: 'R\u00E9', E: 'Mi', F: 'Fa', G: 'Sol', A: 'La', B: 'Si' };
+const noteText = n => n && MT.getLang() === 'fr' && SOLFEGE[n[0]] ? SOLFEGE[n[0]] + n.slice(1) : n;
+const gap = () => MT.both('', '');   // the space between two sentences: none in Chinese
+const listText = a => a.join(tr(', '));
 
 /* ---------- model ---------- */
 const session = new MT.Session(); session.goal = S.goalMin * 60;
@@ -76,11 +102,10 @@ function drawPixelTrophy(cv) { const g = cv.getContext('2d'), pal = { Y: '#FFD23
   TROPHY_PX.forEach((row, j) => { for (let i = 0; i < row.length; i++) if (pal[row[i]]) { g.fillStyle = pal[row[i]]; g.fillRect(i, j, 1, 1); } }); }
 drawPixelTrophy($('rTrophy')); drawPixelTrophy($('awardPx')); drawPixelTrophy($('yTrophy'));
 let awardT = 0;
-function goalText(goal) { return Math.round(goal / 60) + '-minute'; }
 function award(goal) {
-  const place = SKINS[skin] === 'race' && race.racing ? ' You finished the race in P' + (race.finished ? race.finishPos : race.pos) + '.'
-    : SKINS[skin] === 'fireworks' && fw.shells ? ' You sent up ' + fw.shells + (fw.shells === 1 ? ' firework.' : ' fireworks.') : '';
-  $('awardSub').textContent = 'You reached your ' + goalText(goal) + ' practice goal.' + place;
+  const place = SKINS[skin] === 'race' && race.racing ? tr('You finished the race in P{n}.', { n: race.finished ? race.finishPos : race.pos })
+    : SKINS[skin] === 'fireworks' && fw.shells ? trn(fw.shells, 'You sent up {n} firework.', 'You sent up {n} fireworks.') : '', reachedLine = tr('You reached your {n}-minute practice goal.', { n: Math.round(goal / 60) });
+  $('awardSub').textContent = place ? MT.both(reachedLine, place) : reachedLine;
   const el = $('award'); el.hidden = true; void el.offsetWidth; el.hidden = false;          // restart the entrance
   clearTimeout(awardT); awardT = setTimeout(hideAward, 7000);
 }
@@ -111,7 +136,7 @@ async function openMic(ctx) {
   try {
     if (ctx.state === 'suspended') await Promise.race([ctx.resume().catch(() => {}), new Promise(r => setTimeout(r, 1200))]);
     const track = stream.getAudioTracks()[0];
-    if (track) track.onended = () => { if (session.state === 'running' || session.state === 'paused') showNotice('mic', 'The microphone stopped. End the session and start again to reconnect it.', '', null); };
+    if (track) track.onended = () => { if (session.state === 'running' || session.state === 'paused') showNotice('mic', tr('The microphone stopped. End the session and start again to reconnect it.'), '', null); };
     setDetector(ctx.sampleRate);
     const src = ctx.createMediaStreamSource(stream), an = ctx.createAnalyser();
     an.fftSize = A.det.N; an.smoothingTimeConstant = 0; src.connect(an);
@@ -151,19 +176,19 @@ function levelBars() {
 }
 /* iPhone and iPad (iPadOS reports itself as a Mac with touch): every browser there takes its microphone permission from the Settings app */
 const iOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-const MIC_FRAMED = 'The microphone is not available inside this Claude view. Open the standalone Music Timer file in a browser to time real playing.';
+const MIC_FRAMED = () => tr('The microphone is not available inside this Claude view. Open the standalone Music Timer file in a browser to time real playing.');
 function micMessage(e) {
   const n = e && e.name;
-  if (n === 'Insecure') return 'The microphone only works on a secure address (https) or on localhost.';
+  if (n === 'Insecure') return tr('The microphone only works on a secure address (https) or on localhost.');
   if (n === 'NotAllowedError' || n === 'SecurityError' || n === 'Unsupported') {
-    if (framed) return MIC_FRAMED;
-    return n === 'Unsupported' ? 'This browser cannot use the microphone.'
+    if (framed) return MIC_FRAMED();
+    return tr(n === 'Unsupported' ? 'This browser cannot use the microphone.'
       : iOS ? 'Microphone access was not allowed. Open the Settings app, go to Apps, choose this browser and turn on Microphone, then press Start again.'
-      : 'Microphone access was not allowed. Allow the microphone for this page in the browser settings, then press Start again.';
+      : 'Microphone access was not allowed. Allow the microphone for this page in the browser settings, then press Start again.');
   }
-  if (n === 'NotFoundError') return 'No microphone was found on this device.';
-  if (n === 'NotReadableError') return 'Another app is using the microphone. Close it and press Start again.';
-  return 'The microphone could not be started' + (n ? ' (' + n + ')' : '') + '. Press Start to try again.';
+  if (n === 'NotFoundError') return tr('No microphone was found on this device.');
+  if (n === 'NotReadableError') return tr('Another app is using the microphone. Close it and press Start again.');
+  return n ? tr('The microphone could not be started ({n}). Press Start to try again.', { n: n }) : tr('The microphone could not be started. Press Start to try again.');
 }
 function useDemoAction() { setSource('demo'); hideNotice('mic'); }
 /* a microphone problem; with the debug tools on, it also offers the demo sound */
@@ -185,7 +210,7 @@ function startRecording() {
     mr.onstop = () => { const tp = mr.mimeType || type || 'audio/webm'; rec.ext = tp.indexOf('mp4') >= 0 ? 'mp4' : 'webm';
       if (rec.chunks.length) { rec.blob = new Blob(rec.chunks, { type: tp }); showRecording(); } };
     mr.start(1000); rec.mr = mr;
-  } catch (e) { rec.mr = null; toast('Recording is not available here'); }
+  } catch (e) { rec.mr = null; toast(tr('Recording is not available here')); }
 }
 function recCall(fn) { try { if (rec.mr && rec.mr.state !== 'inactive') rec.mr[fn](); } catch (e) {} }
 
@@ -208,8 +233,8 @@ async function start() {
   race.reset(session.goal, 1 + Math.floor(Math.random() * 2e9)); raceView.reset(); raceNotes = 0; hideRaceBanner();   // a new field each session
   fw.reset(session.goal, 1 + Math.floor(Math.random() * 2e9)); fwView.reset(); fwNotes = 0; hideFireBanner();
   music = false; goalHit = false; awardWait = 0; vote = {}; bars.fill(0); hideAward();
-  if (carried) banner('Carrying on from earlier today');
-  heard.label = 'Listening'; heard.detail = 'Play your instrument to start the clock'; heard.note = ''; heard.midi = null;
+  if (carried) banner(tr('Carrying on from earlier today'));
+  heard.label = tr('Listening'); heard.detail = tr('Play your instrument to start the clock'); heard.note = ''; heard.midi = null;
   startRecording();
   lastT = performance.now(); clearInterval(timer); timer = setInterval(tick, 46);
   keepAwake(); paintControls(); push(); writeLive();
@@ -243,7 +268,7 @@ function tick() {
       heard.label = r.label; heard.detail = r.detail; heard.note = r.isMusic ? r.note : '';   // a note name only for an instrument, not for talking or noise
       heard.midi = r.pitch > 0 ? 69 + 12 * Math.log2(r.pitch / 440) : null; levelBars();
       if (onsets.feed(dt, { music: m, midi: heard.midi, levelDb: r.levelDb })) { pendingOnsets++; onsetN++; raceNotes++; fwNotes++; }
-      if (A.kind === 'mic' && A.ctx && A.ctx.state !== 'running') { m = false; heard.label = 'The microphone is asleep'; heard.detail = 'Press Pause, then Resume to wake it'; heard.note = ''; heard.midi = null; }
+      if (A.kind === 'mic' && A.ctx && A.ctx.state !== 'running') { m = false; heard.label = tr('The microphone is asleep'); heard.detail = tr('Press Pause, then Resume to wake it'); heard.note = ''; heard.midi = null; }
       if (m && r.instrument) vote[r.instrument] = (vote[r.instrument] || 0) + dt; }
     let best = '', bs = 0; for (const k in vote) { vote[k] *= Math.exp(-dt / 25); if (vote[k] > bs) { bs = vote[k]; best = k; } }
     if (best && best !== kbInst && bs >= 1.2 && bs > (vote[kbInst] || 0) * 1.25 + 0.4) { kbInst = best; S.inst = best; saveS(); }
@@ -251,7 +276,7 @@ function tick() {
   const away = dt >= 1.5 && session.state === 'running';   // the page was asleep or in the background: that time counts like a pause
   if (away) { session.away(dt * w); music = false; }
   else music = session.tick(dt * w, m);        // a short quiet after playing still counts (the hold set in Settings)
-  if (session.holdLeft > 0) heard.detail = 'Short pauses still count as playing';
+  if (session.holdLeft > 0) heard.detail = tr('Short pauses still count as playing');
   const pw = session.recentEfficiency;   // the rocket, cannons and course follow the last minute of playing
   sim.update(away ? 0 : dt * w, { running: session.state === 'running', playing: m, eff: pw, rdt: dt });
   race.update(away ? 0 : dt * w, { state: session.state, music: music, recent: pw, play: session.play });   // the race runs on session time, like the clock
@@ -286,7 +311,7 @@ function onPeers(ch) {
   if (mode === 'follow') {
     let cur = null; for (const p of peers) if (p.peer === followPeer) cur = p;
     const m = cur && parseRemote(cur.presence && cur.presence.mt);
-    if (m) applyRemote(m); else if (R && R.st !== 'stopped') { R.st = 'stopped'; R.music = false; R.label = 'The session has ended'; R.detail = ''; paintControls(); }
+    if (m) applyRemote(m); else if (R && R.st !== 'stopped') { R.st = 'stopped'; R.music = false; R.label = tr('The session has ended'); R.detail = ''; paintControls(); }
     return;
   }
   let best = null;
@@ -294,7 +319,7 @@ function onPeers(ch) {
     if (m && m.st !== 'stopped' && (!best || p.updatedAt > best.updatedAt)) best = p; }
   const idle = session.state === 'idle' || session.state === 'stopped';
   if (best && idle && !followDismissed) { if (offerPeer !== best.peer || noticeKind !== 'follow') { offerPeer = best.peer;
-    showNotice('follow', 'A practice session is live on another device.', 'Follow', () => startFollow(offerPeer)); } }
+    showNotice('follow', tr('A practice session is live on another device.'), tr('Follow'), () => startFollow(offerPeer)); } }
   else if (!best) { offerPeer = ''; followDismissed = false; hideNotice('follow'); }
   else if (!idle) hideNotice('follow');
 }
@@ -340,7 +365,7 @@ const EVENT_TEXT = { ignition: 'Engines lit', liftoff: 'Lift-off!', tower: 'Towe
 let flightAt = -1e9;   // when a new flight was started, so its banner is not replaced at once by "Engines lit"
 /* the rocket's own effects (explosions, falling stages, the flash) only while Rocket is on screen: they age only as it is drawn,
    so effects from another theme would all play at once on switching to Rocket */
-function fire(e) { if (EVENT_TEXT[e] && !(e === 'ignition' && performance.now() - flightAt < 3000)) banner(EVENT_TEXT[e]); if (visible(1)) rocket.event(e); }
+function fire(e) { if (EVENT_TEXT[e] && !(e === 'ignition' && performance.now() - flightAt < 3000)) banner(tr(EVENT_TEXT[e])); if (visible(1)) rocket.event(e); }
 
 /* ---------- screen ---------- */
 const clockEl = $('cClock'); let clockTxt = '';
@@ -350,7 +375,7 @@ function clock(t) {
   else for (let i = 0; i < t.length; i++) if (t[i] !== clockTxt[i]) clockEl.children[i].textContent = t[i];
   clockTxt = t;
 }
-const NEXT = [['tower', 'Clearing the tower'], ['stage1', 'Stage 1 separation'], ['space', 'Leaving the atmosphere'], ['stage2', 'Stage 2 separation'], ['orbit', 'Moon orbit']];
+const NEXT = [['tower', 'Clearing the tower in {t}'], ['stage1', 'Stage 1 separation in {t}'], ['space', 'Leaving the atmosphere in {t}'], ['stage2', 'Stage 2 separation in {t}'], ['orbit', 'Moon orbit in {t}']];
 function paint() {
   if (mode === 'follow' && R) { V.st = R.st; V.play = R.play; V.active = R.active; V.total = R.total; V.pauses = R.pauses; V.goal = R.goal;
     V.eff = R.active > 0 ? Math.min(1, R.play / R.active) : 0; V.pw = R.pw; V.music = R.music && R.st === 'running'; V.hold = false; V.label = R.label; V.detail = R.detail; V.note = R.note; V.midi = R.midi; V.inst = R.inst; }
@@ -362,35 +387,35 @@ function paint() {
   const won = V.st !== 'idle' && V.play >= V.goal ? '1' : '0'; if (app.dataset.goal !== won) app.dataset.goal = won;
 
   let status, label = V.label, detail = V.detail, note = st === 'running' ? V.note : '';
-  if (st === 'idle') { status = 'Ready when you are'; label = 'Press Start, then play'; detail = 'The timer only counts while an instrument is heard.'; }
-  else if (st === 'running') status = V.hold ? 'Counting: a short pause' : V.music ? 'Counting: music heard' : 'Waiting for music';
-  else if (st === 'paused') { status = 'Paused'; label = 'Not listening'; detail = 'Sound is ignored until you resume.'; }
-  else { status = 'Session finished'; label = fol ? 'The session has ended' : 'Nicely done'; detail = fol ? '' : 'Start again whenever you like.'; }
-  if (fol) status = 'Following live' + (R && R.name ? ' (' + R.name + ')' : '') + ': ' + status.toLowerCase();
+  if (st === 'idle') { status = tr('Ready when you are'); label = tr('Press Start, then play'); detail = tr('The timer only counts while an instrument is heard.'); }
+  else if (st === 'running') status = tr(V.hold ? 'Counting: a short pause' : V.music ? 'Counting: music heard' : 'Waiting for music');
+  else if (st === 'paused') { status = tr('Paused'); label = tr('Not listening'); detail = tr('Sound is ignored until you resume.'); }
+  else { status = tr('Session finished'); label = tr(fol ? 'The session has ended' : 'Nicely done'); detail = fol ? '' : tr('Start again whenever you like.'); }
+  if (fol) status = tr(R && R.name ? 'Following live ({name}): {status}' : 'Following live: {status}', { name: R && R.name, status: status.toLowerCase() });
 
   const play = fmt(V.play), reached = V.play >= V.goal && st !== 'idle';
   clock(play); text($('cTenths'), '.' + Math.floor(V.play * 10) % 10);
-  text($('cMic'), st === 'running' ? (V.music ? 'Music' : fol ? 'Live' : S.source === 'demo' ? 'Demo' : 'Listening') : st === 'paused' ? 'Paused' : 'Mic off');
-  text($('cStatus'), status); text($('cHeard'), label); text($('cDetail'), detail); text($('cNote'), note);
+  text($('cMic'), tr(st === 'running' ? (V.music ? 'Music' : fol ? 'Live' : S.source === 'demo' ? 'Demo' : 'Listening') : st === 'paused' ? 'Paused' : 'Mic off'));
+  text($('cStatus'), status); text($('cHeard'), label); text($('cDetail'), detail); text($('cNote'), noteText(note));
   text($('cEff'), (V.eff * 100).toFixed(1) + '%'); width($('cEffBar'), V.eff);
-  text($('cGoalV'), fmt(V.goal)); text($('cGoal'), reached ? '' : fmt(Math.ceil(V.goal - V.play)) + ' left'); text($('cGoalK'), reached ? 'Goal reached' : 'Practice goal'); width($('cGoalBar'), V.play / V.goal);
+  text($('cGoalV'), fmt(V.goal)); text($('cGoal'), reached ? '' : goalLeft(V)); text($('cGoalK'), tr(reached ? 'Goal reached' : 'Practice goal')); width($('cGoalBar'), V.play / V.goal);
   text($('cActive'), fmt(V.active));
-  text($('cTotal'), fmt(V.total)); text($('cPauses'), V.pauses === 1 ? '1 pause' : V.pauses + ' pauses');
+  text($('cTotal'), fmt(V.total)); text($('cPauses'), trn(V.pauses, '{n} pause', '{n} pauses'));
 
   const rp = $('rPlay'), rpc = play.length > 5 ? 'big long' : 'big'; text(rp, play); if (rp.className !== rpc) rp.className = rpc;
-  text($('rActive'), fmt(V.active)); text($('rGoal'), fmt(V.goal)); text($('rGoalLeft'), reached ? 'Reached' : fmt(Math.ceil(V.goal - V.play)) + ' left'); text($('rTotal'), fmt(V.total)); text($('rPauses'), String(V.pauses));
-  const km = sim.kmAt(sim.l); text($('rAltK'), km < 1 ? 'Alt m' : 'Alt km'); text($('rAlt'), km < 1 ? String(Math.round(km * 1000)) : km < 100 ? km.toFixed(1) : Math.round(km).toLocaleString('en-US'));
+  text($('rActive'), fmt(V.active)); text($('rGoal'), fmt(V.goal)); text($('rGoalLeft'), reached ? tr('Reached') : goalLeft(V)); text($('rTotal'), fmt(V.total)); text($('rPauses'), String(V.pauses));
+  const km = sim.kmAt(sim.l); text($('rAltK'), tr(km < 1 ? 'Alt m' : 'Alt km')); text($('rAlt'), km < 1 ? String(Math.round(km * 1000)) : km < 100 ? km.toFixed(1) : Math.round(km).toLocaleString(MT.getLang() === 'en' ? 'en-US' : loc()));
   powerBar('r', V.pw >= MT.LIFTOFF ? 'go' : '');
-  text($('rHeard'), st === 'running' ? label : st === 'paused' ? 'Paused: not listening' : st === 'idle' ? 'Press Start, then play' : 'Session finished');
+  text($('rHeard'), heardLine(st, label));
   let next = '';
-  if (st === 'idle') next = sim.mode !== 'pad' ? 'Carrying on from earlier today' : 'Power follows your last minute';
-  else if (sim.mode === 'pad') next = sim.down > 0 ? 'Rolling out a new rocket' : !fol && sim.ignited && sim.hold > 0 ? 'Lift-off in ' + Math.max(1, Math.ceil(3 - sim.hold)) : 'Lift-off at ' + Math.round(MT.LIFTOFF * 100) + '% engine power';
-  else if (sim.mode === 'fall') next = 'Falling back to Earth';
-  else if (sim.mode === 'orbit') next = sim.spinUp > 0 ? 'In Moon orbit, module spinning' : 'In orbit around the Moon';
-  else if (V.pw < 0.5) next = 'Power below 50%: drifting';
-  else if (st === 'running' && !V.music && !sim.inSpace) next = 'Losing power: falls below 50%';
-  else if (st === 'running' && !V.music) next = 'Losing power. Keep playing';
-  else for (const n of NEXT) { const at = MT.MILESTONES[n[0]]; if (sim.fp < at) { next = n[1] + ' in ' + fmt(Math.ceil(at - sim.fp)); break; } }
+  if (st === 'idle') next = tr(sim.mode !== 'pad' ? 'Carrying on from earlier today' : 'Power follows your last minute');
+  else if (sim.mode === 'pad') next = sim.down > 0 ? tr('Rolling out a new rocket') : !fol && sim.ignited && sim.hold > 0 ? tr('Lift-off in {n}', { n: Math.max(1, Math.ceil(3 - sim.hold)) }) : tr('Lift-off at {n}% engine power', { n: Math.round(MT.LIFTOFF * 100) });
+  else if (sim.mode === 'fall') next = tr('Falling back to Earth');
+  else if (sim.mode === 'orbit') next = tr(sim.spinUp > 0 ? 'In Moon orbit, module spinning' : 'In orbit around the Moon');
+  else if (V.pw < 0.5) next = tr('Power below 50%: drifting');
+  else if (st === 'running' && !V.music && !sim.inSpace) next = tr('Losing power: falls below 50%');
+  else if (st === 'running' && !V.music) next = tr('Losing power. Keep playing');
+  else for (const n of NEXT) { const at = MT.MILESTONES[n[0]]; if (sim.fp < at) { next = tr(n[1], { t: fmt(Math.ceil(at - sim.fp)) }); break; } }
   text($('rNext'), next);
   const nf = flying(); if ($('rFlight').hidden === nf) { $('rFlight').hidden = !nf; $('hud').classList.toggle('has-flight', nf); }   // New flight, once off the pad
   if (visible(2)) paintCity(st, fol, label);
@@ -398,6 +423,9 @@ function paint() {
   if (visible(4)) paintRace(st, label);
   if (visible(5)) paintFire(st, label);
 }
+/* the line under each theme's read-outs: what is heard while running, else the session's state */
+function heardLine(st, label) { return st === 'running' ? label : tr(st === 'paused' ? 'Paused: not listening' : st === 'idle' ? 'Press Start, then play' : 'Session finished'); }
+function goalLeft(v) { return tr('{t} left', { t: fmt(Math.ceil(v.goal - v.play)) }); }   // the play time still to go to the goal
 /* the Rocket and City power bars: the fill and Power are the last minute of playing, the tick and Efficiency the whole session */
 function powerBar(p, cls) {
   const fill = $(p + 'Pw'), tick = $(p + 'Avg'), on = V.active > 0; width(fill, V.pw); if (fill.className !== cls) fill.className = cls;
@@ -406,24 +434,25 @@ function powerBar(p, cls) {
 }
 /* dash theme */
 function dashStep(dt, running, mus, eff, progress) { const on = pendingOnsets; pendingOnsets = 0; dashAt = performance.now(); dash.update(Math.min(0.1, dt), { running: running, music: mus, eff: eff, onsets: on, progress: progress }); }
-function dashResult() { const pct = Math.min(100, Math.floor(dash.progress * 100)), a = dash.attempts; return (dash.done ? 'Level complete in ' : pct + '% in ') + a + (a === 1 ? ' attempt' : ' attempts'); }
+function dashResult() { const pct = Math.min(100, Math.floor(dash.progress * 100)), a = dash.attempts;
+  return dash.done ? trn(a, 'Level complete in {n} attempt', 'Level complete in {n} attempts') : trn(a, '{pct}% in {n} attempt', '{pct}% in {n} attempts', { pct: pct }); }
 let dBannerT = 0;
 function dashBanner(msg) { const b = $('dBanner'); b.textContent = msg; b.classList.add('on'); clearTimeout(dBannerT); dBannerT = setTimeout(() => b.classList.remove('on'), 3200); }
 function paintDash(st, label) {
   const p = V.goal > 0 ? V.play / V.goal : 0, playTxt = fmt(V.play), el = $('dPlay'), cls = playTxt.length > 5 ? 'big long' : 'big', reached = st !== 'idle' && V.play >= V.goal;
   text(el, playTxt); if (el.className !== cls) el.className = cls;
   width($('dBar'), p); text($('dPct'), Math.min(100, Math.floor(p * 100)) + '%');
-  text($('dGoal'), fmt(V.goal)); text($('dGoalLeft'), reached ? 'Reached' : fmt(Math.ceil(V.goal - V.play)) + ' left'); text($('dPauses'), String(V.pauses));
+  text($('dGoal'), fmt(V.goal)); text($('dGoalLeft'), reached ? tr('Reached') : goalLeft(V)); text($('dPauses'), String(V.pauses));
   text($('dAtt'), String(dash.attempts)); text($('dJumps'), String(dash.jumps)); text($('dSpeed'), dash.tag); text($('dPw'), Math.round(V.pw * 100) + '%'); text($('dEff'), Math.round(V.eff * 100) + '%');
-  text($('dHeard'), st === 'running' ? label : st === 'paused' ? 'Paused: not listening' : st === 'idle' ? 'Press Start, then play' : 'Session finished');
+  text($('dHeard'), heardLine(st, label));
   let hint;
-  if (st === 'idle') hint = 'Play to run the course';
-  else if (st === 'paused') hint = 'Paused: checkpoint saved';
+  if (st === 'idle') hint = tr('Play to run the course');
+  else if (st === 'paused') hint = tr('Paused: checkpoint saved');
   else if (st === 'stopped') hint = dashResult();
-  else if (dash.mode === 'crash' || dash.mode === 'wait') hint = 'Crashed. Play to try again';
-  else if (dash.mode === 'idle') hint = 'Play to start running';
-  else if (dash.silentT > 0) hint = 'Keep playing! Spike in ' + Math.max(1, Math.ceil(MT.DASH.GRACE - dash.silentT));
-  else hint = dash.done ? 'Level complete! Bonus run' : 'Every new note is a jump';
+  else if (dash.mode === 'crash' || dash.mode === 'wait') hint = tr('Crashed. Play to try again');
+  else if (dash.mode === 'idle') hint = tr('Play to start running');
+  else if (dash.silentT > 0) hint = tr('Keep playing! Spike in {n}', { n: Math.max(1, Math.ceil(MT.DASH.GRACE - dash.silentT)) });
+  else hint = tr(dash.done ? 'Level complete! Bonus run' : 'Every new note is a jump');
   text($('dHint'), hint);
 }
 /* Grand Prix read-outs: the timing screen, the race order, the start lights and the banners */
@@ -435,49 +464,50 @@ function raceBanner(msg, sub, kind, ms) {
 function hideRaceBanner() { clearTimeout(gBannerT); $('gBanner').classList.remove('on'); }
 function raceEvent(e) {
   if (visible(4)) raceView.event(e);
-  if (e === 'go') raceBanner('Lights out', 'And away you go', 'red', 1800);
-  else if (e === 'up' && !race.finished) raceBanner('Up to P' + race.pos, race.pos === 1 ? 'You lead the race' : '', '', 1600);
-  else if (e === 'red') raceBanner('Red flag', 'The race is paused', 'red', 0);
-  else if (e === 'green') raceBanner('Green flag', 'Rejoining the race in P' + race.pos, 'green', 1800);
+  if (e === 'go') raceBanner(tr('Lights out'), tr('And away you go'), 'red', 1800);
+  else if (e === 'up' && !race.finished) raceBanner(tr('Up to P{n}', { n: race.pos }), race.pos === 1 ? tr('You lead the race') : '', '', 1600);
+  else if (e === 'red') raceBanner(tr('Red flag'), tr('The race is paused'), 'red', 0);
+  else if (e === 'green') raceBanner(tr('Green flag'), tr('Rejoining the race in P{n}', { n: race.pos }), 'green', 1800);
   else if (e === 'finish') raceDoneAt = performance.now();   // the trophy card names the place
 }
+const gapText = l => Math.abs(l) >= 1 ? MT.raceGap(l) : tr('{n} s', { n: MT.raceGap(l) });   // seconds, or whole laps
 function raceHint(st) {
-  const a = race.ahead, b = race.behind, laps = Math.floor(race.dist / MT.RACE.LAPU), lapsTxt = laps + (laps === 1 ? ' lap' : ' laps');
-  if (st === 'idle') return 'You start at the back of the grid. Play to start the race';
-  if (st === 'stopped') return race.racing ? (race.finished ? 'Finished P' + race.finishPos : 'P' + race.pos) + ' after ' + lapsTxt : 'Press Start for a new race';
-  if (race.mode === 'grid' || race.mode === 'lights') return st === 'paused' ? 'Paused on the grid' : race.lit < 5 ? 'Keep playing to light the start lights: ' + race.lit + ' of 5' : 'Lights out any moment now';
-  if (race.mode === 'red') return race.pit && race.pit.phase === 'in' ? 'Red flag. Heading into the pit lane' : 'Waiting in the pit. Every car holds its place';
-  if (race.inPit) return (race.limiter ? 'Pit lane speed limit. ' : 'Leaving the pit lane. ') + 'Rejoining in P' + race.pos;
-  if (race.finished && performance.now() - raceDoneAt < 8000) return 'Chequered flag. You finished P' + race.finishPos;
-  if (!V.music) return b && -b.lead * MT.RACE.LAPU / MT.RACE.VNOM < 1.2 ? 'Quiet seconds slow you. ' + b.code + ' is ' + MT.raceGap(b.lead) + ' s behind' : 'Quiet seconds are slowing you down';
-  if (!a) return b ? 'Leading the race by ' + MT.raceGap(b.lead) + (Math.abs(b.lead) >= 1 ? '' : ' s') : 'Leading the race';
-  if (a.lead * MT.RACE.LAPU / MT.RACE.VNOM < 1) return 'DRS open. ' + a.code + ' is ' + MT.raceGap(a.lead) + ' s ahead';
-  return 'Chasing ' + a.code + ' for P' + (race.pos - 1);
+  const a = race.ahead, b = race.behind, laps = trn(Math.floor(race.dist / MT.RACE.LAPU), '{n} lap', '{n} laps');
+  if (st === 'idle') return tr('You start at the back of the grid. Play to start the race');
+  if (st === 'stopped') return race.racing ? tr(race.finished ? 'Finished P{p} after {laps}' : 'P{p} after {laps}', { p: race.finished ? race.finishPos : race.pos, laps: laps }) : tr('Press Start for a new race');
+  if (race.mode === 'grid' || race.mode === 'lights') return st === 'paused' ? tr('Paused on the grid') : race.lit < 5 ? tr('Keep playing to light the start lights: {n} of 5', { n: race.lit }) : tr('Lights out any moment now');
+  if (race.mode === 'red') return tr(race.pit && race.pit.phase === 'in' ? 'Red flag. Heading into the pit lane' : 'Waiting in the pit. Every car holds its place');
+  if (race.inPit) return tr(race.limiter ? 'Pit lane speed limit. Rejoining in P{n}' : 'Leaving the pit lane. Rejoining in P{n}', { n: race.pos });
+  if (race.finished && performance.now() - raceDoneAt < 8000) return tr('Chequered flag. You finished P{n}', { n: race.finishPos });
+  if (!V.music) return b && -b.lead * MT.RACE.LAPU / MT.RACE.VNOM < 1.2 ? tr('Quiet seconds slow you. {code} is {gap} behind', { code: b.code, gap: gapText(b.lead) }) : tr('Quiet seconds are slowing you down');
+  if (!a) return b ? tr('Leading the race by {gap}', { gap: gapText(b.lead) }) : tr('Leading the race');
+  if (a.lead * MT.RACE.LAPU / MT.RACE.VNOM < 1) return tr('DRS open. {code} is {gap} ahead', { code: a.code, gap: gapText(a.lead) });
+  return tr('Chasing {code} for P{n}', { code: a.code, n: race.pos - 1 });
 }
 function paintRace(st, label) {
   const playTxt = fmt(V.play), el = $('gPlay'), cls = playTxt.length > 5 ? 'big long' : 'big', reached = st !== 'idle' && V.play >= V.goal;
   text(el, playTxt); if (el.className !== cls) el.className = cls;
-  text($('gLap'), race.lap + (race.finished ? ', extra' : '')); width($('gBar'), V.goal > 0 ? V.play / V.goal : 0);
+  text($('gLap'), race.finished ? tr('{n}, extra', { n: race.lap }) : String(race.lap)); width($('gBar'), V.goal > 0 ? V.play / V.goal : 0);
   const box = $('gBarBox'); if (box.classList.contains('flag') !== race.finished) box.classList.toggle('flag', race.finished);   // chequered once the goal is reached
-  text($('gGoal'), fmt(V.goal)); text($('gGoalLeft'), reached ? 'Reached' : fmt(Math.ceil(V.goal - V.play)) + ' left'); text($('gPauses'), String(V.pauses));
+  text($('gGoal'), fmt(V.goal)); text($('gGoalLeft'), reached ? tr('Reached') : goalLeft(V)); text($('gPauses'), String(V.pauses));
   text($('gPos'), 'P' + race.pos);
-  const gapIn = c => !race.racing || !c ? '\u2013' : MT.raceGap(c.lead) + (Math.abs(c.lead) < 1 ? ' s' : '');   // seconds, or whole laps
+  const gapIn = c => !race.racing || !c ? '\u2013' : gapText(c.lead);
   text($('gGap'), gapIn(race.ahead)); text($('gBehind'), gapIn(race.behind));
   text($('gPw'), Math.round(V.pw * 100) + '%'); text($('gEff'), Math.round(V.eff * 100) + '%');
-  text($('gHeard'), st === 'running' ? label : st === 'paused' ? 'Paused: not listening' : st === 'idle' ? 'Press Start, then play' : 'Session finished');
+  text($('gHeard'), heardLine(st, label));
   text($('gHint'), raceHint(st));
   const red = race.mode === 'red' ? 'red' : ''; if ((app.dataset.flag || '') !== red) app.dataset.flag = red;
   const L = $('gLights'), lights = race.mode === 'lights' && st !== 'idle'; if (L.hidden === lights) L.hidden = !lights;
   if (lights) [...L.children].forEach((p, i) => { if (p.classList.contains('on') !== i < race.lit) p.classList.toggle('on', i < race.lit); });
   // the race order: the leader, and you with the cars either side of you
-  const all = race.cars.map(c => ({ code: c.code, lead: c.lead, col: c.c1, me: false })); all.push({ code: 'YOU', lead: 0, col: MT.RACE.YOU[2], me: true });
+  const all = race.cars.map(c => ({ code: c.code, lead: c.lead, col: c.c1, me: false })); all.push({ code: tr('YOU'), lead: 0, col: MT.RACE.YOU[2], me: true });
   all.sort((p, q) => q.lead - p.lead);
   const me = all.findIndex(o => o.me), rows = new Set([0]);
   if (me <= 3) [1, 2, 3].forEach(i => rows.add(i)); else [me - 1, me, me + 1].forEach(i => { if (i < all.length) rows.add(i); });
   let html = '', last = -1;
   for (const i of [...rows].sort((p, q) => p - q)) {
     if (i > last + 1) html += '<li class="gap"></li>';
-    const o = all[i], gap = o.me && race.inPit ? 'PIT' : !race.racing ? '' : i === 0 ? 'Leader' : '+' + MT.raceGap(all[i - 1].lead - o.lead);
+    const o = all[i], gap = o.me && race.inPit ? tr('PIT') : !race.racing ? '' : i === 0 ? tr('Leader') : '+' + MT.raceGap(all[i - 1].lead - o.lead);
     html += '<li' + (o.me ? ' class="me"' : '') + '><span class="p">' + (i + 1) + '</span><span class="s" style="background:' + o.col + '"></span><span class="c">' + o.code + '</span><span class="g">' + gap + '</span></li>';
     last = i;
   }
@@ -490,22 +520,22 @@ function fireBanner(msg) { const b = $('fBanner'); b.textContent = msg; b.classL
 function hideFireBanner() { clearTimeout(fBannerT); $('fBanner').classList.remove('on'); }
 function fireHint(st) {
   const shells = fw.shells;
-  if (st === 'idle') return 'Every note you play sends up a firework';
-  if (st === 'stopped') return shells ? shells + (shells === 1 ? ' firework lit up the sky' : ' fireworks lit up the sky') : 'Press Start for a new show';
-  if (st === 'paused') return fw.inFinale ? 'Paused. The finale waits for you' : 'Paused. The sky waits for you';
-  if (fw.inFinale) return 'Grand finale!';
-  if (!V.music) return 'The sky is waiting. Play a note';
-  if (fw.finaleDone) return 'Goal reached. Every note is an encore';
-  if (V.pw < 0.3) return 'Keep playing: the more you play, the more fireworks';
-  return 'Every note has its own colour';
+  if (st === 'idle') return tr('Every note you play sends up a firework');
+  if (st === 'stopped') return shells ? trn(shells, '{n} firework lit up the sky', '{n} fireworks lit up the sky') : tr('Press Start for a new show');
+  if (st === 'paused') return tr(fw.inFinale ? 'Paused. The finale waits for you' : 'Paused. The sky waits for you');
+  if (fw.inFinale) return tr('Grand finale!');
+  if (!V.music) return tr('The sky is waiting. Play a note');
+  if (fw.finaleDone) return tr('Goal reached. Every note is an encore');
+  if (V.pw < 0.3) return tr('Keep playing: the more you play, the more fireworks');
+  return tr('Every note has its own colour');
 }
 function paintFire(st, label) {
   const p = V.goal > 0 ? V.play / V.goal : 0, playTxt = fmt(V.play), el = $('fPlay'), cls = playTxt.length > 5 ? 'big long' : 'big', reached = st !== 'idle' && V.play >= V.goal;
   text(el, playTxt); if (el.className !== cls) el.className = cls;
   width($('fBar'), p); text($('fPct'), Math.min(100, Math.floor(p * 100)) + '%');
-  text($('fGoal'), fmt(V.goal)); text($('fGoalLeft'), reached ? 'Reached' : fmt(Math.ceil(V.goal - V.play)) + ' left'); text($('fPauses'), String(V.pauses));
+  text($('fGoal'), fmt(V.goal)); text($('fGoalLeft'), reached ? tr('Reached') : goalLeft(V)); text($('fPauses'), String(V.pauses));
   text($('fShells'), String(fw.shells)); text($('fPw'), Math.round(V.pw * 100) + '%'); text($('fEff'), Math.round(V.eff * 100) + '%');
-  text($('fHeard'), st === 'running' ? label : st === 'paused' ? 'Paused: not listening' : st === 'idle' ? 'Press Start, then play' : 'Session finished');
+  text($('fHeard'), heardLine(st, label));
   text($('fHint'), fireHint(st));
 }
 /* city theme read-outs */
@@ -515,32 +545,32 @@ function cityBanner(msg, force) { const now = performance.now(); if (!force && n
   const b = $('yBanner'); b.textContent = msg; b.classList.add('on'); clearTimeout(cityBannerT); cityBannerT = setTimeout(() => b.classList.remove('on'), 2600); }
 function paintCity(st, fol, label) {
   const cs = city.stats, armed = st === 'running' && V.music;
-  while (city.events.length) { const e = city.events.shift(); if (CITY_TEXT[e]) cityBanner(CITY_TEXT[e], e === 'cannonBack' || e === 'rebuilt'); }
-  if (armed && !cityWasArmed && st === 'running') cityBanner('Cannons firing'); cityWasArmed = armed;
+  while (city.events.length) { const e = city.events.shift(); if (CITY_TEXT[e]) cityBanner(tr(CITY_TEXT[e]), e === 'cannonBack' || e === 'rebuilt'); }
+  if (armed && !cityWasArmed && st === 'running') cityBanner(tr('Cannons firing')); cityWasArmed = armed;
   const playTxt = fmt(V.play), playEl = $('yPlay'), longCls = playTxt.length > 5 ? 'big long' : 'big'; text(playEl, playTxt); if (playEl.className !== longCls) playEl.className = longCls;
   text($('yDown'), String(cs.down)); text($('yImp'), String(cs.imp));
   text($('yBld'), city.ready ? cs.standing + '/' + cs.total : '-');
   const can = $('yCan'), cc = cs.cannons === 3 ? 'ok' : cs.cannons === 0 ? 'bad' : ''; text(can, cs.cannons + '/3'); if (can.className !== cc) can.className = cc;
   powerBar('y', V.pw >= 0.8 ? 'go' : V.pw >= 0.5 ? 'ok' : '');
   const reached = st !== 'idle' && V.play >= V.goal;
-  text($('yGoal'), fmt(V.goal)); text($('yGoalLeft'), reached ? 'Reached' : fmt(Math.ceil(V.goal - V.play)) + ' left'); text($('yPauses'), String(V.pauses));
-  text($('yHeard'), st === 'running' ? label : st === 'paused' ? 'Paused: not listening' : st === 'idle' ? 'Press Start, then play' : 'Session finished');
+  text($('yGoal'), fmt(V.goal)); text($('yGoalLeft'), reached ? tr('Reached') : goalLeft(V)); text($('yPauses'), String(V.pauses));
+  text($('yHeard'), heardLine(st, label));
   let hint;
-  if (st === 'idle') hint = 'Play to defend the city';
-  else if (st === 'paused') hint = 'Paused: the sky is frozen';
-  else if (st === 'stopped') hint = cs.down + ' shot down, ' + cs.imp + (cs.imp === 1 ? ' impact' : ' impacts');
-  else if (!V.music) hint = 'Cannons silent. Play to fire';
-  else if (city.next) hint = (city.next.what === 'cannon' ? 'Cannon back in ' : 'Next rebuild in ') + fmt(Math.ceil(city.next.left)) + ' of play';
-  else hint = 'Cannons firing';
+  if (st === 'idle') hint = tr('Play to defend the city');
+  else if (st === 'paused') hint = tr('Paused: the sky is frozen');
+  else if (st === 'stopped') hint = tr('{down} shot down, {impacts}', { down: cs.down, impacts: trn(cs.imp, '{n} impact', '{n} impacts') });
+  else if (!V.music) hint = tr('Cannons silent. Play to fire');
+  else if (city.next) hint = tr(city.next.what === 'cannon' ? 'Cannon back in {t} of play' : 'Next rebuild in {t} of play', { t: fmt(Math.ceil(city.next.left)) });
+  else hint = tr('Cannons firing');
   text($('yHint'), hint);
-  const msg = $('yMsg'), m = city.failed ? 'The 3D city could not load. It needs an internet connection.' : !city.ready ? 'Building the city\u2026' : '';
+  const msg = $('yMsg'), m = city.failed ? tr('The 3D city could not load. It needs an internet connection.') : !city.ready ? tr('Building the city\u2026') : '';
   if (msg.hidden !== !m) msg.hidden = !m; if (m) text(msg, m);
 }
 function drawCity(dt) { if (!city.ready) { city.ensure(); return; } city.frame(dt, { running: V.st === 'running', music: V.music, power: V.pw }); }
 function paintControls() {
   const st = mode === 'follow' ? 'follow' : session.state;
   app.dataset.state = st;
-  $('btnStart').hidden = !(st === 'idle' || st === 'stopped'); $('btnStart').textContent = st === 'stopped' ? 'New session' : 'Start';
+  $('btnStart').hidden = !(st === 'idle' || st === 'stopped'); $('btnStart').textContent = tr(st === 'stopped' ? 'New session' : 'Start');
   $('btnSummary').hidden = st !== 'stopped';
   $('btnPause').hidden = st !== 'running'; $('btnResume').hidden = st !== 'paused'; $('btnStop').hidden = !(st === 'running' || st === 'paused');
   $('btnUnfollow').hidden = st !== 'follow';
@@ -553,8 +583,8 @@ $('btnStart').onclick = start; $('btnPause').onclick = pause; $('btnResume').onc
 /* End asks first, so a tap on it by mistake does not cut a session short */
 function askEnd() {
   if (session.state !== 'running' && session.state !== 'paused') return;
-  $('endP').textContent = 'You have played for ' + MT.durationText(Math.floor(session.play)) + '. ' + (MT.worthKeeping({ play: session.play })
-    ? 'The session will be saved to your practice log.' : 'Sessions with less than 10 seconds of playing are not saved.');
+  $('endP').textContent = MT.both(tr('You have played for {time}.', { time: MT.durationText(Math.floor(session.play)) }), tr(MT.worthKeeping({ play: session.play })
+    ? 'The session will be saved to your practice log.' : 'Sessions with less than 10 seconds of playing are not saved.'));
   themeSheet($('dlgEnd'), false); if (!$('dlgEnd').open) $('dlgEnd').showModal();
 }
 /* a question asked over a theme takes its look; asked from the Home Screen (or in Classic) it keeps the plain one */
@@ -565,13 +595,13 @@ const FLIGHT_KEY = 'musicTimer.newFlight';
 let flightFrom = 0; try { flightFrom = +localStorage.getItem(FLIGHT_KEY) || 0; } catch (e) {}
 const flying = () => mode === 'local' && (sim.mode === 'ascent' || sim.mode === 'orbit');
 function askFlight(home) {
-  $('flightP').textContent = home ? 'The rocket goes back to the launch pad, and your next session lifts off from there.'
-    : 'The rocket goes back to the launch pad and lifts off again as you play. Your playing time stays as it is.';
+  $('flightP').textContent = tr(home ? 'The rocket goes back to the launch pad, and your next session lifts off from there.'
+    : 'The rocket goes back to the launch pad and lifts off again as you play. Your playing time stays as it is.');
   themeSheet($('dlgFlight'), home); if (!$('dlgFlight').open) $('dlgFlight').showModal();
 }
 function newFlight() {
   flightFrom = Date.now(); try { localStorage.setItem(FLIGHT_KEY, String(flightFrom)); } catch (e) {}
-  sim.reset(); rocket.reset(); banner('A new flight'); flightAt = performance.now(); push(); if (homeOn) renderHome();
+  sim.reset(); rocket.reset(); banner(tr('A new flight')); flightAt = performance.now(); push(); if (homeOn) renderHome();
 }
 $('rFlight').onclick = () => { if (flying()) askFlight(false); };
 $('flightYes').onclick = () => { $('dlgFlight').close(); newFlight(); };
@@ -591,8 +621,8 @@ const viz = $('viz'), vg = viz.getContext('2d'), vizBox = $('vizBox');
 let COL = { rule: '#2C3A4F', mute: '#7C8AA1', accent: '#86DCC0', ink: '#F4F7FB' }, colN = 0, vizI = Math.max(0, VIZ.findIndex(v => v[0] === S.viz)), vizNameT = 0, lastSwipe = 0;
 function setViz(i, announce) {
   vizI = ((i % VIZ.length) + VIZ.length) % VIZ.length; S.viz = VIZ[vizI][0]; saveS();
-  vizBox.setAttribute('aria-label', 'Sound picture: ' + VIZ[vizI][1] + '. Tap to change');
-  if (announce) { const n = $('vizName'); n.textContent = VIZ[vizI][1]; n.classList.add('on'); clearTimeout(vizNameT); vizNameT = setTimeout(() => n.classList.remove('on'), 1700); }
+  vizBox.setAttribute('aria-label', tr('Sound picture: {name}. Tap to change', { name: tr(VIZ[vizI][1]) }));
+  if (announce) { const n = $('vizName'); n.textContent = tr(VIZ[vizI][1]); n.classList.add('on'); clearTimeout(vizNameT); vizNameT = setTimeout(() => n.classList.remove('on'), 1700); }
 }
 vizBox.addEventListener('click', () => { if (performance.now() - lastSwipe > 400) setViz(vizI + 1, true); });
 vizBox.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setViz(vizI + 1, true); } });
@@ -618,7 +648,7 @@ function rrect(g, x, y, w, h, r) { g.beginPath(); if (g.roundRect) g.roundRect(x
    Sounding ranges, as piano key numbers (middle C = 60). A note played outside the range stretches the keyboard to reach it. */
 const RANGES = { Violin: [55, 100], Cello: [36, 81], Flute: [60, 96], Clarinet: [50, 94], Piano: [21, 108] }, ANY_RANGE = [36, 96];
 const BLACK = [0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0], WIDX = [0, 0, 1, 1, 2, 3, 3, 4, 4, 5, 5, 6], KEYN = ['C', 'C\u266F', 'D', 'E\u266D', 'E', 'F', 'F\u266F', 'G', 'A\u266D', 'A', 'B\u266D', 'B'];
-const pc = k => ((k % 12) + 12) % 12, whiteU = k => 7 * Math.floor(k / 12) + WIDX[pc(k)], keyName = k => KEYN[pc(k)] + (Math.floor(k / 12) - 1);
+const pc = k => ((k % 12) + 12) % 12, whiteU = k => 7 * Math.floor(k / 12) + WIDX[pc(k)], keyName = k => noteText(KEYN[pc(k)] + (Math.floor(k / 12) - 1));
 let kbLo = whiteU(ANY_RANGE[0]), kbHi = whiteU(ANY_RANGE[1]) + 1, kbShown = null, kbEnds = ANY_RANGE;
 function fitKeyboard(dt) {
   const inst = RANGES[V.inst] ? V.inst : '', r = RANGES[inst] || ANY_RANGE; let lo = r[0], hi = r[1];
@@ -673,7 +703,7 @@ function drawTrail(w, h) {
     else if (b.m != null) { g.fillStyle = COL.mute; g.globalAlpha = 0.5 * Math.max(0, x / head); g.fillRect(x - 1, y(b.m) - 1, 2, 2); } }
   g.globalAlpha = 1; const last = hist[hist.length - 1];
   if (last && last.mu && last.m != null) { const hy = y(last.m); g.fillStyle = COL.accent; g.beginPath(); g.arc(head, hy, 5, 0, 7); g.fill();
-    g.font = '800 15px Inter, system-ui, sans-serif'; g.textBaseline = 'middle'; g.fillText(V.note || '', head + 10, Math.max(10, Math.min(h - 10, hy))); }
+    g.font = '800 15px Inter, system-ui, sans-serif'; g.textBaseline = 'middle'; g.fillText(noteText(V.note || ''), head + 10, Math.max(10, Math.min(h - 10, hy))); }
 }
 
 /* spectrogram: one column per detector frame (46 ms), taken from the detector's full power spectrum, about 11 Hz per bin.
@@ -725,12 +755,12 @@ function drawSpectrogram(w, h, dt) {
   const oct = sgY(SG_LO, h) - sgY(2 * SG_LO, h), every = oct < 22 ? 2 : 1;                 // a short picture labels every other C
   for (let o = 2; o <= 8; o++) { const y = Math.round(sgY(440 * Math.pow(2, (12 * (o + 1) - 69) / 12), h)) + 0.5; if (y < 8 || y > h - 6) continue;   // each C, from C2 up
     g.fillStyle = 'rgba(244,247,251,.08)'; g.fillRect(0, y, w, 1);
-    if (o % every === 0) { g.shadowColor = 'rgba(8,13,21,.95)'; g.shadowBlur = 4; g.fillStyle = COL.mute; g.fillText('C' + o, 6, y - 7); g.shadowBlur = 0; } }
+    if (o % every === 0) { g.shadowColor = 'rgba(8,13,21,.95)'; g.shadowBlur = 4; g.fillStyle = COL.mute; g.fillText(noteText('C' + o), 6, y - 7); g.shadowBlur = 0; } }
   g.shadowColor = 'rgba(8,13,21,.95)'; g.shadowBlur = 4;                                         // labels stay readable over bright overtones
   if (V.st === 'running' && V.music && V.midi != null) {                                        // the note being played, at the right edge
     const f = 440 * Math.pow(2, (V.midi - 69) / 12), y = sgY(f, h);
     if (y > 4 && y < h - 4) { g.fillStyle = COL.accent; g.beginPath(); g.moveTo(w - 2, y - 6); g.lineTo(w - 10, y); g.lineTo(w - 2, y + 6); g.closePath(); g.fill();
-      if (V.note) { g.font = '800 13px Inter, system-ui, sans-serif'; g.textAlign = 'right'; g.fillText(V.note, w - 14, Math.max(9, Math.min(h - 9, y))); } }
+      if (V.note) { g.font = '800 13px Inter, system-ui, sans-serif'; g.textAlign = 'right'; g.fillText(noteText(V.note), w - 14, Math.max(9, Math.min(h - 9, y))); } }
   }
   g.restore();
 }
@@ -761,7 +791,7 @@ function drawHalo(w, h) {
   for (let i = 0; i < NB; i++) { const a = -Math.PI / 2 + i / NB * 2 * Math.PI, len = 2 + shown[i] * maxLen, c = Math.cos(a), s = Math.sin(a);
     g.beginPath(); g.moveTo(cx + c * r0, cy + s * r0); g.lineTo(cx + c * (r0 + len), cy + s * (r0 + len)); g.stroke(); }
   g.globalAlpha = 1;
-  if (V.music && V.note && r0 > 16) { g.fillStyle = COL.accent; g.font = '800 ' + Math.round(Math.min(24, r0 * 0.8)) + 'px Inter, system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(V.note, cx, cy + 1); g.textAlign = 'start'; }
+  if (V.music && V.note && r0 > 16) { g.fillStyle = COL.accent; g.font = '800 ' + Math.round(Math.min(24, r0 * 0.8)) + 'px Inter, system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(noteText(V.note), cx, cy + 1); g.textAlign = 'start'; }
 }
 
 function drawViz(dt) {
@@ -790,13 +820,13 @@ function frame(t) {
   dashStep(dt, V.st === 'running', V.music, V.pw, V.goal > 0 ? V.play / V.goal : 0);
   let geo = null;
   if (visible(3)) { let lv = 0; for (let i = 0; i < NB; i++) lv += bars[i]; geo = dashView.draw({ running: V.st === 'running', music: V.music, level: Math.min(1, lv / NB * 2.2) }, dt); }
-  while (dash.events.length) { const e = dash.events.shift(); if (geo) dashView.event(e, geo); if (e === 'complete' && skin === 3) dashBanner('Level complete!'); }
+  while (dash.events.length) { const e = dash.events.shift(); if (geo) dashView.event(e, geo); if (e === 'complete' && skin === 3) dashBanner(tr('Level complete!')); }
   race.move(dt);                                                    // the car on screen, on real time; the race itself runs in tick()
   while (race.events.length) raceEvent(race.events.shift());
   if (raceNotes) { if (visible(4) && V.music && race.racing) raceView.event('note'); raceNotes = 0; }
   if (visible(4)) raceView.draw({ minute: mode === 'follow' ? null : session.minute }, dt);
   fw.update(dt, { state: V.st, music: V.music, notes: fwNotes, midi: V.midi, recent: V.pw, play: V.play, shown: visible(5) }); fwNotes = 0;   // shells go up only while playing; the finale waits to be seen
-  while (fw.events.length) { const e = fw.events.shift(); if (visible(5)) fwView.event(e); if (e.k === 'finale' && skin === 5) fireBanner('Grand finale!');
+  while (fw.events.length) { const e = fw.events.shift(); if (visible(5)) fwView.event(e); if (e.k === 'finale' && skin === 5) fireBanner(tr('Grand finale!'));
     if (e.k === 'finaleEnd' && awardWait) { award(awardWait); awardWait = 0; } }
   if (visible(5)) { let lv = 0; for (let i = 0; i < NB; i++) lv += bars[i]; fwView.draw({ st: V.st, music: V.music, level: Math.min(1, lv / NB * 2.2) }, dt); }
   requestAnimationFrame(frame);
@@ -844,7 +874,7 @@ function paintSkinBar() {
     const locked = !open.includes(i), on = i === skin;
     b.hidden = !skinOn(i); b.disabled = locked; b.dataset.state = locked ? 'locked' : on ? 'on' : 'off';
     if (on) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current');
-    b.setAttribute('aria-label', SKIN_NAMES[i] + ' theme' + (locked ? ', locked' : '')); b.title = SKIN_NAMES[i] + (locked ? ' (locked)' : '');
+    b.setAttribute('aria-label', tr(locked ? '{name} theme, locked' : '{name} theme', { name: tr(SKIN_NAMES[i]) })); b.title = tr(locked ? '{name} (locked)' : SKIN_NAMES[i], { name: tr(SKIN_NAMES[i]) });
   });
 }
 /* Event banners sit just under the read-outs, clear of the scene: each panel gets --hud-b, the bottom of its read-outs, for the CSS to use */
@@ -920,7 +950,7 @@ const updSource = seg('segSource', 'source', () => { hideNotice('mic'); paintDem
 function setSource(v) { S.source = v; saveS(); updSource(); paintDemoBar(); }
 seg('segSens', 'sens', () => { if (A.det) A.det.setSensitivity(S.sens); });
 seg('segHold', 'hold', () => { session.hold = +S.hold; });
-function paintGoal() { $('goalOut').textContent = S.goalMin + ' min'; }
+function paintGoal() { $('goalOut').textContent = tr('{m} min', { m: S.goalMin }); }
 function bumpGoal(d) { S.goalMin = Math.max(5, Math.min(180, S.goalMin + d)); saveS(); paintGoal(); if (session.state === 'running' || session.state === 'paused') { session.goal = race.goal = fw.goal = S.goalMin * 60; if (session.play < session.goal) { goalHit = false; race.finished = false; if (!fw.inFinale) fw.finaleDone = false; awardWait = 0; hideAward(); } } }
 $('goalDn').onclick = () => bumpGoal(-5); $('goalUp').onclick = () => bumpGoal(5);
 $('nameIn').value = S.name; $('nameIn').oninput = () => { S.name = $('nameIn').value.replace(/[\u0000-\u001F\u007F-\u009F\u200B-\u200F\u2028-\u202F\u2060-\u206F\uFEFF]/g, '').slice(0, 40); saveS(); };   // eslint-disable-line no-control-regex -- strips control and invisible characters from the name
@@ -934,7 +964,7 @@ const GOAL_HINT = {
   race: 'The total play time to reach. The race runs until you reach it.',
   fireworks: 'The total play time to reach. Reaching it sets off a grand finale.',
 };
-function paintSettingsSkin() { $('goalHint').textContent = GOAL_HINT[SKINS[skin]]; }
+function paintSettingsSkin() { $('goalHint').textContent = tr(GOAL_HINT[SKINS[skin]]); }
 /* Settings, Themes: a page of its own in the sheet, with a switch for each theme. Classic is always on and its switch can't be turned off;
    turning off the one on screen moves to Classic, the first one on (MT.themeLanding), during a session too */
 const THEME_LINE = {
@@ -945,17 +975,19 @@ const THEME_LINE = {
   race: 'Playing races a car; your last minute is its speed.',
   fireworks: 'Every note sends up a firework in its own colour.',
 };
-const themeRows = SKINS.map((id, i) => { const li = document.createElement('li'), sw = document.createElement('input'); li.className = 'trow'; li.dataset.theme = id;
-  li.innerHTML = '<span class="tile" aria-hidden="true"><svg><use href="#ico-' + id + '"/></svg></span><span class="tx"><b>' + SKIN_NAMES[i] + '</b><span>' + THEME_LINE[id] + '</span></span>';
-  sw.type = 'checkbox'; sw.setAttribute('role', 'switch'); sw.className = 'tg'; sw.setAttribute('aria-label', SKIN_NAMES[i]);
+const themeRows = SKINS.map(id => { const li = document.createElement('li'), sw = document.createElement('input'); li.className = 'trow'; li.dataset.theme = id;
+  li.innerHTML = '<span class="tile" aria-hidden="true"><svg><use href="#ico-' + id + '"/></svg></span><span class="tx"><b></b><span></span></span>';
+  sw.type = 'checkbox'; sw.setAttribute('role', 'switch'); sw.className = 'tg';
   sw.onchange = () => { const was = skin; S.themesOff = MT.themeSwitch(SKINS, S.themesOff, id, sw.checked); saveS(); refreshSkins(); paintThemes(skin !== was); };
   li.append(sw); $('themeList').append(li); return li; });
 function paintThemes(moved) {
-  const on = MT.themesOn(SKINS, S.themesOff), names = on.map(id => SKIN_NAMES[SKINS.indexOf(id)]);
-  themeRows.forEach((li, i) => { const sw = li.querySelector('input'), o = on.includes(SKINS[i]); sw.checked = o; sw.disabled = i === 0; li.classList.toggle('off', !o); });
-  $('themesSum').textContent = on.length === SKINS.length ? 'All of them are on.' : on.length === 1 ? 'Only ' + names[0] + ' is on.' : names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1] + ' are on.';
+  const on = MT.themesOn(SKINS, S.themesOff), names = on.map(id => tr(SKIN_NAMES[SKINS.indexOf(id)]));
+  themeRows.forEach((li, i) => { const sw = li.querySelector('input'), o = on.includes(SKINS[i]); sw.checked = o; sw.disabled = i === 0; li.classList.toggle('off', !o);
+    li.querySelector('b').textContent = tr(SKIN_NAMES[i]); li.querySelector('.tx span').textContent = tr(THEME_LINE[SKINS[i]]); sw.setAttribute('aria-label', tr(SKIN_NAMES[i])); });
+  $('themesSum').textContent = on.length === SKINS.length ? tr('All of them are on.') : on.length === 1 ? tr('Only {name} is on.', { name: names[0] })
+    : tr('{list} and {last} are on.', { list: listText(names.slice(0, -1)), last: names[names.length - 1] });
   $('themesMini').innerHTML = on.map(id => '<i data-theme="' + id + '"><svg><use href="#ico-' + id + '"/></svg></i>').join('');
-  $('themesNote').textContent = moved ? 'Now playing with ' + SKIN_NAMES[skin] + '.' : '';
+  $('themesNote').textContent = moved ? tr('Now playing with {name}.', { name: tr(SKIN_NAMES[skin]) }) : '';
 }
 /* About, from Settings: the credits roll up over the whole screen like the end of a film, round and round while open; a tap pauses them, holding speeds them up.
    With reduced motion they stand still in a box that scrolls */
@@ -964,8 +996,11 @@ const CREDITS = [
   ['Engineering', [['Front-end Developer (JavaScript / HTML / CSS)', 'Claude'], ['Audio / DSP Engineer', 'Claude'], ['Graphics / Game Developer', 'Claude'], ['Mobile Web / iOS Specialist', 'Claude']]],
   ['Quality and operations', [['QA Engineer', 'Claude'], ['Human QA Engineer', 'Jack Chen'], ['Student Beta Tester', 'Jayden Chen'], ['Test Automation Engineer', 'Claude'], ['DevOps / Release Engineer', 'Claude']]],
 ];
-$('rollIn').innerHTML = '<li class="t">Music Timer</li><li class="lead">Music Timer counts your practice only while it hears your instrument, so every minute it shows is a minute you played.</li>' + CREDITS.map(([h, rows]) => '<li class="h">' + h + '</li>' +
-  rows.map(([r, n]) => '<li><span class="r">' + r + '</span><span class="n">' + (n === 'Claude' ? '<svg class="ai" aria-hidden="true"><use href="#ico-claude"/></svg>' : '') + n + '</span></li>').join('')).join('') + '<li class="end">Starring you, every time you play.</li>';
+function paintCredits() {
+  $('rollIn').innerHTML = '<li class="t">Music Timer</li><li class="lead">' + tr('Music Timer counts your practice only while it hears your instrument, so every minute it shows is a minute you played.') + '</li>' + CREDITS.map(([h, rows]) => '<li class="h">' + tr(h) + '</li>' +
+    rows.map(([r, n]) => '<li><span class="r">' + tr(r) + '</span><span class="n">' + (n === 'Claude' ? '<svg class="ai" aria-hidden="true"><use href="#ico-claude"/></svg>' : '') + n + '</span></li>').join('')).join('') + '<li class="end">' + tr('Starring you, every time you play.') + '</li>';
+}
+paintCredits();
 let rollAnim = null, rollHold = 0, rollFast = false, rollDown = false, rollDrag = false, rollWasPaused = false, rollY0 = 0, rollT0 = 0;
 function rollCredits(on) {
   clearTimeout(rollHold); rollFast = rollDown = rollDrag = false; if (rollAnim) { rollAnim.cancel(); rollAnim = null; }
@@ -974,7 +1009,7 @@ function rollCredits(on) {
   rollAnim = $('rollIn').animate([{ transform: 'translateY(' + h + 'px)' }, { transform: 'translateY(' + -len + 'px)' }], { duration: (h + len) / 32 * 1000, iterations: Infinity });   // 32 px a second
   rollAnim.currentTime = h * 0.6 / 32 * 1000;   // the first time round, the title starts on screen rather than below it
 }
-function rollHint() { $('rollHint').textContent = rollAnim && rollAnim.playState === 'paused' ? 'Tap to carry on.' : 'Tap to pause. Hold to speed up. Drag to move.'; }
+function rollHint() { $('rollHint').textContent = tr(rollAnim && rollAnim.playState === 'paused' ? 'Tap to carry on.' : 'Tap to pause. Hold to speed up. Drag to move.'); }
 function pauseRoll() { if (!rollAnim) return; if (rollAnim.playState === 'paused') rollAnim.play(); else rollAnim.pause(); rollHint(); }
 function rollLetGo(tap) { clearTimeout(rollHold); const down = rollDown; rollDown = false; if (!rollAnim || !down) return;
   if (rollDrag) { rollDrag = false; if (!rollWasPaused) rollAnim.play(); rollHint(); return; }   // let go after a drag: carry on from there, or stay paused
@@ -993,11 +1028,35 @@ $('roll').onpointerup = () => rollLetGo(true);
 $('roll').onpointercancel = () => rollLetGo(false);   // the browser took the touch over: back to normal speed, no pause
 $('roll').oncontextmenu = e => { if (rollAnim) e.preventDefault(); };   // a long press would open the menu over the credits
 $('roll').onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pauseRoll(); } };
-function settingsPage(page) {   // '' for Settings itself, or 'themes'
-  $('setMain').hidden = !!page; $('setThemes').hidden = page !== 'themes'; $('setH').hidden = !!page; $('setBack').hidden = !page;
-  $('dlgSettings').setAttribute('aria-labelledby', page ? 'themesH' : 'setH'); paintThemes(false); (page ? $('setThemes') : $('setMain')).scrollTop = 0; }
+let setPage = '';
+function settingsPage(page) {   // '' for Settings itself, 'themes' or 'lang'
+  const from = setPage; setPage = page;
+  $('setMain').hidden = !!page; $('setThemes').hidden = page !== 'themes'; $('setLang').hidden = page !== 'lang'; $('setH').hidden = !!page; $('setBack').hidden = !page;
+  $('dlgSettings').setAttribute('aria-labelledby', page ? page + 'H' : 'setH'); paintThemes(false); paintLang(); (page ? $(page === 'lang' ? 'setLang' : 'setThemes') : $('setMain')).scrollTop = 0;
+  if (!page && from) $(from === 'lang' ? 'openLang' : 'openThemes').focus(); }
 $('openThemes').onclick = () => settingsPage('themes');
-$('setBack').onclick = () => { settingsPage(''); $('openThemes').focus(); };
+$('openLang').onclick = () => settingsPage('lang');
+$('setBack').onclick = () => settingsPage('');
+/* Settings, Language: a page of its own. Automatic follows the device; each language is named in its own words, with what it is in the page's language under it */
+const LANG_ABOUT = { en: 'English', zh: 'Chinese (Simplified)', fr: 'French' };
+const langRows = [''].concat(MT.LANGS.map(l => l[0])).map(id => { const b = document.createElement('button'); b.className = 'lrow'; b.type = 'button'; b.setAttribute('role', 'radio');
+  b.innerHTML = '<span class="tx"><b></b><span></span></span><svg class="ck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+  b.onclick = () => { if (S.lang === id) return; S.lang = id; saveS(); langChanged(); };
+  const li = document.createElement('li'); li.append(b); $('langList').append(li); return [id, b]; });
+const langName = id => MT.LANGS.find(l => l[0] === id)[1];
+function paintLang() {
+  const dev = MT.pickLang('', deviceLangs());
+  for (const [id, b] of langRows) {
+    const name = id ? langName(id) : tr('Automatic'), sub = id ? tr(LANG_ABOUT[id]) : tr('This device\u2019s language: {name}', { name: langName(dev) });
+    b.querySelector('b').textContent = name; b.querySelector('.tx span').textContent = sub === name ? '' : sub;
+    b.querySelector('.tx span').hidden = sub === name; b.setAttribute('aria-checked', String(S.lang === id)); if (id) b.querySelector('b').lang = id === 'zh' ? 'zh-CN' : id; }
+  $('langSum').textContent = S.lang ? langName(S.lang) : tr('Automatic: {name}', { name: langName(dev) });
+}
+/* the language changed in Settings: the page's own words at once, and everything the app writes, which is drawn again */
+function langChanged() {
+  applyLang(); paintLang(); paintThemes(false); paintSkinBar(); paintHomeThemes(); paintCredits(); setViz(vizI, false); paintGoal(); paintSettingsSkin(); paintControls(); paintVersion();
+  raceView.rebuild(); if (homeOn) renderHome(); layoutChanged();
+}
 $('openAbout').onclick = () => { $('dlgCredits').showModal(); rollCredits(true); rollHint(); };   // over Settings, which is still there when it closes
 $('creditsClose').onclick = () => $('dlgCredits').close();
 $('dlgCredits').addEventListener('close', () => { rollCredits(false); $('openAbout').focus(); });
@@ -1027,20 +1086,23 @@ $('btnTests').onclick = async () => {
 /* ---------- summary ---------- */
 let current = null, onSheet = null;   // the session just finished { rec, note }, and the record on the summary sheet
 const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
-const at = ms => new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+/* dates and times in the page's language: English keeps the device's own format, unless the device is set to another language */
+const loc = () => MT.getLang() === 'en' && !/^en\b/i.test(deviceLangs()[0]) ? 'en' : MT.locale();
+const at = ms => new Date(ms).toLocaleTimeString(loc(), { hour: 'numeric', minute: '2-digit' });
+const date = (ms, o) => new Date(ms).toLocaleDateString(loc(), o);
 function dayName(ms) { const k = MT.dayKey(ms), now = new Date();
-  return k === MT.dayKey(now) ? 'Today' : k === MT.dayKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1)) ? 'Yesterday'
-    : new Date(ms).toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' }); }
+  return k === MT.dayKey(now) ? tr('Today') : k === MT.dayKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1)) ? tr('Yesterday')
+    : date(ms, { weekday: 'short', day: 'numeric', month: 'short' }); }
 function showRecording() { if (!rec.blob) return; $('recBox').hidden = false;
   try { rec.url = URL.createObjectURL(rec.blob); const a = $('recAudio'); a.hidden = false; a.onerror = () => { a.hidden = true; }; a.src = rec.url; } catch (e) { $('recAudio').hidden = true; } }
 /* the session just stopped: keep it in the practice log unless it was too short. Demo sound sessions are kept like any other */
 function finishSession() {
   const R = MT.sessionReport(session.runs), r = MT.sessionRecord(session, R, S.name, sim.save());
   let note;
-  if (!MT.worthKeeping(R)) note = { text: 'Sessions with less than 10 seconds of playing are not saved to your practice log.' };
-  else if (!addToLog(r)) note = { text: 'This session could not be saved on this device.' };
-  else { const P = MT.practiceStats(log, Date.now()); note = P.weekPlay > 0 ? { lead: MT.durationText(P.weekPlay) + ' of music this week.', text: 'Saved to your practice log.' }
-    : { text: 'Saved to your practice log.' }; }   // a Sunday-night session that ran past midnight is filed under last week
+  if (!MT.worthKeeping(R)) note = { text: tr('Sessions with less than 10 seconds of playing are not saved to your practice log.') };
+  else if (!addToLog(r)) note = { text: tr('This session could not be saved on this device.') };
+  else { const P = MT.practiceStats(log, Date.now()); note = P.weekPlay > 0 ? { lead: tr('{time} of music this week.', { time: MT.durationText(P.weekPlay) }), text: tr('Saved to your practice log.') }
+    : { text: tr('Saved to your practice log.') }; }   // a Sunday-night session that ran past midnight is filed under last week
   return { rec: r, note: note };
 }
 function openSummary(r, past) {
@@ -1048,23 +1110,23 @@ function openSummary(r, past) {
   onSheet = r;
   const pct = x => Math.round(x * 100) + '%';
   $('sWhen').textContent = (past ? dayName(r.start) + ', ' : '') + at(r.start) + '\u2013' + at(r.end);
-  $('sPlay').textContent = fmt(R.play); $('sCap').textContent = 'of playing' + (r.name ? ', ' + r.name : '');
+  $('sPlay').textContent = fmt(R.play); $('sCap').textContent = tr(r.name ? 'of playing, {name}' : 'of playing', { name: r.name });
   $('sEff').textContent = pct(R.efficiency);
   // the goal
   $('sGoalBox').classList.toggle('done', reached); width($('sGoalBar'), r.goal > 0 ? R.play / r.goal : 0);
-  $('sGoal').textContent = 'Goal ' + Math.round(r.goal / 60) + ' minutes'; $('sTrophy').toggleAttribute('hidden', !reached);   // an svg, which has no .hidden
-  $('sGoalLeft').textContent = reached ? 'Reached, trophy earned' : dur(Math.ceil(r.goal - R.play)) + ' to go';
+  $('sGoal').textContent = tr('Goal {n} minutes', { n: Math.round(r.goal / 60) }); $('sTrophy').toggleAttribute('hidden', !reached);   // an svg, which has no .hidden
+  $('sGoalLeft').textContent = reached ? tr('Reached, trophy earned') : tr('{t} to go', { t: dur(Math.ceil(r.goal - R.play)) });
   // was it saved to the practice log, and the week it adds to (only for the session just finished)
   const note = !past && current && current.rec === r ? current.note : null; $('sSaved').hidden = !note;
-  if (note) $('sSaved').replaceChildren(...(note.lead ? [el('b', null, note.lead), ' '] : []), note.text);
+  if (note) $('sSaved').replaceChildren(...(note.lead ? [el('b', null, note.lead), gap()] : []), note.text);
   // the rest of its day, when it had more than one session: each session a block, this one bright. The goal is for each session, so the day is not measured against it
   const D = MT.dayRecap(log, r), L = MT.dayLine(D, Date.now()), box = $('sDayBox'); box.hidden = !L;
   if (L) {
     const today = D.key === MT.dayKey(Date.now());
-    $('sDayH').textContent = today ? 'Today' : 'That day';
+    $('sDayH').textContent = tr(today ? 'Today' : 'That day');
     $('sDaySegs').replaceChildren(...D.sessions.map(x => { const i = el('i', x.id === r.id ? 'me' : ''); i.style.flexGrow = String(x.play); return i; }));
-    $('sDayBar').setAttribute('aria-label', D.count + ' sessions ' + (today ? 'today' : 'that day') + ': ' + D.sessions.map(x => MT.durationText(x.play)).join(', ') + '.');
-    $('sDay').replaceChildren(el('b', null, L.lead), ' ', L.text);
+    $('sDayBar').setAttribute('aria-label', tr(today ? '{n} sessions today: {list}.' : '{n} sessions that day: {list}.', { n: D.count, list: listText(D.sessions.map(x => MT.durationText(x.play))) }));
+    $('sDay').replaceChildren(el('b', null, L.lead), gap(), L.text);
   }
   // where the time went
   for (const [k, v] of [['P', R.play], ['Q', R.quiet], ['X', R.paused]]) { const i = $('sSplit' + k); i.hidden = v < 0.5; i.style.flexGrow = String(v); }
@@ -1072,42 +1134,43 @@ function openSummary(r, past) {
   // minute by minute: one column per step, filled with how much of it was playing, quiet and paused
   const strip = R.total >= 120, min = R.bin / 60, len = R.longest.b - R.longest.a;
   $('sStrip').hidden = !strip;
-  $('sStripH').textContent = !strip ? 'Stretches and breaks' : min === 1 ? 'Minute by minute' : 'Every ' + min + ' minutes';
+  $('sStripH').textContent = !strip ? tr('Stretches and breaks') : min === 1 ? tr('Minute by minute') : tr('Every {n} minutes', { n: min });
   if (strip) {
     $('sCols').replaceChildren(...R.columns.map(c => { const d = el('div'); d.style.flexGrow = String(c.t);
       for (const k of ['play', 'quiet', 'paused']) if (c[k] > 0) { const i = el('i', 'k-' + k); i.style.height = (c[k] / c.t * 100) + '%'; d.append(i); } return d; }));
-    $('sCols').setAttribute('aria-label', 'Playing time ' + (min === 1 ? 'in each minute' : 'in every ' + min + ' minutes') + '. Efficiency ' +
-      ['at the start', 'in the middle', 'at the end'].map((w, i) => w + ' ' + (R.thirds[i] == null ? 'not measured' : pct(R.thirds[i]))).join(', ') + '.');
+    const third = i => R.thirds[i] == null ? tr('not measured') : pct(R.thirds[i]);
+    $('sCols').setAttribute('aria-label', MT.both(tr(min === 1 ? 'Playing time in each minute.' : 'Playing time in every {n} minutes.', { n: min }),
+      tr('Efficiency at the start {a}, in the middle {b}, at the end {c}.', { a: third(0), b: third(1), c: third(2) })));
     const st = $('sStretch'), sl = $('sStretchL'), a = R.longest.a / T * 100, b = R.longest.b / T * 100;
     st.hidden = sl.hidden = len < 1;
-    st.style.left = a + '%'; st.style.width = Math.max(0.5, b - a) + '%'; sl.textContent = 'Longest stretch ' + dur(len);
+    st.style.left = a + '%'; st.style.width = Math.max(0.5, b - a) + '%'; sl.textContent = tr('Longest stretch {t}', { t: dur(len) });
     if (a < 50) { sl.style.left = a + '%'; sl.style.right = ''; } else { sl.style.left = ''; sl.style.right = (100 - b) + '%'; }
     const totalMin = R.total / 60, step = [1, 2, 5, 10, 15, 20, 30, 60].find(m => totalMin / m <= 5) || 120, ticks = [];
     for (let m = 0; m * 60 / T <= 0.94; m += step) ticks.push(m);
-    $('sAxis').replaceChildren(...ticks.map((m, i) => { const x = el('span', null, i ? String(m) : '0 min'); x.style.left = (m * 60 / T * 100) + '%'; return x; }));
+    $('sAxis').replaceChildren(...ticks.map((m, i) => { const x = el('span', null, i ? String(m) : tr('{m} min', { m: 0 })); x.style.left = (m * 60 / T * 100) + '%'; return x; }));
     const first = R.thirds[0];
-    $('sThirds').replaceChildren(...['Start', 'Middle', 'End'].map((w, i) => { const v = R.thirds[i], d = el('div', v != null && first != null && first - v >= 0.2 ? 'low' : '');
+    $('sThirds').replaceChildren(...[tr('Start|part'), tr('Middle|part'), tr('End|part')].map((w, i) => { const v = R.thirds[i], d = el('div', v != null && first != null && first - v >= 0.2 ? 'low' : '');
       d.append(el('b', null, v == null ? '\u2013' : pct(v)), w); return d; }));
   }
-  const times = n => n === 1 ? 'once' : n + ' times', facts = [
-    ['Longest stretch', len >= 1 ? dur(len) : 'None', len >= 1 ? 'from ' + dur(R.longest.a) + ' to ' + dur(R.longest.b) : 'No playing heard'],
-    R.best ? ['Best ' + R.best.len / 60 + ' minutes', pct(R.best.eff) + ' playing', 'from ' + dur(R.best.a) + ' to ' + dur(R.best.b)]
-           : ['Short gaps', R.gaps ? String(R.gaps) : 'None', R.gaps ? dur(R.gapTime) + ' in all' : '\u00a0'],
-    ['Quiet breaks over 30 s', R.breaks ? String(R.breaks) : 'None', R.breaks ? dur(R.breakTime) + ' in all' : '\u00a0'],
-    ['Paused', R.pauses ? dur(R.paused) : 'No pauses', R.pauses ? times(R.pauses) : '\u00a0'],
+  const times = n => trn(n, 'once', '{n} times'), fromTo = (a, b) => tr('from {a} to {b}', { a: dur(a), b: dur(b) }), inAll = t => tr('{t} in all', { t: dur(t) }), facts = [
+    [tr('Longest stretch'), len >= 1 ? dur(len) : tr('None'), len >= 1 ? fromTo(R.longest.a, R.longest.b) : tr('No playing heard')],
+    R.best ? [tr('Best {n} minutes', { n: R.best.len / 60 }), tr('{pct} playing', { pct: pct(R.best.eff) }), fromTo(R.best.a, R.best.b)]
+           : [tr('Short gaps'), R.gaps ? String(R.gaps) : tr('None'), R.gaps ? inAll(R.gapTime) : '\u00a0'],
+    [tr('Quiet breaks over 30 s'), R.breaks ? String(R.breaks) : tr('None|breaks'), R.breaks ? inAll(R.breakTime) : '\u00a0'],
+    [tr('Paused'), R.pauses ? dur(R.paused) : tr('No pauses'), R.pauses ? times(R.pauses) : '\u00a0'],
   ];
   $('sFacts').replaceChildren(...facts.map(f => { const d = el('div'), dd = el('dd', null, f[1]); dd.append(el('small', null, f[2])); d.append(el('dt', null, f[0]), dd); return d; }));
   $('recBox').hidden = past || !rec.blob;                 // recordings are not kept with saved sessions
-  $('sumDelete').hidden = !past; disarm($('sumDelete'), 'Delete session');
+  $('sumDelete').hidden = !past; disarm($('sumDelete'), tr('Delete session'));
   $('dlgSummary').querySelector('.sh-body').scrollTop = 0;
   if (!$('dlgSummary').open) $('dlgSummary').showModal();
 }
 $('sumClose').onclick = () => $('dlgSummary').close();
 async function saveFile(filename, data) {
-  if (downloads) { try { await downloads.save({ filename: filename, data: data }); } catch (e) { if (!e || e.code !== 'declined') toast('The file could not be saved here'); } return; }
+  if (downloads) { try { await downloads.save({ filename: filename, data: data }); } catch (e) { if (!e || e.code !== 'declined') toast(tr('The file could not be saved here')); } return; }
   try { const blob = data instanceof Blob ? data : new Blob([data], { type: 'text/plain' }), a = document.createElement('a'), u = URL.createObjectURL(blob);
     a.href = u; a.download = filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 8000); }
-  catch (e) { toast('The file could not be saved here'); }
+  catch (e) { toast(tr('The file could not be saved here')); }
 }
 function stamp() { const d = new Date(session.startedAt || Date.now()), p = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes()); }
 $('btnSaveRec').onclick = () => { if (rec.blob) saveFile('practice-recording-' + stamp() + '.' + rec.ext, rec.blob); };
@@ -1130,13 +1193,13 @@ function checkLost(prev) {
   const r = MT.liveRecord(x);
   if (!r || !MT.worthKeeping(r.R) || log.some(o => o.id === r.id)) { clearLive(); return; }
   lost = r;
-  $('lostP').textContent = 'Music Timer closed during your session ' + whenText(r.start) + ', after ' + MT.durationText(r.play) + ' of playing. You can still save it to your practice log.';
+  $('lostP').textContent = tr('Music Timer closed during your session {when}, after {time} of playing. You can still save it to your practice log.', { when: whenText(r.start), time: MT.durationText(r.play) });
   if (!$('dlgLost').open) $('dlgLost').showModal();
 }
 function whenText(ms) { const k = MT.dayKey(ms), now = new Date(), y = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
-  return (k === MT.dayKey(now) ? 'today' : k === MT.dayKey(y) ? 'yesterday' : 'on ' + new Date(ms).toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' })) + ' at ' + at(ms); }
+  return tr(k === MT.dayKey(now) ? 'today at {time}' : k === MT.dayKey(y) ? 'yesterday at {time}' : 'on {date} at {time}', { date: date(ms, { weekday: 'long', day: 'numeric', month: 'long' }), time: at(ms) }); }
 $('lostYes').onclick = () => { $('dlgLost').close(); clearLive(); if (!lost) return;
-  toast(addToLog(lost) ? 'Saved to your practice log.' : 'This session could not be saved on this device.'); lost = null; rocketAfterDelete(); if (homeOn) renderHome(); };
+  toast(tr(addToLog(lost) ? 'Saved to your practice log.' : 'This session could not be saved on this device.')); lost = null; rocketAfterDelete(); if (homeOn) renderHome(); };
 $('lostNo').onclick = () => { $('dlgLost').close(); clearLive(); lost = null; };
 
 /* ---------- practice log: finished sessions, kept on this device (no audio) ---------- */
@@ -1156,28 +1219,29 @@ function rocketAfterDelete() { if (mode === 'local' && (session.state === 'idle'
 function addToLog(r) { const was = log; log = log.filter(x => x.id !== r.id); log.push(r); log.sort((a, b) => a.start - b.start); if (log.length > MT.LOG_MAX) log.splice(0, log.length - MT.LOG_MAX);
   if (writeLog()) return true; log = was; return false; }
 /* a destructive button asks twice: the first tap arms it for a few seconds */
-function disarm(b, label) { b.classList.remove('armed'); b.textContent = label; clearTimeout(b._t); }
+const said = x => typeof x === 'function' ? x() : x;   // a label, or a function that gives it in the page's language at the time
+function disarm(b, label) { b.classList.remove('armed'); b.textContent = said(label); clearTimeout(b._t); }
 function twoTap(b, label, armedLabel, act) { b.onclick = () => {
-  if (!b.classList.contains('armed')) { b.classList.add('armed'); b.textContent = armedLabel; clearTimeout(b._t); b._t = setTimeout(() => disarm(b, label), 4000); return; }
+  if (!b.classList.contains('armed')) { b.classList.add('armed'); b.textContent = said(armedLabel); clearTimeout(b._t); b._t = setTimeout(() => disarm(b, label), 4000); return; }
   disarm(b, label); act(); }; }
-twoTap($('sumDelete'), 'Delete session', 'Tap again to delete', () => {
+twoTap($('sumDelete'), () => tr('Delete session'), () => tr('Tap again to delete'), () => {
   const id = onSheet && onSheet.id; log = log.filter(x => x.id !== id); writeLog();
-  if (current && current.rec.id === id) current.note = { text: 'Deleted from your practice log.' };
-  rocketAfterDelete(); $('dlgSummary').close(); if ($('dlgLog').open) renderLog(); toast('Session deleted');
+  if (current && current.rec.id === id) current.note = { text: tr('Deleted from your practice log.') };
+  rocketAfterDelete(); $('dlgSummary').close(); if ($('dlgLog').open) renderLog(); toast(tr('Session deleted'));
 });
-twoTap($('logClear'), 'Delete all sessions', 'Tap again to delete all', () => { log = []; writeLog(); rocketAfterDelete(); logShown = 30; renderLog(); toast('All sessions deleted'); });
-const compact = s => { if (s <= 0) return ''; const m = Math.round(s / 60); return m < 1 ? '<1m' : m < 60 ? m + 'm' : Math.floor(m / 60) + 'h' + (m % 60 ? String(m % 60).padStart(2, '0') : ''); };
+twoTap($('logClear'), () => tr('Delete all sessions'), () => tr('Tap again to delete all'), () => { log = []; writeLog(); rocketAfterDelete(); logShown = 30; renderLog(); toast(tr('All sessions deleted')); });
+const compact = s => { if (s <= 0) return ''; const m = Math.round(s / 60); return m < 1 ? tr('<1m') : m < 60 ? tr('{m}m', { m: m }) : m % 60 ? tr('{h}h{mm}', { h: Math.floor(m / 60), mm: String(m % 60).padStart(2, '0') }) : tr('{h}h', { h: m / 60 }); };
 const TROPHY_SVG = '<svg class="trophy" viewBox="0 0 64 64" aria-hidden="true"><path d="M19 13H9c0 10 5 15 12 16M45 13h10c0 10-5 15-12 16" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/><path fill="currentColor" d="M18 7h28v15c0 10-6 17-14 17s-14-7-14-17zM29 38h6v9h-6zM20 49h24v9H20z"/></svg>';
 function renderLog() {
   const P = MT.practiceStats(log, Date.now()), empty = !log.length, pct = x => Math.round(x * 100) + '%';
   $('logEmpty').hidden = !empty; $('logMain').hidden = empty; $('logMore').hidden = empty;
   const idle = mode === 'local' && (session.state === 'idle' || session.state === 'stopped');
   $('logStart').hidden = !idle;
-  $('logStart').textContent = empty ? 'Start your first session' : P.practicedToday ? 'Play again' : 'Start playing';
+  $('logStart').textContent = tr(empty ? 'Start your first session' : P.practicedToday ? 'Play again' : 'Start playing');
   if (empty) return;
   // what has been played: this week, and all together. Only totals that grow, nothing that can be lost by missing a day
   const week = P.weekPlay > 0;
-  $('logBig').textContent = MT.durationText(week ? P.weekPlay : P.totalPlay); $('logBigCap').textContent = week ? 'of music this week' : 'of music so far';
+  $('logBig').textContent = MT.durationText(week ? P.weekPlay : P.totalPlay); $('logBigCap').textContent = tr(week ? 'of music this week' : 'of music so far');
   $('logTotalBox').hidden = !week; $('logTotal').textContent = MT.durationText(P.totalPlay); $('logNudge').textContent = MT.practiceNudge(P);
   // this week, Monday to Sunday: each day's bar as tall as its playing next to the others (a full bar is the longest day, or 30 minutes), one block a session.
   // The goal is for one session, so a day is not measured against it
@@ -1186,42 +1250,45 @@ function renderLog() {
     if (c.play > 0) { const i = el('i', c.plays.length > 1 ? 'segs' : ''); i.style.height = Math.max(4, c.play / top * 100) + '%';
       if (c.plays.length > 1) for (const p of c.plays) { const b = el('b'); b.style.flexGrow = String(p); i.append(b); }
       bar.append(i); }
-    d.append(el('span', 't', compact(c.play)), bar, el('span', null, c.date.toLocaleDateString([], { weekday: 'narrow' }))); return d; }));
-  $('logWeek').setAttribute('aria-label', 'This week: ' + P.week.filter(c => !c.future).map(c => c.date.toLocaleDateString([], { weekday: 'long' }) + ' ' + (c.play > 0 ? MT.durationText(c.play) + (c.sessions > 1 ? ' in ' + c.sessions + ' sessions' : '') : 'no practice')).join(', ') + '.');
+    d.append(el('span', 't', compact(c.play)), bar, el('span', null, date(c.date, { weekday: 'narrow' }))); return d; }));
+  const dayWhat = c => c.play > 0 ? (c.sessions > 1 ? tr('{time} in {n} sessions', { time: MT.durationText(c.play), n: c.sessions }) : MT.durationText(c.play)) : tr('no practice');
+  $('logWeek').setAttribute('aria-label', tr('This week: {list}.', { list: listText(P.week.filter(c => !c.future).map(c => tr('{day} {what}', { day: date(c.date, { weekday: 'long' }), what: dayWhat(c) }))) }));
   $('logWeekLine').textContent = MT.weekLine(P);
   // the last 12 weeks, one column a week, a month name where a month begins
   const cells = [], months = []; let lastLabel = -9, lastMonth = -1;
   P.grid.forEach((col, w) => { const m = col[0].date.getMonth();
-    if (m !== lastMonth && w - lastLabel >= 3) { const sp = el('span', null, col[0].date.toLocaleDateString([], { month: 'short' })); sp.style.gridColumn = String(w + 1); months.push(sp); lastLabel = w; }
+    if (m !== lastMonth && w - lastLabel >= 3) { const sp = el('span', null, date(col[0].date, { month: 'short' })); sp.style.gridColumn = String(w + 1); months.push(sp); lastLabel = w; }
     lastMonth = m;
     for (const c of col) { const i = el('i', (c.level ? 'lv' + c.level : '') + (c.today ? ' today' : '') + (c.future ? ' future' : ''));
-      if (!c.future) i.title = c.date.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' }) + ': ' + (c.play > 0 ? MT.durationText(c.play) + (c.sessions > 1 ? ' in ' + c.sessions + ' sessions' : '') : 'no practice'); cells.push(i); } });
+      if (!c.future) i.title = tr('{date}: {what}', { date: date(c.date, { weekday: 'short', day: 'numeric', month: 'short' }), what: dayWhat(c) }); cells.push(i); } });
   $('logMonths').replaceChildren(...months); $('logCal').replaceChildren(...cells);
   const all = P.grid.flat(), on = all.filter(c => c.play > 0).length;
-  $('logCal').setAttribute('aria-label', 'Practiced on ' + on + ' of the last ' + all.filter(c => !c.future).length + ' days.');
+  $('logCal').setAttribute('aria-label', tr('Practiced on {n} of the last {days} days.', { n: on, days: all.filter(c => !c.future).length }));
+  [...$('logCalDays').children].forEach((d, i) => { d.textContent = i % 2 || i > 4 ? '' : date(P.grid[0][i].date, { weekday: 'narrow' }); });   // Monday, Wednesday and Friday
   // all time
   const first = log[0].start, facts = [
-    ['Sessions', String(P.sessions), 'since ' + new Date(first).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })],
-    ['Total playing', MT.durationText(P.totalPlay), 'on ' + P.daysPlayed + (P.daysPlayed === 1 ? ' day' : ' days')],
-    ['Longest session', MT.clockText(P.longest.play), dayName(P.longest.start)],
-    ['Average efficiency', pct(P.efficiency), 'playing while the timer ran'],
+    [tr('Sessions'), String(P.sessions), tr('since {date}', { date: date(first, { day: 'numeric', month: 'short', year: 'numeric' }) })],
+    [tr('Total playing'), MT.durationText(P.totalPlay), trn(P.daysPlayed, 'on {n} day', 'on {n} days')],
+    [tr('Longest session'), MT.clockText(P.longest.play), dayName(P.longest.start)],
+    [tr('Average efficiency'), pct(P.efficiency), tr('playing while the timer ran')],
   ];
   $('logTotals').replaceChildren(...facts.map(f => { const d = el('div'), dd = el('dd', null, f[1]); dd.append(el('small', null, f[2])); d.append(el('dt', null, f[0]), dd); return d; }));
   // the sessions, newest first, by day
   const list = log.slice().reverse().slice(0, logShown), groups = [], dayPlay = {}, dayN = {};
   for (const r of log) { const k = MT.dayKey(r.start); dayPlay[k] = (dayPlay[k] || 0) + r.play; dayN[k] = (dayN[k] || 0) + 1; }
   for (const r of list) { const k = MT.dayKey(r.start); if (!groups.length || groups[groups.length - 1].k !== k) groups.push({ k: k, recs: [] }); groups[groups.length - 1].recs.push(r); }
-  $('logList').replaceChildren(...groups.map(g => { const d = el('div', 'log-day'), h = el('h4', null, dayName(g.recs[0].start)); h.append(el('span', null, (dayN[g.k] > 1 ? dayN[g.k] + ' sessions, ' : '') + MT.durationText(dayPlay[g.k])));
+  $('logList').replaceChildren(...groups.map(g => { const d = el('div', 'log-day'), h = el('h4', null, dayName(g.recs[0].start)); h.append(el('span', null, dayN[g.k] > 1 ? tr('{n} sessions, {time}', { n: dayN[g.k], time: MT.durationText(dayPlay[g.k]) }) : MT.durationText(dayPlay[g.k])));
     d.append(h); for (const r of g.recs) { const b = el('button', 'log-row'), pl = el('div', 'pl'), big = el('b', null, MT.clockText(r.play)), mini = el('div', 'mini'), fill = el('i');
       if (r.play >= r.goal) big.insertAdjacentHTML('beforeend', TROPHY_SVG);
       fill.style.width = Math.min(100, r.goal ? r.play / r.goal * 100 : 0) + '%'; mini.append(fill); pl.append(big, mini);
       b.append(el('span', 'tm', at(r.start)), pl, el('span', 'ef', pct(r.eff)));
       b.insertAdjacentHTML('beforeend', '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>');
-      b.setAttribute('aria-label', dayName(r.start) + ' at ' + at(r.start) + ': ' + MT.durationText(r.play) + ' of playing, ' + pct(r.eff) + ' efficiency' + (r.play >= r.goal ? ', goal reached' : '') + '. Open its summary');
+      b.setAttribute('aria-label', tr(r.play >= r.goal ? '{day} at {time}: {play} of playing, {eff} efficiency, goal reached. Open its summary' : '{day} at {time}: {play} of playing, {eff} efficiency. Open its summary',
+        { day: dayName(r.start), time: at(r.start), play: MT.durationText(r.play), eff: pct(r.eff) }));
       b.onclick = () => openSummary(r, true); d.append(b); } return d; }));
   $('logOlder').hidden = log.length <= logShown;
 }
-function openLog() { pauseForSheet(); logShown = 30; disarm($('logClear'), 'Delete all sessions'); renderLog(); $('dlgLog').querySelector('.sh-body').scrollTop = 0; if (!$('dlgLog').open) $('dlgLog').showModal(); }
+function openLog() { pauseForSheet(); logShown = 30; disarm($('logClear'), tr('Delete all sessions')); renderLog(); $('dlgLog').querySelector('.sh-body').scrollTop = 0; if (!$('dlgLog').open) $('dlgLog').showModal(); }
 $('logClose').onclick = () => $('dlgLog').close();
 $('logOlder').onclick = () => { logShown += 30; renderLog(); };
 $('logStart').onclick = () => { $('dlgLog').close(); if ($('dlgSummary').open) $('dlgSummary').close(); start(); };
@@ -1229,11 +1296,11 @@ $('logStart').onclick = () => { $('dlgLog').close(); if ($('dlgSummary').open) $
 /* ---------- Home Screen: shown when the app opens and after a finished session's summary is closed. Start playing goes into the chosen theme ---------- */
 const homeEl = $('home');
 $('homeIcon').src = document.querySelector('#top .app-icon img').src;     // the same embedded icon as the title row
-const homeChips = SKINS.map((id, i) => { const b = el('button'); b.type = 'button'; b.setAttribute('aria-label', SKIN_NAMES[i]);
+const homeChips = SKINS.map((id, i) => { const b = el('button'); b.type = 'button';
   b.innerHTML = '<svg aria-hidden="true"><use href="#ico-' + id + '"/></svg>'; b.onclick = () => { if (open.includes(i)) setSkin(i, false); }; $('homeThemes').append(b); return b; });
 function paintHomeThemes() {
-  homeChips.forEach((b, i) => { b.hidden = !open.includes(i); b.setAttribute('aria-pressed', String(i === skin)); });
-  $('homeTheme').textContent = SKIN_NAMES[skin];
+  homeChips.forEach((b, i) => { b.hidden = !open.includes(i); b.setAttribute('aria-pressed', String(i === skin)); b.setAttribute('aria-label', tr(SKIN_NAMES[i])); });
+  $('homeTheme').textContent = tr(SKIN_NAMES[skin]);
   // with Rocket chosen and today's flight carrying on, the next session can start a new one instead
   const c = SKINS[skin] === 'rocket' && mode === 'local' ? MT.rocketCarry(log, Date.now(), flightFrom) : null;
   $('homeFlightGo').hidden = !c;
@@ -1244,7 +1311,7 @@ function renderHome() {
   const now = Date.now(), P = MT.practiceStats(log, now), c = MT.homeCopy(P, log.length ? log[log.length - 1] : null, now, { seed: homeSeed, name: S.name });
   // with no name set, the word for the player ("Ahoy, Captain") is the link that adds one
   $('homeHello').textContent = c.friend ? c.hello.slice(0, -c.friend.length) : c.hello;
-  $('homeName').hidden = !c.friend; $('homeName').textContent = c.friend || ''; $('homeName').setAttribute('aria-label', c.friend ? c.friend + '. Add your name' : '');
+  $('homeName').hidden = !c.friend; $('homeName').textContent = c.friend || ''; $('homeName').setAttribute('aria-label', c.friend ? tr('{friend}. Add your name', { friend: c.friend }) : '');
   $('homeHead').textContent = c.head; $('homeLede').textContent = c.lede;
   $('homeFirst').hidden = c.kind !== 'first'; $('homeWeek').hidden = c.kind === 'first';
   if (c.kind !== 'first') {
@@ -1255,12 +1322,12 @@ function renderHome() {
     // today's sessions, when there has been more than one: each opens its summary
     const todays = log.filter(r => MT.dayKey(r.start) === P.today.key); $('homeToday').hidden = todays.length < 2;
     $('homeSess').replaceChildren(...(todays.length < 2 ? [] : todays.map(r => { const b = el('button', null, at(r.start)); b.type = 'button'; b.append(el('b', null, MT.durationText(r.play)));
-      b.setAttribute('aria-label', 'Session at ' + at(r.start) + ', ' + MT.durationText(r.play) + ' of playing. Open its summary'); b.onclick = () => openSummary(r, true); return b; })));
-    $('homeDots').replaceChildren(...P.week.map(d => { const w = el('div', d.today ? 't' : ''); w.append(el('i', d.play > 0 ? 'on' : ''), d.date.toLocaleDateString([], { weekday: 'narrow' })); return w; }));
-    $('homeDots').setAttribute('aria-label', 'Days with music this week: ' + (P.week.filter(d => d.play > 0).map(d => d.date.toLocaleDateString([], { weekday: 'long' })).join(', ') || 'none yet') + '.');
+      b.setAttribute('aria-label', tr('Session at {time}, {play} of playing. Open its summary', { time: at(r.start), play: MT.durationText(r.play) })); b.onclick = () => openSummary(r, true); return b; })));
+    $('homeDots').replaceChildren(...P.week.map(d => { const w = el('div', d.today ? 't' : ''); w.append(el('i', d.play > 0 ? 'on' : ''), date(d.date, { weekday: 'narrow' })); return w; }));
+    $('homeDots').setAttribute('aria-label', tr('Days with music this week: {list}.', { list: listText(P.week.filter(d => d.play > 0).map(d => date(d.date, { weekday: 'long' }))) || tr('none yet') }));
     $('homeNote').textContent = c.note || '';
   }
-  $('homeGo').textContent = c.kind === 'today' ? 'Play again' : 'Start playing';
+  $('homeGo').textContent = tr(c.kind === 'today' ? 'Play again' : 'Start playing');
   paintHomeThemes();
 }
 function showHome() {
@@ -1344,10 +1411,11 @@ $('dbgOff').onclick = () => { DBG.on = false; DBG.readout = false; DBG.rocket = 
 
 /* ---------- go ---------- */
 carryRocket(); refreshSkins(); paintGoal(); paintControls(); paintDemoBar(); paintDbg(); showHome(); checkLost();
-try { if (sessionStorage.getItem('musicTimer.updated')) { sessionStorage.removeItem('musicTimer.updated'); toast('Music Timer has been updated.'); } } catch (e) {}
-try { const b = document.querySelector('meta[name="build"]'); $('ver').textContent = 'Version ' + (b && b.content && b.content.indexOf('__') < 0 ? b.content : 'dev'); } catch (e) {}
+try { if (sessionStorage.getItem('musicTimer.updated')) { sessionStorage.removeItem('musicTimer.updated'); toast(tr('Music Timer has been updated.')); } } catch (e) {}
+function paintVersion() { const b = document.querySelector('meta[name="build"]'); $('ver').textContent = tr('Version {n}', { n: b && b.content && b.content.indexOf('__') < 0 ? b.content : 'dev' }); }
+paintVersion();
 if (S.source === 'mic' && (micPolicyBlocked() || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia))
-  micNotice(framed ? MIC_FRAMED : micMessage({ name: window.isSecureContext === false ? 'Insecure' : 'Unsupported' }));
+  micNotice(framed ? MIC_FRAMED() : micMessage({ name: window.isSecureContext === false ? 'Insecure' : 'Unsupported' }));
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { raceView.rebuild(); layoutChanged(); }, () => {});   // the race's boards and read-outs are drawn in its condensed type
 requestAnimationFrame(t => { lastF = t; frame(t); });
 window.__mt = { session: session, sim: sim, rocket: rocket, city: city, dash: dash, race: race, fw: fw, A: A, S: S, V: V, start: start, stop: stop };

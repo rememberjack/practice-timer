@@ -16,14 +16,14 @@ missed or anything that can be lost by skipping a day.
 Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev dependency only: the page itself has none).
 
     npm run lint      ESLint over src/, scripts/ and test/ (eslint.config.js); catches names that are never declared
-    npm test          unit tests (src/core.js)
+    npm test          unit tests (src/core.js), and that every word the page shows is translated (test/words.js)
     npm run build     joins src/ into dist/index.html (dist/ is not committed)
     npm run ci        lint, tests, build, a smoke check of the built page and swipes in a real browser; GitHub Actions runs this
     npm run serve     build and serve locally (the microphone works on localhost)
 
 ## Layout
 
-- `scripts/build.js` inlines `src/core.js`, the theme renderers and `src/app.js` into `src/template.html`.
+- `scripts/build.js` inlines `src/core.js`, `src/lang.js`, the theme renderers and `src/app.js` into `src/template.html`.
 - `src/core.js` is pure logic with no DOM (detection, `Session`, the theme sims, swipe handling: `DragSwipe`, `WheelSwipe`) and holds the tests,
   which also run in the page from the debug tools (Sound tests). Behaviour belongs here, with a test.
 - Finished sessions are saved in localStorage under `musicTimer.log` (no audio); the practice log's figures (week,
@@ -80,6 +80,13 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
   second, or by opening the page with `?debug` (`?debug=0` turns them off). Once opened, Settings shows a way back to them; that is
   kept in `musicTimer.debug`. The demo sound and the sound tests live there, not in Settings. Their sample data
   (`sampleLog` in `src/core.js`), chosen with two taps, replaces the saved practice log and is then treated as real sessions.
+- Languages: English, Simplified Chinese and French, chosen in Settings, Language (its own page, `settingsPage('lang')`; `S.lang`, where '' follows
+  the device: `pickLang`). Every word the player sees is written in English and goes through `MT.tr` / `MT.trn` in `src/core.js`; the Chinese and
+  French are in `src/lang.js`, keyed by the English, with the same `{blanks}`, and a word with none shows in English ('Start|part': a context after |
+  tells apart two uses of one English word). The page's own words in `src/template.html` are swapped by `applyLang` in `src/app.js`; `translate="no"`
+  leaves an element alone (the debug tools stay in English, and the figures the app fills in). A new language redraws everything at once
+  (`langChanged`), during a session too. French speaks to the player as "tu" and names notes do, ré, mi (`noteText`); Chinese has no space between
+  sentences (`MT.both`) and lists with 、. Each language has its own playful Home Screen words, of the same shape as `HOME_EN`.
 - Theme renderers in `src/` only draw; `src/app.js` wires everything together. Some themes load three.js r128 from
   cdnjs.
 - `window.claude` and the "framed" checks support running inside a Claude artifact view; on GitHub Pages everything
@@ -100,9 +107,11 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
 ## Things that are easy to break
 
 - Adding, removing or renaming a theme: keep Settings, Themes in sync with it. That is its id and name in `SKINS`, `SKIN_NAMES` and `PANELS`,
-  its line in `THEME_LINE` (`src/app.js`), its tile colours (`[data-theme="<id>"]` in `src/template.html`), its `#ico-<id>` icon, and the
+  its line in `THEME_LINE` (`src/app.js`) and their Chinese and French (`src/lang.js`), its tile colours (`[data-theme="<id>"]` in `src/template.html`), its `#ico-<id>` icon, and the
   theme list in the "Themes: the player turns off" test (`src/core.js`). Check the page still fits an iPhone SE.
 - Only the theme on screen (and the one a swipe is revealing) is drawn; drawing hidden themes made swipes lag on phones.
+- Words the player sees: write them in English through `tr()` or `trn()` (or in a table `test/words.js` knows), never joined from pieces, and add
+  their Chinese and French to `src/lang.js`; `npm test` names any that are missing or no longer used. French is the longest: check it still fits an iPhone SE.
 - Any scroll area inside a theme needs `touch-action:pan-y pinch-zoom`, or Android Chrome cancels sideways swipes.
 - Themes sharing the pixel chrome (`data-chrome="pixel"`) must keep the same scene height (`#stage`) at every screen
   size, or swipes make the page jump.
@@ -125,5 +134,10 @@ reachable from the sandbox, so for themes that use three.js serve it from `npm p
 - Several sessions work in parallel: start each branch from a fresh `origin/main`.
 - One pull request per requested change; run `npm run ci` before pushing. Pushes to `main` deploy to the live site.
 - User-facing text is plain, complete sentences; on iOS, point microphone problems to the Settings app.
+- Every UI change (new or changed words, a new control, a layout or style change) must work in every language and fit the screen. Give
+  new words their Chinese and French in `src/lang.js` (`npm test` fails without them), then look at each screen it touches in English,
+  Chinese and French at iPhone SE sizes (375×667 and 320×568), during a session where it shows one. Playwright screenshots with the
+  context's `locale` set (`en-US`, `zh-CN`, `fr-FR`) pick the language through Automatic. French runs longest: shorten its words rather
+  than let a line be cut off, wrap more, or push the page into scrolling; Chinese falls back to the phone's own font in the pixel themes.
 - Lines here often hold several statements. A `//` comment runs to the end of the line, so when splitting a line, check that no code
   ended up after one; `npm run lint` flags the names this leaves undeclared.

@@ -1,5 +1,5 @@
 // Detection, timer and rocket tests, at the two common microphone sample rates. Exits 1 on any failure.
-const MT = require('../src/core.js');
+const MT = require('../src/core.js'); require('../src/lang.js');   // the words in Chinese and French, for the languages test
 let fail = 0;
 for (const sr of [44100, 48000]) {
   for (const r of MT.runDetectionTests(sr)) { if (!r.pass) fail++; console.log((r.pass ? 'PASS ' : 'FAIL ') + sr + ' ' + r.name + ' | ' + r.got); }

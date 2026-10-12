@@ -311,14 +311,23 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 .navrow .txt{flex:1; min-width:0}
 .navrow .lab{display:block; font-weight:700; font-size:15px}
 .navrow .hint{display:block}
-#setThemes .hint{font-size:13px; color:var(--mute); margin:3px 0 0}
+#setThemes .hint, #setLang .hint{font-size:13px; color:var(--mute); margin:3px 0 0}
 .navrow .mini{display:flex; gap:4px}
 .navrow .mini i, .trow .tile{display:grid; place-items:center; background:var(--g); color:var(--t)}
 .navrow .mini i{width:24px; height:24px; border-radius:7px}
 .navrow .mini svg{width:14px; height:14px}
 .navrow .chev{flex:none; width:18px; height:18px; color:var(--mute-2)}
 [data-theme="classic"]{--g:#121A27; --t:#86DCC0} [data-theme="rocket"]{--g:#070A14; --t:#FFD23F} [data-theme="city"]{--g:#0E1130; --t:#F2C94C} [data-theme="dash"]{--g:#07071F; --t:#7CFF4F} [data-theme="race"]{--g:#0A0E1C; --t:#FF5A5F} [data-theme="fireworks"]{--g:#08131F; --t:#F2B35E}
-#themesH{font-weight:800; font-size:22px; letter-spacing:-.01em; margin:0 0 4px; line-height:1.1}
+#themesH, #langH{font-weight:800; font-size:22px; letter-spacing:-.01em; margin:0 0 4px; line-height:1.1}
+/* Settings, Language: one row for each, the chosen one ticked. Each language is named in its own words */
+.llist{list-style:none; margin:10px 0 0; padding:0; display:grid; gap:8px}
+.lrow{display:flex; align-items:center; gap:12px; width:100%; min-height:56px; padding:10px 14px; border:1px solid var(--rule); border-radius:16px; background:var(--surface); color:inherit; font:inherit; text-align:left; cursor:pointer}
+.lrow .tx{flex:1; min-width:0}
+.lrow .tx b{display:block; font-size:16px}
+.lrow .tx span{display:block; font-size:13px; color:var(--mute)}
+.lrow .ck{flex:none; width:22px; height:22px; color:var(--accent); visibility:hidden}
+.lrow[aria-checked="true"]{border-color:var(--accent)}
+.lrow[aria-checked="true"] .ck{visibility:visible}
 .tlist{list-style:none; margin:10px 0 0; padding:0; display:grid; gap:8px}
 .trow{display:flex; align-items:center; gap:12px; padding:10px 12px; border:1px solid var(--rule); border-radius:16px; background:var(--surface)}
 .trow.off{background:none}
@@ -950,7 +959,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 
   <div id="notice" hidden role="status"><p id="noticeText"></p><button class="act" id="noticeAct"></button><button class="x" id="noticeClose" aria-label="Dismiss">&times;</button></div>
 
-  <div id="demoBar" hidden>
+  <div id="demoBar" hidden translate="no">
     <div class="demo-top"><span class="lab">Demo sound</span><div class="chips" id="demoWarp" role="group" aria-label="Demo speed"></div></div>
     <div class="chips" id="demoClips" role="group" aria-label="Demo sound"></div>
   </div>
@@ -964,9 +973,9 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
           <div class="clock" role="timer" aria-label="Play time"><span id="cClock"></span><span class="tenths" id="cTenths">.0</span></div>
           <div class="stats">
             <div class="stat"><div class="k">Efficiency</div><div class="v" id="cEff">0%</div><div class="meter"><i id="cEffBar"></i></div></div>
-            <div class="stat"><div class="k"><svg class="trophy badge" viewBox="0 0 64 64" aria-hidden="true"><use href="#ico-trophy"/></svg><span id="cGoalK">Practice goal</span></div><div class="v"><span id="cGoalV">30:00</span> <small id="cGoal">30:00 left</small></div><div class="meter"><i id="cGoalBar"></i></div></div>
+            <div class="stat"><div class="k"><svg class="trophy badge" viewBox="0 0 64 64" aria-hidden="true"><use href="#ico-trophy"/></svg><span id="cGoalK">Practice goal</span></div><div class="v"><span id="cGoalV">30:00</span> <small id="cGoal" translate="no">30:00</small></div><div class="meter"><i id="cGoalBar"></i></div></div>
             <div class="stat"><div class="k">Active session time</div><div class="v" id="cActive">00:00</div></div>
-            <div class="stat"><div class="k">Total session time</div><div class="v"><span id="cTotal">00:00</span> <small id="cPauses">0 pauses</small></div></div>
+            <div class="stat"><div class="k">Total session time</div><div class="v"><span id="cTotal">00:00</span> <small id="cPauses" translate="no">0</small></div></div>
           </div>
           <section class="monitor" aria-label="Sound monitor">
             <div class="mon-head"><h2>Sound monitor</h2><span class="mon-state"><i class="lamp"></i><span id="cMic">Mic off</span></span></div>
@@ -985,7 +994,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
             <div class="hud-play"><span class="k">Play time</span><span class="big" id="rPlay">00:00</span></div>
             <div class="hud-side">
               <div><canvas class="px-trophy badge" id="rTrophy" width="16" height="16"></canvas>Goal <b id="rGoal">30:00</b></div>
-              <div id="rGoalLeft">30:00 left</div>
+              <div id="rGoalLeft" translate="no">30:00</div>
             </div>
           </div>
           <div class="engine"><span class="k">Power</span><b class="pn" id="rPwN">0%</b><div class="pbar"><i id="rPw"></i><b class="m50"></b><span class="avg" id="rAvg" hidden></span></div><span class="eff"><span class="k">Efficiency</span> <b id="rEff">0%</b></span></div>
@@ -1008,7 +1017,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
             <div class="ch-play"><span class="k">Play time</span><span class="big" id="yPlay">00:00</span></div>
             <div class="ch-side">
               <div><canvas class="px-trophy badge" id="yTrophy" width="16" height="16"></canvas>Goal <b id="yGoal">30:00</b></div>
-              <div id="yGoalLeft">30:00 left</div>
+              <div id="yGoalLeft" translate="no">30:00</div>
               <div>Pauses <b id="yPauses">0</b></div>
             </div>
           </div>
@@ -1033,7 +1042,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
             <div class="dh-play"><span class="k">Play time</span><span class="big" id="dPlay">00:00</span></div>
             <div class="dh-side">
               <div><svg class="trophy badge" viewBox="0 0 64 64" aria-hidden="true"><use href="#ico-trophy"/></svg>Goal <b id="dGoal">30:00</b></div>
-              <div id="dGoalLeft">30:00 left</div>
+              <div id="dGoalLeft" translate="no">30:00</div>
               <div>Pauses <b id="dPauses">0</b></div>
             </div>
           </div>
@@ -1057,12 +1066,12 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
             <div class="gp-play"><span class="k">Play time</span><span class="big" id="gPlay">00:00</span></div>
             <div class="gp-side">
               <div><svg class="trophy badge" viewBox="0 0 64 64" aria-hidden="true"><use href="#ico-trophy"/></svg>Goal <b id="gGoal">30:00</b></div>
-              <div id="gGoalLeft">30:00 left</div>
+              <div id="gGoalLeft" translate="no">30:00</div>
               <div>Pauses <b id="gPauses">0</b></div>
             </div>
           </div>
           <div class="gp-stats">
-            <div><span>Position</span><b id="gPos">P10</b></div>
+            <div><span>Position</span><b id="gPos" translate="no">P10</b></div>
             <div><span>Ahead</span><b id="gGap">&ndash;</b></div>
             <div><span>Behind</span><b id="gBehind">&ndash;</b></div>
             <div><span>Power</span><b id="gPw">0%</b></div>
@@ -1083,7 +1092,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
             <div class="fw-play"><span class="k">Play time</span><span class="big" id="fPlay">00:00</span></div>
             <div class="fw-side">
               <div><svg class="trophy badge" viewBox="0 0 64 64" aria-hidden="true"><use href="#ico-trophy"/></svg>Goal <b id="fGoal">30:00</b></div>
-              <div id="fGoalLeft">30:00 left</div>
+              <div id="fGoalLeft" translate="no">30:00</div>
               <div>Pauses <b id="fPauses">0</b></div>
             </div>
           </div>
@@ -1156,7 +1165,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
     <div class="field">
       <span class="lab">Practice goal</span>
       <p class="hint" id="goalHint">The total play time to reach.</p>
-      <div class="row stepper"><button id="goalDn" aria-label="Five minutes less">&minus;</button><output id="goalOut">30 min</output><button id="goalUp" aria-label="Five minutes more">+</button></div>
+      <div class="row stepper"><button id="goalDn" aria-label="Five minutes less">&minus;</button><output id="goalOut" translate="no">30</output><button id="goalUp" aria-label="Five minutes more">+</button></div>
     </div>
     <div class="field">
       <label for="nameIn">Student name</label>
@@ -1165,6 +1174,9 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
     </div>
     <div class="field">
       <button type="button" class="navrow" id="openThemes"><span class="txt"><span class="lab">Themes</span><span class="hint" id="themesSum"></span></span><span class="mini" id="themesMini" aria-hidden="true"></span><svg class="chev" aria-hidden="true"><use href="#ico-next"/></svg></button>
+    </div>
+    <div class="field">
+      <button type="button" class="navrow" id="openLang"><span class="txt"><span class="lab">Language</span><span class="hint" id="langSum"></span></span><svg class="chev" aria-hidden="true"><use href="#ico-next"/></svg></button>
     </div>
     <div class="field">
       <span class="lab">Detection sensitivity</span>
@@ -1183,7 +1195,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
     <div class="field">
       <button type="button" class="navrow" id="openAbout"><span class="txt"><span class="lab">About</span><span class="hint">Music Timer and the people who made it.</span></span><svg class="chev" aria-hidden="true"><use href="#ico-next"/></svg></button>
     </div>
-    <div class="btn-row" id="setDebugRow" hidden><button class="btn" id="setDebug">Debug tools</button></div>
+    <div class="btn-row" id="setDebugRow" hidden translate="no"><button class="btn" id="setDebug">Debug tools</button></div>
     <p class="hint" id="ver" style="margin:14px 0 0;font-size:12px;color:var(--mute-2)"></p>
   </div>
   <div class="sh-body" id="setThemes" hidden>
@@ -1191,6 +1203,11 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
     <p class="hint">Turn off any theme you would rather not play with. It leaves the swipe and the theme bar. Your play time is kept either way, and you can turn it back on whenever you like. Classic is always on.</p>
     <ul class="tlist" id="themeList"></ul>
     <p class="hint" id="themesNote" role="status"></p>
+  </div>
+  <div class="sh-body" id="setLang" hidden>
+    <h2 id="langH">Language</h2>
+    <p class="hint">The words on every screen. Automatic follows the language of this device.</p>
+    <ul class="llist" id="langList" role="radiogroup" aria-labelledby="langH"></ul>
   </div>
 </dialog>
 
@@ -1201,7 +1218,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
   <p class="cr-hint" id="rollHint"></p>
 </dialog>
 
-<dialog id="dlgDebug" aria-labelledby="dbgH">
+<dialog id="dlgDebug" aria-labelledby="dbgH" translate="no">
   <div class="sh-head"><button class="btn" id="dbgBack" hidden aria-label="Back to the debug tools">&lsaquo; Back</button><h2 id="dbgH">Debug tools</h2><button class="btn solid" id="dbgClose">Done</button></div>
   <div class="sh-body">
     <div id="dbgMain">
@@ -1322,7 +1339,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
     </div>
     <div id="logMain">
       <div class="log-hero">
-        <div><p class="log-big" id="logBig">0 min</p><p class="sum-cap" id="logBigCap">of music this week</p></div>
+        <div><p class="log-big" id="logBig" translate="no">0</p><p class="sum-cap" id="logBigCap">of music this week</p></div>
         <div class="log-hero-r" id="logTotalBox"><p class="log-total" id="logTotal"></p><p class="sum-cap">all together</p></div>
       </div>
       <p class="log-nudge" id="logNudge"></p>
@@ -1338,7 +1355,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
       <section class="sum-blk">
         <h3>Last 12 weeks</h3>
         <div class="log-cal-wrap">
-          <div class="log-cal-days" aria-hidden="true"><span>M</span><span></span><span>W</span><span></span><span>F</span><span></span><span></span></div>
+          <div class="log-cal-days" id="logCalDays" aria-hidden="true" translate="no"><span>M</span><span></span><span>W</span><span></span><span>F</span><span></span><span></span></div>
           <div><div class="log-cal-months" id="logMonths" aria-hidden="true"></div><div class="log-cal" id="logCal" role="img"></div></div>
         </div>
         <div class="log-key" aria-hidden="true"><span><i class="lv1"></i>Under 15 min</span><span><i class="lv2"></i>15 to 30 min</span><span><i class="lv3"></i>30 min or more</span></div>
@@ -1361,7 +1378,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 </dialog>
 
 <div id="toast" role="status"></div>
-<pre id="dbgRead" hidden aria-hidden="true"></pre>
+<pre id="dbgRead" hidden aria-hidden="true" translate="no"></pre>
 
 <script>
 /*__CORE__*/

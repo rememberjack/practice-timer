@@ -3,6 +3,28 @@
 (function (root) {
 'use strict';
 
+/* ---------- Languages: the page's words in English, Simplified Chinese or French ----------
+   English is the key: every word is written in English in the code, and tr() looks it up in the chosen language's table (WORDS, filled
+   by src/lang.js), so a text with no translation shows in English. {x} in a text is filled in from vars. trn() picks the singular or
+   plural by each language's rule (French counts 0 as singular; Chinese has one form). Each language: its id, its own name, its locale */
+const LANGS = [['en', 'English', 'en'], ['zh', '简体中文', 'zh-CN'], ['fr', 'Français', 'fr-FR']];
+const WORDS = { en: {} }, HOME_LANG = {};
+let lang = 'en';
+function addWords(id, words, home) { WORDS[id] = words; if (home) HOME_LANG[id] = home; }
+function setLang(id) { lang = WORDS[id] && LANGS.some(l => l[0] === id) ? id : 'en'; return lang; }
+function getLang() { return lang; }
+/* the language to use: the one chosen in Settings, or with none chosen (''), the first of the device's languages there are words for */
+function pickLang(chosen, device) {
+  if (chosen && LANGS.some(l => l[0] === chosen)) return chosen;
+  for (const d of device || []) { const p = String(d).toLowerCase().split('-')[0], l = LANGS.find(x => x[0] === p); if (l) return l[0]; }
+  return 'en';
+}
+function locale() { return lang === 'en' ? [] : LANGS.find(l => l[0] === lang)[2]; }   // English dates keep the device's own format, as before
+function fill(s, vars) { return vars ? s.replace(/\{(\w+)\}/g, (m, k) => vars[k] != null ? String(vars[k]) : m) : s; }
+function tr(s, vars) { const w = WORDS[lang][s]; return fill(w != null ? w : s.replace(/\|.*$/, ''), vars); }   // 'End|part': a context after | tells apart two uses of the same English word
+function trn(n, one, other, vars) { const v = Object.assign({ n: n }, vars); return tr(lang === 'fr' ? (n < 2 ? one : other) : n === 1 ? one : other, v); }
+function inLang(id, fn) { const was = lang; setLang(id); try { return fn(); } finally { lang = was; } }
+
 /* ---------- FFT (in-place radix-2) ---------- */
 function fft(re, im) {
   const n = re.length;
@@ -88,7 +110,7 @@ class MusicDetector {
     this.hist = new Float32Array(128); this.ch = new Float64Array(8); this.seg = new Float64Array(8);
     this.setSensitivity(opts.sensitivity || 'normal');
     this.out = { levelDb: -120, active: false, tonal: false, ter: 0, pitch: 0, note: '', score: 0,
-      isMusic: false, kind: 'quiet', label: 'Quiet', detail: '', instrument: '' };
+      isMusic: false, kind: 'quiet', label: tr('Quiet'), detail: '', instrument: '' };
     this.reset();
   }
   setSensitivity(name) { this.sens = SENSITIVITY[name] || SENSITIVITY.normal; }
@@ -321,13 +343,13 @@ class MusicDetector {
     o.instrument = '';
     if (this.isMusic) {
       const ins = this.classify();
-      o.kind = 'music'; o.instrument = ins.name; o.label = 'Music heard'; o.detail = 'The clock counts while you play';
-    } else if (!active) { o.kind = 'quiet'; o.label = 'Quiet'; o.detail = 'Nothing loud enough to count'; }
-    else if (this.duty > 0.85 && this.glideHold <= 0) { o.kind = 'tone'; o.label = 'A steady tone'; o.detail = 'Checking whether it is music'; }
-    else if (this.duty > 0.22) { o.kind = 'voice'; o.label = 'Talking or a voice'; o.detail = 'Pitch slides and breaks up, unlike an instrument'; }
-    else if (this.trans > 0) { o.kind = 'percussive'; o.label = 'Clapping, tapping or knocking'; o.detail = 'Short bursts with no steady pitch'; }
-    else if (this.lv < 6) { o.kind = 'noise'; o.label = 'Steady background noise'; o.detail = 'A hum or hiss with no notes in it'; }
-    else { o.kind = 'noise'; o.label = 'Noise'; o.detail = 'No clear notes'; }
+      o.kind = 'music'; o.instrument = ins.name; o.label = tr('Music heard'); o.detail = tr('The clock counts while you play');
+    } else if (!active) { o.kind = 'quiet'; o.label = tr('Quiet'); o.detail = tr('Nothing loud enough to count'); }
+    else if (this.duty > 0.85 && this.glideHold <= 0) { o.kind = 'tone'; o.label = tr('A steady tone'); o.detail = tr('Checking whether it is music'); }
+    else if (this.duty > 0.22) { o.kind = 'voice'; o.label = tr('Talking or a voice'); o.detail = tr('Pitch slides and breaks up, unlike an instrument'); }
+    else if (this.trans > 0) { o.kind = 'percussive'; o.label = tr('Clapping, tapping or knocking'); o.detail = tr('Short bursts with no steady pitch'); }
+    else if (this.lv < 6) { o.kind = 'noise'; o.label = tr('Steady background noise'); o.detail = tr('A hum or hiss with no notes in it'); }
+    else { o.kind = 'noise'; o.label = tr('Noise'); o.detail = tr('No clear notes'); }
     return o;
   }
   /* the key number (middle C = 60) that a share p of the notes held lately lie below */
@@ -1236,7 +1258,27 @@ function detectionTests(sr) {
     const want = ['12', 'dev', '', '', '', '', false, true, true, false, false, false, false];
     return { name: 'New versions: placeholders, dev builds and whitespace', expect: 'the stamp is trimmed; a page with no meta, no content or a placeholder has no stamp; dev against dev, or the same stamp with spaces round it, is not newer, while a dev page against a numbered build is; the first meta tag is the one that counts',
       got: got.join(', '), pass: got.every((g, i) => g === want[i]) }; } });
-  return list;
+  // languages
+  list.push({ name: 'Languages: every word in Chinese and French', run: () => {
+    const ids = LANGS.map(l => l[0]).filter(id => id !== 'en'), keys = id => Object.keys(WORDS[id] || {}).sort(), marks = t => (String(t).match(/\{\w+\}/g) || []).sort().join();
+    const picked = [pickLang('', ['fr-CA', 'en']), pickLang('', ['zh-TW']), pickLang('', ['de-DE', 'zh-Hans-CN']), pickLang('', ['de']), pickLang('en', ['fr']), pickLang('xx', ['fr'])].join();
+    const rules = inLang('en', () => [tr('{n} s', { n: 5 }), tr('End|part'), trn(0, '{n} lap', '{n} laps'), trn(1, '{n} lap', '{n} laps')]).join() + ';' + inLang('fr', () => trn(0, '{n} lap', '{n} laps') === tr('{n} lap', { n: 0 }));
+    const bad = [], now = new Date(2026, 9, 9, 18).getTime(), P1 = practiceStats([{ start: now - 3600e3, play: 900, goal: 1800, eff: 0.8, R: { active: 1100 } }], now);
+    for (const id of ids) {
+      if (!WORDS[id]) { bad.push(id + ' has no words'); continue; }
+      if (keys(id).join('\n') !== keys(ids[0]).join('\n')) bad.push(id + ' has other words than ' + ids[0]);
+      for (const [k, v] of Object.entries(WORDS[id])) if (typeof v !== 'string' || !v || marks(k) !== marks(v)) bad.push(id + ': ' + k);
+      const H = HOME_LANG[id], shape = W => Object.keys(W.words).map(k => k + ':' + Object.keys(W.words[k]).join('+')).join();
+      if (!H || shape(H) !== shape(HOME_EN) || H.times.length !== 5 || !/\{day\}/.test(H.times[4]) || !H.friend.length || !H.hello.concat(H.times).every(h => /[,，]\s*(\S+ ?)?\{name\}$/.test(h))) { bad.push(id + ' Home Screen words'); continue; }
+      inLang(id, () => { for (let seed = 1; seed < 40; seed++) for (const [P, last] of [[practiceStats([], now), null], [P1, { start: now - 3600e3, play: 900 }]]) {
+        const c = homeCopy(P, last, now, { seed: seed }), named = homeCopy(P, last, now, { seed: seed, name: 'Sam' }), all = [c.hello, c.head, c.lede, c.note || '', named.hello].join(' ');
+        if (/[{}]|undefined/.test(all) || !c.hello.endsWith(c.friend) || !/Sam$/.test(named.hello)) bad.push(id + ': ' + all); } });
+    }
+    const said = inLang('fr', () => durationText(4500) + ' / ' + weekLine({ weekPlay: 600, lastWeekPlay: 0 })) + ' / ' + inLang('zh', () => durationText(4500) + ' / ' + dayLine({ key: dayKey(now), n: 2, count: 2, play: 1500 }, now).text);
+    return { name: 'Languages: every word in Chinese and French', expect: 'the device\'s language is picked when none is chosen; each language has a translation of every word with the same {blanks}, and Home Screen words of the same shape',
+      got: picked + ' | ' + rules + ' | ' + ids.map(id => id + ' ' + keys(id).length + ' words').join(', ') + ' | ' + said + (bad.length ? ' | missing or wrong: ' + bad.slice(0, 4).join(' / ') : ''),
+      pass: picked === 'fr,zh,zh,en,en,fr' && rules === '5 s,End,0 laps,1 lap;true' && !bad.length && ids.every(id => keys(id).length > 300) }; } });
+  return list.map(t => Object.assign({}, t, { run: () => inLang('en', t.run) }));   // written for the English words, whatever language the page shows
 }
 function runDetectionTests(sr) { return detectionTests(sr).map(t => t.run()); }
 
@@ -1426,21 +1468,23 @@ function dayRecap(records, rec) {
 const ORDINALS = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth', 'ninth', 'tenth'];
 function dayLine(D, now) {
   if (!D || D.count < 2) return null;
-  const today = D.key === dayKey(now), when = today ? 'today' : 'that day', latest = D.n === D.count;
-  const text = today && latest ? (ORDINALS[D.n - 1] ? 'This was your ' + ORDINALS[D.n - 1] + ' session today.' : 'This was session ' + D.n + ' today.') : 'This was session ' + D.n + ' of ' + D.count + ' ' + when + '.';
-  return { lead: durationText(D.play) + ' of music ' + when + '.', text: text };
+  const today = D.key === dayKey(now), latest = D.n === D.count, v = { n: D.n, count: D.count, nth: ORDINALS[D.n - 1] ? tr(ORDINALS[D.n - 1]) : '' };
+  const text = today && latest ? tr(v.nth ? 'This was your {nth} session today.' : 'This was session {n} today.', v) : tr(today ? 'This was session {n} of {count} today.' : 'This was session {n} of {count} that day.', v);
+  return { lead: tr(today ? '{time} of music today.' : '{time} of music that day.', { time: durationText(D.play) }), text: text };
 }
 /* 4500 -> "1 h 15 min", 600 -> "10 min", 40 -> "40 s" */
-function durationText(s) { s = Math.max(0, Math.round(s)); if (s < 60) return s + ' s'; const m = Math.round(s / 60), h = Math.floor(m / 60);
-  return h ? h + ' h' + (m % 60 ? ' ' + (m % 60) + ' min' : '') : m + ' min'; }
+function durationText(s) { s = Math.max(0, Math.round(s)); if (s < 60) return tr('{n} s', { n: s }); const m = Math.round(s / 60), h = Math.floor(m / 60);
+  return h ? tr(m % 60 ? '{h} h {m} min' : '{h} h', { h: h, m: m % 60 }) : tr('{m} min', { m: m }); }
+/* two sentences in a row: a space between them, or none in Chinese */
+function both(a, b) { return tr('{a} {b}', { a: a, b: b }); }
 /* the encouraging line on the practice log, and its partner about the week. Low pressure: they only ever count what was played,
    never days missed or a streak to keep, so coming back after a break reads as good news rather than something lost */
 function practiceNudge(P) {
   if (!P.sessions) return '';
-  if (P.practicedToday) return 'Lovely playing today. Come back whenever you feel like it.';
+  if (P.practicedToday) return tr('Lovely playing today. Come back whenever you feel like it.');
   const n = P.week.filter(c => c.play > 0).length;
-  if (n) return 'You have played ' + (n === 1 ? 'once' : 'on ' + n + ' days') + ' this week. Nice work.';
-  return 'Welcome back. Even a few minutes of playing is worth it.';
+  if (n) return trn(n, 'You have played once this week. Nice work.', 'You have played on {n} days this week. Nice work.');
+  return tr('Welcome back. Even a few minutes of playing is worth it.');
 }
 /* the Home Screen's words for this moment: a greeting, a headline and a line or two. Low pressure, like the practice log: they speak
    of what was played, never of days missed, so opening the app after a break feels welcoming. last is the latest session, or null.
@@ -1462,34 +1506,44 @@ const HOME_WORDS = {
     lede: ['Nice to see you. Even a few minutes of playing is worth it.', 'Give your instrument a little wake-up tune.', 'Play one song, or ten. Whatever feels good today.',
       'Even a few minutes of playing is worth it.'] }
 };
+/* the playful words in each language (src/lang.js gives the others): the same shape as English. Every greeting ends with {name}, after
+   a comma; a title in it ("Captain") stands before {name}. The time of day's greetings: morning, afternoon, evening, then a second one
+   for the morning, and for later in the day one that names the day */
+const HOME_EN = { hello: HOME_HELLO, friend: HOME_FRIEND, words: HOME_WORDS,
+  times: ['Good morning, {name}', 'Good afternoon, {name}', 'Good evening, {name}', 'Rise and shine, {name}', 'Happy {day}, {name}'] };
+function weekday(ms) { return lang === 'en' ? WEEKDAYS[new Date(ms).getDay()] : new Date(ms).toLocaleDateString(locale(), { weekday: 'long' }); }
 function homeCopy(P, last, now, o) {
   o = o || {};
-  const day = new Date(now), h = day.getHours(), r = o.seed ? rng(o.seed) : null, pick = a => a[r ? Math.floor(r() * a.length) : 0];
+  const day = new Date(now), h = day.getHours(), r = o.seed ? rng(o.seed) : null, pick = a => a[r ? Math.floor(r() * a.length) : 0], W = HOME_LANG[lang] || HOME_EN, T = W.times;
   // the greeting: the time of day comes first (and with no seed is the one used), then the playful ones, which may name the day too
-  const hellos = [h < 12 ? 'Good morning, {name}' : h < 18 ? 'Good afternoon, {name}' : 'Good evening, {name}', h < 12 ? 'Rise and shine, {name}' : 'Happy ' + WEEKDAYS[day.getDay()] + ', {name}'].concat(HOME_HELLO);
-  // with no name, a title the greeting has ("Captain") is the word for the player; else one of HOME_FRIEND (picked either way, so a name never changes the other words)
-  const name = String(o.name || '').trim(), said = pick(hellos), other = pick(HOME_FRIEND), title = said.slice(said.lastIndexOf(', ') + 2).replace('{name}', '').trim();
-  const friend = name ? undefined : title || other, hello = name ? said.replace('{name}', name) : title ? said.replace(/ \{name\}$/, '') : said.replace('{name}', other);
-  if (!P.sessions || !last) return { kind: 'first', hello: hello, friend: friend, head: pick(HOME_WORDS.first.head), lede: 'It counts only the time the microphone hears you play.' };
+  const hellos = [h < 12 ? T[0] : h < 18 ? T[1] : T[2], h < 12 ? T[3] : T[4].replace('{day}', weekday(now))].concat(W.hello);
+  // with no name, a title the greeting has ("Captain") is the word for the player; else one of the friend words (picked either way, so a name never changes the other words)
+  const name = String(o.name || '').trim(), said = pick(hellos), other = pick(W.friend), title = said.replace(/^.*[,\uFF0C]\s*/, '').replace('{name}', '').trim();
+  const friend = name ? undefined : title || other, hello = name ? said.replace('{name}', name) : title ? said.replace(/ ?\{name\}$/, '') : said.replace('{name}', other);
+  if (!P.sessions || !last) return { kind: 'first', hello: hello, friend: friend, head: pick(W.words.first.head), lede: tr('It counts only the time the microphone hears you play.') };
   // a session that started before midnight and ended today still counts as playing today here (it is filed under the day it started)
   const lateLast = !P.practicedToday && dayKey(last.end || last.start) === dayKey(now);
-  if (P.practicedToday || lateLast) { const t = P.today, n = t.sessions, play = lateLast ? last.play : t.play;
-    return { kind: 'today', hello: hello, friend: friend, head: pick(HOME_WORDS.today.head), lede: 'You played for ' + durationText(play) + ' today' + (!lateLast && n > 1 ? ', in ' + n + ' sessions' : '') + '. ' + pick(HOME_WORDS.today.then),
-      note: 'All together: ' + durationText(P.totalPlay) + ' of music.' }; }
-  if (P.weekPlay > 0) { const days = Math.round((dayStart(now) - dayStart(last.start)) / 864e5), when = days <= 1 ? 'yesterday' : 'on ' + WEEKDAYS[new Date(last.start).getDay()];
+  if (P.practicedToday || lateLast) { const t = P.today, n = t.sessions, play = durationText(lateLast ? last.play : t.play);
+    return { kind: 'today', hello: hello, friend: friend, head: pick(W.words.today.head),
+      lede: both(!lateLast && n > 1 ? tr('You played for {time} today, in {n} sessions.', { time: play, n: n }) : tr('You played for {time} today.', { time: play }), pick(W.words.today.then)),
+      note: tr('All together: {time} of music.', { time: durationText(P.totalPlay) }) }; }
+  if (P.weekPlay > 0) { const days = Math.round((dayStart(now) - dayStart(last.start)) / 864e5), v = { day: weekday(last.start) };
     const d = P.week.find(c => c.key === dayKey(last.start)), n = d ? d.sessions : 1;   // every session that day, not only the last
-    return { kind: 'week', hello: hello, friend: friend, head: pick(HOME_WORDS.week.head), lede: pick(HOME_WORDS.week.lede),
-      note: n > 1 ? 'You last played ' + when + ', ' + durationText(d.play) + ' in ' + n + ' sessions.' : 'Your last session was ' + when + ', ' + durationText(last.play) + '.' }; }
-  return { kind: 'back', hello: hello, friend: friend, head: pick(HOME_WORDS.back.head), lede: pick(HOME_WORDS.back.lede),
-    fresh: 'A fresh week. Whenever you play, it shows up here.', note: 'So far you have made ' + durationText(P.totalPlay) + ' of music with Music Timer.' };
+    if (n > 1) Object.assign(v, { n: n, time: durationText(d.play) }); else v.time = durationText(last.play);
+    return { kind: 'week', hello: hello, friend: friend, head: pick(W.words.week.head), lede: pick(W.words.week.lede),
+      note: tr(n > 1 ? (days <= 1 ? 'You last played yesterday, {time} in {n} sessions.' : 'You last played on {day}, {time} in {n} sessions.')
+        : days <= 1 ? 'Your last session was yesterday, {time}.' : 'Your last session was on {day}, {time}.', v) }; }
+  return { kind: 'back', hello: hello, friend: friend, head: pick(W.words.back.head), lede: pick(W.words.back.lede),
+    fresh: tr('A fresh week. Whenever you play, it shows up here.'), note: tr('So far you have made {time} of music with Music Timer.', { time: durationText(P.totalPlay) }) };
 }
 function weekLine(P) {
-  let s = 'This week: ' + durationText(P.weekPlay) + ' of playing';
-  if (P.lastWeekPlay <= 0) return s + '.';
+  const v = { time: durationText(P.weekPlay) };
+  if (P.lastWeekPlay <= 0) return tr('This week: {time} of playing.', v);
   const d = P.weekPlay - P.lastWeekSoFar;
-  if (P.weekPlay >= P.lastWeekPlay) return s + ', ' + (P.weekPlay - P.lastWeekPlay >= 60 ? durationText(P.weekPlay - P.lastWeekPlay) + ' more than all of last week.' : 'as much as all of last week.');
-  if (d >= 60) return s + ', ' + durationText(d) + ' ahead of last week at this point.';
-  return s + '.';                                                   // behind last week: no catching up to do, just this week's playing
+  if (P.weekPlay >= P.lastWeekPlay) return P.weekPlay - P.lastWeekPlay >= 60 ? tr('This week: {time} of playing, {more} more than all of last week.', Object.assign(v, { more: durationText(P.weekPlay - P.lastWeekPlay) }))
+    : tr('This week: {time} of playing, as much as all of last week.', v);
+  if (d >= 60) return tr('This week: {time} of playing, {more} ahead of last week at this point.', Object.assign(v, { more: durationText(d) }));
+  return tr('This week: {time} of playing.', v);                   // behind last week: no catching up to do, just this week's playing
 }
 
 /* ---------- Sample practice logs for the debug tools: made-up sessions, never saved, to see each page as it looks after some use ---------- */
@@ -2120,7 +2174,7 @@ class RaceSim {
   }
 }
 /* a gap in laps, in words for the read-outs: seconds at full speed, or whole laps */
-function raceGap(l) { const a = Math.abs(l); return a >= 1 ? Math.floor(a) + (a >= 2 ? ' laps' : ' lap') : Math.max(0.1, a * RACE.LAPU / RACE.VNOM).toFixed(1); }
+function raceGap(l) { const a = Math.abs(l); return a >= 1 ? trn(Math.floor(a), '{n} lap', '{n} laps') : Math.max(0.1, a * RACE.LAPU / RACE.VNOM).toFixed(1); }
 
 /* ---------- Fireworks: every note played sends a shell up into the night ----------
    A note starting launches a shell. Its colour is the note (the twelve notes are twelve colours, a fifth apart round the colour wheel, so the
@@ -2198,7 +2252,7 @@ class FireworkSim {
   }
 }
 
-const api = { LIFTOFF, OnsetTracker, DragSwipe, WheelSwipe, DashSim, DASH, dashSpeed, RaceSim, RACE, RACE_PIT, raceTrack, FireworkSim, FW, fwHue, fwTrophyShape, raceGap, raceRng, RacePractiser, MusicDetector, Session, RocketSim, WORLD, MILESTONES, SENSITIVITY, CLIPS, DETECTION_CASES,
+const api = { LANGS, addWords, setLang, getLang, pickLang, locale, tr, trn, inLang, both, LIFTOFF, OnsetTracker, DragSwipe, WheelSwipe, DashSim, DASH, dashSpeed, RaceSim, RACE, RACE_PIT, raceTrack, FireworkSim, FW, fwHue, fwTrophyShape, raceGap, raceRng, RacePractiser, MusicDetector, Session, RocketSim, WORLD, MILESTONES, SENSITIVITY, CLIPS, DETECTION_CASES,
   detectionTests, runDetectionTests, analyzeClip, sessionReport, clockText, sessionRecord, worthKeeping, liveSnapshot, liveRecord, rocketCarry, buildOf, newerBuild, themesOn, themeSwitch, themeLanding, practiceStats, dayRecap, dayLine, practiceNudge, homeCopy, weekLine, durationText, dayKey, LOG_MAX, LEVEL_MIN, SAMPLE_LOGS, sampleLog, rocketAt, fraction, heardAs, noteOf, smooth, pchip, clamp01 };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.MT = api;
 })(typeof self !== 'undefined' ? self : this);
