@@ -58,7 +58,9 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
   stream, so a following device races the same field (the seed is shared). The field is tuned so first place comes about half the time at 80%
   efficiency; a test checks the chances rise with efficiency. A pause is a red flag that freezes every car; the pit lane is only a picture
   (the car rejoins at the same distance, with nothing changed), with no crew. The lane is one path (`RaceSim.pitX`): it opens out from the car's
-  line, runs past the garages and bends back into the track, and the car keeps to its middle, so it never cuts across the pit lane line. The race runs until the practice goal; the trophy card names the place.
+  line, runs past the garages and bends back into the track, and the car keeps to its middle, so it never cuts across the pit lane line. Where it bends
+  out is set when the car turns in, so the garages never vanish. On track every car keeps to the racing line (`raceLine`, `RaceSim.lineAt`): wide on the
+  way in, the inside tyres on the kerb at the apex, wide on the way out; close bends the other way go apex to apex. A test checks every corner. The race runs until the practice goal; the trophy card names the place.
 - The Home Screen (`#home`) shows when the app opens and after a finished session's summary is closed; its words come
   from `homeCopy` in `src/core.js`. No theme scene is drawn while it covers them. Its greeting, headline and line are picked from
   playful words for young players (`HOME_HELLO`, `HOME_WORDS`), new each time it shows; they must fit an iPhone SE without wrapping more.
