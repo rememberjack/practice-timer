@@ -12,7 +12,7 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png" sizes="180x180">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Silkscreen:wght@400;700&family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;1,700;1,800&display=swap" rel="stylesheet">
 <style>
 :root{
   /* deep navy ground, slate panels, mint accent */
@@ -20,6 +20,7 @@
   --accent:#86DCC0; --on-accent:#0F2B23; --gold:#F2C14E; --alert:#F0907A;
   --sans:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
   --pixel:"Silkscreen","Lucida Console","Courier New",ui-monospace,monospace;
+  --cond:"Barlow Condensed","Arial Narrow","Roboto Condensed",system-ui,sans-serif;   /* Grand Prix: timing-screen type */
   color-scheme:dark;
   box-sizing:border-box;
   padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
@@ -39,6 +40,7 @@ body{transition:background-color .3s}
 body:has(> #app[data-skin="rocket"]){background:#070A14}
 body:has(> #app[data-skin="city"]){background:#0E1130}
 body:has(> #app[data-skin="dash"]){background:#07071F}
+body:has(> #app[data-skin="race"]){background:#0A0E1C}
 
 /* ---------- chrome (classic look; the rocket theme overrides it below) ---------- */
 #top{display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:10px; padding:12px 0 12px; margin:0 auto 6px; max-width:560px; width:calc(100% - 36px); border-bottom:1px solid var(--rule)}
@@ -65,7 +67,7 @@ body:has(> #app[data-skin="dash"]){background:#07071F}
 .chips button[aria-pressed="true"]{background:var(--accent); color:var(--on-accent); border-color:var(--accent); font-weight:700}
 
 #stage{flex:1; min-height:0; overflow:hidden; position:relative; touch-action:pan-y; -webkit-user-select:none; user-select:none}   /* a mouse swipe must not select text, or the next swipe drags the selection instead */
-#track{display:flex; width:400%; height:100%; will-change:transform}
+#track{display:flex; width:500%; height:100%; will-change:transform}
 .panel{flex:1 1 0; min-width:0; height:100%; position:relative; overflow:hidden; container-type:size}
 
 #controls{display:flex; flex-wrap:wrap; gap:10px; padding:10px 18px 14px; justify-content:center; max-width:596px; width:100%; margin:0 auto}
@@ -95,6 +97,10 @@ body:has(> #app[data-skin="dash"]){background:#07071F}
 .ask[data-skin="dash"] .btn{border:3px solid #05051A; border-radius:16px; background:#2B2B7A; color:#fff; font-weight:800; box-shadow:0 4px 0 #05051A}
 .ask[data-skin="dash"] .btn.solid{background:#7CFF4F; color:#06210A}
 .ask[data-skin="dash"] .btn:active{transform:translateY(3px); box-shadow:0 1px 0 #05051A}
+.ask[data-skin="race"]{--sheet:#121831; --surface:#1B2340; --ink:#F5F6FA; --mute:#A9B0C6; --rule:#2B3354; --accent:#86DCC0; --on-accent:#0D2A22; border:0; border-top:3px solid #E8333B}
+.ask[data-skin="race"] h2{font-family:var(--cond); font-style:italic; font-weight:800; font-size:24px; text-transform:uppercase; letter-spacing:.01em}
+.ask[data-skin="race"] .btn{font-family:var(--cond); font-style:italic; font-weight:800; font-size:17px; text-transform:uppercase; letter-spacing:.03em; border:0; border-radius:12px; background:#252E4E; color:#F5F6FA}
+.ask[data-skin="race"] .btn.solid{background:#86DCC0; color:#0D2A22}
 @media (max-width:560px){ .ask[data-skin="rocket"], .ask[data-skin="city"]{border-radius:0} .ask[data-skin="dash"]{border-radius:24px 24px 0 0; border-width:3px 0 0} }
 /* New flight, at the end of the Rocket read-outs' last line while the rocket is off the pad */
 .hud-flight{position:absolute; right:12px; bottom:6px; min-height:28px; padding:3px 7px; border:2px solid #05070D; border-radius:0; background:#7B8293; color:#fff;
@@ -305,7 +311,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 .navrow .mini i{width:24px; height:24px; border-radius:7px}
 .navrow .mini svg{width:14px; height:14px}
 .navrow .chev{flex:none; width:18px; height:18px; color:var(--mute-2)}
-[data-theme="classic"]{--g:#121A27; --t:#86DCC0} [data-theme="rocket"]{--g:#070A14; --t:#FFD23F} [data-theme="city"]{--g:#0E1130; --t:#F2C94C} [data-theme="dash"]{--g:#07071F; --t:#7CFF4F}
+[data-theme="classic"]{--g:#121A27; --t:#86DCC0} [data-theme="rocket"]{--g:#070A14; --t:#FFD23F} [data-theme="city"]{--g:#0E1130; --t:#F2C94C} [data-theme="dash"]{--g:#07071F; --t:#7CFF4F} [data-theme="race"]{--g:#0A0E1C; --t:#FF5A5F}
 #themesH{font-weight:800; font-size:22px; letter-spacing:-.01em; margin:0 0 4px; line-height:1.1}
 .tlist{list-style:none; margin:10px 0 0; padding:0; display:grid; gap:8px}
 .trow{display:flex; align-items:center; gap:12px; padding:10px 12px; border:1px solid var(--rule); border-radius:16px; background:var(--surface)}
@@ -322,6 +328,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 .tg:checked::after{transform:translateX(20px)}
 .tg:disabled{opacity:.5; cursor:default}
 #themesNote{margin:10px 2px 0; min-height:18px}
+@media (max-height:700px){ .tlist{gap:6px; margin-top:8px} .trow{padding:6px 12px} }   /* an iPhone SE: all five themes and the note fit without scrolling */
 #tests{list-style:none; margin:10px 0 0; padding:0; font-size:13px}
 #tests li{display:grid; grid-template-columns:44px 1fr; gap:2px 8px; padding:6px 0; border-top:1px solid var(--rule)}
 #tests .r{font-weight:600}
@@ -523,6 +530,69 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 @media (max-width:350px){ .dash-hud{font-size:11px; padding:8px 10px 7px} .dh-stats span{font-size:10px} .dh-stats b{font-size:14px} #app[data-skin="dash"][data-chrome="pixel"] #controls button{font-size:15px} }
 @media (max-height:620px){ .dh-line.dim{display:none} }
 
+/* ---------- Grand Prix theme: a race at sunset, with timing-screen read-outs. Condensed italic type, dark panels, a red kerb line ---------- */
+#app[data-skin="race"]{--paper:#0A0E1C; --surface:#161D36; --ink:#F5F6FA; --mute:#A9B0C6; --rule:#2B3354; --accent:#86DCC0; --on-accent:#0D2A22}
+#app[data-skin="race"][data-chrome="pixel"] #top h1{font-family:var(--cond); font-style:italic; font-size:22px; font-weight:800; text-transform:uppercase; letter-spacing:.01em}
+#app[data-skin="race"][data-chrome="pixel"] .icon-btn{border-radius:10px}
+#app[data-skin="race"][data-chrome="pixel"] #notice, #app[data-skin="race"][data-chrome="pixel"] #demoBar{border-radius:12px}
+#app[data-skin="race"][data-chrome="pixel"] .chips button{border-radius:999px}
+#app[data-skin="race"][data-chrome="pixel"] .chips button[aria-pressed="true"], #app[data-skin="race"][data-chrome="pixel"] #notice .act{background:var(--accent); color:var(--on-accent); border-color:var(--accent); font-weight:700; border-radius:999px}
+#app[data-skin="race"][data-chrome="pixel"] #controls button{font-family:var(--cond); font-style:italic; font-size:19px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; border-radius:12px; border:2px solid #05070D; background:#252E4E; color:#F5F6FA; text-shadow:none; box-shadow:none}
+#app[data-skin="race"][data-chrome="pixel"] #controls button.primary{background:#86DCC0; color:#0D2A22}
+#app[data-skin="race"][data-chrome="pixel"] #controls button:active{transform:translateY(1px)}
+#app[data-skin="race"][data-chrome="pixel"] .award-card{background:#121831; border:0; border-left:5px solid #86DCC0; border-radius:6px; font-family:var(--cond); box-shadow:0 10px 30px rgba(0,0,0,.5)}
+#app[data-skin="race"][data-chrome="pixel"] .award-card .trophy{display:block}
+#app[data-skin="race"][data-chrome="pixel"] .award-card .px-trophy{display:none}
+#app[data-skin="race"][data-chrome="pixel"] .award-card h3{font-family:var(--cond); font-style:italic; font-size:28px; font-weight:800; text-transform:uppercase; color:#F5F6FA}
+#app[data-skin="race"][data-chrome="pixel"] .award-card p{font-family:var(--sans); font-size:14px; color:#A9B0C6}
+#pRace{background:#0A0E1C; color:#F5F6FA; font-family:var(--cond)}
+#raceCv{position:absolute; inset:0; width:100%; height:100%; display:block}
+.gp-hud{position:absolute; left:10px; right:10px; top:8px; padding:8px 11px 7px; font-size:14px; line-height:1.2; background:rgba(9,12,26,.84); border-top:3px solid #E8333B; border-radius:12px}
+#app[data-flag="red"] .gp-hud{border-top-color:#FF2B2B}
+.gp-hud .k{color:#A9B0C6; font-weight:600; text-transform:uppercase; letter-spacing:.06em; font-size:12px}
+.gp-prog{display:flex; align-items:center; gap:8px}
+#gLap{flex:none; font-weight:800; font-size:15px; font-variant-numeric:tabular-nums; white-space:nowrap}
+.gp-bar{flex:1; min-width:0; height:8px; border-radius:4px; background:rgba(255,255,255,.13); overflow:hidden}
+.gp-bar i{display:block; height:100%; width:0; background:#86DCC0; border-radius:4px}
+.gp-bar.flag i{background:repeating-linear-gradient(90deg, #FFFFFF 0 6px, #111111 6px 12px)}
+.gp-top{display:flex; justify-content:space-between; align-items:flex-end; gap:10px; margin-top:5px}
+.gp-play{min-width:0}
+.gp-play .k{display:block; white-space:nowrap}
+.gp-hud .big{display:block; font-size:clamp(34px, 11vw, 46px); line-height:.95; font-weight:800; font-style:italic; letter-spacing:-.01em; font-variant-numeric:tabular-nums; white-space:nowrap}
+.gp-hud .big.long{font-size:clamp(26px, 8.4vw, 36px)}
+#app[data-music="1"] .gp-hud .big{color:#86DCC0}
+.gp-side{flex:none; text-align:right; white-space:nowrap; color:#A9B0C6}
+.gp-side b{color:#F5F6FA; font-weight:700; font-variant-numeric:tabular-nums}
+.gp-stats{display:grid; grid-template-columns:repeat(5, minmax(0, 1fr)); gap:0 4px; margin-top:6px; padding-top:6px; border-top:1px solid rgba(255,255,255,.1); text-align:center}
+.gp-stats span{display:block; font-size:11px; color:#A9B0C6; text-transform:uppercase; letter-spacing:.05em; font-weight:600; white-space:nowrap}
+.gp-stats b{display:block; font-size:19px; line-height:1.15; font-weight:800; font-variant-numeric:tabular-nums; white-space:nowrap}
+.gp-line{margin-top:4px; min-height:17px; font-family:var(--sans); font-weight:600; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.gp-line.dim{margin-top:0; font-weight:400; color:#A9B0C6}
+/* the race order, under the read-outs on the left (the speed panel is drawn on the right) */
+.gp-tower{position:absolute; left:10px; top:calc(var(--hud-b, 170px) + 8px); width:124px; margin:0; padding:0; list-style:none; font-size:14px; border-radius:8px; overflow:hidden; background:rgba(9,12,26,.84); pointer-events:none}
+.gp-tower li{display:grid; grid-template-columns:20px 4px 1fr auto; align-items:center; gap:5px; height:22px; padding-right:6px}
+.gp-tower li + li{border-top:1px solid rgba(255,255,255,.07)}
+.gp-tower .p{background:#E9ECF4; color:#0B1020; height:100%; display:grid; place-items:center; font-weight:800}
+.gp-tower .s{height:12px; border-radius:1px}
+.gp-tower .c{font-weight:700; letter-spacing:.04em}
+.gp-tower .g{color:#A9B0C6; font-variant-numeric:tabular-nums; font-size:13px}
+.gp-tower li.me{background:rgba(134,220,192,.2)}
+.gp-tower li.me .p{background:#86DCC0; color:#0D2A22}
+.gp-tower li.me .g{color:#F5F6FA}
+.gp-tower li.gap{height:8px; background:transparent}
+.gp-lights{position:absolute; left:50%; top:calc(var(--hud-b, 170px) + 112px); transform:translateX(-50%); display:flex; gap:7px; padding:8px 10px; background:#05060B; border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,.45); pointer-events:none}
+.gp-lights div{display:grid; gap:5px; padding:4px; background:#14161E; border-radius:5px}
+.gp-lights i{display:block; width:16px; height:16px; border-radius:50%; background:#2A0B0E}
+.gp-lights div.on i{background:#FF2B2B; box-shadow:0 0 10px #FF2B2B}
+#gBanner{position:absolute; left:50%; top:max(calc(var(--hud-b, 170px) + 150px), calc(var(--gp-hy, 400px) - 24px)); transform:translate(-50%, -50%); width:max-content; max-width:calc(100% - 32px);
+  padding:9px 18px 8px; background:#121831; border-left:5px solid #86DCC0; border-radius:4px; text-align:center; font-style:italic; font-weight:800; font-size:30px; line-height:1; text-transform:uppercase; letter-spacing:.02em;
+  opacity:0; transition:opacity .25s; pointer-events:none}
+#gBanner small{display:block; margin-top:4px; font-style:normal; font-weight:600; font-size:14px; letter-spacing:.02em; text-transform:none; color:#A9B0C6}
+#gBanner.on{opacity:1}
+#gBanner[data-kind="red"]{border-left-color:#FF2B2B} #gBanner[data-kind="green"]{border-left-color:#3BD16F} #gBanner[data-kind="gold"]{border-left-color:#FFC23D}
+@media (max-width:350px){ .gp-hud{font-size:13px; padding:7px 9px 6px} .gp-stats span{font-size:9px} .gp-stats b{font-size:16px} .gp-tower{width:112px} #app[data-skin="race"][data-chrome="pixel"] #controls button{font-size:16px} }
+@media (max-height:620px){ .gp-line.dim{display:none} }
+
 /* ---------- theme bar: each theme's icon under the scene; the current one lit on a tinted tab, a locked one faint with a padlock ---------- */
 #skinBar{display:flex; justify-content:center; gap:6px; flex:none; height:28px; margin-top:4px; --tint:var(--accent)}
 #skinBar button{position:relative; width:38px; height:28px; padding:0; border:0; background:none; color:var(--tint); display:grid; place-items:center}
@@ -540,6 +610,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 #app[data-skin="rocket"] #skinBar button::before, #app[data-skin="city"] #skinBar button::before{border-radius:0}
 #app[data-skin="city"] #skinBar{--tint:#F2C94C}
 #app[data-skin="dash"] #skinBar{--tint:#7CFF4F}
+#app[data-skin="race"] #skinBar{--tint:#86DCC0}
 
 /* ---------- more room for the Rocket and City scenes ---------- */
 @media (max-width:699px), (max-width:760px) and (max-height:599px){   /* phones: the title row with Settings stays at the top, as in Classic */
@@ -547,6 +618,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
   #app[data-chrome="pixel"][data-state="stopped"] #controls button{padding-left:4px; padding-right:4px; white-space:nowrap}
   #app[data-chrome="pixel"][data-state="stopped"] #btnStart{flex-grow:1.55}
   @media (max-width:419px){ #app[data-skin="dash"][data-chrome="pixel"][data-state="stopped"] #controls button{font-size:15px} }
+  @media (max-width:419px){ #app[data-skin="race"][data-chrome="pixel"][data-state="stopped"] #controls button{font-size:17px} }
   @media (max-width:389px){ #app[data-chrome="pixel"][data-state="stopped"] #controls{gap:8px} #app[data-skin="city"][data-state="stopped"] #controls{gap:12px} }
   @media (max-width:359px){ #app[data-chrome="pixel"][data-state="stopped"]:not([data-skin="city"]) #controls button{font-size:11px} #app[data-chrome="pixel"][data-state="stopped"] #btnStart{flex-grow:1.4} }   /* 320 px phones */
   #app[data-chrome="pixel"] #controls{padding:8px 12px 10px; gap:10px}
@@ -566,13 +638,13 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
   .city-hud{top:7px}
 }
 /* ---------- tablet layout (iPad and larger): a screen at least 700 px wide and 600 px tall ----------
-   All four themes share one frame, so a swipe changes the look but nothing moves:
+   All five themes share one frame, so a swipe changes the look but nothing moves:
    - one page edge (--edge) for the title row, notice, demo bar, read-outs, sound monitor and buttons;
    - the same title row, demo bar, theme bar and button row, at the same heights;
-   - read-outs on top and the picture underneath (the sound monitor in Classic, the scene in the others). Rocket, City and Dash put
-     their read-outs in a card of one shared size and grid: play time and goal, the power bar, a row of figures (five in Dash), two message lines;
-     in landscape the card becomes one short strip. Event banners sit just under the card in all three.
-   The three pixel themes still match every vertical measurement around the scene, so swiping never resizes a scene. */
+   - read-outs on top and the picture underneath (the sound monitor in Classic, the scene in the others). Rocket, City, Dash and Grand Prix put
+     their read-outs in a card of one shared size and grid: play time and goal, the power bar, a row of figures (five in Dash and Grand Prix), two message lines;
+     in landscape the card becomes one short strip. Event banners sit just under the card (Grand Prix: over its sky, under the race order).
+   The pixel themes still match every vertical measurement around the scene, so swiping never resizes a scene. */
 @media (min-width:700px) and (min-height:600px){
   :root{--edge:max(24px, calc((100vw - 1180px) / 2))}              /* 24 px, or centred at most 1180 px wide on a big screen */
   #app{max-width:none}
@@ -586,6 +658,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
   #top h1{font-size:24px} .tagline{font-size:14px}
   #app[data-chrome="pixel"] #top h1{font-size:18px}
   #app[data-skin="dash"][data-chrome="pixel"] #top h1{font-size:24px}
+  #app[data-skin="race"][data-chrome="pixel"] #top h1{font-size:26px}
   .icon-btn{min-height:44px}
   #btnSettings svg{width:22px; height:22px}
   #app[data-chrome="pixel"] .icon-btn{width:44px; height:44px}
@@ -616,6 +689,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
   #app[data-chrome="pixel"] #controls button{font-size:17px}
   #app[data-skin="city"] #controls button{font-size:15px}
   #app[data-skin="dash"][data-chrome="pixel"] #controls button{font-size:20px}
+  #app[data-skin="race"][data-chrome="pixel"] #controls button{font-size:21px}
   #app #controls #btnPause, #app #controls #btnResume{max-width:620px}
   #app #controls #btnStop{max-width:220px}
 
@@ -656,26 +730,30 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
     .classic > .monitor{grid-area:mon; margin-top:18px; min-height:0}
   }
 
-  /* ----- Rocket, City, Dash: one read-out card, the same size and grid in all three ----- */
-  .hud, .city-hud, .dash-hud{top:12px; left:var(--edge); right:var(--edge); line-height:1.4; font-size:14px;
+  /* ----- Rocket, City, Dash, Grand Prix: one read-out card, the same size and grid in all four ----- */
+  .hud, .city-hud, .dash-hud, .gp-hud{top:12px; left:var(--edge); right:var(--edge); line-height:1.4; font-size:14px;
     display:grid; grid-template-columns:minmax(0, 1fr) auto; column-gap:24px; row-gap:6px; align-items:center;
     grid-template-rows:84px 26px 44px 22px 22px; grid-template-areas:"play side" "bar bar" "stats stats" "heard heard" "next next"}
   .hud{padding:12px 16px; background:rgba(7,10,20,.8); border:2px solid #2C3550; box-shadow:4px 4px 0 rgba(0,0,0,.35)}
   .city-hud{top:15px; left:calc(var(--edge) + 3px); right:calc(var(--edge) + 3px); padding:11px 15px}        /* its outline is drawn outside the box */
   .dash-hud{padding:12px 16px; font-size:15px; border-radius:20px}
-  .hud-row, .ch-top, .dh-top{display:contents}
-  .hud-play, .ch-play, .dh-play{grid-area:play; align-self:end}
-  .hud-side, .ch-side, .dh-side{grid-area:side; align-self:end; line-height:1.45}
-  .hud .engine, .city-hud .engine, .dh-prog{grid-area:bar; margin:0; gap:12px}
+  .gp-hud{padding:10px 16px 12px; font-size:16px; border-radius:16px}
+  .hud-row, .ch-top, .dh-top, .gp-top{display:contents}
+  .hud-play, .ch-play, .dh-play, .gp-play{grid-area:play; align-self:end}
+  .hud-side, .ch-side, .dh-side, .gp-side{grid-area:side; align-self:end; line-height:1.45}
+  .hud .engine, .city-hud .engine, .dh-prog, .gp-prog{grid-area:bar; margin:0; gap:12px}
   .hud .engine, .city-hud .engine{grid-template-columns:auto auto minmax(0, 1fr) auto; grid-template-areas:"k n bar e"; align-items:center}
-  .hud-stats, .ch-stats, .dh-stats{grid-area:stats; margin:0}
-  #rHeard, #yHeard, #dHeard{grid-area:heard; margin:0; min-height:0}
-  #rNext, #yHint, #dHint{grid-area:next; margin:0; min-height:0}
-  .ch-line.dim, .dh-line.dim{display:block}
-  .hud .k, .city-hud .k, .dash-hud .k{white-space:nowrap}
-  .hud .big, .city-hud .big, .dash-hud .big{font-size:clamp(44px, 7cqw, 58px); margin-top:2px}
-  .hud .big.long, .city-hud .big.long, .dash-hud .big.long{font-size:clamp(32px, 5cqw, 42px)}
+  .hud-stats, .ch-stats, .dh-stats, .gp-stats{grid-area:stats; margin:0}
+  .gp-stats{padding-top:0; border-top:0}
+  #rHeard, #yHeard, #dHeard, #gHeard{grid-area:heard; margin:0; min-height:0}
+  #rNext, #yHint, #dHint, #gHint{grid-area:next; margin:0; min-height:0}
+  .ch-line.dim, .dh-line.dim, .gp-line.dim{display:block}
+  .hud .k, .city-hud .k, .dash-hud .k, .gp-hud .k{white-space:nowrap}
+  .hud .big, .city-hud .big, .dash-hud .big, .gp-hud .big{font-size:clamp(44px, 7cqw, 58px); margin-top:2px}
+  .hud .big.long, .city-hud .big.long, .dash-hud .big.long, .gp-hud .big.long{font-size:clamp(32px, 5cqw, 42px)}
   .pbar, .city-hud .pbar, .dh-bar{height:18px}
+  .gp-bar{height:12px} .gp-line{font-size:14px} .gp-stats span{font-size:13px} .gp-stats b{font-size:23px}
+  .gp-tower{left:var(--edge); top:calc(var(--hud-b, 0px) + 12px); width:150px; font-size:16px} .gp-tower li{height:26px; grid-template-columns:24px 4px 1fr auto}
   .dh-prog .k{display:block}                                                    /* the course bar gets a label, like Power in Rocket and City */
   #rPwN, #yPwN, #rEff, #yEff, #dPct{display:inline-block; min-width:4ch; font-size:inherit}
   #dPct{font-weight:800}
@@ -683,11 +761,11 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
   .dh-stats span{font-size:13px} .dh-stats b{font-size:21px}
   /* landscape: the card becomes one strip. Play time on the left, goal on the right, the bar over the figures between them */
   @container (min-width:960px){
-    .hud, .city-hud, .dash-hud{grid-template-columns:auto minmax(0, 1fr) auto; column-gap:36px; grid-template-rows:30px 44px 22px;
+    .hud, .city-hud, .dash-hud, .gp-hud{grid-template-columns:auto minmax(0, 1fr) auto; column-gap:36px; grid-template-rows:30px 44px 22px;
       grid-template-areas:"play bar side" "play stats side" "heard heard next"}
-    .hud-play, .ch-play, .dh-play{align-self:center}
-    .hud-side, .ch-side, .dh-side{align-self:center}
-    #rNext, #yHint, #dHint{text-align:right}
+    .hud-play, .ch-play, .dh-play, .gp-play{align-self:center}
+    .hud-side, .ch-side, .dh-side, .gp-side{align-self:center}
+    #rNext, #yHint, #dHint, #gHint{text-align:right}
   }
   /* event banners: just under the read-outs, in the middle, in all three */
   #rBanner, #yBanner, #dBanner{top:calc(var(--hud-b, 0px) + 14px); bottom:auto; margin:0}
@@ -760,6 +838,7 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
   <symbol id="ico-rocket" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M12 1.5c3.1 2.3 4.6 5.7 4.6 9.8V16H7.4v-4.7C7.4 7.2 8.9 3.8 12 1.5zM12 7.6a1.9 1.9 0 1 0 0 3.8a1.9 1.9 0 1 0 0-3.8zM6.6 11.8L3.5 15.2V19l3.1-1.6zM17.4 11.8l3.1 3.4V19l-3.1-1.6zM9.8 17.4h4.4l-.7 2.6L12 22.6 10.5 20z"/></symbol>
   <symbol id="ico-city" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M2.5 11.5h5.5V21H2.5zM9 6h6v15H9zM16 9.5h5.5V21H16zM10.6 8h1.2v1.6h-1.2zM12.2 8h1.2v1.6h-1.2zM10.6 11.6h1.2v1.6h-1.2zM12.2 11.6h1.2v1.6h-1.2zM4.3 14h1.8v1.6H4.3zM17.8 12h1.8v1.6h-1.8zM2 21h20v1.6H2z"/><circle cx="17.3" cy="5.2" r="2.2" fill="currentColor"/><path fill="currentColor" opacity=".6" d="M15.7 3.6L22.6.4 18.9 6.8z"/></symbol>
   <symbol id="ico-dash" viewBox="0 0 24 24"><rect x="3.6" y="3.6" width="16.8" height="16.8" rx="3" fill="none" stroke="currentColor" stroke-width="2.6"/><path fill="currentColor" d="M12 7.2l4.8 4.8-4.8 4.8L7.2 12z"/></symbol>
+  <symbol id="ico-race" viewBox="0 0 24 24"><path fill="currentColor" d="M3.2 2h2v20h-2z"/><path fill="currentColor" fill-rule="evenodd" d="M5.2 3h15.6v11H5.2zM6.9 4.7v2.5h3.1V4.7zM13.1 4.7v2.5h3.1V4.7zM10 7.2v2.6h3.1V7.2zM16.2 7.2v2.6h3V7.2zM6.9 9.8v2.5h3.1V9.8zM13.1 9.8v2.5h3.1V9.8z"/></symbol>
   <symbol id="ico-next" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
   <symbol id="ico-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
   <symbol id="ico-lock" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="3" d="M7.5 11V8a4.5 4.5 0 0 1 9 0v3"/><rect x="4" y="11" width="16" height="11" rx="2" fill="currentColor"/></symbol>
@@ -874,6 +953,32 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
           <div class="dh-line dim" id="dHint">Play to run the course</div>
         </div>
         <div id="dBanner" role="status"></div>
+      </section>
+      <section class="panel" id="pRace" aria-label="Grand Prix theme">
+        <canvas id="raceCv" aria-hidden="true"></canvas>
+        <div class="gp-hud" id="raceHud">
+          <div class="gp-prog"><span class="k">Lap</span><b id="gLap">1</b><div class="gp-bar" id="gBarBox"><i id="gBar"></i></div></div>
+          <div class="gp-top">
+            <div class="gp-play"><span class="k">Play time</span><span class="big" id="gPlay">00:00</span></div>
+            <div class="gp-side">
+              <div><svg class="trophy badge" viewBox="0 0 64 64" aria-hidden="true"><path d="M19 13H9c0 10 5 15 12 16M45 13h10c0 10-5 15-12 16" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><path fill="currentColor" d="M18 7h28v15c0 10-6 17-14 17s-14-7-14-17zM29 38h6v9h-6zM22 47h20a2 2 0 0 1 2 2v3H20v-3a2 2 0 0 1 2-2zM17 52h30a2 2 0 0 1 2 2v4H15v-4a2 2 0 0 1 2-2z"/><path d="M25 12v9c0 4 1 7 3 10" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="3" stroke-linecap="round"/></svg>Goal <b id="gGoal">30:00</b></div>
+              <div id="gGoalLeft">30:00 left</div>
+              <div>Pauses <b id="gPauses">0</b></div>
+            </div>
+          </div>
+          <div class="gp-stats">
+            <div><span>Position</span><b id="gPos">P10</b></div>
+            <div><span>Ahead</span><b id="gGap">&ndash;</b></div>
+            <div><span>Behind</span><b id="gBehind">&ndash;</b></div>
+            <div><span>Power</span><b id="gPw">0%</b></div>
+            <div><span>Efficiency</span><b id="gEff">0%</b></div>
+          </div>
+          <div class="gp-line" id="gHeard">Press Start, then play</div>
+          <div class="gp-line dim" id="gHint">Play to start the race</div>
+        </div>
+        <ol class="gp-tower" id="gTower" aria-label="Race order"></ol>
+        <div class="gp-lights" id="gLights" hidden aria-hidden="true"><div><i></i><i></i></div><div><i></i><i></i></div><div><i></i><i></i></div><div><i></i><i></i></div><div><i></i><i></i></div></div>
+        <div id="gBanner" role="status"></div>
       </section>
     </div>
     <div id="award" hidden role="status">

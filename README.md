@@ -1,8 +1,8 @@
 # Music Timer
 
 A practice timer that only runs while an instrument is heard. It listens through the microphone, counts the time
-you are actually playing, and pauses itself in the silences. Four themes show your progress: Classic, Rocket, City
-and Dash. Swipe or use the arrow keys to change theme. Each theme has its own icon, and the row of icons under
+you are actually playing, and pauses itself in the silences. Five themes show your progress: Classic, Rocket, City,
+Dash and Grand Prix. Swipe or use the arrow keys to change theme. Each theme has its own icon, and the row of icons under
 the scene shows which one you are on; tap an icon to jump to that theme.
 
 Every session you finish is saved on your device. The practice log (the calendar button at the top) shows your
@@ -54,6 +54,7 @@ For a custom domain, build with `CNAME=timer.example.com npm run build` and set 
     src/rocket.js       rocket theme renderer
     src/city.js         city defence theme (three.js, loaded from cdnjs the first time the theme is shown)
     src/dash.js         dash theme renderer
+    src/race.js         Grand Prix theme renderer (a race whose speeds are each player's last minute)
     src/app.js          app logic
     scripts/build.js    joins them into one file
     test/run.js         unit tests
