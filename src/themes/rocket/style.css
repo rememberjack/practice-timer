@@ -33,6 +33,24 @@ body:has(> #app[data-skin="rocket"]){background:#070A14}
 #rBanner{position:absolute; left:50%; top:max(0px, calc(var(--hud-b, 156px) - 6px)); transform:translateX(-50%); max-width:92%; text-align:center; padding:8px 12px; background:#05070D; color:#FFD23F; border:2px solid #FFD23F;
   font-size:14px; opacity:0; transition:opacity .25s; pointer-events:none}
 #rBanner.on{opacity:1}
+/* the flight plan: a pixel rail down the right of the scene, Earth at the foot and the Moon at the top, filled in gold as the rocket climbs */
+.rk-plan{--p:0; position:absolute; right:8px; top:calc(var(--hud-b, 156px) + 14px); bottom:14px; width:22px; padding:3px 0; display:flex; flex-direction:column; align-items:center; gap:5px;
+  background:rgba(7,10,20,.42); box-shadow:0 0 0 2px rgba(5,7,13,.42); pointer-events:none}
+.rk-plan .pl-end{display:block; width:14px; height:14px; flex:none}
+.rk-plan svg{display:block; width:100%; height:100%}
+.rk-plan .pl-rail{position:relative; flex:1; width:4px; background:#3A4258; box-shadow:0 0 0 1px #05070D}
+.rk-plan .pl-fill{position:absolute; left:0; right:0; bottom:0; height:calc(var(--p) * 100%); background:#FFD23F}
+.rk-plan .pl-stop{position:absolute; left:50%; width:8px; height:8px; margin:0 0 -4px -4px; background:#3A4258; box-shadow:0 0 0 2px #05070D}
+.rk-plan .pl-space{width:16px; height:4px; margin:0 0 -2px -8px; background:repeating-linear-gradient(90deg, #A3ACC2 0 2px, transparent 2px 4px); box-shadow:none}   /* the edge of space: a dotted line across */
+.rk-plan .pl-stop.next{background:#070A14; box-shadow:0 0 0 2px #F4F6FA}
+.rk-plan .pl-space.next{background:repeating-linear-gradient(90deg, #F4F6FA 0 2px, transparent 2px 4px); box-shadow:none}
+.rk-plan .pl-stop.on{background:#FFD23F}
+.rk-plan .pl-space.on{background:#FFD23F; box-shadow:0 0 0 1px #05070D}
+.rk-plan .pl-ship{position:absolute; left:50%; bottom:calc(var(--p) * 100%); width:10px; height:16px; margin:0 0 -8px -5px; filter:drop-shadow(1px 1px 0 #05070D)}
+.rk-plan[data-mode="fall"] .pl-ship{transform:rotate(180deg)}
+.rk-plan[data-mode="done"] .pl-ship{display:none}
+.rk-plan[data-mode="done"] .pl-moon{filter:drop-shadow(0 0 3px #FFD23F)}
+@media (max-width:359px){ .rk-plan{right:5px; width:20px} }
 [data-theme="rocket"]{--g:#070A14; --t:#FFD23F}   /* its tile in Settings, Themes */
 @media (max-width:359px){ .hud{padding-left:10px; padding-right:10px; font-size:11px} .hud-stats span{font-size:8px} .hud-stats b{font-size:11px} }
 #app[data-skin="rocket"] #skinBar{--tint:#FFFFFF}
