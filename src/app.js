@@ -214,8 +214,8 @@ function startRecording() {
   } catch (e) { rec.mr = null; toast(tr('Recording is not available here')); }
 }
 function recCall(fn) { try { if (rec.mr && rec.mr.state !== 'inactive') rec.mr[fn](); } catch (e) {} }
-/* recordings are kept on this device in IndexedDB (too big for localStorage), by their session's id, for MT.REC_DAYS days after the session
-   ends, and only while the session is in the practice log (sweepRecordings). Kept as bytes with their type, which every Safari can store */
+/* recordings are kept on this device in IndexedDB (too big for localStorage), by their session's id, for the sessions of today and
+   yesterday (MT.REC_DAYS), and only while the session is in the practice log (sweepRecordings). Kept as bytes with their type, which every Safari can store */
 let recDB = null;
 function openRecDB() {
   if (!recDB) recDB = new Promise((ok, no) => { const q = indexedDB.open('musicTimer', 1);
@@ -228,7 +228,7 @@ async function recStore(mode, act) { const db = await openRecDB();
   return new Promise((ok, no) => { const t = db.transaction('recordings', mode), q = act(t.objectStore('recordings'));
     t.oncomplete = () => ok(q && q.result); t.onerror = t.onabort = () => no(t.error); }); }
 async function keepRecording(r, blob) {
-  try { const data = await blob.arrayBuffer(); await recStore('readwrite', o => o.put({ id: r.id, end: r.end, type: blob.type, data: data })); }
+  try { const data = await blob.arrayBuffer(); await recStore('readwrite', o => o.put({ id: r.id, type: blob.type, data: data })); }
   catch (e) { toast(tr('The recording could not be kept on this device.')); }
 }
 async function recordingOf(r) {
@@ -239,7 +239,7 @@ function dropRecordings(ids) { if (ids.length) recStore('readwrite', o => { for 
 /* delete the recordings past their days, or whose session has left the practice log (deleted, or a sample log put in its place) */
 async function sweepRecordings() {
   if (typeof indexedDB === 'undefined') return;
-  try { const all = await recStore('readonly', o => o.getAll()), keep = (all || []).map(x => ({ id: x.id, end: x.end }));
+  try { const all = await recStore('readonly', o => o.getAll()), keep = (all || []).map(x => ({ id: x.id }));
     dropRecordings(MT.recordingsToDrop(keep, log, Date.now())); } catch (e) {}
 }
 
@@ -544,15 +544,16 @@ document.addEventListener('wheel', e => {   // the whole page: on a computer the
   const row = e.target.closest && e.target.closest('#demoClips');
   if (row && (e.deltaX > 0 ? row.scrollLeft + row.clientWidth < row.scrollWidth - 1 : row.scrollLeft > 0)) return;   // the row of demo sounds scrolls sideways while it can
   e.preventDefault();   // also stops the browser reading it as back/forward, which would leave the page and lose the session
-  if (e.target.closest && e.target.closest('#logWeekSec')) { const n = performance.now(), d = weekWheel.feed({ t: e.timeStamp || n, now: n, drawn: n, dx: e.deltaX * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? weekSec.clientWidth : 1) });
-    if (d) showWeek(logBack - d, d); return; }   // over the practice log's week: the week changes instead
+  const pg = e.target.closest && pagers.find(g => g.sec.contains(e.target));
+  if (pg) { const n = performance.now(), d = pg.wheel.feed({ t: e.timeStamp || n, now: n, drawn: n, dx: e.deltaX * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? pg.sec.clientWidth : 1) });
+    if (d) pg.go(pg.back - d, d); return; }   // over a week that swipes (the practice log's, the Home Screen's): the week changes instead
   if (row || document.querySelector('dialog[open]')) return;   // no theme change over the demo sounds or behind an open sheet
   const now = performance.now(), d = wheel.feed({ t: e.timeStamp || now, now: now, drawn: lastF, dx: e.deltaX * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? stage.clientWidth : 1) });
   if (d) setSkin(stepSkin(d), true);
 }, { passive: false });
 document.addEventListener('keydown', e => { if (/INPUT|TEXTAREA/.test(e.target.tagName)) return;
   const top = [...document.querySelectorAll('dialog[open]')].pop();
-  if (top) { if (top.id === 'dlgLog' && /^Arrow(Left|Right)$/.test(e.key)) showWeek(logBack + (e.key === 'ArrowLeft' ? 1 : -1), e.key === 'ArrowLeft' ? -1 : 1); return; }   // the practice log: the week before or after
+  if (top) { if (top.id === 'dlgLog' && /^Arrow(Left|Right)$/.test(e.key)) logWeeks.go(logWeeks.back + (e.key === 'ArrowLeft' ? 1 : -1), e.key === 'ArrowLeft' ? -1 : 1); return; }   // the practice log: the week before or after
   if (e.key === 'ArrowRight') setSkin(stepSkin(1), true); else if (e.key === 'ArrowLeft') setSkin(stepSkin(-1), true); });
 window.addEventListener('resize', layoutChanged);
 window.addEventListener('pagehide', writeLive);   // the app is being closed: keep the session so far
@@ -799,7 +800,7 @@ function openSummary(r, past) {
     [tr('Paused'), R.pauses ? dur(R.paused) : tr('No pauses'), R.pauses ? times(R.pauses) : '\u00a0'],
   ];
   $('sFacts').replaceChildren(...facts.map(f => { const d = el('div'), dd = el('dd', null, f[1]); dd.append(el('small', null, f[2])); d.append(el('dt', null, f[0]), dd); return d; }));
-  // its recording: kept for a few days after the session (MT.REC_DAYS), so a past one may have it too
+  // its recording: kept for today's and yesterday's sessions (MT.REC_DAYS), so a past one may have it too
   if (!past && rec.id === r.id && rec.blob) { if (!shown || shown.id !== r.id) showRecording(r.id, rec.blob); }
   else { hideRecording(); if (past) recordingOf(r).then(b => { if (b && onSheet === r && $('dlgSummary').open) showRecording(r.id, b); }); }
   $('sumDelete').hidden = !past; disarm($('sumDelete'), tr('Delete session'));
@@ -875,47 +876,57 @@ twoTap($('logClear'), () => tr('Delete all sessions'), () => tr('Tap again to de
 const compact = s => { if (s <= 0) return ''; const m = Math.round(s / 60); return m < 1 ? tr('<1m') : m < 60 ? tr('{m}m', { m: m }) : m % 60 ? tr('{h}h{mm}', { h: Math.floor(m / 60), mm: String(m % 60).padStart(2, '0') }) : tr('{h}h', { h: m / 60 }); };
 const TROPHY_SVG = '<svg class="trophy" viewBox="0 0 64 64" aria-hidden="true"><path d="M19 13H9c0 10 5 15 12 16M45 13h10c0 10-5 15-12 16" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/><path fill="currentColor" d="M18 7h28v15c0 10-6 17-14 17s-14-7-14-17zM29 38h6v9h-6zM20 49h24v9H20z"/></svg>';
 const dayWhat = c => c.play > 0 ? (c.sessions > 1 ? tr('{time} in {n} sessions', { time: MT.durationText(c.play), n: c.sessions }) : MT.durationText(c.play)) : tr('no practice');
-/* the week bars: this week, or one of the four before it (logBack weeks back), Monday to Sunday. Each day's bar is as tall as its playing next to
+/* a week that swipes back through the month: the practice log's bars and the Home Screen's dots. o: { sec, the part that takes drags and trackpad
+   swipes; tracks, what moves with the finger; prev and next, the arrows either side; draw(), which shows week .back }. A finger or the mouse
+   dragging right goes to the week before, left to the week after; the arrows fade at either end */
+const pagers = [];
+function weekPager(o) {
+  const g = { back: 0, sec: o.sec, wheel: new MT.WheelSwipe() }, drag = new MT.DragSwipe(), w = () => o.tracks[0].clientWidth;
+  const move = (x, t) => { for (const el of o.tracks) { el.style.transition = t; el.style.transform = x; } };
+  g.arrows = () => { o.prev.disabled = g.back >= MT.WEEKS_BACK; o.next.disabled = g.back === 0; };
+  /* to the week `back` weeks before this one; dir: the way it came (-1 an earlier week, in from the left; 1 a later one, in from the right; 0 back into place) */
+  g.go = (back, dir) => {
+    const was = g.back; g.back = Math.max(0, Math.min(MT.WEEKS_BACK, back));
+    if (g.back !== was) o.draw(); else dir = 0;
+    const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (dir && !still) { for (const el of o.tracks) { el.style.transition = 'none'; el.style.transform = 'translateX(' + dir * 40 + '%)'; el.style.opacity = '0'; void el.offsetWidth; } }
+    move('', still ? 'none' : 'transform .26s cubic-bezier(.2,.8,.2,1), opacity .2s'); for (const el of o.tracks) el.style.opacity = '';
+  };
+  o.prev.onclick = () => g.go(g.back + 1, -1); o.next.onclick = () => g.go(g.back - 1, 1);
+  const sec = o.sec, end = e => { if (e && !drag.has(e.pointerId)) return; const s = drag.up(e ? e.clientX : null, performance.now()); if (s != null) g.go(g.back - s, s); };
+  sec.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse' && e.button !== 0) return; drag.down(e.pointerId, e.clientX, e.clientY, performance.now(), w()); });
+  sec.addEventListener('pointermove', e => {
+    if (!drag.has(e.pointerId)) return;
+    if (e.pointerType === 'mouse' && !e.buttons) { end(e); return; }
+    const was = drag.locked, dx = drag.move(e.clientX, e.clientY); if (dx == null) return;
+    if (!was) try { sec.setPointerCapture(e.pointerId); } catch (er) {}
+    const at = MT.WEEKS_BACK - g.back;   // the weeks in a row, the earliest on the left: it gives a little past either end
+    move('translateX(' + (drag.offset(dx, at, MT.WEEKS_BACK + 1) + at * w()) + 'px)', 'none');
+  });
+  sec.addEventListener('pointerup', end); sec.addEventListener('pointercancel', () => end(null));
+  sec.addEventListener('dragstart', e => e.preventDefault());
+  pagers.push(g); return g;
+}
+/* "This week", "Last week" or "Week of 14 September" */
+const weekName = W => W.back === 0 ? tr('This week') : W.back === 1 ? tr('Last week') : tr('Week of {date}', { date: date(W.days[0].date, { day: 'numeric', month: 'long' }) });
+/* the week bars: this week, or one of the four before it, Monday to Sunday. Each day's bar is as tall as its playing next to
    the others (a full bar is the longest day, or 30 minutes), one block a session. The goal is for one session, so a day is not measured against it */
-let logBack = 0, logP = null;
+let logP = null;
+const logWeeks = weekPager({ sec: $('logWeekSec'), tracks: [$('logWeek')], prev: $('logWeekPrev'), next: $('logWeekNext'), draw: () => { if (logP) renderWeek(logP); } });
 function renderWeek(P) {
-  logP = P; const W = MT.weekAt(P, logBack); logBack = W.back;
+  logP = P; const W = MT.weekAt(P, logWeeks.back); logWeeks.back = W.back;
   const top = Math.max(1800, ...W.days.map(c => c.play));
   $('logWeek').replaceChildren(...W.days.map(c => { const d = el('div', 'd' + (c.today ? ' today' : '') + (c.future ? ' future' : '')), bar = el('div', 'bar');
     if (c.play > 0) { const i = el('i', c.plays.length > 1 ? 'segs' : ''); i.style.height = Math.max(4, c.play / top * 100) + '%';
       if (c.plays.length > 1) for (const p of c.plays) { const b = el('b'); b.style.flexGrow = String(p); i.append(b); }
       bar.append(i); }
     d.append(el('span', 't', compact(c.play)), bar, el('span', null, date(c.date, { weekday: 'narrow' }))); return d; }));
-  const name = W.back === 0 ? tr('This week') : W.back === 1 ? tr('Last week') : tr('Week of {date}', { date: date(W.days[0].date, { day: 'numeric', month: 'long' }) });
+  const name = weekName(W);
   $('logWeekH').textContent = name;
   $('logWeek').setAttribute('aria-label', tr('{week}: {list}.', { week: name, list: listText(W.days.filter(c => !c.future).map(c => tr('{day} {what}', { day: date(c.date, { weekday: 'long' }), what: dayWhat(c) }))) }));
   $('logWeekLine').textContent = W.back ? MT.pastWeekLine(W) : MT.weekLine(P);
-  $('logWeekPrev').disabled = W.back >= MT.WEEKS_BACK; $('logWeekNext').disabled = W.back === 0;
+  logWeeks.arrows();
 }
-/* to the week `back` weeks before this one; dir: the way it came (-1 an earlier week, in from the left; 1 a later one, in from the right; 0 back into place) */
-function showWeek(back, dir) {
-  const wk = $('logWeek'), was = logBack; logBack = Math.max(0, Math.min(MT.WEEKS_BACK, back));
-  if (logBack !== was && logP) renderWeek(logP); else dir = 0;
-  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (dir && !still) { wk.style.transition = 'none'; wk.style.transform = 'translateX(' + dir * 40 + '%)'; wk.style.opacity = '0'; void wk.offsetWidth; }
-  wk.style.transition = still ? 'none' : 'transform .26s cubic-bezier(.2,.8,.2,1), opacity .2s'; wk.style.transform = ''; wk.style.opacity = '';
-}
-$('logWeekPrev').onclick = () => showWeek(logBack + 1, -1);
-$('logWeekNext').onclick = () => showWeek(logBack - 1, 1);
-const weekSwipe = new MT.DragSwipe(), weekSec = $('logWeekSec');   // a finger or the mouse drags the bars: right to the week before, left to the week after
-weekSec.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse' && e.button !== 0) return; weekSwipe.down(e.pointerId, e.clientX, e.clientY, performance.now(), $('logWeek').clientWidth); });
-weekSec.addEventListener('pointermove', e => {
-  if (!weekSwipe.has(e.pointerId)) return;
-  if (e.pointerType === 'mouse' && !e.buttons) { weekDragEnd(e); return; }
-  const was = weekSwipe.locked, dx = weekSwipe.move(e.clientX, e.clientY); if (dx == null) return;
-  if (!was) try { weekSec.setPointerCapture(e.pointerId); } catch (er) {}
-  const at = MT.WEEKS_BACK - logBack, w = $('logWeek').clientWidth;   // the weeks in a row, the earliest on the left: it gives a little past either end
-  $('logWeek').style.transition = 'none'; $('logWeek').style.transform = 'translateX(' + (weekSwipe.offset(dx, at, MT.WEEKS_BACK + 1) + at * w) + 'px)';
-});
-function weekDragEnd(e) { if (e && !weekSwipe.has(e.pointerId)) return; const s = weekSwipe.up(e ? e.clientX : null, performance.now()); if (s == null) return; showWeek(logBack - s, s); }
-weekSec.addEventListener('pointerup', weekDragEnd); weekSec.addEventListener('pointercancel', () => weekDragEnd(null));
-weekSec.addEventListener('dragstart', e => e.preventDefault());
-const weekWheel = new MT.WheelSwipe();   // a two-finger trackpad swipe over the week, one week a swipe
 function renderLog() {
   const P = MT.practiceStats(log, Date.now()), empty = !log.length, pct = x => Math.round(x * 100) + '%';
   $('logEmpty').hidden = !empty; $('logMain').hidden = empty; $('logMore').hidden = empty;
@@ -962,7 +973,7 @@ function renderLog() {
       b.onclick = () => openSummary(r, true); d.append(b); } return d; }));
   $('logOlder').hidden = log.length <= logShown;
 }
-function openLog() { pauseForSheet(); logShown = 30; logBack = 0; disarm($('logClear'), tr('Delete all sessions')); renderLog(); $('dlgLog').querySelector('.sh-body').scrollTop = 0; if (!$('dlgLog').open) $('dlgLog').showModal(); }
+function openLog() { pauseForSheet(); logShown = 30; logWeeks.back = 0; disarm($('logClear'), tr('Delete all sessions')); renderLog(); $('dlgLog').querySelector('.sh-body').scrollTop = 0; if (!$('dlgLog').open) $('dlgLog').showModal(); }
 $('logClose').onclick = () => $('dlgLog').close();
 $('logOlder').onclick = () => { logShown += 30; renderLog(); };
 $('logStart').onclick = () => { $('dlgLog').close(); if ($('dlgSummary').open) $('dlgSummary').close(); start(); };
@@ -982,6 +993,19 @@ function paintHomeThemes() {
 }
 $('homeLink').onclick = () => { if (homeLink) homeLink.run(); };
 let homeSeed = 0;                                                     // which playful words: new each time the Home Screen shows, the same while it stays
+/* the Home Screen's week: this week, or one of the four before it. Its playing, and a dot a day, bigger where there was music */
+let homeP = null, homeFresh = '';
+const homeWeeks = weekPager({ sec: $('homeWkSec'), tracks: [$('homeWkTop'), $('homeDots')], prev: $('homeWkPrev'), next: $('homeWkNext'), draw: () => { if (homeP) renderHomeWeek(); } });
+function renderHomeWeek() {
+  const W = MT.weekAt(homeP, homeWeeks.back), b = homeWeeks.back = W.back, on = W.play > 0, v = { date: date(W.days[0].date, { day: 'numeric', month: 'short' }) };   // a short month, so French fits an iPhone SE
+  $('homeBig').hidden = !on; $('homeTime').textContent = MT.durationText(W.play);
+  $('homeCap').textContent = tr(b === 0 ? 'of music this week' : b === 1 ? 'of music last week' : 'of music in the week of {date}', v);
+  $('homeFresh').hidden = on; $('homeFresh').textContent = b === 0 ? homeFresh : tr(b === 1 ? 'Last week was a quiet one.' : 'The week of {date} was a quiet one.', v);
+  $('homeDots').replaceChildren(...W.days.map(d => { const w = el('div', d.today ? 't' : ''); w.append(el('i', d.play > 0 ? 'on' : ''), date(d.date, { weekday: 'narrow' })); return w; }));
+  const days = W.days.filter(d => d.play > 0).map(d => date(d.date, { weekday: 'long' }));
+  $('homeDots').setAttribute('aria-label', days.length ? tr('{week}: music on {list}.', { week: weekName(W), list: listText(days) }) : tr('{week}: a quiet week.', { week: weekName(W) }));
+  homeWeeks.arrows();
+}
 function renderHome() {
   const now = Date.now(), P = MT.practiceStats(log, now), c = MT.homeCopy(P, log.length ? log[log.length - 1] : null, now, { seed: homeSeed, name: S.name });
   // with no name set, the word for the player ("Ahoy, Captain") is the link that adds one
@@ -990,16 +1014,11 @@ function renderHome() {
   $('homeHead').textContent = c.head; $('homeLede').textContent = c.lede;
   $('homeFirst').hidden = c.kind !== 'first'; $('homeWeek').hidden = c.kind === 'first';
   if (c.kind !== 'first') {
-    const week = P.weekPlay > 0;
-    $('homeBig').hidden = !week; $('homeTime').textContent = MT.durationText(P.weekPlay);
-    $('homeFresh').hidden = week; $('homeFresh').textContent = c.fresh || '';
-    $('homeDots').hidden = !week;
+    homeP = P; homeFresh = c.fresh || ''; renderHomeWeek();
     // today's sessions, when there has been more than one: each opens its summary
     const todays = log.filter(r => MT.dayKey(r.start) === P.today.key); $('homeToday').hidden = todays.length < 2;
     $('homeSess').replaceChildren(...(todays.length < 2 ? [] : todays.map(r => { const b = el('button', null, at(r.start)); b.type = 'button'; b.append(el('b', null, MT.durationText(r.play)));
       b.setAttribute('aria-label', tr('Session at {time}, {play} of playing. Open its summary', { time: at(r.start), play: MT.durationText(r.play) })); b.onclick = () => openSummary(r, true); return b; })));
-    $('homeDots').replaceChildren(...P.week.map(d => { const w = el('div', d.today ? 't' : ''); w.append(el('i', d.play > 0 ? 'on' : ''), date(d.date, { weekday: 'narrow' })); return w; }));
-    $('homeDots').setAttribute('aria-label', tr('Days with music this week: {list}.', { list: listText(P.week.filter(d => d.play > 0).map(d => date(d.date, { weekday: 'long' }))) || tr('none yet') }));
     $('homeNote').textContent = c.note || '';
   }
   $('homeGo').textContent = tr(c.kind === 'today' ? 'Play again' : 'Start playing');
@@ -1007,7 +1026,7 @@ function renderHome() {
 }
 function showHome() {
   if (mode === 'follow' || session.state === 'running' || session.state === 'paused') return;
-  homeSeed = 1 + Math.floor(Math.random() * 2e9); renderHome(); homeEl.hidden = false; homeOn = true; app.inert = true; checkVersion(); sweepRecordings();
+  homeSeed = 1 + Math.floor(Math.random() * 2e9); homeWeeks.back = 0; renderHome(); homeEl.hidden = false; homeOn = true; app.inert = true; checkVersion(); sweepRecordings();
 }
 function hideHome() { if (!homeOn) return; homeEl.hidden = true; homeOn = false; app.inert = false; layoutChanged(); }
 $('homeGo').onclick = () => { hideHome(); start(); };

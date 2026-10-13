@@ -310,10 +310,10 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 .log-wk{touch-action:pan-y pinch-zoom; user-select:none; -webkit-user-select:none; overflow:hidden}
 .log-wk-h{display:grid; grid-template-columns:36px 1fr 36px; align-items:center; margin:-8px 0 -6px}
 .log-wk-h h3{text-align:center}
-.log-wk-go{width:36px; height:36px; display:grid; place-items:center; padding:0; border:0; border-radius:50%; background:none; color:var(--ink); cursor:pointer; -webkit-tap-highlight-color:transparent}
-.log-wk-go svg{width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round}
-.log-wk-go:disabled{opacity:.22; cursor:default}
-.log-wk-go:not(:disabled):active{background:var(--surface)}
+.wk-go{width:36px; height:36px; display:grid; place-items:center; padding:0; border:0; border-radius:50%; background:none; color:var(--ink); cursor:pointer; -webkit-tap-highlight-color:transparent}
+.wk-go svg{width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round}
+.wk-go:disabled{opacity:.22; cursor:default}
+.wk-go:not(:disabled):active{background:var(--surface)}
 .log-week{display:grid; grid-template-columns:repeat(7, minmax(0, 1fr)); gap:6px; align-items:end}
 .log-week .d{display:grid; gap:4px; justify-items:center; font-size:12px; color:var(--mute)}
 .log-week .bar{position:relative; width:100%; height:72px; border-radius:6px; background:var(--surface); overflow:hidden}
@@ -527,7 +527,10 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 .hm-big{display:flex; align-items:baseline; flex-wrap:wrap; gap:0 8px; margin:0}
 .hm-big b{font-size:28px; font-weight:800; letter-spacing:-.02em}
 .hm-big span{color:var(--mute); font-size:15px}
-.hm-dots{display:grid; grid-template-columns:repeat(7, 1fr); gap:6px; margin-top:14px; max-width:320px}
+/* the week swipes back a month, like the practice log's: the arrows either side of the dots show which way there is more */
+.hm-wk{touch-action:pan-y pinch-zoom; -webkit-user-select:none; user-select:none; overflow:hidden}
+.hm-wk-row{display:grid; grid-template-columns:36px minmax(0, 320px) 36px; align-items:center; gap:2px; margin:4px 0 0 -10px}
+.hm-dots{display:grid; grid-template-columns:repeat(7, 1fr); gap:6px}
 .hm-dots div{display:grid; justify-items:center; align-content:end; gap:6px; height:32px; font-size:11px; color:var(--mute-2)}
 .hm-dots i{width:5px; height:5px; margin:3.5px 0; border-radius:50%; background:var(--rule)}   /* a day without playing is just a quiet dot, not an empty box */
 .hm-dots i.on{width:12px; height:12px; margin:0; background:var(--accent)}
@@ -633,9 +636,15 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
       </ul>
       <div class="hm-week" id="homeWeek" hidden>
         <div class="hm-today" id="homeToday" hidden><p class="hm-today-h">Today</p><div class="hm-sess" id="homeSess"></div></div>
-        <p class="hm-big" id="homeBig"><b id="homeTime"></b> <span>of music this week</span></p>
-        <p class="hm-note" id="homeFresh"></p>
-        <div class="hm-dots" id="homeDots" role="img"></div>
+        <div class="hm-wk" id="homeWkSec">
+          <div id="homeWkTop"><p class="hm-big" id="homeBig"><b id="homeTime"></b> <span id="homeCap">of music this week</span></p>
+          <p class="hm-note" id="homeFresh"></p></div>
+          <div class="hm-wk-row">
+            <button class="wk-go" id="homeWkPrev" aria-label="Earlier week"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+            <div class="hm-dots" id="homeDots" role="img"></div>
+            <button class="wk-go" id="homeWkNext" aria-label="Later week"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+          </div>
+        </div>
         <p class="hm-note" id="homeNote"></p>
       </div>
       <div class="hm-with"><div class="hm-chips" id="homeThemes" role="group" aria-label="Theme"></div><span>Playing with <b id="homeTheme"></b><button type="button" class="hm-invite" id="homeLink" hidden translate="no"></button></span></div>
@@ -832,9 +841,9 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
     <div id="logMore">
       <section class="sum-blk log-wk" id="logWeekSec">
         <div class="log-wk-h">
-          <button class="log-wk-go" id="logWeekPrev" aria-label="Earlier week"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+          <button class="wk-go" id="logWeekPrev" aria-label="Earlier week"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
           <h3 id="logWeekH" aria-live="polite">This week</h3>
-          <button class="log-wk-go" id="logWeekNext" aria-label="Later week"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+          <button class="wk-go" id="logWeekNext" aria-label="Later week"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
         </div>
         <div class="log-week" id="logWeek" role="img"></div>
         <div class="log-key" aria-hidden="true"><span><i class="lv3"></i>Time played, one block for each session</span></div>

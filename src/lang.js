@@ -295,8 +295,12 @@ const zh = {
   '{day} at {time}: {play} of playing, {eff} efficiency. Open its summary': '{day} {time}：演奏{play}，效率{eff}。打开小结',
   '{friend}. Add your name': '{friend}。添加你的名字',
   'Session at {time}, {play} of playing. Open its summary': '{time}的练习，演奏{play}。打开小结',
-  'Days with music this week: {list}.': '本周演奏过的日子：{list}。',
-  'none yet': '还没有',
+  'of music last week': '上周音乐时长',
+  'of music in the week of {date}': '{date}这一周的音乐时长',
+  'Last week was a quiet one.': '上周比较安静。',
+  'The week of {date} was a quiet one.': '{date}这一周比较安静。',
+  '{week}: music on {list}.': '{week}：{list}有音乐。',
+  '{week}: a quiet week.': '{week}：安静的一周。',
 };
 
 const fr = {
@@ -589,8 +593,12 @@ const fr = {
   '{day} at {time}: {play} of playing, {eff} efficiency. Open its summary': '{day} à {time} : {play} de jeu, {eff} d’efficacité. Ouvrir son résumé',
   '{friend}. Add your name': '{friend}. Ajoute ton prénom',
   'Session at {time}, {play} of playing. Open its summary': 'Séance de {time}, {play} de jeu. Ouvrir son résumé',
-  'Days with music this week: {list}.': 'Jours de musique cette semaine : {list}.',
-  'none yet': 'aucun pour l’instant',
+  'of music last week': 'de musique la semaine dernière',
+  'of music in the week of {date}': 'de musique la semaine du {date}',
+  'Last week was a quiet one.': 'La semaine dernière a été calme.',
+  'The week of {date} was a quiet one.': 'La semaine du {date} a été calme.',
+  '{week}: music on {list}.': '{week} : de la musique {list}.',
+  '{week}: a quiet week.': '{week} : une semaine calme.',
 };
 
 /* the Home Screen's playful words: every greeting ends with {name} after a comma, a title such as Captain just before it */
