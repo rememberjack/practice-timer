@@ -1,11 +1,10 @@
 /* Grand Prix theme renderer: a chase camera on a road drawn segment by segment (the way the old arcade racers did it, on a 2D canvas),
    at sunset, with timing-screen read-outs. Everything about the race (positions, speeds, the pit lane, the lights) comes from RaceSim
-   in the core; this only draws it. */
-/* exported makeRaceView */   // used by src/app.js, which the build puts after this file
+   in sim.js; this only draws it. */
 function makeRaceView(cv, hud, sim, MT) {
   'use strict';
   const RC = MT.RACE, RP = MT.RACE_PIT, track = sim.T, N = track.n, SEG = RC.SEG, ROADW = RC.ROADW, LAP = RC.LAP, VNOM = RC.VNOM, PZ = RC.PZ, GRIDGAP = RC.GRIDGAP, START = RC.START;
-  const RIVALS = RC.RIVALS, YOU = { c1: RC.YOU[1], c2: RC.YOU[2] }, rng = MT.raceRng;
+  const RIVALS = RC.RIVALS, YOU = { c1: RC.YOU[1], c2: RC.YOU[2] }, rng = MT.seededRng;
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v, gridX = p => p % 2 ? -0.42 : 0.42, wrapLap = l => l - Math.round(l);
   const g = cv.getContext('2d'), RM = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
   const CD = 1 / Math.tan(50 * Math.PI / 180), CAMH = 1000, MAXD = 240;
@@ -346,3 +345,4 @@ function makeRaceView(cv, hud, sim, MT) {
   return { resize: resize, draw: draw, event: event, reset: reset, rebuild: buildSprites };
 }
 
+module.exports = { makeRaceView };

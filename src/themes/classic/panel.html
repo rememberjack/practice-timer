@@ -1,0 +1,21 @@
+<section class="panel" id="pClassic" aria-label="Classic theme">
+  <div class="classic">
+    <div class="status"><span class="lamp"></span><span id="cStatus">Ready when you are</span></div>
+    <p class="clock-label">Play time</p>
+    <div class="clock" role="timer" aria-label="Play time"><span id="cClock"></span><span class="tenths" id="cTenths">.0</span></div>
+    <div class="stats">
+      <div class="stat"><div class="k">Efficiency</div><div class="v" id="cEff">0%</div><div class="meter"><i id="cEffBar"></i></div></div>
+      <div class="stat"><div class="k"><svg class="trophy badge" viewBox="0 0 64 64" aria-hidden="true"><use href="#ico-trophy"/></svg><span id="cGoalK">Practice goal</span></div><div class="v"><span id="cGoalV">30:00</span> <small id="cGoal" translate="no">30:00</small></div><div class="meter"><i id="cGoalBar"></i></div></div>
+      <div class="stat"><div class="k">Active session time</div><div class="v" id="cActive">00:00</div></div>
+      <div class="stat"><div class="k">Total session time</div><div class="v"><span id="cTotal">00:00</span> <small id="cPauses" translate="no">0</small></div></div>
+    </div>
+    <section class="monitor" aria-label="Sound monitor">
+      <div class="mon-head"><h2>Sound monitor</h2><span class="mon-state"><i class="lamp"></i><span id="cMic">Mic off</span></span></div>
+      <div class="heard">
+        <div class="txt"><h3 id="cHeard">Press Start, then play</h3><p id="cDetail">The timer only counts while an instrument is heard.</p></div>
+        <div class="note" id="cNote" aria-label="Note heard"></div>
+      </div>
+      <div class="viz" id="vizBox" role="button" tabindex="0" aria-label="Sound picture. Tap to change"><canvas id="viz" aria-hidden="true"></canvas><span class="viz-name" id="vizName"></span></div>
+    </section>
+  </div>
+</section>

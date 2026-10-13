@@ -1,4 +1,4 @@
-/* Music Timer core: detector, test signals, session clock, rocket flight model.
+/* Music Timer core: detector, test signals, session clock, practice log, and the registry of theme modules (src/themes/).
    Pure logic, no DOM. Runs in the browser and in Node (for tests). */
 (function (root) {
 'use strict';
@@ -831,11 +831,11 @@ function detectionTests(sr) {
       got: cases.map(c => c[0]).join(', '), pass: ok }; } });
   list.push({ name: 'A session cut short is kept', run: () => {
     const s = new Session(); s.start(); for (let i = 0; i < 900; i++) s.tick(0.5, i % 10 < 7); s.pause(); s.tick(30, false); s.resume(); for (let i = 0; i < 200; i++) s.tick(0.5, true);
-    const now = s.startedAt + 600e3, snap = JSON.parse(JSON.stringify(liveSnapshot(s, 'Sam', { mode: 'orbit' }, now))), rec = liveRecord(snap);
-    s.stoppedAt = now; const want = sessionRecord(s, sessionReport(s.runs), 'Sam', { mode: 'orbit' });
+    const now = s.startedAt + 600e3, snap = JSON.parse(JSON.stringify(liveSnapshot(s, 'Sam', { rocket: { mode: 'orbit' } }, now))), rec = liveRecord(snap);
+    s.stoppedAt = now; const want = sessionRecord(s, sessionReport(s.runs), 'Sam', { rocket: { mode: 'orbit' } });
     const bad = [null, {}, Object.assign({}, snap, { v: 2 }), Object.assign({}, snap, { runs: [0, 5, 1] }), Object.assign({}, snap, { runs: [7, 5] }), Object.assign({}, snap, { savedAt: snap.startedAt - 1 })];
     const ok = rec && rec.id === s.startedAt && rec.end === now && Math.abs(rec.play - want.play) < 0.5 && Math.abs(rec.eff - want.eff) < 0.002 && rec.R.pauses === 1
-      && rec.name === 'Sam' && rec.rocket.mode === 'orbit' && worthKeeping(rec.R) && bad.every(x => liveRecord(x) === null) && JSON.stringify(snap).length < 8000;
+      && rec.name === 'Sam' && rec.themes.rocket.mode === 'orbit' && worthKeeping(rec.R) && bad.every(x => liveRecord(x) === null) && JSON.stringify(snap).length < 8000;
     return { name: 'A session cut short is kept', expect: 'the kept session turns back into the same record as ending it there; damaged ones are ignored',
       got: rec ? 'play ' + rec.play + ' (' + want.play + '), efficiency ' + rec.eff + ' (' + want.eff + '), ' + JSON.stringify(snap).length + ' bytes kept' : 'no record', pass: !!ok }; } });
   list.push({ name: 'Session: time away counts like a pause', run: () => {
@@ -859,56 +859,10 @@ function detectionTests(sr) {
       if (c.kind !== want[k] || !fine || ids.size !== log.length || log.length > LOG_MAX || JSON.stringify(log) !== JSON.stringify(sampleLog(k, now))) ok = false;
       got.push(k + ' ' + log.length + ' sessions, ' + c.kind);
     }
-    const T = practiceStats(sampleLog('today', now), now), carried = new RocketSim().restore(rocketCarry(sampleLog('today', now), now));
-    const space = new RocketSim(), orbit = new RocketSim(), months = sampleLog('months', now).length, back = practiceStats(sampleLog('back', now), now);
-    ok = ok && T.today.sessions === 2 && T.today.level === 3 && carried && months > 30 && back.daysSince >= 21 && rocketAt(MILESTONES.space - 1) === null
-      && space.restore(rocketAt(MILESTONES.space)) && space.mode === 'ascent' && orbit.restore(rocketAt(MILESTONES.orbit)) && orbit.mode === 'orbit';
-    return { name: 'Debug tools: sample practice logs', expect: 'each sample log is valid and the same every time, and opens the Home Screen it is for; today has two sessions and the rocket carries on',
-      got: got.join(', ') + '; today ' + durationText(T.today.play) + ', rocket ' + (carried ? 'carried on' : 'on the pad'), pass: ok }; } });
-  // rocket timeline
-  list.push({ name: 'Rocket: timeline from ignition to Moon orbit', run: () => {
-    const sim = new RocketSim(), s = new Session(), at = {}; s.start();
-    for (let t = 0; t < 1830; t += 0.1) { s.tick(0.1, true); sim.update(0.1, { running: true, playing: true, eff: s.efficiency });
-      while (sim.events.length) { const e = sim.events.shift(); if (at[e] == null) at[e] = t + 0.1; } }
-    const th1 = sim.th; for (let i = 0; i < 300; i++) { sim.update(0.1, { running: true, playing: false, eff: 0.2 }); while (sim.events.length) { const e = sim.events.shift(); if (at[e] == null) at[e] = 1830 + i * 0.1; } }
-    const want = { ignition: 0, liftoff: 3, tower: 10, stage1: 190, space: 370, stage2: 610, orbit: 1810, spin: 1813 };
-    let ok = sim.mode === 'orbit' && sim.th !== th1 && sim.spinUp === 1 && sim.spinA !== 0;
-    for (const k in want) if (!(Math.abs(at[k] - want[k]) <= 2)) ok = false;
-    return { name: 'Rocket: timeline from ignition to Moon orbit', expect: 'lift-off 3 s, tower 10 s, stage 1 3:10, space 6:10, stage 2 10:10, orbit 30:10, module spinning 3 s later, then keeps orbiting',
-      got: Object.keys(want).map(k => k + ' ' + (at[k] == null ? 'never' : Math.round(at[k]) + ' s')).join(', ') + (sim.mode === 'orbit' && sim.th !== th1 ? ', orbiting' : ', not orbiting'), pass: ok }; } });
-  list.push({ name: 'Rocket: carries on from earlier the same day', run: () => {
-    const fly = (sim, secs, eff, playing) => { for (let t = 0; t < secs; t += 0.1) sim.update(0.1, { running: true, playing: playing !== false, eff: eff }); };
-    const a = new RocketSim(); fly(a, 130, 1); const low = a.save(); fly(a, 300, 1); const high = a.save(); fly(a, 1500, 1); const orb = a.save();
-    const f = new RocketSim(); fly(f, 60, 1); fly(f, 1, 0.2, false); const falling = f.mode === 'fall' && f.save() === null;
-    const c = new RocketSim(), d = new RocketSim(), pad = new RocketSim(), forged = new RocketSim();
-    const carriedHigh = c.restore(high) && c.mode === 'ascent' && c.fp === high.fp; fly(c, 5, 0.2, false); d.restore(orb); fly(d, 1, 1);
-    const below = !forged.restore({ mode: 'ascent', fp: 130, l: 0.02, stage: 0, inSpace: false, th: 0, tOrb: 0 }) && forged.mode === 'pad' && forged.fp === 0;
-    const at = (dd, h) => new Date(2026, 9, dd, h).getTime(), now = at(9, 18), rec = (dd, h, rk) => ({ start: at(dd, h), rocket: rk });
-    const carry = [rocketCarry([rec(9, 8, orb), rec(9, 12, high)], now) === high, rocketCarry([rec(8, 20, orb)], now) === null, rocketCarry([rec(9, 12, high), rec(9, 15, null)], now) === null,
-      rocketCarry([rec(9, 8, orb), rec(9, 12, high)], now, at(9, 13)) === null,                                  // a new flight after both sessions: the pad
-      rocketCarry([rec(9, 8, orb), { start: at(9, 12), end: at(9, 14), rocket: high }], now, at(9, 13)) === high,  // chosen during a session: that session's flight carries on
-      rocketCarry([rec(9, 8, orb), rec(9, 14, high)], now, at(9, 13)) === high];                                  // a session after the new flight carries on
-    const ok = low === null && falling && below && high && high.inSpace && carriedHigh && c.mode === 'ascent' && c.events.indexOf('fall') < 0 && orb.mode === 'orbit'
-      && d.mode === 'orbit' && d.spinUp === 1 && d.events.indexOf('spin') < 0 && pad.save() === null && !pad.restore({ mode: 'pad' }) && !pad.restore(null) && carry.every(Boolean);
-    return { name: 'Rocket: carries on from earlier the same day', expect: 'in space and in Moon orbit it carries on; below the edge of space, falling, on a new day or after a new flight is chosen it starts on the pad',
-      got: 'below space ' + (low === null && below ? 'back to the pad' : 'carried') + ', falling ' + (falling ? 'back to the pad' : 'carried') + '; in space ' + c.mode + '; orbit ' + d.mode + ' spin ' + d.spinUp + '; carry ' + carry.join(','), pass: ok }; } });
-  list.push({ name: 'Rocket: lifts off at 50% engine power', run: () => {
-    const fly = eff => { const sim = new RocketSim(); let at = -1; for (let t = 0; t < 30; t += 0.1) { sim.update(0.1, { running: true, playing: true, eff: eff }); if (at < 0 && sim.events.indexOf('liftoff') >= 0) at = t + 0.1; sim.events.length = 0; } return at; };
-    const a = fly(0.55), b = fly(0.45), ok = Math.abs(a - 3) <= 0.3 && b < 0;
-    return { name: 'Rocket: lifts off at 50% engine power', expect: 'at 55%: lift-off after 3 s; at 45%: stays on the pad',
-      got: 'at 55%: ' + (a < 0 ? 'no lift-off' : 'lift-off at ' + a.toFixed(1) + ' s') + '; at 45%: ' + (b < 0 ? 'stays on the pad' : 'lift-off at ' + b.toFixed(1) + ' s'), pass: ok }; } });
-  list.push({ name: 'Rocket: falls and explodes when power drops in the atmosphere', run: () => {
-    const sim = new RocketSim(), s = new Session(), ev = []; s.start();
-    for (let t = 0; t < 400; t += 0.1) { const p = t < 120; s.tick(0.1, p); sim.update(0.1, { running: true, playing: p, eff: s.efficiency });
-      while (sim.events.length) ev.push(sim.events.shift()); }
-    const ok = ev.indexOf('liftoff') >= 0 && ev.indexOf('fall') > ev.indexOf('liftoff') && ev.indexOf('crash') > ev.indexOf('fall') && sim.mode === 'pad' && sim.fp === 0;
-    return { name: 'Rocket: falls and explodes when power drops in the atmosphere', expect: 'lift-off, fall below 50%, explosion, new rocket on the pad', got: ev.join(', '), pass: ok }; } });
-  list.push({ name: 'Rocket: keeps flying when power drops in space', run: () => {
-    const sim = new RocketSim(), ev = []; let fell = false;
-    for (let t = 0; t < 420; t += 0.1) { sim.update(0.1, { running: true, playing: true, eff: 1 }); sim.events.length = 0; }
-    for (let t = 0; t < 120; t += 0.1) { sim.update(0.1, { running: true, playing: false, eff: 0.3 }); while (sim.events.length) ev.push(sim.events.shift()); if (sim.mode === 'fall') fell = true; }
-    const ok = !fell && sim.mode === 'ascent' && !sim.ignited && sim.inSpace;
-    return { name: 'Rocket: keeps flying when power drops in space', expect: 'no fall once outside the atmosphere, engine off', got: 'mode ' + sim.mode + ', engine ' + (sim.ignited ? 'on' : 'off') + (ev.length ? ', events ' + ev.join(', ') : ''), pass: ok }; } });
+    const T = practiceStats(sampleLog('today', now), now), months = sampleLog('months', now).length, back = practiceStats(sampleLog('back', now), now);
+    ok = ok && T.today.sessions === 2 && T.today.level === 3 && months > 30 && back.daysSince >= 21 && sampleLog('today', now).every(r => JSON.stringify(r.themes) === '{}');
+    return { name: 'Debug tools: sample practice logs', expect: 'each sample log is valid and the same every time, and opens the Home Screen it is for; today has two sessions; the themes add their own data (sampleLog hook)',
+      got: got.join(', ') + '; today ' + durationText(T.today.play), pass: ok }; } });
   // note starts and the Dash course
   list.push({ name: 'Note starts: one per note, none for talking or silence', run: () => {
     const count = clip => { const x = CLIPS[clip](sr), det = new MusicDetector(sr, { sensitivity: 'normal' }), tr = new OnsetTracker(), N = det.N, hop = N >> 1, dt = hop / sr; let n = 0;
@@ -916,45 +870,6 @@ function detectionTests(sr) {
     const v = count('violin'), s = count('staccato'), t = count('talk'), q = count('quiet');
     return { name: 'Note starts: one per note, none for talking or silence', expect: 'violin 9 to 13 of its 12 notes (the first second is spent recognising it), talking 0, quiet 0',
       got: 'violin ' + v + ', detached notes ' + s + ', talking ' + t + ', quiet ' + q, pass: v >= 9 && v <= 13 && s >= 4 && t === 0 && q === 0 }; } });
-  list.push({ name: 'Dash: never crashes while music is heard', run: () => {
-    let scr = 0, fl = 0, crashes = 0, jumps = 0, hops = 0, dist = 0;
-    for (const eff of [0.3, 0.6, 0.9, 1]) { const d = new DashSim(); let acc = 0;
-      for (let t = 0; t < 300; t += 1 / 60) { acc += 1 / 60; let on = 0; if (acc >= 0.37 + 0.3 * d.rnd()) { acc = 0; on = 1; } d.update(1 / 60, { running: true, music: true, eff: eff, onsets: on, progress: t / 300 }); }
-      scr += d.scrapes; fl += d.floats; crashes += d.attempts - 1; jumps += d.jumps; hops += d.used.hop || 0; dist += d.x; }
-    return { name: 'Dash: never crashes while music is heard', expect: 'no crash, no touch and never standing on air, at any speed, over 20 minutes; notes add hops',
-      got: crashes + ' crashes, ' + scr + ' touches, ' + fl + ' steps on air, ' + jumps + ' jumps (' + hops + ' on notes), ' + Math.round(dist) + ' cube lengths run', pass: scr === 0 && fl === 0 && crashes === 0 && jumps > 400 && hops > 300 }; } });
-  list.push({ name: 'Dash: every kind of piece, cleared at any frame rate', run: () => {
-    const d = new DashSim(), steps = [1 / 60, 1 / 30, 0.1, 1 / 144, 0.05]; let acc = 0, t = 0;
-    for (let k = 0; t < 600; k++) { const dt = steps[k % 5]; t += dt; acc += dt; let on = 0; if (acc >= 0.45) { acc = 0; on = 1; }
-      d.update(dt, { running: true, music: true, eff: [0.3, 0.6, 0.9, 1][Math.floor(t / 40) % 4], onsets: on, progress: t / 400 }); }
-    const pieces = DASH_PIECES.map(q => q[0]).filter(k => !d.built[k]), moves = ['jump', 'hop', 'pad', 'orb', 'fall'].filter(k => !d.used[k]);
-    return { name: 'Dash: every kind of piece, cleared at any frame rate', expect: 'all ' + DASH_PIECES.length + ' kinds of piece laid and every kind of move taken, with no crash, no touch and never standing on air while frames come unevenly',
-      got: (pieces.length ? 'never laid: ' + pieces.join(', ') : 'all pieces laid') + ', ' + (moves.length ? 'never taken: ' + moves.join(', ') : 'all moves taken') + ', ' + (d.attempts - 1) + ' crashes, ' + d.scrapes + ' touches, ' + d.floats + ' steps on air',
-      pass: !pieces.length && !moves.length && d.attempts === 1 && d.scrapes === 0 && d.floats === 0 }; } });
-  list.push({ name: 'Dash: silence crashes once after the grace time, short gaps do not', run: () => {
-    const d = new DashSim(), ev = []; let tCrash = -1, x1, x2;
-    const run = (sec, music) => { for (let t = 0; t < sec; t += 1 / 60) { d.update(1 / 60, { running: true, music: music, eff: 0.9, onsets: 0, progress: 0 }); while (d.events.length) { const e = d.events.shift(); if (e !== 'jump' && e !== 'land') ev.push(e); if (e === 'crash' && tCrash < 0) tCrash = clock; } clock += 1 / 60; } };
-    let clock = 0; run(10, true); run(2, false); run(6, true); const mark = clock; run(12, false); const after = d.attempts; x1 = d.x; run(3, true); x2 = d.x;
-    for (let t = 0; t < 5; t += 1 / 60) d.update(1 / 60, { running: false, music: true, eff: 0.9, onsets: 1, progress: 0 }); const frozen = d.x === x2;
-    const ok = ev.filter(e => e === 'crash').length === 1 && Math.abs(tCrash - mark - DASH.GRACE) < 0.4 && after === 2 && x2 > x1 + 5 && frozen && d.scrapes === 0;
-    return { name: 'Dash: silence crashes once after the grace time, short gaps do not', expect: 'a 2 s gap is survived; a long silence crashes once, ' + DASH.GRACE + ' s in; it runs again with the music; pause freezes it',
-      got: 'crashes ' + ev.filter(e => e === 'crash').length + (tCrash >= 0 ? ', ' + (tCrash - mark).toFixed(1) + ' s into the silence' : '') + ', attempt ' + after + ', ' + (x2 > x1 + 5 ? 'ran on' : 'stuck') + ', ' + (frozen ? 'pause holds' : 'moved while paused'), pass: ok }; } });
-  list.push({ name: 'Dash: silence anywhere on the course', run: () => {
-    const at = { ground: 0, platform: 0, air: 0 }, wrong = []; let lo = 1e9, hi = -1e9;
-    for (let k = 0; k < 48; k++) {
-      const d = new DashSim(), eff = [0.3, 0.6, 0.9, 1][k % 4], progress = [0, 0.15, 0.35, 0.7][(k >> 2) % 4]; let clock = 0, crashes = 0, tCrash = -1;
-      const run = (sec, music) => { for (let t = 0; t < sec; t += 1 / 60) { d.update(1 / 60, { running: true, music: music, eff: eff, onsets: music && Math.round(clock * 60) % 25 === 0 ? 1 : 0, progress: progress });
-        clock += 1 / 60; while (d.events.length) if (d.events.shift() === 'crash') { crashes++; if (tCrash < 0) tCrash = clock; } } };
-      const where = () => at[d.arc ? 'air' : d.y > 0 ? 'platform' : 'ground']++;
-      run(3 + (k * 2.71) % 17, true); where(); run(2, false); const c1 = crashes; run(3 + (k * 1.37) % 5, true);
-      where(); const mark = clock; run(7, false); const c2 = crashes - c1, x1 = d.x; run(4, true);
-      if (tCrash >= 0) { lo = Math.min(lo, tCrash - mark); hi = Math.max(hi, tCrash - mark); }
-      if (c1 || c2 !== 1 || Math.abs(tCrash - mark - DASH.GRACE) >= 0.4 || d.x < x1 + 10 || d.scrapes || d.floats)
-        wrong.push('#' + k + ': ' + c1 + '+' + c2 + ' crashes' + (tCrash >= 0 ? ' at ' + (tCrash - mark).toFixed(1) + ' s' : '') + ', ' + d.scrapes + ' touches, ' + d.floats + ' on air');
-    }
-    return { name: 'Dash: silence anywhere on the course', expect: 'wherever the music stops (on the ground, up on a platform, in mid-air), a 2 s gap is survived and a long silence crashes once, ' + DASH.GRACE + ' s in; then it runs on with no touch',
-      got: (at.ground + at.platform + at.air) + ' silences (' + at.ground + ' on the ground, ' + at.platform + ' on a platform, ' + at.air + ' in the air), crashes ' + lo.toFixed(1) + ' to ' + hi.toFixed(1) + ' s in' + (wrong.length ? '; wrong: ' + wrong.slice(0, 3).join('; ') : ''),
-      pass: !wrong.length && at.platform > 0 && at.air > 0 }; } });
   // finger and mouse swipes on a 390 px scene: a press at 200,300, moved in even steps to (dx, dy) over ms, then let go there (or taken away by the browser)
   const press = (dx, dy, ms, cancel) => { const s = new DragSwipe(), seen = []; s.down(1, 200, 300, 0, 390);
     for (let k = 1; k <= 20; k++) { const m = s.move(200 + dx * k / 20, 300 + dy * k / 20); if (m != null) seen.push(m); }
@@ -1016,169 +931,6 @@ function detectionTests(sr) {
   const notches = (n, gap) => Array.from({ length: n }, (_, i) => ({ t: i * gap, dx: 100, dy: 0 }));
   wheelTest('Mouse wheel: sideways clicks of 100 px each move one theme', 'a 100 px sideways wheel click (as Chrome and Edge send on Windows) every 260 or 400 ms steps each time; a quick spin steps once', [
     ['every 400 ms', notches(3, 400), 'next next next'], ['every 260 ms', notches(3, 260), 'next next next'], ['a quick spin', notches(3, 100), 'next']]);
-  // Grand Prix
-  const gpRun = (s, sec, inp, dt) => { dt = dt || 0.05; for (let t = 0; t < sec - 1e-9; t += dt) { if (inp.state === 'running' && inp.music) inp.play = (inp.play || 0) + dt; s.update(dt, inp); s.move(dt); } };
-  const gpStart = s => { const inp = { state: 'running', music: true, recent: 1, play: 0 }; for (let i = 0; i < 200 && s.mode !== 'race'; i++) gpRun(s, 0.1, inp); return inp; };
-  list.push({ name: 'Grand Prix: the start lights', run: () => {
-    const s = new RaceSim(); s.reset(1800, 3); const ev = [], inp = { state: 'running', music: true, recent: 1, play: 0 }, take = () => { while (s.events.length) ev.push(s.events.shift()); };
-    gpRun(s, 3.02, inp); take(); const a = s.lit; inp.music = false; gpRun(s, 3, inp); take(); const b = s.lit, mb = s.mode, d0 = s.dist;
-    inp.music = true; gpRun(s, 2.02, inp); take(); const c = s.lit; gpRun(s, 2, inp); take();
-    const ok = a === 3 && b === 3 && mb === 'lights' && d0 === 0 && c === 5 && s.mode === 'race' && ev.filter(e => e === 'light').length === 5 && ev.filter(e => e === 'go').length === 1;
-    return { name: 'Grand Prix: the start lights', expect: 'a light for each second of playing, none while quiet and the cars still, then lights out once', got: 'lights ' + a + ', ' + b + ' (' + mb + '), ' + c + ', then ' + s.mode + '; events ' + ev.join(' '), pass: ok }; } });
-  list.push({ name: 'Grand Prix: speed is the last minute', run: () => {
-    const s = new RaceSim(); s.reset(1800, 5); const inp = gpStart(s); inp.recent = 0.75; const d0 = s.dist;
-    gpRun(s, 120, inp); const want = 0.75 * RACE.VNOM * 120, kmh = s.v * 300 / RACE.VNOM, bend = s.cornerAt((s.d + RACE.PZ) / RACE.SEG), kmhWant = 300 * Math.min(0.75, bend);
-    inp.recent = 0; gpRun(s, 10, inp); const stopped = s.v, d1 = s.dist;
-    const ok = Math.abs(s.dist - d0 - want) < 1 && Math.abs(kmh - kmhWant) < 12 && stopped === 0 && d1 === s.dist && s.lap === 1 + Math.floor(s.dist / RACE.LAPU);
-    return { name: 'Grand Prix: speed is the last minute', expect: 'at 75% of the last minute the car runs at 225 km/h (slower in a bend) and covers 75% of full-speed distance; at 0% it stops',
-      got: Math.round((s.dist - d0) / want * 1000) / 10 + '% of the distance expected, ' + Math.round(kmh) + ' km/h (' + Math.round(kmhWant) + ' here), then ' + Math.round(stopped) + ' km/h at 0%, lap ' + s.lap, pass: ok }; } });
-  list.push({ name: 'Grand Prix: the car brakes for the bends, and the race does not', run: () => {
-    const s = new RaceSim(); s.reset(1800, 4); const inp = gpStart(s); s.cars = []; const T = s.T, at = [], d0 = s.dist; let t = 0;
-    for (; t < 60; t += 1 / 60) { s.update(1 / 60, inp); s.move(1 / 60); at.push([Math.floor((s.d + RACE.PZ) / RACE.SEG) % T.n, s.v]); }
-    const slowest = {}; let top = 0;
-    for (const [i, v] of at) { if (T.corner[i] >= 1) top = Math.max(top, v); if (Math.abs(T.curve[i]) > 3) slowest[i] = Math.min(slowest[i] == null ? 1e9 : slowest[i], v); }
-    const corners = []; for (let i = 0; i < T.n;) { if (Math.abs(T.curve[i]) <= 3) { i++; continue; } let e = i, lim = 1; while (e < T.n && Math.abs(T.curve[e]) > 3) lim = Math.min(lim, T.corner[e++]); corners.push({ s: i, e: e, lim: lim }); i = e; }
-    const kmh = v => Math.round(v * 300 / RACE.VNOM), bad = [];
-    for (const c of corners) { let lo = 1e9; for (let i = c.s; i < c.e; i++) if (slowest[i] != null) lo = Math.min(lo, slowest[i]); if (lo === 1e9) continue;
-      if (lo > c.lim * RACE.VNOM + 150 || lo > 0.85 * RACE.VNOM) bad.push('bend at ' + c.s + ' taken at ' + kmh(lo) + ' km/h'); }
-    const ok = !bad.length && top > 0.98 * RACE.VNOM && corners.length >= 4 && Math.abs(s.dist - d0 - RACE.VNOM * t) < RACE.VNOM * 0.02;
-    return { name: 'Grand Prix: the car brakes for the bends, and the race does not', expect: 'full speed on the straights, each sharp bend taken at its corner speed (braking before it), and the race distance still full speed all the way',
-      got: 'top ' + kmh(top) + ' km/h; ' + corners.map(c => { let lo = 1e9; for (let i = c.s; i < c.e; i++) if (slowest[i] != null) lo = Math.min(lo, slowest[i]); return lo < 1e9 ? kmh(lo) : '-'; }).join(', ') + ' km/h in the sharp bends' + (bad.length ? '; ' + bad.join('; ') : '') + '; race distance ' + Math.round((s.dist - d0) / (RACE.VNOM * t) * 100) + '% of full speed', pass: ok }; } });
-  list.push({ name: 'Grand Prix: a pause freezes the race and parks the car in the pit lane', run: () => {
-    const s = new RaceSim(); s.reset(1800, 9); const inp = gpStart(s); inp.recent = 0.8; gpRun(s, 60, inp);
-    const pos = s.pos, mine = s.dist, theirs = s.cars.map(c => c.dist).join(), ev = [];
-    inp.state = 'paused'; gpRun(s, 1, inp); const red = s.mode; gpRun(s, 300, inp, 0.5); while (s.events.length) ev.push(s.events.shift());
-    const frozen = s.dist === mine && s.cars.map(c => c.dist).join() === theirs, boxed = s.pit && s.pit.phase === 'box' && s.v === 0 && Math.abs(s.x - 1.48) < 0.05;
-    inp.state = 'running'; s.update(0, inp); const back = s.mode, samePos = s.pos === pos; gpRun(s, 12, inp); while (s.events.length) ev.push(s.events.shift());
-    const ok = red === 'red' && frozen && boxed && back === 'race' && samePos && !s.pit && Math.abs(s.x) < 0.7 && ['red', 'box', 'green', 'release', 'exit'].every(e => ev.includes(e));
-    return { name: 'Grand Prix: a pause freezes the race and parks the car in the pit lane', expect: 'red flag; no car moves on while paused; the car waits in its box; on resume it rejoins in the same place and leaves the pit lane',
-      got: red + ', ' + (frozen ? 'frozen' : 'moved') + ', ' + (boxed ? 'in the box' : 'not in the box') + ', back in ' + back + ' at P' + s.pos + ' (P' + pos + ' before), ' + (s.pit ? 'still in the pit lane' : 'out of the pit lane') + '; ' + ev.join(' '), pass: ok }; } });
-  list.push({ name: 'Grand Prix: the car keeps to the pit lane, in and out', run: () => {
-    const s = new RaceSim(); s.reset(1800, 11); const inp = gpStart(s); inp.recent = 0.9; gpRun(s, 30, inp); s.x = s.tx = -0.5;   // on the far side of the track when the flag comes out
-    let worst = 0, off = 0, last = s.x, joined = null, boxOk = false, m0 = null, moved = false; const step = (sec, state) => { inp.state = state;
-      for (let t = 0; t < sec; t += 1 / 60) { s.update(1 / 60, inp); s.move(1 / 60);
-        const pa = (s.d + RACE.PZ) / RACE.SEG, lane = s.inPit ? s.pitX(pa) : null;
-        if (lane != null && Math.abs(s.x - lane) > 1e-9) off++;
-        worst = Math.max(worst, Math.abs(s.x - last)); last = s.x;
-        if (s.pit && s.pit.phase === 'box') boxOk = s.pit.boxSeg >= s.pit.a + RACE_PIT.IN + 12;
-        if (s.pit) { if (m0 == null) m0 = s.pit.m0; else if (s.pit.m0 !== m0) moved = true; }
-        if (joined == null && s.pit && s.pit.exitAt) joined = s.x; } };
-    step(6, 'paused'); step(14, 'running');
-    const ok = off === 0 && worst < 0.05 && boxOk && !moved && joined != null && Math.abs(joined - RACE_PIT.JOIN) < 0.05 && !s.pit && Math.abs(s.x) <= RACE.APEX;
-    return { name: 'Grand Prix: the car keeps to the pit lane, in and out', expect: 'the car follows the middle of the pit lane all the way, with no sudden sideways step; the box is past the bend in; where the lane bends out is set when the car turns in (so the garages stay put); it joins the track on the right and races on',
-      got: (off ? off + ' frames off the lane' : 'always on the lane') + ', largest sideways step ' + worst.toFixed(3) + ' a frame, box ' + (boxOk ? 'past the bend' : 'too early') + ', joined at ' + (joined == null ? 'never' : joined.toFixed(2)) + ', ' + (s.pit ? 'still in the pit lane' : 'back racing at ' + s.x.toFixed(2)), pass: ok }; } });
-  list.push({ name: 'Grand Prix: the racing line puts the inside tyres on the kerb at every corner', run: () => {
-    const T = raceTrack(), L = T.line, N = T.n, half = 380 / RACE.ROADW, bad = []; let n = 0, step = 0;   // half the car's width, in road half-widths
-    for (let i = 0; i < N; i++) step = Math.max(step, Math.abs(L[(i + 1) % N] - L[i]));
-    for (let i = 0; i < N;) { if (Math.abs(T.curve[i]) <= RACE.KERB) { i++; continue; } const sg = Math.sign(T.curve[i]); let e = i, best = -9;
-      while (e < N && Math.abs(T.curve[e]) > RACE.KERB && Math.sign(T.curve[e]) === sg) { best = Math.max(best, sg * L[e]); e++; }
-      n++; if (best + half < 0.97) bad.push('corner at ' + i + ' reaches ' + (best + half).toFixed(2)); i = e; }
-    // and the car keeps to it: a lap alone at full speed
-    const s = new RaceSim(); s.reset(1800, 2); const inp = gpStart(s); s.cars = []; let off = 0;
-    for (let t = 0; t < 40; t += 1 / 60) { s.update(1 / 60, inp); s.move(1 / 60); const pa = (s.d + RACE.PZ) / RACE.SEG; if (t > 6) off = Math.max(off, Math.abs(s.x - s.lineAt(pa))); }
-    const ok = n >= 10 && !bad.length && Math.max(...L) <= RACE.APEX + 1e-6 && Math.min(...L) >= -RACE.APEX - 1e-6 && step < 0.07 && off < 0.08;
-    return { name: 'Grand Prix: the racing line puts the inside tyres on the kerb at every corner', expect: 'at every corner the inside tyres reach the kerb (0.97 road half-widths out), the line stays on the road and bends smoothly, and the car keeps to it',
-      got: n + ' corners' + (bad.length ? ', ' + bad.join('; ') : ', every one on the kerb') + ', largest step ' + step.toFixed(3) + ' a segment, car at most ' + off.toFixed(3) + ' off the line', pass: ok }; } });
-  list.push({ name: 'Grand Prix: the same field however time is cut up', run: () => {
-    const a = new RaceSim(), b = new RaceSim(); a.reset(1800, 42); b.reset(1800, 42);
-    for (const s of [a, b]) { s.mode = 'race'; s.st = 'running'; }
-    for (let i = 0; i < 300; i++) a.update(1, { state: 'running', music: true, recent: 0.8, play: i });
-    for (let t = 0; t < 300 - 1e-9; t += 0.046) b.update(Math.min(0.046, 300 - t), { state: 'running', music: true, recent: 0.8, play: t });
-    const worst = Math.max(...a.cars.map((c, i) => Math.abs(c.dist - b.cars[i].dist) / c.dist));
-    return { name: 'Grand Prix: the same field however time is cut up', expect: 'one-second steps and 46 ms steps give the rivals the same distances (a following device races the same field)',
-      got: 'largest difference ' + (worst * 100).toFixed(4) + '%', pass: worst < 1e-6 }; } });
-  list.push({ name: 'Grand Prix: the steadier the session, the better the chance of first place', run: () => {
-    const E = [0.7, 0.8, 0.9], wins = E.map(() => 0), place = E.map(() => 0), N = 60;
-    for (let k = 0; k < N; k++) {
-      const s = new RaceSim(); s.reset(600, 1000 + k * 7919); s.mode = 'race'; s.st = 'running';
-      for (let t = 0; t < 600; t++) s.update(1, { state: 'running', music: true, recent: 0, play: 0 });   // the rivals race; you stand still, then are placed at each efficiency
-      E.forEach((e, j) => { const mine = e * RACE.VNOM * 600, ahead = s.cars.filter(c => c.dist > mine).length; if (!ahead) wins[j]++; place[j] += 1 + ahead; });
-    }
-    const p = wins.map(w => w / N), avg = place.map(x => x / N);
-    const ok = p[0] <= 0.15 && p[1] >= 0.25 && p[1] <= 0.75 && p[2] >= 0.8 && p[0] < p[1] && p[1] < p[2] && avg[0] > avg[1] && avg[1] > avg[2];
-    return { name: 'Grand Prix: the steadier the session, the better the chance of first place', expect: 'in 10-minute races, first place rarely at 70% efficiency, about half the time at 80%, nearly always at 90%',
-      got: E.map((e, j) => Math.round(e * 100) + '%: P1 in ' + Math.round(p[j] * 100) + '%, average P' + avg[j].toFixed(1)).join('; '), pass: ok }; } });
-  // Fireworks
-  const fwRun = (s, secs, inp, notesPerSec) => { const ev = []; let owed = 0;
-    for (let t = 0; t < secs - 1e-9; t += 0.05) { owed += (notesPerSec || 0) * 0.05; const n = Math.floor(owed + 1e-9); owed -= n;
-      s.update(0.05, Object.assign({}, inp, { notes: n })); while (s.events.length) ev.push(s.events.shift()); }
-    return ev; };
-  list.push({ name: 'Fireworks: only playing sends shells up', run: () => {
-    const s = new FireworkSim(); s.reset(1800, 3);
-    const a = fwRun(s, 20, { state: 'paused', music: true, midi: 60, recent: 0.8, play: 0 }, 1).length,
-      b = fwRun(s, 20, { state: 'running', music: false, midi: 60, recent: 0.8, play: 0 }, 1).length,
-      c = fwRun(s, 20, { state: 'stopped', music: true, midi: 60, recent: 0.8, play: 0 }, 1).length,
-      d = fwRun(s, 20, { state: 'running', music: true, midi: 60, recent: 0, play: 0 }, 1).filter(e => e.k === 'shell').length;
-    return { name: 'Fireworks: only playing sends shells up', expect: 'none while paused, quiet or stopped, however intense; with no intensity, one for each note played (20 notes, 20 shells)',
-      got: a + ' paused, ' + b + ' quiet, ' + c + ' stopped, ' + d + ' playing; ' + s.shells + ' counted', pass: a === 0 && b === 0 && c === 0 && d === 20 && s.shells === 20 }; } });
-  list.push({ name: 'Fireworks: each note is a colour, higher notes burst higher', run: () => {
-    const s = new FireworkSim(); s.reset(1800, 5); const shot = midi => { s.tokens = FW.BURST; s.update(0.05, { state: 'running', music: true, notes: 1, midi: midi, recent: 0, play: 0 }); return s.events.pop(); };
-    const lo = [], hi = []; for (let k = 0; k < 20; k++) { lo.push(shot(48)); hi.push(shot(84)); }
-    const avg = a => a.reduce((x, e) => x + e.h, 0) / a.length, c4 = shot(60), c5 = shot(72), g4 = shot(67);
-    const before = s.colours; for (let m = 60; m < 72; m++) shot(m);
-    const hues = new Set(); for (let pc = 0; pc < 12; pc++) hues.add(fwHue(pc));
-    const ok = c4.hue === c5.hue && c4.hue !== g4.hue && avg(hi) > avg(lo) + 0.2 && before === 2 && s.colours === 12 && hues.size === 12;
-    return { name: 'Fireworks: each note is a colour, higher notes burst higher', expect: 'C4 and C5 the same colour, G another; C6 bursts well above C3; twelve notes, twelve colours',
-      got: 'C4 ' + c4.hue + ', C5 ' + c5.hue + ', G4 ' + g4.hue + '; height ' + avg(lo).toFixed(2) + ' low, ' + avg(hi).toFixed(2) + ' high; colours ' + before + ' then ' + s.colours + ', ' + hues.size + ' hues', pass: ok }; } });
-  list.push({ name: 'Fireworks: fast scales do not flood the sky', run: () => {
-    const s = new FireworkSim(); s.reset(1800, 7);
-    const ev = fwRun(s, 10, { state: 'running', music: true, midi: 64, recent: 1, play: 0 }, 12).filter(e => e.k === 'shell');
-    const cap = (FW.RATE + FW.PER) * 10 + FW.BURST + FW.BURSTPER, big = ev.filter(e => e.size > 1.01).length;
-    return { name: 'Fireworks: fast scales do not flood the sky', expect: '12 notes a second for 10 s sends up at most ' + cap + ' shells, the notes over that making shells bigger',
-      got: ev.length + ' shells for 120 notes, ' + big + ' bigger than full size', pass: ev.length <= cap && ev.length >= cap - 6 && big > 0 }; } });
-  list.push({ name: 'Fireworks: the last minute sets the size and the kinds', run: () => {
-    const kinds = recent => { const s = new FireworkSim(); s.reset(1800, 11); const ev = fwRun(s, 60, { state: 'running', music: true, midi: 62, recent: recent, play: 0 }, 1);
-      return { size: ev.reduce((x, e) => x + e.size, 0) / ev.length, kinds: new Set(ev.filter(e => e.kind !== 'symbol').map(e => e.kind)) }; };   // symbols are a surprise of their own
-    const lo = kinds(0.2), mid = kinds(0.5), hi = kinds(0.9);
-    const ok = hi.size > mid.size && mid.size > lo.size && lo.kinds.size === 1 && lo.kinds.has('peony') && !mid.kinds.has('willow') && mid.kinds.has('ring') && hi.kinds.has('willow') && hi.kinds.size >= 5;
-    return { name: 'Fireworks: the last minute sets the size and the kinds', expect: 'bigger shells with more of the last minute played; round ones only at 20%, rings at 50%, willows and more at 90%',
-      got: [['20%', lo], ['50%', mid], ['90%', hi]].map(p => p[0] + ': size ' + p[1].size.toFixed(2) + ', ' + [...p[1].kinds].sort().join(' ')).join('; '), pass: ok }; } });
-  list.push({ name: 'Fireworks: a held note still sends shells up', run: () => {
-    const s = new FireworkSim(); s.reset(1800, 13); const ev = fwRun(s, 20, { state: 'running', music: true, midi: 55, recent: 0.7, play: 0 }, 0).filter(e => e.k === 'shell');
-    const want = FW.PACE * 0.7 * 20, same = ev.every(e => e.pc === 7);
-    return { name: 'Fireworks: a held note still sends shells up', expect: 'the pace of the intensity (about ' + Math.round(want) + ' in 20 s of one long G at 70%), all in its colour',
-      got: ev.length + ' shells' + (same ? ', all G' : ', not all G'), pass: same && ev.length >= want - 2 && ev.length <= want + 1 }; } });
-  list.push({ name: 'Fireworks: the higher the intensity, the more shells in the sky at once', run: () => {
-    const E = [0.2, 0.5, 0.9], slow = [], fast = [];
-    for (const [rate, out] of [[1, slow], [8, fast]]) for (const e of E) { const s = new FireworkSim(); s.reset(1800, 21); let sum = 0, n = 0, owed = 0;
-      for (let t = 0; t < 60; t += 0.05) { owed += rate * 0.05; const k = Math.floor(owed + 1e-9); owed -= k; s.update(0.05, { state: 'running', music: true, notes: k, midi: 64, recent: e, play: t }); s.events.length = 0; if (t > 10) { sum += s.aloft; n++; } }
-      out.push(sum / n); }
-    const up = a => a[0] < a[1] && a[1] < a[2], ok = up(slow) && up(fast) && slow[2] >= slow[0] * 2 && fast[2] >= fast[0] * 2;
-    return { name: 'Fireworks: the higher the intensity, the more shells in the sky at once', expect: 'more shells aloft at 50% than 20%, more again at 90% (at least twice as many as at 20%), for slow notes and fast runs alike',
-      got: E.map((e, j) => Math.round(e * 100) + '%: ' + slow[j].toFixed(1) + ' (1 note/s), ' + fast[j].toFixed(1) + ' (8 notes/s)').join('; '), pass: ok }; } });
-  list.push({ name: 'Fireworks: a grand finale at the goal, once, ending in a trophy', run: () => {
-    const s = new FireworkSim(); s.reset(60, 17); const ev = [], take = () => { while (s.events.length) ev.push(s.events.shift()); };
-    const run = (secs, st, shown, t0) => { for (let t = 0; t < secs - 1e-9; t += 0.05) { s.update(0.05, { state: st, music: false, notes: 0, midi: null, recent: 0.8, play: t0 + t, shown: shown }); take(); } };
-    run(70, 'running', false, 0); const away = ev.length;                            // the goal passes on another theme: the finale waits
-    run(4, 'running', true, 70); const early = ev.filter(e => e.finale).length;
-    run(5, 'paused', true, 74); const paused = ev.filter(e => e.finale).length;
-    run(20, 'running', true, 74);
-    const starts = ev.filter(e => e.k === 'finale').length, shells = ev.filter(e => e.finale), ends = ev.filter(e => e.k === 'finaleEnd').length;
-    const last = shells[shells.length - 1], endAt = ev.findIndex(e => e.k === 'finaleEnd'), lastAt = ev.indexOf(last);
-    const ok = away === 0 && starts === 1 && shells.length === FW.FINALE && last.kind === 'trophy' && ends === 1 && endAt > lastAt && early > 0 && early < FW.FINALE && paused === early && s.shells === 0 && !s.inFinale;
-    return { name: 'Fireworks: a grand finale at the goal, once, ending in a trophy', expect: 'nothing while the theme is not shown; then one finale of ' + FW.FINALE + ' shells, held through a pause, the last a trophy, then the end of the finale (for the trophy card); not counted as the player\'s shells',
-      got: away + ' events away, ' + starts + ' finale, ' + shells.length + ' shells (' + early + ' before the pause, ' + paused + ' after it), last ' + (last && last.kind) + ', ' + ends + ' end' + (endAt > lastAt ? ' after it' : ' before it') + ', ' + s.shells + ' counted', pass: ok }; } });
-  list.push({ name: 'Fireworks: now and then a shell bursts into a musical symbol', run: () => {
-    const s = new FireworkSim(); s.reset(3600, 31); const ev = fwRun(s, 600, { state: 'running', music: true, midi: 62, recent: 0.8, play: 0 }, 2).filter(e => e.k === 'shell');
-    const sym = ev.filter(e => e.kind === 'symbol'), names = new Set(sym.map(e => e.symbol)), share = sym.length / ev.length;
-    let gaps = true, repeats = false, at = -1e9, last = ''; for (const e of ev) { if (e.kind === 'symbol') { if (e.symbol === last) repeats = true; last = e.symbol; } }
-    const s2 = new FireworkSim(); s2.reset(3600, 31); let tt = 0; for (let k = 0; k < 600 * 20; k++) { s2.update(0.05, { state: 'running', music: true, notes: k % 10 === 0 ? 1 : 0, midi: 62, recent: 0.8, play: 0 }); tt += 0.05;
-      for (const e of s2.events) if (e.kind === 'symbol') { if (tt - at < FW.SYMBOL_GAP - 1e-6) gaps = false; at = tt; } s2.events.length = 0; }
-    const colour = sym.every(e => e.hue === fwHue(2) && e.pc === 2);
-    const ok = share > 0.03 && share < 0.12 && names.size >= 6 && gaps && !repeats && colour && sym.every(e => FW_SYMBOLS.includes(e.symbol));
-    return { name: 'Fireworks: now and then a shell bursts into a musical symbol', expect: 'a few in a hundred shells, at least ' + FW.SYMBOL_GAP + ' s apart, never the same twice running, in the note\'s colour, many different symbols',
-      got: sym.length + ' of ' + ev.length + ' shells (' + (share * 100).toFixed(1) + '%), ' + names.size + ' symbols' + (gaps ? '' : ', too close') + (repeats ? ', a repeat' : '') + (colour ? '' : ', wrong colour'), pass: ok }; } });
-  list.push({ name: 'Fireworks: every musical symbol is drawn', run: () => {
-    const bad = FW_SYMBOLS.filter(n => { const p = fwSymbolShape(n, 0.05), xs = p.map(q => q[0]), ys = p.map(q => q[1]);
-      return p.length < 40 || p.length > 220 || Math.max(...ys) > 0.8 || Math.min(...ys) < -0.8 || Math.max(...xs.map(Math.abs)) > 0.8 || Math.max(...ys) - Math.min(...ys) < 0.5; });
-    return { name: 'Fireworks: every musical symbol is drawn', expect: FW_SYMBOLS.length + ' symbols, each 40 to 220 points inside the trophy\'s box', got: FW_SYMBOLS.map(n => n + ' ' + fwSymbolShape(n, 0.05).length).join(', ') + (bad.length ? '; wrong: ' + bad.join(' ') : ''), pass: !bad.length && fwSymbolShape('nothing').length === 0 }; } });
-  list.push({ name: 'Fireworks: the trophy burst is a trophy', run: () => {
-    const p = fwTrophyShape(0.05), xs = p.map(q => q[0]), ys = p.map(q => q[1]), key = q => Math.round(q[0] * 20) + ',' + Math.round(q[1] * 20), set = new Set(p.map(key));
-    const mirrored = p.filter(q => set.has(Math.round(-q[0] * 20) + ',' + Math.round(q[1] * 20))).length / p.length;
-    const rim = p.filter(q => q[1] > 0.74).length, base = p.filter(q => q[1] < -0.74).length, handles = p.filter(q => Math.abs(q[0]) > 0.7).length, stem = p.filter(q => q[1] < -0.05 && q[1] > -0.44).length;
-    const ok = p.length >= 100 && p.length <= 200 && Math.min(...ys) >= -0.76 && Math.max(...ys) <= 0.76 && Math.max(...xs.map(Math.abs)) <= 0.8 && mirrored > 0.95 && rim > 15 && base > 12 && handles > 4 && stem >= 14;
-    return { name: 'Fireworks: the trophy burst is a trophy', expect: '100 to 200 points, the same on both sides, 1.5 high and under 1.6 wide, with a rim, handles, a stem and a base',
-      got: p.length + ' points, ' + Math.round(mirrored * 100) + '% mirrored, ' + (Math.max(...ys) - Math.min(...ys)).toFixed(2) + ' high, ' + (Math.max(...xs) - Math.min(...xs)).toFixed(2) + ' wide; rim ' + rim + ', handles ' + handles + ', stem ' + stem + ', base ' + base, pass: ok }; } });
   list.push({ name: 'Session: the last minute, a second at a time', run: () => {
     const s = new Session(); s.start(); for (let i = 0; i < 30; i++) s.tick(1, true); for (let i = 0; i < 10; i++) s.tick(1, false);
     const m = s.minute, ok = m.length === 60 && m.slice(0, 20).every(v => v === null) && m.slice(20, 50).every(v => v === 1) && m.slice(50).every(v => v === 0);
@@ -1259,27 +1011,16 @@ function detectionTests(sr) {
       && !L.practicedToday && L.today.play === 0 && L.weekPlay === 0 && L.lastWeekPlay === 2400 && L.daysSince === 1;
     return { name: 'Practice log: an empty log, records in any order and the shades of the calendar', expect: 'an empty log has no longest session and no days since; the longest and the days since come out the same in any order; a record with no report falls back to its efficiency (60%); the shades turn at exactly 15 and 30 minutes, two sessions adding up (0112232); a session over midnight is filed under the day it started',
       got: 'empty: ' + E.sessions + ' sessions, longest ' + E.longest + ', days since ' + E.daysSince + ' | any order: longest ' + (O.longest && O.longest.play) + ' s, ' + O.daysSince + ' days since | no report: ' + Math.round(N.efficiency * 100) + '% | shades ' + levels + ' | over midnight: ' + L.lastWeekPlay + ' s last week', pass: ok }; } });
-  list.push({ name: 'Rocket: a new flight while a session is still running', run: () => {
-    const at = (d, h) => new Date(2026, 9, d, h).getTime(), now = at(12, 18), up = { mode: 'ascent', fp: 400 }, orb = { mode: 'orbit', fp: 2000 };
-    const got = [rocketCarry([{ start: at(12, 8), end: at(12, 9), rocket: up }], now, at(12, 9)),              // ended just as the new flight was chosen: the pad
-      rocketCarry([{ start: at(12, 8), rocket: up }], now, at(12, 8)),                                          // no end saved, and started by then: the pad
-      rocketCarry([{ start: at(12, 8), end: at(12, 20), rocket: up }], now, at(12, 19)),                        // chosen while it still ran: carries on
-      rocketCarry([{ start: at(12, 8), rocket: up }], now, at(12, 7)),                                          // chosen before it started: carries on
-      rocketCarry([{ start: at(12, 8), rocket: up }], now, 0), rocketCarry([{ start: at(12, 8), rocket: up }], now),   // never chosen
-      rocketCarry([{ start: at(12, 14), rocket: orb }, { start: at(11, 20), rocket: up }, { start: at(12, 8), rocket: up }], now),   // the day's latest, whatever the order
-      rocketCarry([], now), rocketCarry([{ start: at(12, 8) }], now), rocketCarry([{ start: at(11, 8), rocket: orb }], now)];
-    const want = [null, null, up, up, up, up, orb, null, null, null];
-    return { name: 'Rocket: a new flight while a session is still running', expect: 'a session that had ended (or, with no end saved, had started) by the time the new flight was chosen starts on the pad; one still running then, or started later, carries on; the latest session of the day wins in any order; yesterday, no sessions or no saved flight give the pad',
-      got: got.map(g => g ? g.mode : 'pad').join(', '), pass: got.every((g, i) => g === want[i]) }; } });
   list.push({ name: 'A session cut short: every damaged snapshot is ignored', run: () => {
     const s = new Session(); s.start(); for (let i = 0; i < 100; i++) s.tick(1, true); s.pause(); s.tick(5, false); s.resume(); s.tick(10, false);
-    const snap = JSON.parse(JSON.stringify(liveSnapshot(s, 'Ana', { mode: 'orbit', fp: 2000 }, s.startedAt + 200e3))), vary = (k, v) => { const c = JSON.parse(JSON.stringify(snap)); if (v === undefined) delete c[k]; else c[k] = v; return c; };
+    const snap = JSON.parse(JSON.stringify(liveSnapshot(s, 'Ana', { rocket: { mode: 'orbit', fp: 2000 } }, s.startedAt + 200e3))), vary = (k, v) => { const c = JSON.parse(JSON.stringify(snap)); if (v === undefined) delete c[k]; else c[k] = v; return c; };
     const bad = { 'no version': vary('v'), 'no start': vary('startedAt'), 'start 0': vary('startedAt', 0), 'no savedAt': vary('savedAt'), 'no goal': vary('goal'), 'goal 0': vary('goal', 0), 'no runs': vary('runs'), 'runs as text': vary('runs', '0,5'),
       'kind 3': vary('runs', [3, 5]), 'kind as text': vary('runs', ['0', 5]), 'negative seconds': vary('runs', [0, -1]), 'NaN seconds': vary('runs', [0, NaN]), 'text': 'x', 'a number': 5, 'a list': [] };
-    const wrong = Object.keys(bad).filter(k => liveRecord(bad[k]) !== null), r = liveRecord(snap), r2 = liveRecord(vary('rocket', 'orbit')), r3 = liveRecord(vary('name', 5)), r4 = liveRecord(vary('runs', [])), r5 = liveRecord(vary('savedAt', snap.startedAt));
-    const ok = !wrong.length && r && r.play === 100 && r.end - r.start === 200e3 && r.rocket.mode === 'orbit' && r.name === 'Ana' && r.R.pauses === 1 && r2 && r2.rocket === null && r3 && r3.name === '' && r4 && r4.play === 0 && r4.R.columns.length === 0 && r5 && r5.end === r5.start;
-    return { name: 'A session cut short: every damaged snapshot is ignored', expect: Object.keys(bad).length + ' kinds of damage are ignored; a good one keeps its 100 s, its pause, its name and its rocket; a rocket that is not an object or a name that is not text is dropped; no runs at all is a session with nothing in it',
-      got: (wrong.length ? 'not ignored: ' + wrong.join(', ') : 'all ignored') + (r ? '; play ' + r.play + ' s, ' + r.R.pauses + ' pause, ' + r.name + ', rocket ' + (r.rocket && r.rocket.mode) : '; no record'), pass: !!ok }; } });
+    const wrong = Object.keys(bad).filter(k => liveRecord(bad[k]) !== null), r = liveRecord(snap), r2 = liveRecord(vary('themes', { rocket: 'orbit', 'Not-an-id': {}, dash: [1] })), old = vary('themes'), r3 = liveRecord(vary('name', 5)), r4 = liveRecord(vary('runs', [])), r5 = liveRecord(vary('savedAt', snap.startedAt));
+    const ok = !wrong.length && r && r.play === 100 && r.end - r.start === 200e3 && r.themes.rocket.mode === 'orbit' && r.name === 'Ana' && r.R.pauses === 1 && r2 && JSON.stringify(r2.themes) === '{}' && r3 && r3.name === '' && r4 && r4.play === 0 && r4.R.columns.length === 0 && r5 && r5.end === r5.start
+      && (old.rocket = { mode: 'ascent' }) && liveRecord(old).themes.rocket.mode === 'ascent' && !('rocket' in liveRecord(old));
+    return { name: 'A session cut short: every damaged snapshot is ignored', expect: Object.keys(bad).length + ' kinds of damage are ignored; a good one keeps its 100 s, its pause, its name and what its themes kept; kept data that is not an object, or under an id no theme could have, or a name that is not text is dropped; no runs at all is a session with nothing in it; a snapshot from before themes kept their own data still keeps its rocket',
+      got: (wrong.length ? 'not ignored: ' + wrong.join(', ') : 'all ignored') + (r ? '; play ' + r.play + ' s, ' + r.R.pauses + ' pause, ' + r.name + ', rocket ' + (r.themes.rocket && r.themes.rocket.mode) : '; no record'), pass: !!ok }; } });
   list.push({ name: 'Themes: Classic can\'t be turned off, and the saved text stays tidy', run: () => {
     const all = ['classic', 'rocket', 'city', 'dash', 'race', 'fireworks'], off = themeSwitch(all, '', 'city', false), on = themeSwitch(all, off, 'city', true);
     const got = [themeSwitch(all, '', 'classic', false), themeSwitch(all, 'rocket', 'classic', false), themesOn(all, 'classic').length, themesOn(all, null).length, themesOn(all, undefined).length, themesOn(all, 'bogus,classic,rocket').join(' '),
@@ -1304,11 +1045,63 @@ function detectionTests(sr) {
     const want = ['12', 'dev', '', '', '', '', false, true, true, false, false, false, false];
     return { name: 'New versions: placeholders, dev builds and whitespace', expect: 'the stamp is trimmed; a page with no meta, no content or a placeholder has no stamp; dev against dev, or the same stamp with spaces round it, is not newer, while a dev page against a numbered build is; the first meta tag is the one that counts',
       got: got.join(', '), pass: got.every((g, i) => g === want[i]) }; } });
+  // theme modules: the interface every theme keeps to (docs/theme-modules.md)
+  const okTheme = () => ({ api: THEME_API, id: 'sample', name: 'Sample', line: 'A sample theme.', goalHint: 'The total play time to reach.', langs: ['en', 'fr'], words: { fr: { 'Sample': 'Échantillon', 'A sample theme.': 'Un thème pour essayer.', '{n} star': '{n} étoile' } },
+    panel: 'pSample', chrome: 'pixel', fonts: ['Barlow+Condensed:wght@700'], tests: [{ name: 'Sample: a test', run: () => ({ pass: true }) }], create: () => ({}) });
+  const vary = (k, v) => { const d = okTheme(); if (v === undefined) delete d[k]; else d[k] = v; return d; };
+  list.push({ name: 'Theme modules: a definition that keeps to the interface is installed once', run: () => {
+    const saved = THEMES.splice(0), base = Object.assign(okTheme(), { id: 'base', langs: LANGS.map(l => l[0]), words: undefined }), out = [];
+    try {
+      out.push(checkTheme(okTheme()).length, addTheme(Object.assign(okTheme(), { id: 'first' })).join(), addTheme(base).length, addTheme(okTheme()).length, addTheme(okTheme()).join(), themes().map(t => t.id).join(' '),
+        checkTheme(Object.assign(okTheme(), { goalHint: undefined, words: undefined, fonts: undefined, tests: undefined, langs: ['en'] })).length, removeTheme('sample'), removeTheme('sample'), themes().map(t => t.id).join(' '));
+    } finally { THEMES.splice(0, THEMES.length, ...saved); }
+    const want = [0, 'the base theme (the first installed) must be written for every language', 0, 0, 'the id sample is taken by another installed theme', 'base sample', 0, true, false, 'base'];
+    return { name: 'Theme modules: a definition that keeps to the interface is installed once', expect: 'a sound definition has no problems and installs; a second with the same id does not; the first installed (the base) must have every language; the optional keys can go; a theme can be taken out again',
+      got: out.join(' | '), pass: out.every((g, i) => g === want[i]) }; } });
+  list.push({ name: 'Theme modules: each way a definition can break is named', run: () => {
+    const cases = [[null, 'exports its definition'], [vary('api'), 'no api'], [vary('api', 2), 'api must be the interface version'], [vary('id', 'Rocket'), 'id must be'], [vary('id', 'x'), 'id must be'], [vary('id', 'my-theme'), 'id must be'],
+      [vary('name'), 'no name'], [vary('name', ' Sample'), 'name must be'], [vary('line', ''), 'line must be'], [vary('goalHint', 5), 'goalHint must be'], [vary('langs', ['fr']), 'langs must be'], [vary('langs', ['en', 'de']), 'langs must be'],
+      [vary('langs', ['en', 'en']), 'langs must be'], [vary('langs', 'en'), 'langs must be'], [vary('words', { fr: {}, zh: {} }), 'words for zh, which is not in langs'], [vary('words', { en: { a: 'b' }, fr: {} }), 'English is the key'],
+      [Object.assign(vary('langs', ['en', 'fr', 'zh'])), 'no words for zh'], [vary('words', { fr: { '{n} star': 'étoile' } }), 'same {blanks}'], [vary('words', { fr: { 'Sample': '' } }), 'same {blanks}'],
+      [Object.assign(vary('langs', ['en', 'fr', 'zh']), { words: { fr: { a: 'b' }, zh: { c: 'd' } } }), 'not the same words as fr'], [vary('words', [1]), 'words must be'], [vary('panel', '#pSample'), 'panel must be'], [vary('panel'), 'no panel'],
+      [vary('chrome', 'fancy'), 'chrome must be'], [vary('fonts', ['Barlow Condensed']), 'fonts must be'], [vary('fonts', 'Inter'), 'fonts must be'], [vary('tests', [{ name: 'x' }]), 'tests must be'], [vary('tests', {}), 'tests must be'],
+      [vary('create'), 'no create'], [vary('create', {}), 'create must be'], [vary('crate', () => ({})), 'unknown key crate']];
+    const bad = cases.filter(c => !checkTheme(c[0]).some(p => p.indexOf(c[1]) >= 0)).map(c => c[1] + ' (got ' + (checkTheme(c[0]).join('; ') || 'nothing') + ')');
+    return { name: 'Theme modules: each way a definition can break is named', expect: cases.length + ' broken definitions, each with its problem in words', got: bad.length ? 'not named: ' + bad.slice(0, 3).join(' / ') : cases.length + ' of ' + cases.length + ' named', pass: !bad.length }; } });
+  list.push({ name: 'Theme modules: what create returns has only hooks', run: () => {
+    const all = {}; for (const h of THEME_HOOKS) all[h] = () => {};
+    const got = [checkInstance({}).length, checkInstance(all).length, checkInstance({ draw: () => {} }).join(), checkInstance({ paint: 1 }).join(), checkInstance(null).length, THEME_HOOKS.length];
+    const want = [0, 0, 'unknown hook draw', 'hook paint must be a function', 1, 21];
+    return { name: 'Theme modules: what create returns has only hooks', expect: 'no hooks, or every hook, is fine; an unknown name or a hook that is not a function is named (' + want.join(' | ') + ')', got: got.join(' | '), pass: got.every((g, i) => g === want[i]) }; } });
+  list.push({ name: 'Theme modules: a theme\'s own words first, then the page\'s, then English', run: () => {
+    const { tr: say, trn: sayN } = translator({ fr: { 'Hello!': 'Bonjour !', 'Settings': 'Réglages du thème', '{n} star': '{n} étoile', '{n} stars': '{n} étoiles' } }), had = WORDS.fr;
+    WORDS.fr = Object.assign({}, had, { 'Done': 'OK' });   // a page word, whatever lang.js says
+    try {
+      const fr = inLang('fr', () => [say('Hello!'), say('Settings'), say('Done'), say('Not translated'), sayN(0, '{n} star', '{n} stars'), sayN(2, '{n} star', '{n} stars'), say('End|part')]).join(' | ');
+      const en = inLang('en', () => [say('Hello!'), sayN(2, '{n} star', '{n} stars')]).join(' | ');
+      const want = 'Bonjour ! | Réglages du thème | OK | Not translated | 0 étoile | 2 étoiles | ' + inLang('fr', () => tr('End|part'));
+      return { name: 'Theme modules: a theme\'s own words first, then the page\'s, then English', expect: 'its own French (with French spacing), its own over the page\'s, the page\'s, English for the rest; French counts 0 as one; in English the English',
+        got: fr + ' || ' + en, pass: fr === want && en === 'Hello! | 2 stars' && word('{n} s') === '{n} s' }; }
+    finally { WORDS.fr = had; } } });
+  list.push({ name: 'Theme modules: a theme shows only in the languages it is written for', run: () => {
+    const all = LANGS.map(l => l[0]), L = [{ id: 'classic', langs: all }, { id: 'english', langs: ['en'] }, { id: 'french', langs: ['en', 'fr'] }, { id: 'every', langs: all }];
+    const got = [themesOpen(L, '', 'en'), themesOpen(L, '', 'fr'), themesOpen(L, '', 'zh'), themesOpen(L, 'every', 'fr'), themesOpen(L, 'classic,english,french,every', 'en'), themesOpen([{ id: 'base', langs: ['en'] }, L[3]], '', 'zh')].map(a => a.join(' '));
+    const want = ['classic english french every', 'classic french every', 'classic every', 'classic french', 'classic', 'base every'];
+    return { name: 'Theme modules: a theme shows only in the languages it is written for', expect: 'English-only themes go in French and Chinese; one turned off goes in any language; the base theme always stays (' + want.join(' | ') + ')',
+      got: got.join(' | '), pass: got.every((g, i) => g === want[i]) }; } });
+  list.push({ name: 'Theme modules: what a theme keeps with a session', run: () => {
+    const s = new Session(); s.start(); for (let i = 0; i < 40; i++) s.tick(0.5, true); s.stop();
+    const R = sessionReport(s.runs), r = sessionRecord(s, R, '', { rocket: { mode: 'orbit' }, Bad: { a: 1 }, dash: 'text', race: null }), none = sessionRecord(s, R, '');
+    const old = upgradeRecord({ v: 1, start: 1, rocket: { mode: 'ascent' } }), oldPad = upgradeRecord({ v: 1, start: 1, rocket: null }), both = upgradeRecord({ themes: { rocket: { mode: 'orbit' } }, rocket: { mode: 'ascent' } });
+    const got = [Object.keys(r.themes).join(), JSON.stringify(none.themes), old.themes.rocket.mode, 'rocket' in old, JSON.stringify(oldPad.themes), both.themes.rocket.mode];
+    const want = ['rocket', '{}', 'ascent', false, '{}', 'orbit'];
+    return { name: 'Theme modules: what a theme keeps with a session', expect: 'a record keeps each theme\'s object under its id and drops the rest; a record saved before themes kept their own has its rocket moved under themes (' + want.join(' | ') + ')',
+      got: got.join(' | '), pass: got.every((g, i) => g === want[i]) }; } });
   // languages
   list.push({ name: 'Languages: every word in Chinese and French', run: () => {
     const ids = LANGS.map(l => l[0]).filter(id => id !== 'en'), keys = id => Object.keys(WORDS[id] || {}).sort(), marks = t => (String(t).match(/\{\w+\}/g) || []).sort().join();
     const picked = [pickLang('', ['fr-CA', 'en']), pickLang('', ['zh-TW']), pickLang('', ['de-DE', 'zh-Hans-CN']), pickLang('', ['de']), pickLang('en', ['fr']), pickLang('xx', ['fr'])].join();
-    const rules = inLang('en', () => [tr('{n} s', { n: 5 }), tr('End|part'), trn(0, '{n} lap', '{n} laps'), trn(1, '{n} lap', '{n} laps')]).join() + ';' + inLang('fr', () => trn(0, '{n} lap', '{n} laps') === tr('{n} lap', { n: 0 }));
+    const rules = inLang('en', () => [tr('{n} s', { n: 5 }), tr('End|part'), trn(0, 'on {n} day', 'on {n} days'), trn(1, 'on {n} day', 'on {n} days')]).join() + ';' + inLang('fr', () => trn(0, 'on {n} day', 'on {n} days') === tr('on {n} day', { n: 0 }));
     const bad = [], now = new Date(2026, 9, 9, 18).getTime(), P1 = practiceStats([{ start: now - 3600e3, play: 900, goal: 1800, eff: 0.8, R: { active: 1100 } }], now);
     for (const id of ids) {
       if (!WORDS[id]) { bad.push(id + ' has no words'); continue; }
@@ -1323,7 +1116,7 @@ function detectionTests(sr) {
     const said = inLang('fr', () => durationText(4500) + ' / ' + weekLine({ weekPlay: 600, lastWeekPlay: 0 })) + ' / ' + inLang('zh', () => durationText(4500) + ' / ' + dayLine({ key: dayKey(now), n: 2, count: 2, play: 1500 }, now).text);
     return { name: 'Languages: every word in Chinese and French', expect: 'the device\'s language is picked when none is chosen; each language has a translation of every word with the same {blanks}, and Home Screen words of the same shape',
       got: picked + ' | ' + rules + ' | ' + ids.map(id => id + ' ' + keys(id).length + ' words').join(', ') + ' | ' + said + (bad.length ? ' | missing or wrong: ' + bad.slice(0, 4).join(' / ') : ''),
-      pass: picked === 'fr,zh,zh,en,en,fr' && rules === '5 s,End,0 laps,1 lap;true' && !bad.length && ids.every(id => keys(id).length > 300) }; } });
+      pass: picked === 'fr,zh,zh,en,en,fr' && rules === '5 s,End,on 0 days,on 1 day;true' && !bad.length && ids.every(id => keys(id).length > 250) }; } });
   return list.map(t => Object.assign({}, t, { run: () => inLang('en', t.run) }));   // written for the English words, whatever language the page shows
 }
 function runDetectionTests(sr) { return detectionTests(sr).map(t => t.run()); }
@@ -1343,6 +1136,92 @@ function themesOn(all, off) { const o = themesOff(all, off); return all.filter(i
 function themeSwitch(all, off, id, want) { const o = themesOff(all, off).filter(x => x !== id); if (!want) o.push(id); return themesOff(all, o.join(',')).join(','); }
 /* the theme to show: cur while it is on, else the first one on (Classic), on the Home Screen and when the one on screen is turned off */
 function themeLanding(on, cur) { return on.indexOf(cur) >= 0 ? cur : on[0]; }
+
+/* ---------- Theme modules: each theme is a module in src/themes/<id>/ (docs/theme-modules.md) ----------
+   A theme module exports a definition (checkTheme says what it must hold); the page installs the ones listed in src/themes/themes.json,
+   in that order, with addTheme. The first one installed is the base theme (Classic): always on, written for every language, and where the
+   page lands when the theme on screen goes. The page then calls create(host) once and drives what it returns through its hooks (THEME_HOOKS). */
+const THEME_API = 1;                                         // the version of the interface below; a module says which one it is written for
+const THEME_ID = /^[a-z][a-z0-9]{1,15}$/;
+/* what a definition holds: each key, whether it must be there, and what it must be */
+const isText = v => typeof v === 'string' && v.trim() === v && v.length > 0;
+const THEME_KEYS = {
+  api: [true, v => v === THEME_API, 'the interface version, ' + THEME_API],
+  id: [true, v => typeof v === 'string' && THEME_ID.test(v), 'a short id of lower-case letters and digits, starting with a letter (2 to 16 long)'],
+  name: [true, isText, 'its name in English'],
+  line: [true, isText, 'one line in English for Settings, Themes'],
+  goalHint: [false, isText, 'the practice goal\'s hint in English, for Settings opened from this theme'],
+  langs: [true, v => Array.isArray(v) && v.indexOf('en') >= 0 && v.every(l => LANGS.some(x => x[0] === l)) && new Set(v).size === v.length, 'the languages it is written for: known ids, English among them, each once'],
+  words: [false, v => !!v && typeof v === 'object' && !Array.isArray(v), 'its own words by language: { zh: { English: Chinese } }'],
+  panel: [true, v => typeof v === 'string' && /^[A-Za-z][\w-]*$/.test(v), 'the id of its panel (the section in panel.html)'],
+  chrome: [true, v => v === 'clean' || v === 'pixel', '\'clean\' (the Classic title row) or \'pixel\' (the compact title row over a scene)'],
+  fonts: [false, v => Array.isArray(v) && v.every(f => typeof f === 'string' && /^[A-Za-z][A-Za-z+]*(:[A-Za-z0-9@;,.]+)?$/.test(f)), 'Google Fonts families it needs, as the css2 URL writes them'],
+  tests: [false, v => Array.isArray(v) && v.every(t => t && isText(t.name) && typeof t.run === 'function'), 'its tests: a list of { name, run }, run returning { name, expect, got, pass }'],
+  create: [true, v => typeof v === 'function', 'create(host): the instance whose hooks the page calls'],
+};
+/* the hooks an instance may have; all are optional (the docs say when each is called and with what) */
+const THEME_HOOKS = ['show', 'hide', 'reset', 'restore', 'tick', 'frame', 'paint', 'notes', 'stopped', 'goalChanged', 'awardLine', 'holdAward', 'resize', 'langChanged',
+  'share', 'follow', 'keep', 'sampleLog', 'homeLink', 'debugLine', 'debugTools'];
+const blanks = s => (String(s).match(/\{\w+\}/g) || []).sort().join();
+/* what is wrong with a theme definition, in words; [] when it keeps to the interface */
+function checkTheme(d) {
+  if (!d || typeof d !== 'object') return ['a theme module exports its definition, an object'];
+  const bad = [];
+  for (const k in THEME_KEYS) { const [need, ok, what] = THEME_KEYS[k];
+    if (d[k] === undefined) { if (need) bad.push('no ' + k + ' (' + what + ')'); }
+    else if (!ok(d[k])) bad.push(k + ' must be ' + what); }
+  for (const k in d) if (!THEME_KEYS[k]) bad.push('unknown key ' + k + ' (a typo, or an interface newer than ' + THEME_API + ')');
+  if (Array.isArray(d.langs) && THEME_KEYS.words[1](d.words === undefined ? {} : d.words)) {
+    const W = d.words || {}, own = d.langs.filter(l => l !== 'en'), first = own.find(l => W[l]);
+    for (const l in W) if (own.indexOf(l) < 0) bad.push('words for ' + l + ', which is not in langs' + (l === 'en' ? ' (English is the key: it needs no words)' : ''));
+    for (const l of own) {
+      if (!W[l] || typeof W[l] !== 'object') { if (first) bad.push('no words for ' + l + ', which is in langs'); continue; }
+      for (const [k, v] of Object.entries(W[l])) if (!isText(v) || blanks(k) !== blanks(v)) bad.push(l + ' words: "' + k + '" needs a translation with the same {blanks}');
+      if (Object.keys(W[l]).sort().join('\n') !== Object.keys(W[first]).sort().join('\n')) bad.push(l + ' words: not the same words as ' + first);
+    }
+  }
+  return bad;
+}
+/* what is wrong with what create(host) returned */
+function checkInstance(x) {
+  if (!x || typeof x !== 'object') return ['create(host) must return an object of hooks'];
+  const bad = [];
+  for (const k in x) if (THEME_HOOKS.indexOf(k) < 0) bad.push('unknown hook ' + k); else if (typeof x[k] !== 'function') bad.push('hook ' + k + ' must be a function');
+  return bad;
+}
+/* a language's typography, applied to a theme's words as lang.js applies it to the page's: French keeps a space before ! ? : ; that does not break */
+const TYPO = { fr: s => s.replace(/ ([!?:;])/g, '\u00A0$1') };
+/* tr and trn for a theme: its own words first (words: { zh: {...}, fr: {...} }), then the page's, then the English */
+function translator(words) {
+  const own = {};
+  for (const l in words || {}) { own[l] = {}; for (const k in words[l]) own[l][k] = TYPO[l] ? TYPO[l](words[l][k]) : words[l][k]; }
+  const t = (s, vars) => { const w = own[lang] && own[lang][s] != null ? own[lang][s] : WORDS[lang][s]; return fill(w != null ? w : s.replace(/\|.*$/, ''), vars); };
+  const tn = (n, one, other, vars) => t(lang === 'fr' ? (n < 2 ? one : other) : n === 1 ? one : other, Object.assign({ n: n }, vars));
+  return { tr: t, trn: tn };
+}
+/* marks a word in a table, written now and translated where it is shown (npm test finds the words through it) */
+const word = s => s;
+/* words the page translates for every theme: the read-outs most themes share, which a theme can show without words of its own (src/lang.js) */
+const COMMON_WORDS = [word('Play time'), word('Efficiency'), word('Goal'), word('Power'), word('Pauses'), word('Reached')];
+/* the installed themes, in order; addTheme returns what is wrong with a definition, and installs it only when nothing is */
+const THEMES = [];
+function addTheme(d) {
+  const bad = checkTheme(d);
+  if (!bad.length && THEMES.some(t => t.id === d.id)) bad.push('the id ' + d.id + ' is taken by another installed theme');
+  if (!bad.length && !THEMES.length && LANGS.some(l => d.langs.indexOf(l[0]) < 0)) bad.push('the base theme (the first installed) must be written for every language');
+  if (!bad.length) THEMES.push(d);
+  return bad;
+}
+function themes() { return THEMES.slice(); }
+function removeTheme(id) { const i = THEMES.findIndex(t => t.id === id); if (i >= 0) THEMES.splice(i, 1); return i >= 0; }   // for tests that install their own
+/* The themes to swipe through, in order: turned on (themesOn) and written for the page's language. The base theme always, so there is somewhere to land.
+   A theme not written for the language waits in Settings, Themes until the language changes back; its on or off is kept */
+function themesOpen(list, off, id) {
+  const on = themesOn(list.map(t => t.id), off);
+  return list.filter((t, i) => i === 0 || (on.indexOf(t.id) >= 0 && t.langs.indexOf(id) >= 0)).map(t => t.id);
+}
+/* the same random numbers for the same seed, however they are used (a following device races the same field) */
+function seededRng(seed) { let s = (seed >>> 0) % 2147483647 || 1; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
 
 /* ---------- Session clock ---------- */
 class Session {
@@ -1434,30 +1313,36 @@ function clockText(s) { s = Math.max(0, Math.floor(s));   // down to the second,
 
 /* ---------- Practice log: saved sessions and the week (the streak is worked out but not shown for now) ---------- */
 const LOG_MAX = 2000, KEEP_PLAY = 10;   // the log keeps the latest LOG_MAX sessions (years of practice, about 2.5 MB); a session needs KEEP_PLAY seconds of playing to be saved
-/* what is saved for a finished session: its times and its report, rounded so the log stays small (no audio) */
-function sessionRecord(s, R, name, rocket) {
+/* what is saved for a finished session: its times and its report, rounded so the log stays small (no audio).
+   themes: what each theme keeps with the session ({ rocket: RocketSim.save() }, from the themes' keep() hooks), by theme id */
+function sessionRecord(s, R, name, themes) {
   const round = (k, v) => typeof v === 'number' ? Math.round(v * 1000) / 1000 : v;
   return { v: 1, id: s.startedAt, start: s.startedAt, end: s.stoppedAt || s.startedAt + Math.round(R.total * 1000), goal: s.goal,
-    play: Math.round(R.play * 1000) / 1000, eff: Math.round(R.efficiency * 1000) / 1000, name: name || '', R: JSON.parse(JSON.stringify(R, round)), rocket: rocket || null };
+    play: Math.round(R.play * 1000) / 1000, eff: Math.round(R.efficiency * 1000) / 1000, name: name || '', R: JSON.parse(JSON.stringify(R, round)), themes: keptThemes(themes) };
 }
-/* the rocket flight to carry on today: where the day's latest saved session left it (null to start on the pad, as on a new day).
-   from: when a new flight was last started; sessions that had ended by then no longer carry on, while one still running then does */
-function rocketCarry(records, now, from) {
-  const k = dayKey(now); let last = null;
-  for (const r of records) if (dayKey(r.start) === k && !(from > 0 && (r.end || r.start) <= from) && (!last || r.start > last.start)) last = r;
-  return last && last.rocket || null;
+/* what themes keep with a session: only plain objects, by an id a theme could have (anything else is dropped) */
+function keptThemes(x) {
+  const out = {}; if (!x || typeof x !== 'object' || Array.isArray(x)) return out;
+  for (const k in x) if (THEME_ID.test(k) && x[k] && typeof x[k] === 'object' && !Array.isArray(x[k])) out[k] = x[k];
+  return out;
+}
+/* a record saved before themes kept their own data had the rocket's flight as record.rocket: it moves to record.themes.rocket */
+function upgradeRecord(r) {
+  if (!r || typeof r !== 'object') return r;
+  const t = keptThemes(r.themes); if (!t.rocket && r.rocket && typeof r.rocket === 'object') t.rocket = r.rocket;
+  delete r.rocket; r.themes = t; return r;
 }
 const worthKeeping = R => R.play >= KEEP_PLAY;
 /* a session cut short: if the app is closed or iOS discards it mid-session, the session so far is still there next time.
-   liveSnapshot is what is kept while it runs (now: when, rocket: RocketSim.save()); liveRecord turns it back into a saved record, or null */
-function liveSnapshot(s, name, rocket, now) {
-  return { v: 1, startedAt: s.startedAt, savedAt: now, goal: s.goal, name: name || '', rocket: rocket || null, runs: s.runs.map((x, i) => i % 2 ? Math.round(x * 100) / 100 : x) };
+   liveSnapshot is what is kept while it runs (now: when, themes: what each theme keeps); liveRecord turns it back into a saved record, or null */
+function liveSnapshot(s, name, themes, now) {
+  return { v: 1, startedAt: s.startedAt, savedAt: now, goal: s.goal, name: name || '', themes: keptThemes(themes), runs: s.runs.map((x, i) => i % 2 ? Math.round(x * 100) / 100 : x) };
 }
 function liveRecord(x) {
   if (!x || x.v !== 1 || !(x.startedAt > 0) || !(x.savedAt >= x.startedAt) || !(x.goal > 0) || !Array.isArray(x.runs) || x.runs.length % 2) return null;
   for (let i = 0; i < x.runs.length; i += 2) if ([0, 1, 2].indexOf(x.runs[i]) < 0 || !(x.runs[i + 1] >= 0)) return null;
-  const R = sessionReport(x.runs);
-  return sessionRecord({ startedAt: x.startedAt, stoppedAt: x.savedAt, goal: x.goal }, R, typeof x.name === 'string' ? x.name : '', x.rocket && typeof x.rocket === 'object' ? x.rocket : null);
+  const R = sessionReport(x.runs), themes = upgradeRecord({ themes: x.themes, rocket: x.rocket }).themes;   // a snapshot kept by an older version has its rocket on its own
+  return sessionRecord({ startedAt: x.startedAt, stoppedAt: x.savedAt, goal: x.goal }, R, typeof x.name === 'string' ? x.name : '', themes);
 }
 /* local calendar days */
 const dayKey = d => { d = new Date(d); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
@@ -1594,13 +1479,6 @@ function weekLine(P) {
 
 /* ---------- Sample practice logs for the debug tools: made-up sessions, never saved, to see each page as it looks after some use ---------- */
 const SAMPLE_LOGS = [['first', 'First visit'], ['today', 'Played today'], ['week', 'Played this week'], ['back', 'Back after a break'], ['months', 'Three months']];
-/* a saved rocket flight fp seconds of playing in (as RocketSim.save gives it), or null below the edge of space, where it would start on the pad */
-function rocketAt(fp) {
-  if (!(fp >= MILESTONES.space)) return null;
-  const sim = new RocketSim();
-  if (fp < MILESTONES.orbit) return { mode: 'ascent', fp: fp, l: Math.round(sim.lenAt(fp) * 1e7) / 1e7, stage: fp >= MILESTONES.stage2 ? 2 : 1, inSpace: true, cleared: true, th: Math.round(sim.th0 * 1e4) / 1e4, tOrb: 0 };
-  return { mode: 'orbit', fp: fp, l: sim.L, stage: 2, inSpace: true, cleared: true, th: Math.round(sim.th0 * 1e4) / 1e4, tOrb: 60 };
-}
 /* a session's runs (as Session keeps them) with about play seconds of playing: stretches of playing, short gaps, now and then a break or a pause */
 function sampleRuns(play, rnd) {
   const runs = [1, 5 + rnd() * 20]; let left = play;      // a little quiet before the first note
@@ -1617,7 +1495,7 @@ function sampleLog(kind, now) {
   const rnd = rng(11), today = dayStart(now), out = [];
   const add = (ago, start, play, goal) => {
     const R = sessionReport(sampleRuns(play, rnd));
-    out.push(sessionRecord({ startedAt: start, stoppedAt: start + Math.round(R.total * 1000), goal: goal }, R, '', null));
+    out.push(sessionRecord({ startedAt: start, stoppedAt: start + Math.round(R.total * 1000), goal: goal }, R, '', null));   // the themes add their own (sampleLog hook)
   };
   const day = (ago, plays) => {
     const d = addDays(today, -ago), goal = kind === 'months' && ago > 42 ? 1200 : 1800;
@@ -1634,139 +1512,7 @@ function sampleLog(kind, now) {
   }
   if (kind === 'today') day(0, [840, 1140]);                                // two sessions today
   out.sort((a, b) => a.start - b.start);
-  // the rocket of each day's sessions, as if every session that day carried the flight on
-  const flown = {}; for (const r of out) { const k = dayKey(r.start); flown[k] = (flown[k] || 0) + r.play; r.rocket = rocketAt(flown[k]); }
   return out;
-}
-
-/* ---------- Rocket flight model ---------- */
-function pchip(xs, ys, m0, mn) {
-  const n = xs.length, d = [], m = new Array(n);
-  for (let i = 0; i < n - 1; i++) d.push((ys[i + 1] - ys[i]) / (xs[i + 1] - xs[i]));
-  m[0] = m0 == null ? d[0] : m0; m[n - 1] = mn == null ? d[n - 2] : mn;
-  for (let i = 1; i < n - 1; i++) m[i] = d[i - 1] * d[i] <= 0 ? 0 : 2 * d[i - 1] * d[i] / (d[i - 1] + d[i]);
-  return function (x) {
-    if (x <= xs[0]) return ys[0]; if (x >= xs[n - 1]) return ys[n - 1];
-    let i = 0; while (x > xs[i + 1]) i++;
-    const h = xs[i + 1] - xs[i], t = (x - xs[i]) / h, t2 = t * t, t3 = t2 * t;
-    return (2 * t3 - 3 * t2 + 1) * ys[i] + (t3 - 2 * t2 + t) * h * m[i] + (-2 * t3 + 3 * t2) * ys[i + 1] + (t3 - t2) * h * m[i + 1];
-  };
-}
-const smooth = (a, b, x) => { const t = clamp01((x - a) / (b - a)); return t * t * (3 - 2 * t); };
-
-/* World units are Earth radii; Earth is centred at (0,0) and the pad is at (0,1).
-   Around the pad the proportions are real (a 100 m rocket on a 6371 km planet), and so is the first minute of the climb.
-   Higher up the picture is stretched on purpose: the rocket is drawn pulling away from Earth much faster than the altitude
-   read-out says, so that by the edge of space (SPACE) the whole planet is in view, small and distant. */
-const KM = 1 / 6371;
-const WORLD = { ROCKET_H: 0.1 * KM, SPACE: 4.0, MOON: { x: 6.2, y: 12.4, r: 0.62 }, ORBIT: 1.0 };
-/* Flight timeline, in seconds of playing since ignition (E0). Each step is measured from the one before:
-   E1 clear the tower +10 s, E2 stage 1 separation +3 min, E3 leave the atmosphere +3 min,
-   E4 stage 2 separation +4 min, E5 reach Moon orbit +20 min, E6 send the module spinning about its length and keep orbiting. */
-const STEPS = [['tower', 10], ['stage1', 180], ['space', 180], ['stage2', 240], ['orbit', 1200]];
-const MILESTONES = {}; (function () { let t = 0; for (const s of STEPS) { t += s[1]; MILESTONES[s[0]] = t; } })();
-const LIFTOFF = 0.5;   // engine power the rocket needs, held for HOLD seconds, to leave the pad
-const HOLD = 3, ORBIT_PERIOD = 60, WRECK = 2.6, SPIN_AT = 3, SPIN_UP = 4, SPIN = 2 * Math.PI * 0.6;   // E6: 3 s after arrival the module starts to roll about its long axis, reaching 0.6 turns a second
-
-class RocketSim {
-  constructor() {
-    const M = WORLD.MOON, Ro = WORLD.ORBIT, RH = WORLD.ROCKET_H, T = MILESTONES;
-    const th0 = this.th0 = Math.atan2(-0.447, 0.894), tx = -Math.sin(th0), ty = Math.cos(th0);   // the path meets the orbit on a tangent
-    const P3 = [M.x + Ro * Math.cos(th0), M.y + Ro * Math.sin(th0)], P2 = [P3[0] - tx * 5, P3[1] - ty * 5], P0 = [0, 1], P1 = [0, 6.5];
-    const S = 800, xs = this.px = new Float64Array(S + 1), ys = this.py = new Float64Array(S + 1), ls = this.pl = new Float64Array(S + 1);
-    for (let i = 0; i <= S; i++) { const t = i / S, u = 1 - t, a = u * u * u, b = 3 * u * u * t, c = 3 * u * t * t, d = t * t * t;
-      xs[i] = a * P0[0] + b * P1[0] + c * P2[0] + d * P3[0]; ys[i] = a * P0[1] + b * P1[1] + c * P2[1] + d * P3[1];
-      ls[i] = i ? ls[i - 1] + Math.hypot(xs[i] - xs[i - 1], ys[i] - ys[i - 1]) : 0; }
-    this.S = S; const L = this.L = ls[S];
-    /* Distance along the path at each point of the timeline.
-       Lift-off is a real one: off the pad at about half a g, past the top of the tower at 10 s (30 m/s), 1.4 km up at 30 s, 5.8 km at 60 s.
-       From there the drawn distance grows at a steady rate (the view widens about 2.7% a second) and eases off at the edge of space. */
-    const RHs = v => Math.log(v * RH), far = [T.stage2 + 400, T.stage2 + 800], S1 = 0.031, SP = WORLD.SPACE, S2 = 5.2;
-    const pad = pchip([0, HOLD, T.tower], [0, 0, 1.15 * RH], 0, 0.306 * RH);
-    const climb = pchip([T.tower, 30, 60, T.stage1, T.space], [RHs(1.15), RHs(14.4), RHs(57.7), Math.log(S1), Math.log(SP)], 0.266, 0.00125);
-    const cruise = pchip([T.space, T.stage2, far[0], far[1], T.orbit], [SP, S2, S2 + (L - S2) * 0.37, S2 + (L - S2) * 0.72, L], 0.005, 0.004);
-    this.lenAt = t => t <= T.tower ? pad(t) : t <= T.space ? Math.exp(climb(t)) : cruise(t);
-    this.lTower = 0.95 * RH; this.lStage1 = S1; this.lSpace = SP; this.lStage2 = S2;
-    /* altitude read-out: a believable climb in kilometres (40 km at stage 1 separation, 100 km at the edge of space), tied to the same clock */
-    const kmT = pchip([0, HOLD, T.tower, 30, 60, T.stage1, T.space], [0, 0, 0.115, 1.44, 5.77, 40, 100], 0, 0.33), kx = [0], ky = [0];
-    for (const t of [4, 5, 7, 10, 15, 20, 30, 45, 60, 90, 120, 150, 190, 220, 250, 280, 310, 340, 360, 370]) { kx.push(this.lenAt(t)); ky.push(kmT(t)); }
-    this.kmAt = pchip(kx.concat([S2, S2 + (L - S2) * 0.37, S2 + (L - S2) * 0.72, L]), ky.concat([25000, 150000, 290000, 384400]));
-    this.wOrbit = 2 * Math.PI / ORBIT_PERIOD;
-    this.events = []; this.reset();
-  }
-  reset() { this.mode = 'pad'; this.l = 0; this.v = 0; this.hold = 0; this.stage = 0; this.inSpace = false; this.cleared = false;
-    this.ignited = false; this.lit0 = false; this.fp = 0; this.power = 0; this.g = 0; this.prevT = 0; this.down = 0;
-    this.th = this.th0; this.tOrb = 0; this.spinUp = 0; this.spinA = 0; this.events.length = 0; }
-  /* where the flight has got to, to carry on in the day's next session. Only a rocket in space or in Moon orbit carries on:
-     anywhere below the edge of space (on the pad, climbing or falling) is null, and the next session starts on the pad */
-  save() {
-    if (this.mode !== 'orbit' && !(this.mode === 'ascent' && this.inSpace)) return null;
-    const r = (v, k) => Math.round(v * k) / k;
-    return { mode: this.mode, fp: r(this.fp, 1e3), l: r(this.l, 1e7), stage: this.stage, inSpace: this.inSpace, cleared: this.cleared, th: r(this.th, 1e4), tOrb: r(Math.min(this.tOrb, 60), 1e3) };
-  }
-  /* carry on from save(). False, and on the pad, for anything that is not a saved flight in space or in orbit */
-  restore(x) {
-    this.reset();
-    const n = (v, lo, hi) => typeof v === 'number' && isFinite(v) && v >= lo && v <= hi;
-    if (!x || (x.mode !== 'orbit' && !(x.mode === 'ascent' && x.inSpace)) || !n(x.fp, HOLD, 1e6) || !n(x.l, 0, this.L) || !n(x.stage, 0, 2) || !n(x.th, -4, 4) || !n(x.tOrb, 0, 1e6)) return false;
-    this.mode = x.mode; this.fp = x.fp; this.l = x.l; this.prevT = this.target(x.fp); this.stage = Math.round(x.stage); this.lit0 = true;
-    this.inSpace = true; this.cleared = true;
-    if (x.mode === 'orbit') { this.l = this.L; this.stage = 2; this.th = x.th; this.tOrb = x.tOrb; this.spinUp = smooth(SPIN_AT, SPIN_AT + SPIN_UP, x.tOrb); }
-    return true;
-  }
-  target(fp) { return this.lenAt(Math.min(MILESTONES.orbit, fp)); }
-  /* Advance by dt seconds. inp: {running, playing, eff (0..1), rdt (real seconds, when dt is sped up)}.
-     fp is the flight clock: seconds of playing since ignition. */
-  update(dt, inp) {
-    if (!inp.running || !(dt > 0)) { if (!inp.running) this.ignited = false; return; }
-    const eff = inp.eff, was = this.ignited, rdt = inp.rdt > 0 ? inp.rdt : dt; this.power = eff;
-    this.hold = eff >= LIFTOFF ? this.hold + dt : 0;
-    if (this.mode === 'pad') {
-      if (this.down > 0) { this.down -= rdt; this.ignited = false; this.hold = 0; return; }       // wreckage is still being cleared
-      this.ignited = eff >= 0.5 || (inp.playing && eff > 0);
-      if (this.ignited && !was) { this.events.push('ignition'); this.lit0 = true; }
-      if (this.lit0 && inp.playing) this.fp = Math.min(HOLD, this.fp + dt);                        // the clock waits at lift-off
-      if (this.ignited && this.hold >= HOLD) { this.mode = 'ascent'; this.prevT = this.target(this.fp); this.v = 0; this.events.push('liftoff'); }
-    } else if (this.mode === 'ascent') {
-      if (eff < 0.5 && !this.inSpace) { this.mode = 'fall'; this.ignited = false; this.g = Math.max(this.l / 8, 2e-5); this.events.push('fall'); return; }
-      this.ignited = eff >= 0.5;
-      if (inp.playing) this.fp += dt;
-      const tgt = this.target(this.fp), tv = (tgt - this.prevT) / dt, n = Math.max(1, Math.ceil(dt / 0.05)), h = dt / n, w = 1.2;
-      for (let i = 0; i < n; i++) { const ti = this.prevT + (tgt - this.prevT) * (i + 1) / n;
-        this.v += (w * w * (ti - this.l) + 2 * w * (tv - this.v)) * h; this.l += this.v * h; }
-      if (this.l < 0) this.l = 0; if (this.l > this.L) this.l = this.L;
-      this.prevT = tgt;
-      const T = MILESTONES, fp = this.fp;
-      if (!this.cleared && fp >= T.tower && this.l >= this.lTower) { this.cleared = true; this.events.push('tower'); }
-      if (this.stage < 1 && fp >= T.stage1 && this.l >= this.lStage1 * 0.97) { this.stage = 1; this.events.push('stage1'); }
-      if (!this.inSpace && fp >= T.space && this.l >= this.lSpace * 0.99) { this.inSpace = true; this.events.push('space'); }
-      if (this.stage < 2 && fp >= T.stage2 && this.l >= this.lStage2 * 0.97) { this.stage = 2; this.events.push('stage2'); }
-      if (fp >= T.orbit && this.l >= this.L - 0.03) { this.mode = 'orbit'; this.l = this.L; this.ignited = false; this.th = this.th0; this.tOrb = 0; this.events.push('orbit'); }
-    } else if (this.mode === 'fall') {
-      this.v -= this.g * dt; this.l += this.v * dt;
-      if (this.l <= 0) { this.l = 0; this.v = 0; this.mode = 'pad'; this.hold = 0; this.stage = 0; this.inSpace = false; this.cleared = false;
-        this.lit0 = false; this.fp = 0; this.down = WRECK; this.events.push('crash'); }
-    } else if (this.mode === 'orbit') {
-      this.ignited = false; this.tOrb += rdt;                                                       // circles the Moon for as long as the session runs
-      this.th += (0.004 + (this.wOrbit - 0.004) * smooth(0, 12, this.tOrb)) * rdt;
-      if (this.th > Math.PI) this.th -= 2 * Math.PI;
-      const was = this.spinUp;                                                                      // E6: the module is sent spinning about its length
-      this.spinUp = smooth(SPIN_AT, SPIN_AT + SPIN_UP, this.tOrb);
-      if (was === 0 && this.spinUp > 0) this.events.push('spin');
-      this.spin(rdt);
-    }
-  }
-  spin(dt) { this.spinA = (this.spinA + SPIN * this.spinUp * dt) % (2 * Math.PI); }
-  pose() {
-    if (this.mode === 'orbit') { const M = WORLD.MOON, c = Math.cos(this.th), s = Math.sin(this.th), x = M.x + WORLD.ORBIT * c, y = M.y + WORLD.ORBIT * s;
-      return { x: x, y: y, ang: Math.atan2(-s, c), alt: Math.max(0, Math.hypot(x, y) - 1) }; }
-    const ls = this.pl, l = this.l; let lo = 0, hi = this.S;
-    while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (ls[mid] <= l) lo = mid; else hi = mid; }
-    const seg = ls[hi] - ls[lo], t = seg > 0 ? (l - ls[lo]) / seg : 0;
-    const dx = this.px[hi] - this.px[lo], dy = this.py[hi] - this.py[lo];
-    const x = this.px[lo] + dx * t, y = this.py[lo] + dy * t;
-    return { x: x, y: y, ang: Math.atan2(dx, dy), alt: Math.max(0, Math.hypot(x, y) - 1) };
-  }
 }
 
 /* ---------- note starts: when a new note begins (used to make the Dash cube jump in time with the playing) ---------- */
@@ -1873,487 +1619,9 @@ const WHEEL_TRACES = {
 };
 function wheelTrace(k) { const a = WHEEL_TRACES[k], out = []; let t = 0; for (let i = 0; i < a.length; i += 3) { t += a[i]; out.push({ t: t, dx: a[i + 1], dy: a[i + 2] }); } return out; }
 
-/* ---------- Dash theme: a cube runs a neon course while music is heard ----------
-   Units are cube widths. The cube is centred at x, with its base at height y above the ground.
-   - The course is laid one piece at a time: spikes and saws, steps and stairs, pillars and floating platforms over spike pits,
-     low ceilings to run under, walls to vault, jump pads and jump orbs. Each piece is laid together with the moves that clear it
-     (its route), so a run never depends on luck. Pieces get harder and come closer together as play time nears the goal.
-   - While music is heard it runs (speed follows efficiency) and can never crash: it follows the route by itself.
-   - Each note start makes it hop as well, when the hop is clear and lands before the route's next move.
-   - When the music stops the way ahead is cleared down to one spike, set where the cube will reach it after GRACE seconds of
-     silence; it hits that and shatters. Then it waits at the same spot for the music, and the attempt number goes up.
-     No play time is ever lost.
-   Jumps are arcs drawn over distance, not time (A*d - G*d*d higher after d cube widths), so the route is the same at any speed. */
-const DASH = { SPEED: 8, GRACE: 4, VMIN: 1, TAU: 0.8, CRASH: 0.9,
-  G: 2 / 4.41, JUMP: 4 / 2.1, PAD: 4 / 2.1 * Math.SQRT2, HOP: 4 / 2.1 * Math.sqrt(0.7), ROT: Math.PI / 4.2 };   // a jump peaks 2 high, 2.1 on, and turns the cube half over; a pad throws it twice as high, a note hop 1.4 high
-function dashSpeed(eff) { return eff >= 0.95 ? { m: 1.6, tag: '3\u00D7' } : eff >= 0.8 ? { m: 1.3, tag: '2\u00D7' } : eff >= 0.5 ? { m: 1, tag: '1\u00D7' } : { m: 0.7, tag: '\u00BD\u00D7' }; }
-/* how far an arc launched at slope A carries before it comes down to dy above where it began */
-function dashLand(A, dy) { return (A + Math.sqrt(Math.max(0, A * A - 4 * DASH.G * dy))) / (2 * DASH.G); }
-/* does a cube at (x, y) touch piece o? Spikes and saws are a little smaller than drawn; a block can be stood on but not run into.
-   m grows the cube on every side, to make sure a hop has room to spare. */
-function dashHit(o, x, y, m) {
-  m = m || 0; const l = x - 0.5 - m, r = x + 0.5 + m, b = y - m, t = y + 1 + m;
-  if (r <= o.x || l >= o.x + o.w || t <= o.y || b >= o.y + o.h) return false;
-  if (o.kind === 'block') return r > o.x + 0.05 && l < o.x + o.w - 0.05 && b < o.y + o.h - 0.05 && t > o.y + 0.05;
-  if (o.kind === 'saw') { const R = o.w / 2, cx = o.x + R, cy = o.y + R, dx = Math.max(l - cx, 0, cx - r), dy = Math.max(b - cy, 0, cy - t); return dx * dx + dy * dy < (R - 0.15) * (R - 0.15); }
-  if (o.kind !== 'spike') return false;                                     // pads and orbs are never in the way
-  for (let i = 0; i < o.w; i++) { const c = o.x + i + 0.5, k = o.h * (1 - 2 * Math.max(l - c, 0, c - r)) - 0.12;   // how tall the spike is where it comes nearest the cube
-    if (k > 0 && (o.down ? t > o.y + o.h - k : b < o.y + k)) return true; }
-  return false;
-}
-/* the pieces of course: name, the first tier it is laid at (tiers follow play time towards the goal), how often */
-const DASH_PIECES = [['spike', 0, 3], ['step', 0, 2], ['saw', 0, 1.5], ['wall', 0, 1.5], ['rhythm', 1, 2], ['stairs', 1, 2], ['pillars', 1, 2], ['pad', 1, 2],
-  ['tunnel', 2, 1.5], ['orb', 2, 2], ['platforms', 2, 2], ['padorb', 3, 2], ['orbs', 3, 2]];
-class DashSim {
-  constructor() { this.events = []; this.reset(); }
-  reset() {
-    this.mode = 'idle'; this.x = 0; this.y = 0; this.ang = 0; this.v = 0; this.arc = null; this.silentT = 0; this.crashT = 0; this.danger = null;
-    this.attempts = 1; this.jumps = 0; this.scrapes = 0; this.floats = 0; this.done = false; this.progress = 0; this.tag = '1\u00D7';
-    this.obs = []; this.plan = []; this.marks = []; this.vanished = []; this.built = {}; this.used = {}; this.last = '';
-    this.genX = 14; this.seed = 20261005; this.respawnX = 0; this.respawnY = 0; this.landX = 0; this.events.length = 0;
-  }
-  rnd() { let t = this.seed += 0x6D2B79F5; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }
-  get tier() { const p = this.done ? 1 : this.progress; return p < 0.05 ? 0 : p < 0.25 ? 1 : p < 0.5 ? 2 : 3; }
-  grow() {                                                                  // keep the course built a screen and a half ahead
-    while (this.genX < this.x + 60) { const t = this.tier; this.genX = this.build(this.genX, t) + (t >= 2 ? 1.2 : 2.5) + this.rnd() * 6 + (this.rnd() < 0.3 ? 6 + this.rnd() * 6 : 0); }   // now and then an open stretch, for hops
-    if (this.obs.length && this.obs[0].x + this.obs[0].w < this.x - 30) this.obs = this.obs.filter(o => o.x + o.w >= this.x - 30);
-    while (this.marks.length && this.marks[0].x < this.x - 30) this.marks.shift();
-  }
-  /* lays one piece where the cube, running on the ground, can take off at x = p; returns where it is back on the ground */
-  build(p, tier) {
-    const G = DASH.G, J = DASH.JUMP, r = () => this.rnd(), put = o => { this.obs.push(o); return o; };
-    const spikes = (x, y, n, h, down) => put({ kind: 'spike', x: x, y: y, w: n, h: h || 0.9, down: !!down });
-    const block = (x, y, w, h) => put({ kind: 'block', x: x, y: y, w: w, h: h });
-    const saw = (cx, cy, R) => put({ kind: 'saw', x: cx - R, y: cy - R, w: 2 * R, h: 2 * R });
-    const pit = (a, b, h) => { const n = Math.floor(b - a + 1e-6); if (n > 0) spikes(a + (b - a - n) / 2, 0, n, h); };   // as many spikes as fit in [a, b], centred
-    const move = (x, kind, A, y0, y1, o) => { this.plan.push({ x: x, kind: kind, A: A, y1: y1, o: o }); return x + dashLand(A, y1 - y0); };   // returns where it lands
-    const jump = (x, y0, y1) => move(x, 'jump', J, y0, y1), fall = (x, y0) => move(x, 'fall', 0, y0, 0);
-    const pad = (x, y1) => move(x, 'pad', DASH.PAD, 0, y1, put({ kind: 'pad', x: x - 0.5, y: 0, w: 1, h: 0.3 }));
-    const orb = (x, y, y1) => move(x, 'orb', J, y, y1, put({ kind: 'orb', x: x - 0.5, y: y, w: 1, h: 1 }));   // drawn round the cube as it flies through
-    let pick = 'spike', sum = 0;
-    for (const q of DASH_PIECES) if (q[1] <= tier && q[0] !== this.last) sum += q[2];
-    let u = r() * sum; for (const q of DASH_PIECES) if (q[1] <= tier && q[0] !== this.last) { pick = q[0]; if ((u -= q[2]) < 0) break; }
-    this.last = pick; this.built[pick] = (this.built[pick] || 0) + 1;
-    switch (pick) {
-      case 'spike': { const n = tier >= 2 && r() < 0.35 ? 3 : r() < 0.45 ? 2 : 1; spikes(p + 2.1 - n / 2, 0, n); return jump(p, 0, 0); }   // one, two or three spikes
-      case 'saw': saw(p + 2.1, 0, 1); return jump(p, 0, 0);                                                 // a half-buried saw blade
-      case 'wall': spikes(p + 1.2, 0, 1); block(p + 2.47, 0, 1, 3); spikes(p + 3.6, 0, 1); return pad(p, 0);   // a pad vaults a wall three high
-      case 'step': { const land = jump(p, 0, 1), s = land - 0.9, e = s + 2.5 + Math.floor(r() * 3); block(s, 0, e - s, 1);   // up onto a block and off again,
-        if (tier < 1 || r() < 0.4) return fall(e + 0.5, 1);
-        spikes(e + 0.8, 0, 2); return jump(e - 0.6, 1, 0); }                                                // or leaping off it over spikes
-      case 'rhythm': { let x = p; for (let k = 0, n = tier >= 2 ? 4 : 3; k < n; k++) { const q = r();       // obstacles one leap apart: jump, jump, jump
-        if (q < 0.3) saw(x + 2.1, 0, 1); else spikes(q < 0.6 ? x + 1.1 : x + 1.6, 0, q < 0.6 ? 2 : 1); x = jump(x, 0, 0); } return x; }
-      case 'stairs': { const n = tier >= 2 && r() < 0.6 ? 3 : 2, at = []; let x = p;                        // climb two or three steps, then leap over spikes at the foot
-        for (let k = 1; k <= n; k++) { const land = jump(x, k - 1, k); at.push(land - 0.9); x = land + 0.4 + (k === n ? r() * 1.5 : 0); }
-        at.push(x + 0.6); for (let k = 1; k <= n; k++) block(at[k - 1], 0, at[k] - at[k - 1], k);
-        spikes(x + 1, 0, n); return jump(x, n, 0); }
-      case 'pillars': { let x = p, y = 0, a = p + 1.2;                                                       // pillar to pillar over spikes
-        for (let k = 0, n = tier >= 2 ? 3 : 2; k < n; k++) { const h = k && r() < 0.5 ? 3 - y : y || 1, land = jump(x, y, h);
-          pit(a, land - 0.5); block(land - 0.5, 0, 1, h); a = land + 0.5; x = land; y = h; }
-        const land = jump(x, y, 0); pit(a, land - 1.4); return land; }
-      case 'pad': { const top = tier >= 2 && r() < 0.5 ? 3 : 2, land = pad(p, top), s = land - 1; pit(p + 1, s - 0.2);   // a pad up onto a high platform,
-        let x = land + 0.4; if (r() < 0.6) { spikes(x + 1.6, top, 1); x = jump(x, top, top) + 0.4; }           // a spike to jump on top, perhaps
-        const e = x + 0.6 + r() * 1.5; block(s, 0, e - s, top); return fall(e + 0.5, top); }                    // and off the end
-      case 'tunnel': { const x0 = p + 0.5, e = x0 + 3 + Math.floor(r() * 4); block(x0, 2.3, e - x0, 0.7); spikes(x0, 1.75, e - x0, 0.55, true);   // run under hanging spikes: no hops here
-        if (r() < 0.4) return e + 0.5; spikes(e + 2.1, 0, 1); return jump(e + 0.5, 0, 0); }
-      case 'orb': { jump(p, 0, 0); const land = orb(p + 2.1, 2, 0); pit(p + 0.6, land - 0.6); return land; }   // an orb at the top of the leap carries it over a wide pit
-      case 'platforms': { let x = p, y = 0;                                                                  // floating platforms, climbing, over a pit of small spikes
-        for (let k = 0, n = tier >= 3 ? 3 : 2; k < n; k++) { const h = Math.min(3, y + (k === 0 || r() < 0.65 ? 1 : 0)), land = jump(x, y, h), s = land - 0.9, w = 2 + Math.floor(r() * 2);
-          block(s, h - 0.5, w, 0.5); x = s + w - 0.6; y = h; }
-        const land = jump(x, y, 0); pit(p + 1.2, land - 1.4, 0.55); return land; }
-      case 'padorb': { pad(p, 0); const xo = p + 4.5, land = orb(xo, DASH.PAD * 4.5 - G * 4.5 * 4.5, 2), s = land - 1, e = land + 1.2 + r() * 1.5;   // pad, orb, platform
-        pit(p + 1, s - 0.2); block(s, 0, e - s, 2); return fall(e + 0.5, 2); }
-      case 'orbs': { jump(p, 0, 0); orb(p + 2.1, 2, 0); const land = orb(p + 6.3, 2, 0); pit(p + 0.6, land - 0.6, 0.55); return land; }   // orb to orb over a long pit
-    }
-    return p;
-  }
-  mark() { this.marks.push({ x: this.x, y: this.y }); }                     // a checkpoint, dropped when the session is paused
-  support(x, y) { if (y < 1e-3) return true;                               // is there something to stand on at (x, y)?
-    for (const o of this.obs) if (o.kind === 'block' && Math.abs(o.y + o.h - y) < 1e-3 && x > o.x - 0.5 && x < o.x + o.w + 0.5) return true; return false; }
-  startArc(x0, y0, A, y1, a0, kind, o) {
-    const x1 = x0 + dashLand(A, y1 - y0), q = Math.PI / 2; let a1 = Math.round((a0 + (x1 - x0) * DASH.ROT) / q) * q; if (a1 < a0 + 0.1) a1 += q;   // always lands flat
-    this.arc = { x0: x0, y0: y0, A: A, x1: x1, y1: y1, a0: a0, a1: a1, kind: kind }; this.used[kind] = (this.used[kind] || 0) + 1;
-    if (kind !== 'fall') { this.jumps++; this.events.push(kind === 'hop' ? 'jump' : kind); }
-    if (o) o.hit = true;                                                    // pads and orbs light up
-  }
-  follow(music) {                                                           // take the route's moves as they come; land
-    for (let n = 0; n < 8; n++) {
-      const a = this.arc, m = this.plan[0], go = m && m.x <= this.x && (music || m.kind === 'fall');
-      if (a && !(go && m.kind === 'orb' && m.x < a.x1)) { if (this.x < a.x1) return; this.arc = null; this.y = a.y1; this.ang = a.a1; this.landX = a.x1; this.events.push('land'); continue; }
-      if (!go) return;
-      this.plan.shift();
-      if (!a && m.kind === 'orb') continue;                                 // an orb only works in the air
-      if (a) { const d = m.x - a.x0; this.startArc(m.x, a.y0 + a.A * d - DASH.G * d * d, m.A, m.y1, a.a0 + (a.a1 - a.a0) * d / (a.x1 - a.x0), m.kind, m.o); }   // taken exactly where the move is
-      else this.startArc(Math.max(m.x, this.landX), this.y, m.A, m.y1, this.ang, m.kind, m.o);
-    }
-  }
-  hop() {                                                                   // a note start: hop, if it lands before the route's next move and nothing is in the way
-    const x0 = this.x, y0 = this.y, L = dashLand(DASH.HOP, 0), m = this.plan[0];
-    if ((m && m.x < x0 + L) || !this.support(x0 + L, y0)) return;
-    for (let i = 1; i < 16; i++) { const d = L * i / 16, y = y0 + DASH.HOP * d - DASH.G * d * d; for (const o of this.obs) if (dashHit(o, x0 + d, y, 0.15)) return; }
-    this.startArc(x0, y0, DASH.HOP, y0, this.ang, 'hop');
-  }
-  clearAhead() {                                                            // the music has just stopped: clear the way and set the spike it will reach in GRACE seconds
-    const v0 = Math.max(this.v, DASH.VMIN), D = DASH.VMIN * DASH.GRACE + (v0 - DASH.VMIN) * DASH.TAU * (1 - Math.exp(-DASH.GRACE / DASH.TAU));
-    const a = this.arc, xs = a ? a.x1 : this.x, h = a ? a.y1 : this.y, at = Math.max(this.x + D + 0.5, xs + 1.7), end = at + 4;
-    let floor = h > 1e-3 ? this.obs.find(o => o.kind === 'block' && Math.abs(o.y + o.h - h) < 1e-3 && xs > o.x - 0.5 && xs < o.x + o.w + 0.5) : null;   // what it will run on
-    this.vanished = this.obs.filter(o => o !== floor && o.x + o.w > this.x + 0.5);
-    this.obs = this.obs.filter(o => o === floor || o.x + o.w <= this.x + 0.5);
-    if (h > 1e-3) { if (!floor) this.obs.push(floor = { kind: 'block', x: xs - 1, y: 0, w: 0, h: h }); floor.w = Math.max(floor.w, end - floor.x); }   // up high, the platform runs on past the spike
-    this.danger = { kind: 'spike', x: at, y: h, w: 1, h: 0.9, danger: true }; this.obs.push(this.danger);
-    this.plan = [{ x: at - 1.6, kind: 'jump', A: DASH.JUMP, y1: h, danger: true }];   // taken if the music comes back in time
-    let back = end;
-    if (floor) { const e = floor.x + floor.w + 0.5; this.plan.push({ x: e, kind: 'fall', A: 0, y1: 0 }); back = e + dashLand(0, -h); }
-    this.genX = back + 2 + this.rnd() * 3;
-  }
-  saved() {                                                                 // the music is back before the spike was hit
-    this.silentT = 0; this.events.push('saved');
-    const m = this.plan[0];
-    if (m && m.danger && m.x < this.x) { this.plan.shift(); this.obs = this.obs.filter(o => o !== this.danger); this.vanished = [this.danger]; }   // too close to jump it now: it goes
-    this.danger = null;
-  }
-  /* inp: {running, music, eff, onsets (note starts since the last call), progress (play time / goal)} */
-  update(dt, inp) {
-    if (!inp.running || !(dt > 0)) return;
-    this.progress = inp.progress || 0;
-    this.grow();
-    if (!this.done && this.progress >= 1) { this.done = true; this.events.push('complete'); }
-    const sp = dashSpeed(inp.eff || 0); if (sp.tag !== this.tag && this.mode === 'run' && inp.music) this.events.push('speed'); this.tag = sp.tag;
-    if (this.mode === 'crash') { this.crashT += dt; if (this.crashT >= DASH.CRASH) { this.mode = 'wait'; this.attempts++; this.ang = 0; this.arc = null; this.v = 0; this.respawnX = this.x; this.respawnY = this.y; this.events.push('attempt'); } return; }
-    if (this.mode === 'idle' || this.mode === 'wait') { if (!inp.music) return; this.mode = 'run'; this.silentT = 0; this.events.push('go'); }
-    // speed
-    if (inp.music) { if (this.silentT > 0) this.saved(); this.v += (DASH.SPEED * sp.m - this.v) * Math.min(1, dt * 3); }
-    else { if (this.silentT === 0) this.clearAhead(); this.silentT += dt; this.v = DASH.VMIN + (this.v - DASH.VMIN) * Math.exp(-dt / DASH.TAU); }
-    this.x += this.v * dt;
-    // the route, and hops
-    this.follow(inp.music);
-    if (inp.music && inp.onsets > 0) { this.events.push('note'); if (!this.arc) this.hop(); }   // the scene pulses with every note, hop or not
-    if (this.arc) { const a = this.arc, d = this.x - a.x0; this.y = a.y0 + a.A * d - DASH.G * d * d; this.ang = a.a0 + (a.a1 - a.a0) * d / (a.x1 - a.x0); }
-    else if (!this.support(this.x, this.y)) this.floats++;                  // never expected; counted so the tests can prove it
-    // touching anything
-    for (const o of this.obs) if (dashHit(o, this.x, this.y)) {
-      if (!inp.music && o.kind !== 'block') { this.mode = 'crash'; this.crashT = 0; this.v = 0; this.silentT = 0; this.danger = null; this.arc = null;
-        this.obs = this.obs.filter(q => q !== o); this.plan = this.plan.filter(q => q.x > this.x); this.events.push('crash'); return; }
-      this.scrapes++;                                                       // never expected; counted so the tests can prove it
-    }
-  }
-}
-
-/* ---------- Grand Prix: a ten-car race whose speeds are each player's efficiency over the last minute ----------
-   You start at the back of the grid. Five seconds of playing light the start lights; then every car's speed is the share of its
-   last minute spent playing (100% is 300 km/h), so the car that covers the most distance has played most of the time, and the
-   higher your session efficiency, the better your chance of first place. The nine rivals are simulated players: the same field
-   for everyone (from Bach, who usually plays 78% of the time, to Schubert at 46%), each with a form for the day and good and bad
-   spells within the race. A pause is a red flag: the race and every rival stop, and your car waits in the pit lane, which is only
-   a picture (it changes nothing about the car); on resume you rejoin at the same distance. The race runs until the practice goal. */
-const RACE = { SEG: 200, ROADW: 2000, LAP: 3000, VNOM: 10000, LIMIT: 2700, PZ: 900, GRIDGAP: 6, START: 80, FORM: 0.07, SWING: 0.05,
-  RIVALS: [['BAC', '#C8102E', '#F5F5F5', 0.78], ['MOZ', '#1E5BC6', '#FFD23F', 0.74], ['BEE', '#30323A', '#FF7A1A', 0.70], ['CHO', '#0A7F5A', '#E8E8E8', 0.66],
-    ['VIV', '#EDEDED', '#D3313A', 0.62], ['DEB', '#6B3FA0', '#7FE3FF', 0.58], ['HAN', '#FF8A00', '#1B1B1B', 0.54], ['RAV', '#0E9AA7', '#F6D55C', 0.50], ['SCH', '#8C1C3A', '#F2C14E', 0.46]],
-  YOU: ['YOU', '#15213D', '#86DCC0'] };   // a lap (LAP segments of SEG) is one minute at full speed, VNOM a second; PZ: the camera sits this far behind your car
-RACE.LAPU = RACE.LAP * RACE.SEG; RACE.KERB = 0.9; RACE.APEX = 0.86; RACE.BRAKE = 7000;   // braking for a bend, in road units a second squared   // a kerb where the bend is sharper than KERB; at the apex the inside tyres are on it
-const RACE_PIT = { X: 1.48, HALF: 0.36, JOIN: 0.62, IN: 60, OUT: 80, LIMIT: 44 };   // LIMIT: segments of speed limit past the box before the bend out   // the pit lane: its middle and half-width (road half-widths), where it joins the track, the bends in and out (segments)
-const raceGridX = p => p % 2 ? -0.42 : 0.42;                 // grid slot p (1 at the front): odd slots on the left
-const raceWrap = l => l - Math.round(l);                    // a lead in laps, as the nearest place on the circuit
-function raceRng(seed) { let s = (seed >>> 0) % 2147483647 || 1; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
-/* the circuit: [enter, hold, leave, curve, hill (in segment lengths), board by the corner]; it closes at the height it starts */
-const RACE_SECTIONS = [
-  [0, 160, 0, 0, 0],
-  [20, 50, 20, 4.5, -12, 'ALLEGRO'], [0, 70, 0, 0, -6], [25, 70, 25, -2.6, 0, 'ANDANTE'], [0, 120, 0, 0, 26, 'CRESCENDO'],
-  [12, 18, 12, 5.5, 0, 'STACCATO'], [12, 18, 12, -5.5, 0], [0, 260, 0, 0, -16, 'PRESTO'], [18, 60, 18, -7, 4, 'FERMATA'],
-  [0, 90, 0, 0, 8], [16, 26, 16, 3.2, 0, 'LEGATO'], [16, 26, 16, -3.2, 0], [16, 26, 16, 3.2, 0],
-  [35, 110, 35, 2, 12, 'RUBATO'], [0, 140, 0, 0, -10], [22, 45, 22, -4.2, 0, 'DA CAPO'], [0, 120, 0, 0, null]];
-function raceTrack() {
-  const curve = [], y = [0], boards = [], io = (a, b, p) => a + (b - a) * (0.5 - Math.cos(p * Math.PI) / 2);
-  let h = 0;
-  for (const [en, ho, le, c, hill, board] of RACE_SECTIONS) {
-    const n = en + ho + le, h0 = h, h1 = hill == null ? 0 : h + hill * RACE.SEG;
-    if (board) boards.push({ at: curve.length, text: board, side: c > 0 ? -1 : 1 });   // on the outside of the corner
-    for (let i = 0; i < n; i++) { curve.push(i < en ? c * (i / en) * (i / en) : i < en + ho ? c : io(c, 0, (i - en - ho) / le)); h = io(h0, h1, (i + 1) / n); y.push(h); }
-  }
-  const N = curve.length, ahead = new Float32Array(N);   // the bend coming up
-  for (let i = 0; i < N; i++) { let s = 0; for (let j = 4; j < 30; j++) s += curve[(i + j) % N]; ahead[i] = s / 26; }
-  return { n: N, curve: Float32Array.from(curve), y: Float32Array.from(y), ahead: ahead, boards: boards, line: raceLine(curve), corner: raceCorners(curve) };
-}
-/* How fast a car may take each segment, as a share of full speed: slower the sharper the bend (the hairpin at about 110 km/h, a fast
-   sweeper a little under full speed), with the braking zone before each bend worked back from it, so the car arrives already slowed.
-   Only the picture follows it: every car takes the same bends, so the race (distance, places, laps) comes from playing alone. */
-function raceCorners(curve) {
-  const N = curve.length, p = new Float32Array(N), V = RACE.VNOM, B = RACE.BRAKE * RACE.SEG * 2;
-  for (let i = 0; i < N; i++) { const c = Math.abs(curve[i]); p[i] = c <= 0.5 ? 1 : Math.max(0.35, Math.min(1, 1 - 0.09 * c)); }
-  for (let k = 2 * N - 1; k >= 0; k--) { const i = k % N, j = (i + 1) % N; p[i] = Math.min(p[i], Math.sqrt(p[j] * p[j] * V * V + B) / V); }   // twice round, so the last bend brakes into the first
-  return p;
-}
-/* The racing line, as a real driver takes a corner: out wide on the way in, the inside tyres on the kerb at the apex (a little past
-   the middle of the bend), and out wide again on the way out. Corners close together (a chicane, the esses) go apex to apex.
-   x in road half-widths from the centre: the inside of a right-hand bend is positive. */
-function raceLine(curve) {
-  const N = curve.length, keys = [], corners = [], KERB = RACE.KERB, WIDE = 0.55, OFF = 35;
-  for (let i = 0; i < N;) { if (Math.abs(curve[i]) <= KERB) { i++; continue; } let e = i; while (e + 1 < N && Math.abs(curve[e + 1]) > KERB && Math.sign(curve[e + 1]) === Math.sign(curve[i])) e++;
-    corners.push({ s: i, e: e, sg: Math.sign(curve[i]) }); i = e + 1; }
-  const apart = (c, d) => d.s - c.e > (c.sg === d.sg ? 2 * OFF : 2 * OFF + 100);   // far enough apart to go wide between them; bends the other way need more room
-  corners.forEach((c, k) => { const prev = corners[k - 1], next = corners[k + 1];
-    if (!prev || apart(prev, c)) keys.push([c.s - OFF, -c.sg * WIDE]);
-    keys.push([c.s + (c.e - c.s) * 0.55, c.sg * RACE.APEX]);
-    if (!next || apart(c, next)) keys.push([c.e + OFF, -c.sg * WIDE]); });
-  const K = keys.length, at = k => { const q = keys[((k % K) + K) % K]; return [q[0] + Math.floor(k / K) * N, q[1]]; }, line = new Float32Array(N);
-  for (let i = 0, k = -1; i < N; i++) {
-    while (at(k + 1)[0] <= i) k++;
-    const [s0, x0] = at(k), [s1, x1] = at(k + 1), u = (i - s0) / (s1 - s0);
-    line[i] = x0 + (x1 - x0) * u * u * (3 - 2 * u);
-  }
-  return line;
-}
-/* A rival's player: phrases and quiet gaps in the proportion of its steadiness, which drifts through good and bad spells of a few
-   minutes, and its efficiency over the last minute, counted like yours (60 one-second buckets). The same seed gives the same
-   playing however the time is cut into steps, so a device following a session races the same field. */
-class RacePractiser {
-  constructor(steady, rnd) {
-    this.base = steady; this.rnd = rnd; this.t = -60; this.per = 240 + rnd() * 300; this.ph = rnd() * Math.PI * 2;
-    this.buf = new Float32Array(60); this.bi = 0; this.acc = 0; this.ap = 0; this.sum = 0;
-    this.playing = rnd() < steady; this.left = this.dur();
-    this.step(60);   // a minute of practice before the start, so the window is full
-  }
-  get s() { return Math.max(0.2, Math.min(0.98, this.base + RACE.SWING * Math.sin(this.t / this.per * Math.PI * 2 + this.ph))); }
-  dur() { const r = this.rnd(), s = this.s; return this.playing ? 6 + r * 26 : 19 * (1 - s) / s * (0.3 + r * 1.4); }
-  /* plays on for dt seconds; returns the distance covered, as seconds at full speed */
-  step(dt) {
-    let run = 0;
-    while (dt > 1e-9) {
-      const k = Math.min(dt, this.left, 1 - this.acc); run += this.eff * k; this.acc += k; this.t += k; if (this.playing) this.ap += k; this.left -= k; dt -= k;
-      if (this.left <= 1e-9) { this.playing = !this.playing; this.left = this.dur(); }
-      if (this.acc >= 1 - 1e-9) { this.sum += this.ap - this.buf[this.bi]; this.buf[this.bi] = this.ap; this.bi = (this.bi + 1) % 60; this.acc = 0; this.ap = 0; }
-    }
-    return run;
-  }
-  get eff() { return clamp01(this.sum / 60); }
-}
-class RaceSim {
-  constructor() { this.T = raceTrack(); this.events = []; this.reset(1800, 7); }
-  reset(goal, seed) {
-    const R = RACE; this.goal = goal || 1800; this.seed = seed || 7;
-    this.mode = 'grid'; this.st = 'idle'; this.lit = 0; this.litT = 0; this.hold = 0; this.finished = false; this.finishPos = 0; this.events.length = 0;
-    this.dist = 0; this.eff = 0;                                              // your race distance, and speed as a share of full speed
-    this.d = (R.START - 4 - 9 * R.GRIDGAP) * R.SEG - R.PZ; this.v = 0; this.x = raceGridX(10); this.tx = this.x; this.off = 0; this.drs = false; this.pit = null; this.limiter = false;
-    const rnd = raceRng(this.seed), gauss = () => { let u = 0; for (let i = 0; i < 6; i++) u += rnd(); return (u - 3) / Math.sqrt(0.5); };   // a rival's form for the day
-    this.cars = R.RIVALS.map((r, i) => ({ code: r[0], c1: r[1], c2: r[2], i: i, p: new RacePractiser(Math.max(0.3, Math.min(0.97, r[3] + R.FORM * gauss())), raceRng(this.seed * 31 + i * 7717 + 1)),   // each its own stream, so step sizes do not reorder the draws
-      dist: (9 - i) * R.GRIDGAP * R.SEG, lead: 0, x: raceGridX(i + 1) }));
-    this.order();
-  }
-  get racing() { return this.mode === 'race' || this.mode === 'red'; }
-  get inPit() { return !!this.pit && !this.pit.exitAt; }
-  get lap() { return Math.floor(this.dist / RACE.LAPU) + 1; }
-  order() {
-    let pos = 1, ahead = null, behind = null;
-    for (const c of this.cars) { c.lead = (c.dist - this.dist) / RACE.LAPU;
-      if (c.lead > 0) { pos++; if (!ahead || c.lead < ahead.lead) ahead = c; } else if (!behind || c.lead > behind.lead) behind = c; }
-    this.pos = pos; this.ahead = ahead; this.behind = behind;
-  }
-  /* the race, on session time. inp: {state, music, recent (efficiency over the last minute), play (play time)} */
-  update(dt, inp) {
-    const ev = this.events, st = inp.state, run = st === 'running', music = !!inp.music && run; this.st = st;
-    if (!(dt > 0)) dt = 0;
-    if (this.mode === 'grid' && run) this.mode = 'lights';
-    if (this.mode === 'lights' && run) {                                     // a light for each second of playing, then a short wait, then lights out
-      if (this.lit < 5) { if (music) { this.litT += dt; const n = Math.min(5, Math.floor(this.litT)); if (n > this.lit) { this.lit = n; ev.push('light'); if (n === 5) this.hold = 0.5 + raceRng(this.seed + 1)() * 1.3; } } }
-      else if ((this.hold -= dt) <= 0) { this.mode = 'race'; this.lit = 0; this.off = this.x - this.lineAt((this.d + RACE.PZ) / RACE.SEG); ev.push('go'); }   // away from the grid slot, onto the line
-    }
-    if (this.mode === 'race' && st === 'paused') { this.mode = 'red'; ev.push('red'); this.pitIn(); }
-    if (this.mode === 'red' && run) { this.mode = 'race'; ev.push('green'); }
-    if (this.mode === 'race' && run && dt > 0) {                            // only while the session runs: a pause freezes every car
-      this.eff = clamp01(inp.recent || 0); this.dist += this.eff * RACE.VNOM * dt;
-      for (const c of this.cars) c.dist += c.p.step(dt) * RACE.VNOM;
-    }
-    const was = this.pos; this.order();
-    if (this.racing && this.pos < was) ev.push('up');
-    if (!this.finished && this.racing && inp.play >= this.goal) { this.finished = true; this.finishPos = this.pos; ev.push('finish'); }
-  }
-  /* Under the red flag your car drives into the pit lane and stops in its box: only the picture moves, the race stays frozen.
-     The lane is one path (pitX): it opens out from the car's line on the way in, runs beside the track past the garages, and on the
-     way out bends gently back into the right side of the track. The car keeps to the middle of it, so it never crosses the line. */
-  pitIn() {
-    const R = RACE, seg = (this.d + R.PZ) / R.SEG, inLane = this.pit && this.pit.phase === 'out';   // stopped again on the limiter run: in the lane already
-    if (!inLane) this.pit = { a: Math.floor(seg) + 2, x0: this.x, m0: 0, m1: 0 };
-    const P = this.pit, least = inLane ? 24 * R.SEG : (P.a + RACE_PIT.IN + 12) * R.SEG - R.PZ - this.d;   // the box is past the bend in
-    const D = Math.max(least, inLane ? 0 : this.v * this.v / (2 * 3800));
-    Object.assign(P, { phase: 'in', box: this.d + D, dec: Math.max(2400, this.v * this.v / (2 * D)), out: 0, exitAt: false });
-    P.boxSeg = Math.floor((P.box + R.PZ) / R.SEG); this.limiter = true;
-    P.m0 = Math.max(inLane ? P.m0 : 0, P.boxSeg + RACE_PIT.LIMIT); P.m1 = P.m0 + RACE_PIT.OUT;   // where the lane bends out, set now, so the garages and the lane stay put
-  }
-  /* how fast a bend lets the car go at segment s (fractional), as a share of full speed */
-  cornerAt(s) { const C = this.T.corner, n = this.T.n, i = Math.floor(s), u = s - i, a = ((i % n) + n) % n; return C[a] + (C[(a + 1) % n] - C[a]) * u; }
-  /* the racing line at segment s (fractional) */
-  lineAt(s) { const L = this.T.line, n = this.T.n, i = Math.floor(s), u = s - i, a = ((i % n) + n) % n; return L[a] + (L[(a + 1) % n] - L[a]) * u; }
-  /* the middle of the pit lane at segment s (fractional), in road half-widths from the centre; null where there is no lane */
-  pitX(s) {
-    const P = this.pit, L = RACE_PIT, sm = u => u * u * (3 - 2 * u); if (!P || s < P.a) return null;
-    if (s < P.a + L.IN) return P.x0 + (L.X - P.x0) * sm((s - P.a) / L.IN);
-    if (s < P.m0) return L.X;
-    if (s < P.m1) return L.X + (L.JOIN - L.X) * sm((s - P.m0) / (P.m1 - P.m0));
-    return null;
-  }
-  /* the motion on screen, on real time: the car runs at its speed, takes the racing line, passes on the side away from the car ahead,
-     and goes into the pit lane and out again */
-  move(rdt) {
-    const R = RACE, st = this.st, run = st === 'running', P = this.pit;
-    if (!(rdt > 0)) return;
-    const seg = Math.floor((this.d + R.PZ) / R.SEG), ahead = this.T.ahead[seg % this.T.n];
-    const bend = this.cornerAt((this.d + R.PZ) / R.SEG);
-    let vt = this.mode === 'race' && run ? Math.min(this.eff, bend) * R.VNOM : 0;   // the last minute's speed, or slower for a bend
-    if (P && P.phase === 'in') {
-      const rem = P.box - this.d;
-      this.v = Math.min(this.v + 2500 * rdt, Math.sqrt(Math.max(0, 2 * P.dec * rem)));
-      if (rem < 3 || (this.v < 30 && rem < 300)) { this.d = P.box; this.v = 0; P.phase = 'box'; this.events.push('box'); }
-    } else if (P && P.phase === 'box') {
-      this.v = 0;
-      if (run) { P.phase = 'out'; P.out = this.d; this.events.push('release'); }
-    } else {
-      if (P && P.phase === 'out') { vt = run ? R.LIMIT : 0;          // the speed limit to the end of the pit lane, then the bend out
-        if ((this.d + R.PZ) / R.SEG >= P.m0) { P.phase = 'merge'; this.limiter = false; } }
-      if (this.v < vt) this.v = Math.min(vt, this.v + (this.v < 3000 ? 3600 : 2400) * rdt);
-      else this.v = Math.max(vt, this.v - (st === 'stopped' ? 6500 : vt < this.eff * R.VNOM - 1 ? R.BRAKE : 2400) * rdt);   // hard on the brakes for a bend
-    }
-    this.d += this.v * rdt;
-    const pa = (this.d + R.PZ) / R.SEG;
-    if (P && P.phase === 'merge' && pa >= P.m1) { P.phase = 'done'; P.exitAt = true; this.off = this.x - this.lineAt(pa); this.events.push('exit'); }   // joined the track: eases over to the line from there
-    if (P && P.phase === 'done' && this.d / R.SEG > P.m1) this.pit = null;                     // and the camera is past the end of the lane
-    const lane = this.inPit ? this.pitX(pa) : null, line = this.lineAt(pa);
-    if (lane != null) { this.x = this.tx = lane; this.off = 0; }                                // in the pit lane: along its middle, nothing else
-    else if (this.racing && !this.inPit) {
-      let want = 0;                                                                              // on the racing line, unless a car ahead is on it: then beside it
-      for (const c of this.cars) { const rel = raceWrap(c.lead) * R.LAP; if (rel > -5 && rel < 30 && (rel < 7 || Math.abs(c.x - line) < 0.62)) want = c.x > line ? Math.min(want, c.x - 0.8 - line) : Math.max(want, c.x + 0.8 - line); }
-      this.off += (want - this.off) * Math.min(1, rdt * 1.6) * (this.v > 300 ? 1 : 0);
-      this.tx = Math.max(-RACE.APEX, Math.min(RACE.APEX, line + this.off));
-    }
-    this.drs = this.mode === 'race' && !this.inPit && this.v > 3000 && Math.abs(ahead) < 0.4 && !!this.ahead && this.ahead.lead * R.LAPU / R.VNOM < 1;   // within a second of the car ahead
-    const k = Math.min(1, rdt * 1.9) * (this.v > 300 ? 1 : 0);   // no steering while standing still
-    if (lane == null) { const dx = this.racing ? this.tx - this.x : (this.tx - this.x) * k, cap = rdt * (0.3 + 3.2 * this.v / R.VNOM);   // on the line exactly, so the apex is not missed;
-      this.x += Math.max(-cap, Math.min(cap, dx)); }                                           // off it (the start, the pit exit), back no faster sideways than the car's speed allows
-    for (const c of this.cars) {                                                                // rivals keep to the line too, a little to one side, so two do not overlap
-      const at = pa + raceWrap(c.lead) * R.LAP, want = this.racing ? Math.max(-RACE.APEX, Math.min(RACE.APEX, this.lineAt(at) + (c.i % 2 ? 0.12 : -0.12))) : raceGridX(c.i + 1);
-      c.x += (want - c.x) * Math.min(1, rdt * (this.racing ? 6 : 0.9)) * (this.v > 300 || this.racing ? 1 : 0); }
-  }
-}
-/* a gap in laps, in words for the read-outs: seconds at full speed, or whole laps */
-function raceGap(l) { const a = Math.abs(l); return a >= 1 ? trn(Math.floor(a), '{n} lap', '{n} laps') : Math.max(0.1, a * RACE.LAPU / RACE.VNOM).toFixed(1); }
-
-/* ---------- Fireworks: every note played sends a shell up into the night ----------
-   A note starting launches a shell. Its colour is the note (the twelve notes are twelve colours, a fifth apart round the colour wheel, so the
-   notes of a scale all look different) and its height is how high the note is. The last minute of playing (Session.recentEfficiency) sets how
-   intense the show is, shown as Intensity: how many shells are in the sky at once, how big they are, and which kinds go up (small round ones at
-   first, rings and chrysanthemums, then willows, palms and crossettes). While the music plays the show keeps a pace of PACE shells a second at
-   full intensity: every note sends one up, and when the notes come slower than the pace, more go up in the colour of the note sounding (so a
-   held note keeps the sky busy too). Only playing sends shells up: nothing goes up while quiet, paused or stopped. Fast runs cannot flood the
-   sky: shells go up at most RATE + PER x intensity a second, and the notes over that make the next shell bigger. Reaching the practice goal sets
-   off a grand finale once: FINALE shells over FINALE_T seconds, the last one bursting into the shape of a trophy (fwTrophyShape), then a
-   'finaleEnd' event TROPHY_T seconds later, when the trophy card can show. The finale only plays while the theme is on screen (shown), so it waits
-   for the player to come to it, and it holds through a pause like the clock. Now and then (SYMBOL) a shell bursts into a musical symbol
-   (fwSymbolShape) in the colour of its note. src/fireworks.js only draws what this decides. */
-const FW = { PACE: 3, RATE: 1, PER: 4, BURST: 2, BURSTPER: 3, AIR: 3.5, CHARGE: 0.15, FINALE: 28, FINALE_T: 7, LULL: 1.4, TROPHY_T: 3.6, SYMBOL: 0.13, SYMBOL_GAP: 6,   // SYMBOL: the chance a shell bursts into a musical symbol, at most one every SYMBOL_GAP s   // LULL: the quiet before the trophy goes up   // AIR: about how long a shell is in the sky, rising and burning
-  KINDS: [[0, 'peony'], [0.3, 'ring'], [0.3, 'chrysanthemum'], [0.6, 'willow'], [0.6, 'palm'], [0.6, 'crossette']] };   // [intensity needed, kind]
-function fwHue(pc) { return ((pc * 7) % 12) * 30; }                            // C red, G orange, D yellow, A lime, E green... round the circle of fifths
-/* the finale's last burst: points along the outline of a trophy (the cup, its two handles, the stem and the base), about step apart, in units where
-   the trophy is 1.5 high and centred on 0, y up. The renderers throw a spark at each point, so the burst opens into the shape and holds it a moment */
-function fwTrophyShape(step) {
-  step = step || 0.05; const out = [], seg = (x0, y0, x1, y1) => { const n = Math.max(1, Math.round(Math.hypot(x1 - x0, y1 - y0) / step)); for (let i = 0; i < n; i++) out.push([x0 + (x1 - x0) * i / n, y0 + (y1 - y0) * i / n]); };
-  const arc = (cx, cy, r, a0, a1) => { const n = Math.max(2, Math.round(Math.abs(a1 - a0) * r / step)); for (let i = 0; i <= n; i++) { const a = a0 + (a1 - a0) * i / n; out.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]); } };
-  seg(-0.55, 0.75, 0.55, 0.75);                                              // the rim
-  for (const sx of [-1, 1]) {
-    const n = Math.round(1.05 / step); for (let i = 1; i <= n; i++) { const t = i / n * Math.PI / 2; out.push([sx * (0.1 + 0.45 * Math.cos(t)), 0.75 - 0.75 * Math.sin(t)]); }   // the bowl
-    arc(sx * 0.55, 0.45, 0.22, Math.PI / 2, sx > 0 ? -Math.PI / 2 : Math.PI * 1.5);   // a handle
-    seg(sx * 0.08, 0, sx * 0.08, -0.45);                                     // the stem
-  }
-  seg(-0.32, -0.45, 0.32, -0.45); seg(0.32, -0.45, 0.42, -0.75); seg(0.42, -0.75, -0.42, -0.75); seg(-0.42, -0.75, -0.32, -0.45);   // the base
-  return out;
-}
-/* the musical symbols a shell now and then bursts into: points along each outline, about step apart, in the trophy's units (1.5 high, centred on 0,
-   y up). Note heads are tilted ovals, filled ones drawn as two rings; the clefs and the flat are smooth curves through a few points */
-const FW_SYMBOLS = ['quarter', 'eighth', 'beamed', 'half', 'whole', 'treble', 'bass', 'sharp', 'flat'];
-function fwSymbolShape(name, step) {
-  step = step || 0.05; const out = [], dot = (x, y) => out.push([x, y]);
-  const seg = (x0, y0, x1, y1) => { const n = Math.max(1, Math.round(Math.hypot(x1 - x0, y1 - y0) / step)); for (let i = 0; i <= n; i++) dot(x0 + (x1 - x0) * i / n, y0 + (y1 - y0) * i / n); };
-  const oval = (cx, cy, rx, ry, tilt) => { const n = Math.max(6, Math.round(Math.PI * (rx + ry) / step)), c = Math.cos(tilt), sn = Math.sin(tilt);
-    for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2, x = Math.cos(a) * rx, y = Math.sin(a) * ry; dot(cx + x * c - y * sn, cy + x * sn + y * c); } };
-  const curve = pts => {                                                    // a smooth line through the points (Catmull-Rom), spaced step apart
-    const P = [pts[0]].concat(pts, [pts[pts.length - 1]]), fine = [];
-    for (let k = 1; k < P.length - 2; k++) for (let t = 0; t < 1; t += 0.05) { const [a, b, c, d] = [P[k - 1], P[k], P[k + 1], P[k + 2]], t2 = t * t, t3 = t2 * t;
-      fine.push([0, 1].map(m => 0.5 * (2 * b[m] + (c[m] - a[m]) * t + (2 * a[m] - 5 * b[m] + 4 * c[m] - d[m]) * t2 + (3 * b[m] - a[m] - 3 * c[m] + d[m]) * t3))); }
-    fine.push(pts[pts.length - 1]); let left = 0; dot(fine[0][0], fine[0][1]);
-    for (let k = 1; k < fine.length; k++) { left += Math.hypot(fine[k][0] - fine[k - 1][0], fine[k][1] - fine[k - 1][1]); if (left >= step) { dot(fine[k][0], fine[k][1]); left = 0; } } };
-  const head = (x, y, filled) => { oval(x, y, 0.27, 0.18, 0.38); if (filled) oval(x, y, 0.13, 0.07, 0.38); };
-  if (name === 'quarter' || name === 'eighth' || name === 'half') {
-    head(-0.12, -0.57, name !== 'half'); seg(0.13, -0.5, 0.13, 0.75);
-    if (name === 'eighth') curve([[0.13, 0.75], [0.3, 0.52], [0.48, 0.3], [0.42, 0.05]]);   // the flag
-  } else if (name === 'beamed') {
-    head(-0.42, -0.55, true); head(0.3, -0.4, true); seg(-0.17, -0.48, -0.17, 0.62); seg(0.55, -0.33, 0.55, 0.75);
-    seg(-0.17, 0.62, 0.55, 0.75); seg(-0.17, 0.5, 0.55, 0.63);               // the beam
-  } else if (name === 'whole') { oval(0, 0, 0.42, 0.27, 0); oval(0, 0, 0.11, 0.2, -0.75); }
-  else if (name === 'treble') {
-    curve([[0.04, -0.2], [0.16, -0.26], [0.18, -0.1], [0.04, 0.02], [-0.17, -0.06], [-0.25, -0.28], [-0.12, -0.48], [0.12, -0.5], [0.3, -0.36], [0.31, -0.1],
-      [0.13, 0.12], [-0.1, 0.3], [-0.2, 0.5], [-0.12, 0.7], [0.02, 0.76], [0.08, 0.58], [0.01, 0.36], [-0.04, 0], [-0.02, -0.4], [0.0, -0.66], [-0.08, -0.75], [-0.2, -0.7]]);
-    oval(-0.18, -0.64, 0.06, 0.06, 0);
-  } else if (name === 'bass') {
-    curve([[-0.32, 0.18], [-0.24, 0.36], [-0.04, 0.42], [0.16, 0.32], [0.22, 0.1], [0.1, -0.16], [-0.12, -0.38], [-0.36, -0.56]]);
-    oval(-0.3, 0.16, 0.07, 0.07, 0); oval(0.4, 0.28, 0.05, 0.05, 0); oval(0.4, 0.02, 0.05, 0.05, 0);
-  } else if (name === 'sharp') {
-    seg(-0.15, -0.68, -0.15, 0.62); seg(0.15, -0.62, 0.15, 0.68);
-    for (const y of [-0.2, 0.2]) { seg(-0.42, y - 0.08, 0.42, y + 0.08); seg(-0.42, y - 0.18, 0.42, y - 0.02); }
-  } else if (name === 'flat') {
-    seg(-0.2, -0.5, -0.2, 0.75); curve([[-0.2, -0.05], [0.05, 0.08], [0.24, 0.0], [0.16, -0.24], [-0.2, -0.5]]);
-  }
-  return out;
-}
-class FireworkSim {
-  constructor() { this.reset(0, 1); }
-  reset(goal, seed) {
-    this.goal = goal || 0; this.seed = seed || 1; this.rnd = raceRng(this.seed);
-    this.shells = 0; this.notes = 0; this.tokens = FW.BURST; this.charge = 0; this.due = 0; this.lastHue = -1; this.t = 0; this.up = []; this.symbolAt = -1e9; this.symbol = '';
-    this.finaleDone = false; this.finaleLeft = 0; this.finaleT = 0; this.finaleOn = false; this.events = [];
-  }
-  get colours() { let n = 0; for (let b = this.notes; b; b &= b - 1) n++; return n; }   // how many of the twelve notes have gone up
-  get inFinale() { return this.finaleOn; }
-  get aloft() { return this.up.length; }                                   // the player's shells sent up in the last AIR seconds: about how many are in the sky now
-  /* i: {state, music, notes (note starts since the last update), midi (the pitch heard, fractional key number, or null), recent (last minute, 0..1), play (s),
-     shown (the theme is on screen)} */
-  update(dt, i) {
-    const recent = Math.max(0, Math.min(1, i.recent || 0)), running = i.state === 'running';
-    this.t += dt; while (this.up.length && this.t - this.up[0] > FW.AIR) this.up.shift();
-    this.tokens = Math.min(FW.BURST + FW.BURSTPER * recent, this.tokens + dt * (FW.RATE + FW.PER * recent));
-    if (running && i.music) {
-      let n = i.notes || 0;
-      this.due += dt * FW.PACE * recent;                                        // the pace the intensity asks for; the notes played count toward it
-      while (n > 0 && this.tokens >= 1) { this.launch(i.midi, recent); this.due = Math.max(-2, this.due - 1); n--; }   // notes ahead of the pace hold the extra shells back a little
-      if (n > 0) this.charge = Math.min(1, this.charge + n * FW.CHARGE);         // too many notes for the sky: the next shell goes up bigger
-      while (this.due >= 1 && this.tokens >= 1) { this.launch(i.midi, recent); this.due -= 1; }
-      this.due = Math.min(this.due, 2);
-    } else this.due = 0;
-    if (running && !this.finaleDone && this.goal > 0 && i.play >= this.goal) { this.finaleDone = true; this.finaleOn = true; this.finaleLeft = FW.FINALE; this.finaleT = 0; }
-    if (running && i.shown && this.finaleOn) {                                   // the finale waits for the theme to be on screen, and holds through a pause
-      if (this.finaleT === 0) this.events.push({ k: 'finale' });
-      this.finaleT += dt;
-      while (this.finaleLeft > 0 && this.finaleT >= (this.finaleLeft === 1 ? FW.FINALE_T : (FW.FINALE - this.finaleLeft) * (FW.FINALE_T - FW.LULL) / (FW.FINALE - 2))) {
-        const r = this.rnd;
-        if (this.finaleLeft === 1) this.events.push({ k: 'shell', finale: true, kind: 'trophy', x: 0.5, h: 0.7, size: 1.2, hue: 44, hue2: -1 });   // the last one: a trophy
-        else this.events.push({ k: 'shell', finale: true, x: 0.1 + r() * 0.8, h: 0.55 + r() * 0.4, size: 0.9 + r() * 0.3, hue: Math.floor(r() * 12) * 30, hue2: -1,
-          kind: ['peony', 'ring', 'chrysanthemum', 'willow', 'palm', 'crossette'][Math.floor(r() * 6)] });
-        this.finaleLeft--;
-      }
-      if (this.finaleLeft === 0 && this.finaleT >= FW.FINALE_T + FW.TROPHY_T) { this.finaleOn = false; this.events.push({ k: 'finaleEnd' }); }
-    }
-  }
-  launch(midi, recent) {
-    const r = this.rnd, known = midi != null && isFinite(midi), pc = known ? ((Math.round(midi) % 12) + 12) % 12 : Math.floor(r() * 12), hue = fwHue(pc);
-    const kinds = FW.KINDS.filter(k => recent >= k[0]).map(k => k[1]), kind = kinds[Math.floor(r() * kinds.length)];
-    const h = known ? 0.45 + Math.max(0, Math.min(1, (midi - 40) / 50)) * 0.45 + (r() - 0.5) * 0.08 : 0.55 + r() * 0.25;   // low notes burst low, high notes high
-    const size = Math.min(1.25, 0.3 + 0.7 * recent + this.charge * 0.4), e = { k: 'shell', x: 0.12 + r() * 0.76, h: Math.max(0.35, Math.min(0.95, h)), size: size, hue: hue, hue2: recent >= 0.6 && this.lastHue !== hue ? this.lastHue : -1, kind: kind, pc: pc };
-    if (this.t - this.symbolAt >= FW.SYMBOL_GAP && r() < FW.SYMBOL) {   // now and then the shell bursts into a musical symbol, in the note's colour; never the same one twice running
-      const pick = FW_SYMBOLS.filter(n => n !== this.symbol); e.kind = 'symbol'; e.symbol = this.symbol = pick[Math.floor(r() * pick.length)]; e.hue2 = -1; this.symbolAt = this.t;
-    }
-    this.events.push(e);
-    this.tokens -= 1; this.charge = 0; this.lastHue = hue; this.shells++; this.notes |= 1 << pc; this.up.push(this.t);
-  }
-}
-
-const api = { LANGS, addWords, setLang, getLang, pickLang, locale, tr, trn, inLang, both, LIFTOFF, OnsetTracker, DragSwipe, WheelSwipe, DashSim, DASH, dashSpeed, RaceSim, RACE, RACE_PIT, raceTrack, FireworkSim, FW, fwHue, fwTrophyShape, fwSymbolShape, FW_SYMBOLS, raceGap, raceRng, RacePractiser, MusicDetector, Session, RocketSim, WORLD, MILESTONES, SENSITIVITY, CLIPS, DETECTION_CASES,
-  detectionTests, runDetectionTests, analyzeClip, sessionReport, clockText, sessionRecord, worthKeeping, liveSnapshot, liveRecord, rocketCarry, buildOf, newerBuild, themesOn, themeSwitch, themeLanding, practiceStats, dayRecap, dayLine, practiceNudge, homeCopy, weekLine, durationText, dayKey, LOG_MAX, LEVEL_MIN, SAMPLE_LOGS, sampleLog, rocketAt, fraction, heardAs, noteOf, smooth, pchip, clamp01 };
+const api = { LANGS, addWords, setLang, getLang, pickLang, locale, tr, trn, inLang, both, OnsetTracker, DragSwipe, WheelSwipe, MusicDetector, Session, SENSITIVITY, CLIPS, DETECTION_CASES,
+  detectionTests, runDetectionTests, analyzeClip, sessionReport, clockText, sessionRecord, upgradeRecord, worthKeeping, liveSnapshot, liveRecord, buildOf, newerBuild, themesOn, themeSwitch, themeLanding,
+  THEME_API, THEME_HOOKS, checkTheme, checkInstance, translator, word, addTheme, removeTheme, themes, themesOpen, seededRng, COMMON_WORDS,
+  practiceStats, dayRecap, dayLine, practiceNudge, homeCopy, weekLine, durationText, dayKey, dayStart, LOG_MAX, LEVEL_MIN, SAMPLE_LOGS, sampleLog, fraction, heardAs, noteOf, clamp01 };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.MT = api;
 })(typeof self !== 'undefined' ? self : this);

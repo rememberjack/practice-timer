@@ -1,7 +1,11 @@
-// Swipes the built page in a real browser: a finger and a mouse change the theme, a scroll does not, and nothing throws.
+// Swipes the built page in a real browser: a finger and a mouse change the theme, a scroll does not, and nothing throws. Then the theme
+// modules: each installed theme starts and keeps to the interface, a page with only the base theme works, and a theme from another folder
+// written for English only (test/fixtures/themes/sample) is driven through its hooks and leaves the swipe in French.
 // No dependencies: it drives Chrome or Chromium over the DevTools protocol. Without a browser it is skipped, except under CI.
 const fs = require('fs'), path = require('path'), os = require('os'), http = require('http'), { spawn, execFileSync } = require('child_process');
-const DIST = path.join(__dirname, '..', 'dist');
+const nodePath = path, DIST = path.join(__dirname, '..', 'dist'), VARIANTS = fs.mkdtempSync(path.join(os.tmpdir(), 'mt-variants-'));
+/* pages built with other sets of themes, served under /v/<name>/ */
+function variant(name, args) { execFileSync(process.execPath, [path.join(__dirname, '..', 'scripts', 'build.js'), '--out', path.join(VARIANTS, name)].concat(args), { stdio: 'ignore' }); }
 
 function findBrowser() {
   for (const p of [process.env.CHROME_PATH, '/opt/pw-browsers/chromium']) if (p && fs.existsSync(p)) return p;
@@ -21,7 +25,8 @@ let bad = 0; const check = (ok, msg) => { if (!ok) { bad++; console.log('FAIL ' 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 const server = http.createServer((req, res) => {
-  const file = path.join(DIST, decodeURIComponent(req.url.split('?')[0]) === '/' ? 'index.html' : path.basename(req.url.split('?')[0]));
+  const url = decodeURIComponent(req.url.split('?')[0]), v = /^\/v\/(\w+)\//.exec(url), dir = v ? path.join(VARIANTS, v[1]) : DIST;
+  const file = path.join(dir, /\/$/.test(url) ? 'index.html' : path.basename(url));
   if (!fs.existsSync(file)) { res.statusCode = 404; res.end(); return; }
   res.setHeader('content-type', file.endsWith('.html') ? 'text/html' : 'application/octet-stream'); res.end(fs.readFileSync(file));
 });
@@ -38,7 +43,7 @@ async function main() {
       chrome.on('exit', c => reject(new Error('Chrome exited (' + c + '): ' + err.slice(-400))));
     });
     await run(wsUrl);
-  } finally { chrome.kill(); server.close(); try { fs.rmSync(profile, { recursive: true, force: true }); } catch (e) {} }
+  } finally { chrome.kill(); server.close(); try { fs.rmSync(profile, { recursive: true, force: true }); fs.rmSync(VARIANTS, { recursive: true, force: true }); } catch (e) {} }
 }
 
 async function run(wsUrl) {
@@ -106,6 +111,46 @@ async function run(wsUrl) {
     'choosing a language changes the words at once, and English brings them back (' + [english, french, chinese].join(' / ') + ')');
   await pickLang(0); await js('document.getElementById("setClose").click()');   // back to Automatic
   check(!errors.length, 'no errors on the page' + (errors.length ? ': ' + [...new Set(errors)].slice(0, 3).join('; ') : ''));
+
+  // ---------- the theme modules ----------
+  const installed = JSON.parse(fs.readFileSync(nodePath.join(__dirname, '..', 'src', 'themes', 'themes.json'), 'utf8'));
+  const started = await js('JSON.stringify({ ids: window.__mt.themes.map(t => t.id), errors: window.__mt.errors, bad: window.__mt.themes.map(t => MT.checkInstance(t.inst)).flat(), bar: document.querySelectorAll("#skinBar button").length })');
+  const st = JSON.parse(started);
+  check(st.ids.join() === installed.join() && !st.errors.length && !st.bad.length && st.bar === installed.length, 'every installed theme started, in order, and keeps to the interface (' + st.ids.join(' ') + (st.errors.length ? '; ' + st.errors.join('; ') : '') + (st.bad.length ? '; ' + st.bad.join('; ') : '') + ')');
+  const load = async url => {   // a fresh page: nothing saved from before
+    await cmd('Page.navigate', { url: url }); for (let i = 0; i < 100 && !(await js('document.readyState === "complete" && !!document.getElementById("homeGo")')); i++) await sleep(100);
+    await js('localStorage.clear(); sessionStorage.clear()'); await cmd('Page.reload'); await sleep(300);
+    for (let i = 0; i < 100 && !(await js('document.readyState === "complete" && !!window.__mt')); i++) await sleep(100);
+  };
+  const base = 'http://127.0.0.1:' + server.address().port;
+  variant('base', ['--themes', installed[0]]);
+  variant('sample', ['--theme-dir', nodePath.join(__dirname, 'fixtures', 'themes'), '--themes', installed[0] + ',sample']);
+  // only the base theme: the page works with every other theme taken out
+  errors.length = 0; await load(base + '/v/base/');
+  await js('document.getElementById("homeGo").click()'); await sleep(600); await touch(right, y, left, y);
+  check(await skin() === installed[0] && await js('document.querySelectorAll("#skinBar button").length') === 1 && !errors.length, 'a page with only the base theme: it starts, a swipe stays on it, and nothing throws' + (errors.length ? ' (' + errors[0] + ')' : ''));
+  // a theme from another folder, written for English only
+  errors.length = 0; await load(base + '/v/sample/');
+  await js('document.getElementById("btnSettings").click(); document.getElementById("openLang").click()'); await sleep(200); await pickLang(1); await js('document.getElementById("setClose").click()');
+  await js('document.getElementById("homeGo").click()'); await sleep(600); await touch(right, y, left, y); await sleep(600);
+  const calls = JSON.parse(await js('document.getElementById("pSample").dataset.calls || "{}"'));
+  check(await skin() === 'sample' && ['reset:start', 'show', 'tick', 'frame', 'paint', 'resize'].every(k => calls[k] > 0) && /\d\d:\d\d/.test(await js('document.getElementById("smPlay").textContent')),
+    'a theme from another folder is swiped to and driven through its hooks (' + Object.keys(calls).map(k => k + ' ' + calls[k]).join(', ') + ')');
+  await js('document.getElementById("btnSettings").click(); document.getElementById("openLang").click()'); await sleep(200); await pickLang(3);
+  await js('document.getElementById("openThemes") || 0'); await js('document.getElementById("setBack").click(); document.getElementById("openThemes").click()'); await sleep(200);
+  const fr = JSON.parse(await js('JSON.stringify({ skin: document.getElementById("app").dataset.skin, bar: document.querySelectorAll("#skinBar button")[1].hidden, row: document.querySelector("#themeList li[data-theme=sample] .tx span").textContent, sw: document.querySelector("#themeList li[data-theme=sample] input").disabled, on: document.querySelector("#themeList li[data-theme=sample] input").checked })'));
+  await js('document.getElementById("setClose").click()'); await sleep(300); await touch(right, y, left, y);
+  check(fr.skin === installed[0] && fr.bar && fr.sw && fr.on && /langue/.test(fr.row) && await skin() === installed[0],
+    'in French the English-only theme leaves the swipe and the theme bar, and Settings, Themes says why, its switch kept on (' + JSON.stringify(fr) + ')');
+  await js('document.getElementById("btnSettings").click(); document.getElementById("openLang").click()'); await sleep(200); await pickLang(1); await js('document.getElementById("setClose").click()'); await sleep(300);
+  await touch(right, y, left, y);
+  check(await skin() === 'sample' && !(await js('document.querySelectorAll("#skinBar button")[1].hidden')), 'back in English it can be swiped to again');
+  await js('document.dispatchEvent(new Event("visibilitychange"))'); await js('window.dispatchEvent(new Event("pagehide"))');   // the session so far is kept
+  const kept = await js('JSON.stringify((JSON.parse(localStorage.getItem("musicTimer.live") || "null") || {}).themes || null)');
+  check(kept === '{"sample":{"notes":1}}', 'what the theme keeps goes with the session, under its id (' + kept + ')');
+  await js('document.getElementById("btnStop").click()'); await sleep(200); await js('document.getElementById("endYes").click()'); await sleep(300);
+  check(JSON.parse(await js('document.getElementById("pSample").dataset.calls')).stopped === 1, 'ending the session tells the theme (stopped)');
+  check(!errors.length, 'no errors on the pages with other themes' + (errors.length ? ': ' + [...new Set(errors)].slice(0, 3).join('; ') : ''));
   ws.close();
 }
 

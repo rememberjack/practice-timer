@@ -11,11 +11,13 @@ function width(el, f) { const s = Math.round(Math.max(0, Math.min(1, f)) * 1000)
 function left(el, f) { const s = Math.round(Math.max(0, Math.min(1, f)) * 1000) / 10 + '%'; if (cache.get(el) !== s) { cache.set(el, s); el.style.left = s; } }
 
 /* ---------- settings ---------- */
-const DEF = { v: 2, goalMin: 30, name: '', sens: 'normal', hold: '5', record: false, source: 'mic', skin: 'classic', themesOff: '', viz: 'piano', inst: '', lang: '' };
+const DEF = { v: 2, goalMin: 30, name: '', sens: 'normal', hold: '5', record: false, source: 'mic', skin: 'classic', themesOff: '', inst: '', lang: '', prefs: {} };   // prefs: each theme's own, by its id (host.pref)
 const S = Object.assign({}, DEF);
 try { const j = JSON.parse(localStorage.getItem('musicTimer.settings') || 'null');
-  if (j && typeof j === 'object') { for (const k in DEF) if (typeof j[k] === typeof DEF[k]) S[k] = j[k];
-    if (j.v !== 2 && S.goalMin === 20) S.goalMin = 30; }          // settings saved before the default changed: the old default of 20 moves to 30 once
+  if (j && typeof j === 'object') { for (const k in DEF) if (typeof j[k] === typeof DEF[k] && j[k] !== null) S[k] = j[k];
+    if (j.v !== 2 && S.goalMin === 20) S.goalMin = 30;             // settings saved before the default changed: the old default of 20 moves to 30 once
+    if (Array.isArray(S.prefs)) S.prefs = {};
+    if (typeof j.viz === 'string' && !(S.prefs.classic && S.prefs.classic.viz)) S.prefs = Object.assign({}, S.prefs, { classic: { viz: j.viz } }); }   // Classic's sound picture, saved before themes kept their own
   S.v = 2; } catch (e) {}
 if (!(S.goalMin >= 5 && S.goalMin <= 180)) S.goalMin = 30;
 if (['0', '5', '10', '20'].indexOf(S.hold) < 0) S.hold = DEF.hold;
@@ -35,17 +37,19 @@ function saveDbg() { try { if (DBG.on) localStorage.setItem('musicTimer.debug', 
    what is marked translate="no" is left alone (the debug tools stay in English) ---------- */
 const tr = MT.tr, trn = MT.trn;
 const deviceLangs = () => navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || 'en'];
-const PAGE_WORDS = [];   // { n: a text node, or e and a: an element's attribute; en: its English; cur: what is shown }
-(function collect(n) {
-  if (n.nodeType === 3) { if (/[A-Za-z]/.test(n.nodeValue)) PAGE_WORDS.push({ n: n, en: n.nodeValue, cur: n.nodeValue }); return; }
+const PAGE_WORDS = [];   // { n: a text node, or e and a: an element's attribute; en: its English; cur: what is shown; t: the tr of the theme whose panel it is in }
+const PANEL_TR = {}; for (const d of MT.themes()) PANEL_TR[d.panel] = MT.translator(d.words).tr;   // a theme's panel speaks in its own words
+(function collect(n, t) {
+  if (n.nodeType === 3) { if (/[A-Za-z]/.test(n.nodeValue)) PAGE_WORDS.push({ n: n, en: n.nodeValue, cur: n.nodeValue, t: t }); return; }
   if (n.nodeType !== 1 || /^(script|style|svg)$/i.test(n.nodeName) || n.getAttribute('translate') === 'no') return;   // the debug tools, and figures the app fills in
-  for (const a of ['aria-label', 'title']) if (n.hasAttribute(a)) PAGE_WORDS.push({ e: n, a: a, en: n.getAttribute(a), cur: n.getAttribute(a) });
-  for (const c of n.childNodes) collect(c);
-})(document.body);
+  if (n.classList.contains('panel') && PANEL_TR[n.id]) t = PANEL_TR[n.id];
+  for (const a of ['aria-label', 'title']) if (n.hasAttribute(a)) PAGE_WORDS.push({ e: n, a: a, en: n.getAttribute(a), cur: n.getAttribute(a), t: t });
+  for (const c of n.childNodes) collect(c, t);
+})(document.body, tr);
 function applyLang() {
   const id = MT.setLang(MT.pickLang(S.lang, deviceLangs())); document.documentElement.lang = id === 'zh' ? 'zh-CN' : id;
   for (const w of PAGE_WORDS) { if ((w.n ? w.n.nodeValue : w.e.getAttribute(w.a)) !== w.cur) continue;   // the app has written its own words there since
-    const m = /^(\s*)([\s\S]*?)(\s*)$/.exec(w.en), x = tr(m[2]), cjk = /[\u3000-\u9FFF\uFF00-\uFFEF]/;   // no space beside Chinese
+    const m = /^(\s*)([\s\S]*?)(\s*)$/.exec(w.en), x = w.t(m[2]), cjk = /[\u3000-\u9FFF\uFF00-\uFFEF]/;   // no space beside Chinese
     const t = (cjk.test(x[0]) ? '' : m[1]) + x + (cjk.test(x[x.length - 1]) ? '' : m[3]); w.cur = t; if (w.n) w.n.nodeValue = t; else w.e.setAttribute(w.a, t); }
 }
 applyLang();
@@ -57,25 +61,19 @@ const listText = a => a.join(tr(', '));
 
 /* ---------- model ---------- */
 const session = new MT.Session(); session.goal = S.goalMin * 60;
-const sim = new MT.RocketSim();
-const rocket = makeRocketView($('rk'), $('hud'), sim, MT);
-const city = makeCityView($('pCity'));
-const dash = new MT.DashSim(), dashView = makeDashView($('dashCv'), $('dashHud'), dash, MT), onsets = new MT.OnsetTracker();
-let pendingOnsets = 0, onsetN = 0, dashAt = 0;      // note starts waiting to be used; a running count for followers; when the course last moved
-const race = new MT.RaceSim(), raceView = makeRaceView($('raceCv'), $('raceHud'), race, MT);
-let raceNotes = 0, raceDoneAt = 0;                  // note starts for the sparks under the car; when the chequered flag fell
-const fw = new MT.FireworkSim(), fwView = makeFireworkView($('pFire'), $('fireHud'), fw, MT);
-let fwNotes = 0;                                    // note starts waiting to send shells up
-let awardWait = 0;                                  // a goal whose trophy card waits for the fireworks finale to end
-/* the goal is reached: the trophy card, except on Fireworks, where the grand finale goes first and the card follows it (on 'finaleEnd').
-   The finale plays once a session: if it has already ended (the goal was raised during it, then reached again), the card shows at once */
-function goalReached(goal) { if (visible(5) && (!fw.finaleDone || fw.inFinale)) awardWait = goal; else award(goal); }
-const NB = 44, bars = new Float32Array(NB), shown = new Float32Array(NB);
+const onsets = new MT.OnsetTracker();
+let onsetN = 0, seed = 7;                           // note starts so far, a running count for followers; the session's seed, shared with them (the same race field)
+let awardWait = 0, awardBy = null;                  // a goal whose trophy card waits for the theme on screen (holdAward: the Fireworks finale), and that theme
+/* the goal is reached: the trophy card, unless the theme on screen holds it back (holdAward) and shows it when it is ready (host.award) */
+function goalReached(goal) { const t = TH[skin]; if (t.inst.holdAward && t.inst.holdAward()) { awardWait = goal; awardBy = t; } else award(goal); }
+function releaseAward() { if (!awardWait) return; const g = awardWait; awardWait = 0; awardBy = null; award(g); }
+const NB = 44, bars = new Float32Array(NB);
 const heard = { label: '', detail: '', note: '', midi: null };      // midi: the pitch heard, as a (fractional) piano key number
 let mode = 'local';            // 'local' | 'follow'
 let music = false, goalHit = false, vote = {}, kbInst = S.inst;
 /* what the screen shows, filled from the local session or from the device being followed */
-const V = { st: 'idle', play: 0, active: 0, total: 0, pauses: 0, goal: session.goal, eff: 0, pw: 0, music: false, hold: false, label: '', detail: '', note: '', midi: null, inst: '' };
+const V = { st: 'idle', play: 0, active: 0, total: 0, pauses: 0, goal: session.goal, eff: 0, pw: 0, music: false, hold: false, label: '', detail: '', note: '', midi: null, inst: '',
+  follow: false, followName: '', demo: false, level: 0, minute: null };   // level: how loud, 0..1; minute: the last minute, a second at a time (null while following)
 
 /* ---------- platform capabilities (all optional) ---------- */
 let room = null, downloads = null;
@@ -87,9 +85,8 @@ if (window.claude && typeof window.claude.use === 'function') {
 }
 
 /* ---------- messages ---------- */
-let toastT = 0, bannerT = 0, noticeKind = '', noticeFn = null;
+let toastT = 0, noticeKind = '', noticeFn = null;
 function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 3200); }
-function banner(msg) { const b = $('rBanner'); b.textContent = msg; b.classList.add('on'); clearTimeout(bannerT); bannerT = setTimeout(() => b.classList.remove('on'), 3600); }
 function showNotice(kind, msg, actLabel, fn) { noticeKind = kind; noticeFn = fn || null; $('noticeText').textContent = msg;
   $('noticeAct').hidden = !actLabel; $('noticeAct').textContent = actLabel || ''; $('notice').hidden = false; layoutChanged(); }
 function hideNotice(kind) { if (kind && kind !== noticeKind) return; if ($('notice').hidden) return; $('notice').hidden = true; noticeKind = ''; layoutChanged(); }
@@ -101,11 +98,10 @@ const TROPHY_PX = ['....YYYYYYYY....', '.YY.YWYYYYYD.YY.', '.Y..YWYYYYYD..Y.', '
   '......YYYD......', '.......YD.......', '.......YD.......', '......YYYD......', '.....DDDDDD.....', '....BBBBBBBB....', '....BbbbbbbB....', '................'];
 function drawPixelTrophy(cv) { const g = cv.getContext('2d'), pal = { Y: '#FFD23F', W: '#FFF3B0', D: '#C99A1E', B: '#8A5A2B', b: '#6E4420' };
   TROPHY_PX.forEach((row, j) => { for (let i = 0; i < row.length; i++) if (pal[row[i]]) { g.fillStyle = pal[row[i]]; g.fillRect(i, j, 1, 1); } }); }
-drawPixelTrophy($('rTrophy')); drawPixelTrophy($('awardPx')); drawPixelTrophy($('yTrophy'));
+drawPixelTrophy($('awardPx'));
 let awardT = 0;
 function award(goal) {
-  const place = SKINS[skin] === 'race' && race.racing ? tr('You finished the race in P{n}.', { n: race.finished ? race.finishPos : race.pos })
-    : SKINS[skin] === 'fireworks' && fw.shells ? trn(fw.shells, 'You sent up {n} firework.', 'You sent up {n} fireworks.') : '', reachedLine = tr('You reached your {n}-minute practice goal.', { n: Math.round(goal / 60) });
+  const t = TH[skin], place = t.inst.awardLine ? t.inst.awardLine() : '', reachedLine = tr('You reached your {n}-minute practice goal.', { n: Math.round(goal / 60) });   // the theme on screen may add a line
   $('awardSub').textContent = place ? MT.both(reachedLine, place) : reachedLine;
   const el = $('award'); el.hidden = true; void el.offsetWidth; el.hidden = false;          // restart the entrance
   clearTimeout(awardT); awardT = setTimeout(hideAward, 7000);
@@ -228,19 +224,16 @@ async function start() {
   catch (e) { busy = false; if (ctx) { try { ctx.close(); } catch (er) {} }
     micNotice(micMessage(e), start); return; }
   busy = false; hideNotice();
-  const forced = !!DBG.rocket;
-  session.goal = S.goalMin * 60; session.hold = +S.hold; session.start(); const carried = carryRocket() && !forced; DBG.rocket = ''; rocket.reset(); city.reset(); cityBannerAt = 0;
-  dash.reset(); dashView.reset(); onsets.reset(); pendingOnsets = 0;
-  race.reset(session.goal, 1 + Math.floor(Math.random() * 2e9)); raceView.reset(); raceNotes = 0; hideRaceBanner();   // a new field each session
-  fw.reset(session.goal, 1 + Math.floor(Math.random() * 2e9)); fwView.reset(); fwNotes = 0; hideFireBanner();
-  music = false; goalHit = false; awardWait = 0; vote = {}; bars.fill(0); hideAward();
-  if (carried) banner(tr('Carrying on from earlier today'));
+  session.goal = S.goalMin * 60; session.hold = +S.hold; session.start(); onsets.reset();
+  seed = 1 + Math.floor(Math.random() * 2e9);       // a new race field each session
+  each('reset', { why: 'start', goal: session.goal, seed: seed });
+  music = false; goalHit = false; awardWait = 0; awardBy = null; vote = {}; bars.fill(0); hideAward();
   heard.label = tr('Listening'); heard.detail = tr('Play your instrument to start the clock'); heard.note = ''; heard.midi = null;
   startRecording();
   lastT = performance.now(); clearInterval(timer); timer = setInterval(tick, 46);
   keepAwake(); paintControls(); push(); writeLive();
 }
-function pause() { if (!session.pause()) return; dash.mark(); music = false; recCall('pause'); paintControls(); push(); writeLive(); }
+function pause() { if (!session.pause()) return; music = false; recCall('pause'); paintControls(); push(); writeLive(); }
 /* opening the practice log or Settings pauses a running session, so nothing counts while you look; closing it carries on,
    unless the session was already paused by hand */
 let sheetPaused = false;
@@ -250,8 +243,8 @@ function resume() { sheetPaused = false; if (!session.resume()) return; if (A.ct
 function stop() {
   if (!session.stop()) return;
   clearLive();                                   // ended here, so nothing was cut short
-  clearInterval(timer); timer = 0; music = false; recCall('stop'); rec.mr = null; hideAward(); hideRaceBanner(); awardWait = 0;
-  race.update(0, { state: 'stopped', music: false, recent: 0, play: session.play });   // the car slows to a stop; the race order stays as it ended
+  clearInterval(timer); timer = 0; music = false; recCall('stop'); rec.mr = null; hideAward(); awardWait = 0; awardBy = null;
+  each('stopped', { play: session.play });
   closeAudio(); letSleep(); paintControls(); push();
   current = finishSession(); openSummary(current.rec, false);
 }
@@ -268,7 +261,7 @@ function tick() {
       if (dt >= 1.5) session.quietFor = Infinity;   // and no hold across it
       heard.label = r.label; heard.detail = r.detail; heard.note = r.isMusic ? r.note : '';   // a note name only for an instrument, not for talking or noise
       heard.midi = r.pitch > 0 ? 69 + 12 * Math.log2(r.pitch / 440) : null; levelBars();
-      if (onsets.feed(dt, { music: m, midi: heard.midi, levelDb: r.levelDb })) { pendingOnsets++; onsetN++; raceNotes++; fwNotes++; }
+      if (onsets.feed(dt, { music: m, midi: heard.midi, levelDb: r.levelDb })) { onsetN++; each('notes', 1); }
       if (A.kind === 'mic' && A.ctx && A.ctx.state !== 'running') { m = false; heard.label = tr('The microphone is asleep'); heard.detail = tr('Press Pause, then Resume to wake it'); heard.note = ''; heard.midi = null; }
       if (m && r.instrument) vote[r.instrument] = (vote[r.instrument] || 0) + dt; }
     let best = '', bs = 0; for (const k in vote) { vote[k] *= Math.exp(-dt / 25); if (vote[k] > bs) { bs = vote[k]; best = k; } }
@@ -278,11 +271,9 @@ function tick() {
   if (away) { session.away(dt * w); music = false; }
   else music = session.tick(dt * w, m);        // a short quiet after playing still counts (the hold set in Settings)
   if (session.holdLeft > 0) heard.detail = tr('Short pauses still count as playing');
-  const pw = session.recentEfficiency;   // the rocket, cannons and course follow the last minute of playing
-  sim.update(away ? 0 : dt * w, { running: session.state === 'running', playing: m, eff: pw, rdt: dt });
-  race.update(away ? 0 : dt * w, { state: session.state, music: music, recent: pw, play: session.play });   // the race runs on session time, like the clock
+  // the themes on session time (time away counts for nothing); what they show follows the last minute of playing
+  each('tick', away ? 0 : dt * w, { state: session.state, heard: m, music: music, recent: session.recentEfficiency, play: session.play, goal: session.goal, rdt: dt, away: away, follow: false });
   if (!goalHit && session.play >= session.goal) { goalHit = true; goalReached(session.goal); }
-  if (now - dashAt > 250) dashStep(dt, session.state === 'running', m, pw, session.goal > 0 ? session.play / session.goal : 0);   // frames are not being drawn (tab in the background): keep the course moving
   if (now - lastPush > 330) push();
 }
 
@@ -294,7 +285,8 @@ function push() {
   const r1 = v => Math.round(v * 10) / 10;
   const o = { st: session.state, pl: r1(session.play), ac: r1(session.active), to: r1(session.total), pa: session.pauses, go: session.goal,
     pw: Math.round(V.pw * 1000) / 1000, mu: music ? 1 : 0, lb: heard.label, dt: heard.detail, nt: heard.note, pm: heard.midi != null ? Math.round(heard.midi * 10) / 10 : -1, iv: kbInst, on: onsetN, br: br,
-    rm: sim.mode, rl: Math.round(sim.l * 1e5) / 1e5, rs: sim.stage, ri: sim.ignited ? 1 : 0, rf: r1(sim.fp), ra: Math.round(sim.th * 100) / 100, rc: Math.round(sim.spinUp * 100) / 100, gs: race.seed, nm: S.name };
+    gs: seed, nm: S.name, th: {} };
+  for (const t of TH) if (t.inst.share) o.th[t.id] = t.inst.share();   // each theme's own, by its id
   try { room.presence({ mt: session.state === 'idle' ? null : o }).catch(() => {}); } catch (e) {}
 }
 function parseRemote(x) {
@@ -304,8 +296,7 @@ function parseRemote(x) {
   const s = (v, max) => typeof v === 'string' ? v.slice(0, max) : '';
   return { st: st, play: n(x.pl, 1e6), active: n(x.ac, 1e6), total: n(x.to, 1e6), pauses: Math.round(n(x.pa, 999)), goal: n(x.go, 1e6) || 1800,
     pw: n(x.pw, 1), music: x.mu === 1, label: s(x.lb, 60), detail: s(x.dt, 80), note: s(x.nt, 4), midi: typeof x.pm === 'number' && x.pm > 0 && x.pm < 130 ? x.pm : null, inst: s(x.iv, 12), on: Math.round(n(x.on, 1e9)), bars: typeof x.br === 'string' && /^[0-9]{44}$/.test(x.br) ? x.br : '',
-    rm: ['pad', 'ascent', 'fall', 'orbit'].indexOf(x.rm) >= 0 ? x.rm : 'pad', rl: n(x.rl, sim.L), rs: Math.min(2, Math.round(n(x.rs, 2))), ri: x.ri === 1,
-    rf: n(x.rf, 1e6), ra: typeof x.ra === 'number' && isFinite(x.ra) ? Math.max(-4, Math.min(4, x.ra)) : 0, rc: n(x.rc, 1), gs: Math.round(n(x.gs, 2147483646)), name: s(x.nm, 40) };
+    gs: Math.round(n(x.gs, 2147483646)), name: s(x.nm, 40), th: x.th && typeof x.th === 'object' && !Array.isArray(x.th) ? x.th : {} };   // each theme reads its own (follow)
 }
 function onPeers(ch) {
   const peers = ch && ch.peers || [];
@@ -327,21 +318,10 @@ function onPeers(ch) {
 function applyRemote(m) {
   const first = !R, prev = R; R = m;
   if (prev && prev.play < prev.goal && m.play >= m.goal && m.st === 'running') goalReached(m.goal);
-  if (first) { sim.reset(); rocket.reset(); city.reset(); dash.reset(); dashView.reset(); pendingOnsets = 0; sim.l = m.rl; sim.th = m.ra; race.reset(m.goal, m.gs || 7); raceView.reset(); fw.reset(m.goal, m.gs || 7); fwView.reset(); }   // the same field as the device followed
-  else if (m.on > prev.on) { pendingOnsets += Math.min(3, m.on - prev.on); raceNotes += Math.min(3, m.on - prev.on); fwNotes += Math.min(3, m.on - prev.on); }
-  else {
-    if (prev.rm === 'pad' && m.rm === 'ascent') fire('liftoff');
-    if (m.rm === 'ascent' && prev.rf < MT.MILESTONES.tower && m.rf >= MT.MILESTONES.tower) fire('tower');
-    if (m.rm === 'ascent' && prev.rf < MT.MILESTONES.space && m.rf >= MT.MILESTONES.space) fire('space');
-    if (prev.rm === 'ascent' && m.rm === 'fall') fire('fall');
-    if (prev.rm === 'fall' && m.rm === 'pad') { fire('crash'); sim.down = 2.6; sim.l = 0; }
-    if (prev.rm !== 'orbit' && m.rm === 'orbit') { fire('orbit'); sim.th = m.ra; }
-    if (prev.rc === 0 && m.rc > 0) fire('spin');
-    if (m.rs > prev.rs) fire(m.rs === 1 ? 'stage1' : 'stage2');
-    if (prev.st !== m.st) paintControls();
-  }
-  sim.mode = m.rm; sim.stage = m.rs; sim.ignited = m.ri && m.st === 'running'; sim.power = m.pw; sim.fp = m.rf; sim.spinUp = m.rm === 'orbit' ? m.rc : 0; sim.inSpace = m.rm === 'orbit' || (m.rm === 'ascent' && m.rf >= MT.MILESTONES.space);
-  if (m.rm === 'orbit') { let d = m.ra - sim.th; d -= Math.round(d / (2 * Math.PI)) * 2 * Math.PI; if (Math.abs(d) > 0.5) sim.th = m.ra; }
+  if (first) each('reset', { why: 'follow', goal: m.goal, seed: m.gs || 7 });   // the same race field as the device followed
+  else if (m.on > prev.on) each('notes', Math.min(3, m.on - prev.on));
+  if (prev && prev.st !== m.st) paintControls();
+  for (const t of TH) if (t.inst.follow) { const x = m.th[t.id]; t.inst.follow(x && typeof x === 'object' ? x : {}, { first: first, state: m.st, recent: m.pw }); }
   for (let i = 0; i < NB; i++) bars[i] = m.bars ? (m.bars.charCodeAt(i) - 48) / 9 : 0;
 }
 function startFollow(peer) {
@@ -350,224 +330,35 @@ function startFollow(peer) {
   onPeers({ peers: room.peers() }); if (!R) { stopFollow(); return; }
   paintControls(); paintDemoBar();
 }
-function stopFollow() { hideAward(); mode = 'local'; followPeer = ''; R = null; carryRocket(); rocket.reset(); city.reset(); dash.reset(); dashView.reset(); race.reset(); raceView.reset(); hideRaceBanner(); fw.reset(); fwView.reset(); hideFireBanner(); bars.fill(0); session.reset(); paintControls(); paintDemoBar(); }
+function stopFollow() { hideAward(); mode = 'local'; followPeer = ''; R = null; each('reset', { why: 'local' }); bars.fill(0); session.reset(); paintControls(); paintDemoBar(); }
 function followStep(dt) {
   if (!R) return;
   if (R.st === 'running') { R.total += dt; R.active += dt; if (R.music) R.play += dt; } else if (R.st === 'paused') R.total += dt;
-  race.update(dt, { state: R.st, music: R.music, recent: R.pw, play: R.play });
-  sim.l += (R.rl - sim.l) * Math.min(1, dt * 4);
-  if (sim.down > 0) sim.down -= dt;
-  if (sim.mode === 'orbit' && R.st === 'running') { sim.th += sim.wOrbit * dt; sim.spin(dt); }
+  each('tick', dt, { state: R.st, heard: R.music, music: R.music, recent: R.pw, play: R.play, goal: R.goal, rdt: dt, away: false, follow: true });
 }
 
-/* ---------- rocket events ---------- */
-const EVENT_TEXT = { ignition: 'Engines lit', liftoff: 'Lift-off!', tower: 'Tower cleared', stage1: 'Stage 1 separation', space: 'You have left the atmosphere',
-  stage2: 'Stage 2 separation', orbit: 'Moon orbit reached!', spin: 'Module spinning', fall: 'Engines out. Falling!', crash: 'The rocket exploded!' };
-let flightAt = -1e9;   // when a new flight was started, so its banner is not replaced at once by "Engines lit"
-/* the rocket's own effects (explosions, falling stages, the flash) only while Rocket is on screen: they age only as it is drawn,
-   so effects from another theme would all play at once on switching to Rocket */
-function fire(e) { if (EVENT_TEXT[e] && !(e === 'ignition' && performance.now() - flightAt < 3000)) banner(tr(EVENT_TEXT[e])); if (visible(1)) rocket.event(e); }
-
-/* ---------- screen ---------- */
-const clockEl = $('cClock'); let clockTxt = '';
-function clock(t) {
-  if (t === clockTxt) return;
-  if (t.length !== clockTxt.length) { clockEl.textContent = ''; for (const ch of t) { const s = document.createElement('span'); s.className = ch === ':' ? 'c' : 'd'; s.textContent = ch; clockEl.appendChild(s); } }
-  else for (let i = 0; i < t.length; i++) if (t[i] !== clockTxt[i]) clockEl.children[i].textContent = t[i];
-  clockTxt = t;
-}
-const NEXT = [['tower', 'Clearing the tower in {t}'], ['stage1', 'Stage 1 separation in {t}'], ['space', 'Leaving the atmosphere in {t}'], ['stage2', 'Stage 2 separation in {t}'], ['orbit', 'Moon orbit in {t}']];
+/* ---------- screen: the view model (V), from the local session or from the device being followed, and the themes' read-outs ---------- */
 function paint() {
   if (mode === 'follow' && R) { V.st = R.st; V.play = R.play; V.active = R.active; V.total = R.total; V.pauses = R.pauses; V.goal = R.goal;
     V.eff = R.active > 0 ? Math.min(1, R.play / R.active) : 0; V.pw = R.pw; V.music = R.music && R.st === 'running'; V.hold = false; V.label = R.label; V.detail = R.detail; V.note = R.note; V.midi = R.midi; V.inst = R.inst; }
   else { V.st = session.state; V.play = session.play; V.active = session.active; V.total = session.total; V.pauses = session.pauses;
     V.goal = session.state === 'idle' ? S.goalMin * 60 : session.goal; V.eff = session.efficiency;
     V.pw = session.recentEfficiency; V.music = music; V.hold = session.holdLeft > 0; V.label = heard.label; V.detail = heard.detail; V.note = heard.note; V.midi = heard.midi; V.inst = kbInst; }
-  const st = V.st, fol = mode === 'follow';
+  V.follow = mode === 'follow'; V.followName = V.follow && R ? R.name : ''; V.demo = S.source === 'demo'; V.minute = V.follow ? null : session.minute;
+  let lv = 0; for (let i = 0; i < NB; i++) lv += bars[i]; V.level = Math.min(1, lv / NB * 2.2);
   if (app.dataset.music !== (V.music ? '1' : '0')) app.dataset.music = V.music ? '1' : '0';
   const won = V.st !== 'idle' && V.play >= V.goal ? '1' : '0'; if (app.dataset.goal !== won) app.dataset.goal = won;
-
-  let status, label = V.label, detail = V.detail, note = st === 'running' ? V.note : '';
-  if (st === 'idle') { status = tr('Ready when you are'); label = tr('Press Start, then play'); detail = tr('The timer only counts while an instrument is heard.'); }
-  else if (st === 'running') status = tr(V.hold ? 'Counting: a short pause' : V.music ? 'Counting: music heard' : 'Waiting for music');
-  else if (st === 'paused') { status = tr('Paused'); label = tr('Not listening'); detail = tr('Sound is ignored until you resume.'); }
-  else { status = tr('Session finished'); label = tr(fol ? 'The session has ended' : 'Nicely done'); detail = fol ? '' : tr('Start again whenever you like.'); }
-  if (fol) status = tr(R && R.name ? 'Following live ({name}): {status}' : 'Following live: {status}', { name: R && R.name, status: status.toLowerCase() });
-
-  const play = fmt(V.play), reached = V.play >= V.goal && st !== 'idle';
-  clock(play); text($('cTenths'), '.' + Math.floor(V.play * 10) % 10);
-  text($('cMic'), tr(st === 'running' ? (V.music ? 'Music' : fol ? 'Live' : S.source === 'demo' ? 'Demo' : 'Listening') : st === 'paused' ? 'Paused' : 'Mic off'));
-  text($('cStatus'), status); text($('cHeard'), label); text($('cDetail'), detail); text($('cNote'), noteText(note));
-  text($('cEff'), (V.eff * 100).toFixed(1) + '%'); width($('cEffBar'), V.eff);
-  text($('cGoalV'), fmt(V.goal)); text($('cGoal'), reached ? '' : goalLeft(V)); text($('cGoalK'), tr(reached ? 'Goal reached' : 'Practice goal')); width($('cGoalBar'), V.play / V.goal);
-  text($('cActive'), fmt(V.active));
-  text($('cTotal'), fmt(V.total)); text($('cPauses'), trn(V.pauses, '{n} pause', '{n} pauses'));
-
-  const rp = $('rPlay'), rpc = play.length > 5 ? 'big long' : 'big'; text(rp, play); if (rp.className !== rpc) rp.className = rpc;
-  text($('rActive'), fmt(V.active)); text($('rGoal'), fmt(V.goal)); text($('rGoalLeft'), reached ? tr('Reached') : goalLeft(V)); text($('rTotal'), fmt(V.total)); text($('rPauses'), String(V.pauses));
-  const km = sim.kmAt(sim.l); text($('rAltK'), tr(km < 1 ? 'Alt m' : 'Alt km')); text($('rAlt'), km < 1 ? String(Math.round(km * 1000)) : km < 100 ? km.toFixed(1) : Math.round(km).toLocaleString(MT.getLang() === 'en' ? 'en-US' : loc()));
-  powerBar('r', V.pw >= MT.LIFTOFF ? 'go' : '');
-  text($('rHeard'), heardLine(st, label));
-  let next = '';
-  if (st === 'idle') next = tr(sim.mode !== 'pad' ? 'Carrying on from earlier today' : 'Power follows your last minute');
-  else if (sim.mode === 'pad') next = sim.down > 0 ? tr('Rolling out a new rocket') : !fol && sim.ignited && sim.hold > 0 ? tr('Lift-off in {n}', { n: Math.max(1, Math.ceil(3 - sim.hold)) }) : tr('Lift-off at {n}% engine power', { n: Math.round(MT.LIFTOFF * 100) });
-  else if (sim.mode === 'fall') next = tr('Falling back to Earth');
-  else if (sim.mode === 'orbit') next = tr(sim.spinUp > 0 ? 'In Moon orbit, module spinning' : 'In orbit around the Moon');
-  else if (V.pw < 0.5) next = tr('Power below 50%: drifting');
-  else if (st === 'running' && !V.music && !sim.inSpace) next = tr('Losing power: falls below 50%');
-  else if (st === 'running' && !V.music) next = tr('Losing power. Keep playing');
-  else for (const n of NEXT) { const at = MT.MILESTONES[n[0]]; if (sim.fp < at) { next = tr(n[1], { t: fmt(Math.ceil(at - sim.fp)) }); break; } }
-  text($('rNext'), next);
-  const nf = flying(); if ($('rFlight').hidden === nf) { $('rFlight').hidden = !nf; $('hud').classList.toggle('has-flight', nf); }   // New flight, once off the pad
-  if (visible(2)) paintCity(st, fol, label);
-  if (visible(3)) paintDash(st, label);
-  if (visible(4)) paintRace(st, label);
-  if (visible(5)) paintFire(st, label);
 }
 /* the line under each theme's read-outs: what is heard while running, else the session's state */
-function heardLine(st, label) { return st === 'running' ? label : tr(st === 'paused' ? 'Paused: not listening' : st === 'idle' ? 'Press Start, then play' : 'Session finished'); }
+function heardLine(v) { return v.st === 'running' ? v.label : tr(v.st === 'paused' ? 'Paused: not listening' : v.st === 'idle' ? 'Press Start, then play' : 'Session finished'); }
 function goalLeft(v) { return tr('{t} left', { t: fmt(Math.ceil(v.goal - v.play)) }); }   // the play time still to go to the goal
-/* the Rocket and City power bars: the fill and Power are the last minute of playing, the tick and Efficiency the whole session */
-function powerBar(p, cls) {
-  const fill = $(p + 'Pw'), tick = $(p + 'Avg'), on = V.active > 0; width(fill, V.pw); if (fill.className !== cls) fill.className = cls;
-  text($(p + 'PwN'), Math.round(V.pw * 100) + '%'); text($(p + 'Eff'), Math.round(V.eff * 100) + '%');
-  if (tick.hidden === on) tick.hidden = !on; if (on) left(tick, V.eff);
+/* a power bar (Rocket and City): the fill and Power are the last minute of playing, the tick and Efficiency the whole session.
+   els: { fill, tick, power, eff }, the bar's fill, its tick and the two figures */
+function powerBar(els, v, cls) {
+  const on = v.active > 0; width(els.fill, v.pw); if (els.fill.className !== cls) els.fill.className = cls;
+  text(els.power, Math.round(v.pw * 100) + '%'); text(els.eff, Math.round(v.eff * 100) + '%');
+  if (els.tick.hidden === on) els.tick.hidden = !on; if (on) left(els.tick, v.eff);
 }
-/* dash theme */
-function dashStep(dt, running, mus, eff, progress) { const on = pendingOnsets; pendingOnsets = 0; dashAt = performance.now(); dash.update(Math.min(0.1, dt), { running: running, music: mus, eff: eff, onsets: on, progress: progress }); }
-function dashResult() { const pct = Math.min(100, Math.floor(dash.progress * 100)), a = dash.attempts;
-  return dash.done ? trn(a, 'Level complete in {n} attempt', 'Level complete in {n} attempts') : trn(a, '{pct}% in {n} attempt', '{pct}% in {n} attempts', { pct: pct }); }
-let dBannerT = 0;
-function dashBanner(msg) { const b = $('dBanner'); b.textContent = msg; b.classList.add('on'); clearTimeout(dBannerT); dBannerT = setTimeout(() => b.classList.remove('on'), 3200); }
-function paintDash(st, label) {
-  const p = V.goal > 0 ? V.play / V.goal : 0, playTxt = fmt(V.play), el = $('dPlay'), cls = playTxt.length > 5 ? 'big long' : 'big', reached = st !== 'idle' && V.play >= V.goal;
-  text(el, playTxt); if (el.className !== cls) el.className = cls;
-  width($('dBar'), p); text($('dPct'), Math.min(100, Math.floor(p * 100)) + '%');
-  text($('dGoal'), fmt(V.goal)); text($('dGoalLeft'), reached ? tr('Reached') : goalLeft(V)); text($('dPauses'), String(V.pauses));
-  text($('dAtt'), String(dash.attempts)); text($('dJumps'), String(dash.jumps)); text($('dSpeed'), dash.tag); text($('dPw'), Math.round(V.pw * 100) + '%'); text($('dEff'), Math.round(V.eff * 100) + '%');
-  text($('dHeard'), heardLine(st, label));
-  let hint;
-  if (st === 'idle') hint = tr('Play to run the course');
-  else if (st === 'paused') hint = tr('Paused: checkpoint saved');
-  else if (st === 'stopped') hint = dashResult();
-  else if (dash.mode === 'crash' || dash.mode === 'wait') hint = tr('Crashed. Play to try again');
-  else if (dash.mode === 'idle') hint = tr('Play to start running');
-  else if (dash.silentT > 0) hint = tr('Keep playing! Spike in {n}', { n: Math.max(1, Math.ceil(MT.DASH.GRACE - dash.silentT)) });
-  else hint = tr(dash.done ? 'Level complete! Bonus run' : 'Every new note is a jump');
-  text($('dHint'), hint);
-}
-/* Grand Prix read-outs: the timing screen, the race order, the start lights and the banners */
-let gBannerT = 0;
-function raceBanner(msg, sub, kind, ms) {
-  const b = $('gBanner'); b.textContent = msg; if (sub) { const s = document.createElement('small'); s.textContent = sub; b.append(s); }
-  b.dataset.kind = kind || ''; b.classList.add('on'); clearTimeout(gBannerT); if (ms) gBannerT = setTimeout(() => b.classList.remove('on'), ms);
-}
-function hideRaceBanner() { clearTimeout(gBannerT); $('gBanner').classList.remove('on'); }
-function raceEvent(e) {
-  if (visible(4)) raceView.event(e);
-  if (e === 'go') raceBanner(tr('Lights out'), tr('And away you go'), 'red', 1800);
-  else if (e === 'up' && !race.finished) raceBanner(tr('Up to P{n}', { n: race.pos }), race.pos === 1 ? tr('You lead the race') : '', '', 1600);
-  else if (e === 'red') raceBanner(tr('Red flag'), tr('The race is paused'), 'red', 0);
-  else if (e === 'green') raceBanner(tr('Green flag'), tr('Rejoining the race in P{n}', { n: race.pos }), 'green', 1800);
-  else if (e === 'finish') raceDoneAt = performance.now();   // the trophy card names the place
-}
-const gapText = l => Math.abs(l) >= 1 ? MT.raceGap(l) : tr('{n} s', { n: MT.raceGap(l) });   // seconds, or whole laps
-function raceHint(st) {
-  const a = race.ahead, b = race.behind, laps = trn(Math.floor(race.dist / MT.RACE.LAPU), '{n} lap', '{n} laps');
-  if (st === 'idle') return tr('You start at the back of the grid. Play to start the race');
-  if (st === 'stopped') return race.racing ? tr(race.finished ? 'Finished P{p} after {laps}' : 'P{p} after {laps}', { p: race.finished ? race.finishPos : race.pos, laps: laps }) : tr('Press Start for a new race');
-  if (race.mode === 'grid' || race.mode === 'lights') return st === 'paused' ? tr('Paused on the grid') : race.lit < 5 ? tr('Keep playing to light the start lights: {n} of 5', { n: race.lit }) : tr('Lights out any moment now');
-  if (race.mode === 'red') return tr(race.pit && race.pit.phase === 'in' ? 'Red flag. Heading into the pit lane' : 'Waiting in the pit. Every car holds its place');
-  if (race.inPit) return tr(race.limiter ? 'Pit lane speed limit. Rejoining in P{n}' : 'Leaving the pit lane. Rejoining in P{n}', { n: race.pos });
-  if (race.finished && performance.now() - raceDoneAt < 8000) return tr('Chequered flag. You finished P{n}', { n: race.finishPos });
-  if (!V.music) return b && -b.lead * MT.RACE.LAPU / MT.RACE.VNOM < 1.2 ? tr('Quiet seconds slow you. {code} is {gap} behind', { code: b.code, gap: gapText(b.lead) }) : tr('Quiet seconds are slowing you down');
-  if (!a) return b ? tr('Leading the race by {gap}', { gap: gapText(b.lead) }) : tr('Leading the race');
-  if (a.lead * MT.RACE.LAPU / MT.RACE.VNOM < 1) return tr('DRS open. {code} is {gap} ahead', { code: a.code, gap: gapText(a.lead) });
-  return tr('Chasing {code} for P{n}', { code: a.code, n: race.pos - 1 });
-}
-function paintRace(st, label) {
-  const playTxt = fmt(V.play), el = $('gPlay'), cls = playTxt.length > 5 ? 'big long' : 'big', reached = st !== 'idle' && V.play >= V.goal;
-  text(el, playTxt); if (el.className !== cls) el.className = cls;
-  text($('gLap'), race.finished ? tr('{n}, extra', { n: race.lap }) : String(race.lap)); width($('gBar'), V.goal > 0 ? V.play / V.goal : 0);
-  const box = $('gBarBox'); if (box.classList.contains('flag') !== race.finished) box.classList.toggle('flag', race.finished);   // chequered once the goal is reached
-  text($('gGoal'), fmt(V.goal)); text($('gGoalLeft'), reached ? tr('Reached') : goalLeft(V)); text($('gPauses'), String(V.pauses));
-  text($('gPos'), 'P' + race.pos);
-  const gapIn = c => !race.racing || !c ? '\u2013' : gapText(c.lead);
-  text($('gGap'), gapIn(race.ahead)); text($('gBehind'), gapIn(race.behind));
-  text($('gPw'), Math.round(V.pw * 100) + '%'); text($('gEff'), Math.round(V.eff * 100) + '%');
-  text($('gHeard'), heardLine(st, label));
-  text($('gHint'), raceHint(st));
-  const red = race.mode === 'red' ? 'red' : ''; if ((app.dataset.flag || '') !== red) app.dataset.flag = red;
-  const L = $('gLights'), lights = race.mode === 'lights' && st !== 'idle'; if (L.hidden === lights) L.hidden = !lights;
-  if (lights) [...L.children].forEach((p, i) => { if (p.classList.contains('on') !== i < race.lit) p.classList.toggle('on', i < race.lit); });
-  // the race order: the leader, and you with the cars either side of you
-  const all = race.cars.map(c => ({ code: c.code, lead: c.lead, col: c.c1, me: false })); all.push({ code: tr('YOU'), lead: 0, col: MT.RACE.YOU[2], me: true });
-  all.sort((p, q) => q.lead - p.lead);
-  const me = all.findIndex(o => o.me), rows = new Set([0]);
-  if (me <= 3) [1, 2, 3].forEach(i => rows.add(i)); else [me - 1, me, me + 1].forEach(i => { if (i < all.length) rows.add(i); });
-  let html = '', last = -1;
-  for (const i of [...rows].sort((p, q) => p - q)) {
-    if (i > last + 1) html += '<li class="gap"></li>';
-    const o = all[i], gap = o.me && race.inPit ? tr('PIT') : !race.racing ? '' : i === 0 ? tr('Leader') : '+' + MT.raceGap(all[i - 1].lead - o.lead);
-    html += '<li' + (o.me ? ' class="me"' : '') + '><span class="p">' + (i + 1) + '</span><span class="s" style="background:' + o.col + '"></span><span class="c">' + o.code + '</span><span class="g">' + gap + '</span></li>';
-    last = i;
-  }
-  const tw = $('gTower'); if (cache.get(tw) !== html) { cache.set(tw, html); tw.innerHTML = html; }
-}
-/* Fireworks read-outs: the bar fills toward the goal and its grand finale; Shells counts the player's shells (each note's colour shows in the sky);
-   Intensity is the last minute of playing (what the other themes call Power): how many shells are in the sky at once, and how big */
-let fBannerT = 0;
-function fireBanner(msg) { const b = $('fBanner'); b.textContent = msg; b.classList.add('on'); clearTimeout(fBannerT); fBannerT = setTimeout(() => b.classList.remove('on'), 3200); }
-function hideFireBanner() { clearTimeout(fBannerT); $('fBanner').classList.remove('on'); }
-function fireHint(st) {
-  const shells = fw.shells;
-  if (st === 'idle') return tr('Every note you play sends up a firework');
-  if (st === 'stopped') return shells ? trn(shells, '{n} firework lit up the sky', '{n} fireworks lit up the sky') : tr('Press Start for a new show');
-  if (st === 'paused') return tr(fw.inFinale ? 'Paused. The finale waits for you' : 'Paused. The sky waits for you');
-  if (fw.inFinale) return tr('Grand finale!');
-  if (!V.music) return tr('The sky is waiting. Play a note');
-  if (fw.finaleDone) return tr('Goal reached. Every note is an encore');
-  if (V.pw < 0.3) return tr('Keep playing: the more you play, the more fireworks');
-  return tr('Every note has its own colour');
-}
-function paintFire(st, label) {
-  const p = V.goal > 0 ? V.play / V.goal : 0, playTxt = fmt(V.play), el = $('fPlay'), cls = playTxt.length > 5 ? 'big long' : 'big', reached = st !== 'idle' && V.play >= V.goal;
-  text(el, playTxt); if (el.className !== cls) el.className = cls;
-  width($('fBar'), p); text($('fPct'), Math.min(100, Math.floor(p * 100)) + '%');
-  text($('fGoal'), fmt(V.goal)); text($('fGoalLeft'), reached ? tr('Reached') : goalLeft(V)); text($('fPauses'), String(V.pauses));
-  text($('fShells'), String(fw.shells)); text($('fPw'), Math.round(V.pw * 100) + '%'); text($('fEff'), Math.round(V.eff * 100) + '%');
-  text($('fHeard'), heardLine(st, label));
-  text($('fHint'), fireHint(st));
-}
-/* city theme read-outs */
-const CITY_TEXT = { impact: 'Impact!', building: 'A building was hit', cannonLost: 'A cannon was hit', cannonBack: 'Cannon repaired', rebuilt: 'Building rebuilt' };
-let cityBannerAt = 0, cityBannerT = 0, cityWasArmed = false;
-function cityBanner(msg, force) { const now = performance.now(); if (!force && now - cityBannerAt < 2500) return; cityBannerAt = now;
-  const b = $('yBanner'); b.textContent = msg; b.classList.add('on'); clearTimeout(cityBannerT); cityBannerT = setTimeout(() => b.classList.remove('on'), 2600); }
-function paintCity(st, fol, label) {
-  const cs = city.stats, armed = st === 'running' && V.music;
-  while (city.events.length) { const e = city.events.shift(); if (CITY_TEXT[e]) cityBanner(tr(CITY_TEXT[e]), e === 'cannonBack' || e === 'rebuilt'); }
-  if (armed && !cityWasArmed && st === 'running') cityBanner(tr('Cannons firing')); cityWasArmed = armed;
-  const playTxt = fmt(V.play), playEl = $('yPlay'), longCls = playTxt.length > 5 ? 'big long' : 'big'; text(playEl, playTxt); if (playEl.className !== longCls) playEl.className = longCls;
-  text($('yDown'), String(cs.down)); text($('yImp'), String(cs.imp));
-  text($('yBld'), city.ready ? cs.standing + '/' + cs.total : '-');
-  const can = $('yCan'), cc = cs.cannons === 3 ? 'ok' : cs.cannons === 0 ? 'bad' : ''; text(can, cs.cannons + '/3'); if (can.className !== cc) can.className = cc;
-  powerBar('y', V.pw >= 0.8 ? 'go' : V.pw >= 0.5 ? 'ok' : '');
-  const reached = st !== 'idle' && V.play >= V.goal;
-  text($('yGoal'), fmt(V.goal)); text($('yGoalLeft'), reached ? tr('Reached') : goalLeft(V)); text($('yPauses'), String(V.pauses));
-  text($('yHeard'), heardLine(st, label));
-  let hint;
-  if (st === 'idle') hint = tr('Play to defend the city');
-  else if (st === 'paused') hint = tr('Paused: the sky is frozen');
-  else if (st === 'stopped') hint = tr('{down} shot down, {impacts}', { down: cs.down, impacts: trn(cs.imp, '{n} impact', '{n} impacts') });
-  else if (!V.music) hint = tr('Cannons silent. Play to fire');
-  else if (city.next) hint = tr(city.next.what === 'cannon' ? 'Cannon back in {t} of play' : 'Next rebuild in {t} of play', { t: fmt(Math.ceil(city.next.left)) });
-  else hint = tr('Cannons firing');
-  text($('yHint'), hint);
-  const msg = $('yMsg'), m = city.failed ? tr('The 3D city could not load. It needs an internet connection.') : !city.ready ? tr('Building the city\u2026') : '';
-  if (msg.hidden !== !m) msg.hidden = !m; if (m) text(msg, m);
-}
-function drawCity(dt) { if (!city.ready) { city.ensure(); return; } city.frame(dt, { running: V.st === 'running', music: V.music, power: V.pw }); }
 function paintControls() {
   const st = mode === 'follow' ? 'follow' : session.state;
   app.dataset.state = st;
@@ -589,265 +380,80 @@ function askEnd() {
   themeSheet($('dlgEnd'), false); if (!$('dlgEnd').open) $('dlgEnd').showModal();
 }
 /* a question asked over a theme takes its look; asked from the Home Screen (or in Classic) it keeps the plain one */
-function themeSheet(d, home) { if (home || skin === 0) delete d.dataset.skin; else d.dataset.skin = SKINS[skin]; }
-/* Start a new flight: the rocket goes back to the launch pad. Play time, the goal and the trophy are not touched.
-   The time is kept, so sessions that had ended by then no longer carry their flight on (MT.rocketCarry) */
-const FLIGHT_KEY = 'musicTimer.newFlight';
-let flightFrom = 0; try { flightFrom = +localStorage.getItem(FLIGHT_KEY) || 0; } catch (e) {}
-const flying = () => mode === 'local' && (sim.mode === 'ascent' || sim.mode === 'orbit');
-function askFlight(home) {
-  $('flightP').textContent = tr(home ? 'The rocket goes back to the launch pad, and your next session lifts off from there.'
-    : 'The rocket goes back to the launch pad and lifts off again as you play. Your playing time stays as it is.');
-  themeSheet($('dlgFlight'), home); if (!$('dlgFlight').open) $('dlgFlight').showModal();
+function themeSheet(d, home) { if (home || skin === 0) delete d.dataset.skin; else d.dataset.skin = TH[skin].id; }
+/* a question a theme asks (host.ask): o = { title, text, yes, no, home }, in its own words; true if the answer is yes */
+let askDone = null;
+function ask(o) {
+  if (askDone) askDone(false);
+  $('askH').textContent = o.title; $('askP').textContent = o.text; $('askYes').textContent = o.yes; $('askNo').textContent = o.no;
+  themeSheet($('dlgAsk'), o.home); if (!$('dlgAsk').open) $('dlgAsk').showModal();
+  return new Promise(res => { askDone = res; });
 }
-function newFlight() {
-  flightFrom = Date.now(); try { localStorage.setItem(FLIGHT_KEY, String(flightFrom)); } catch (e) {}
-  sim.reset(); rocket.reset(); banner(tr('A new flight')); flightAt = performance.now(); push(); if (homeOn) renderHome();
-}
-$('rFlight').onclick = () => { if (flying()) askFlight(false); };
-$('flightYes').onclick = () => { $('dlgFlight').close(); newFlight(); };
-$('flightNo').onclick = () => $('dlgFlight').close();
+function answer(yes) { const f = askDone; askDone = null; if ($('dlgAsk').open) $('dlgAsk').close(); if (f) f(yes); }
+$('askYes').onclick = () => answer(true);
+$('askNo').onclick = () => answer(false);
+$('dlgAsk').addEventListener('close', () => answer(false));
 $('endYes').onclick = () => { $('dlgEnd').close(); stop(); };
 $('endNo').onclick = () => $('dlgEnd').close();
 $('btnUnfollow').onclick = stopFollow; $('btnSummary').onclick = () => { if (current) openSummary(current.rec, false); };
-
-/* ---------- classic sound pictures: tap the picture to change it ----------
-   piano       - the notes you play rise as bars from a keyboard, the key under each one lit
-   spectrogram - the full spectrum over the last few seconds on a musical scale: the note and every overtone as bright lines
-   trail       - the melody drawn as a line across a treble staff
-   waterfall   - a scrolling picture of the overtones: clean stripes for an instrument, smears for talking and noise
-   halo        - a ring of bars around the note name */
-const VIZ = [['piano', 'Piano roll'], ['spectrogram', 'Spectrogram'], ['trail', 'Pitch trail'], ['waterfall', 'Harmonic waterfall'], ['halo', 'Halo']];
-const viz = $('viz'), vg = viz.getContext('2d'), vizBox = $('vizBox');
-let COL = { rule: '#2C3A4F', mute: '#7C8AA1', accent: '#86DCC0', ink: '#F4F7FB' }, colN = 0, vizI = Math.max(0, VIZ.findIndex(v => v[0] === S.viz)), vizNameT = 0, lastSwipe = 0;
-function setViz(i, announce) {
-  vizI = ((i % VIZ.length) + VIZ.length) % VIZ.length; S.viz = VIZ[vizI][0]; saveS();
-  vizBox.setAttribute('aria-label', tr('Sound picture: {name}. Tap to change', { name: tr(VIZ[vizI][1]) }));
-  if (announce) { const n = $('vizName'); n.textContent = tr(VIZ[vizI][1]); n.classList.add('on'); clearTimeout(vizNameT); vizNameT = setTimeout(() => n.classList.remove('on'), 1700); }
-}
-vizBox.addEventListener('click', () => { if (performance.now() - lastSwipe > 400) setViz(vizI + 1, true); });
-vizBox.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setViz(vizI + 1, true); } });
-setViz(vizI, false);
-
-/* what was played, kept for the pictures that show time: a pitch history, and whole notes for the piano roll */
-const hist = [], notes = [], sparks = []; let vt = 0, curKey = null, candKey = null, candT = 0;
-function trackNotes(dt) {
-  vt += dt; const live = V.st === 'running', m = live && V.midi != null ? V.midi : null, mu = live && V.music;
-  hist.push({ t: vt, m: m, mu: mu }); while (hist.length && vt - hist[0].t > 6) hist.shift();
-  let k = mu && m != null ? Math.round(m) : null;
-  if (k != null && curKey != null && Math.abs(m - curKey) < 0.7) k = curKey;          // vibrato does not break a note in two
-  if (k === curKey) { candKey = k; candT = 0; }
-  else { if (k !== candKey) { candKey = k; candT = 0; } candT += dt;
-    if (candT >= (k == null ? 0.09 : 0.05)) { if (curKey != null && notes.length) notes[notes.length - 1].t1 = vt; curKey = k; if (k != null) notes.push({ k: k, t0: vt, t1: -1 }); } }
-  while (notes.length && notes[0].t1 > 0 && vt - notes[0].t1 > 8) notes.shift();
-}
-const hexRgb = h => { const m = /^#?([0-9a-f]{6})$/i.exec(h.trim()); const n = m ? parseInt(m[1], 16) : 0x86DCC0; return [n >> 16, (n >> 8) & 255, n & 255]; };
-function rrect(g, x, y, w, h, r) { g.beginPath(); if (g.roundRect) g.roundRect(x, y, w, h, Math.min(r, w / 2, h / 2)); else g.rect(x, y, w, h); }
-
-/* piano roll, after the falling-note piano videos: a dark stage, glowing bars, a lit key, a blue glow along the keyboard */
-/* The keyboard fits the instrument that has been heard: its whole range and nothing more, so the keys are as wide as they can be.
-   Sounding ranges, as piano key numbers (middle C = 60). A note played outside the range stretches the keyboard to reach it. */
-const RANGES = { Violin: [55, 100], Cello: [36, 81], Flute: [60, 96], Clarinet: [50, 94], Piano: [21, 108] }, ANY_RANGE = [36, 96];
-const BLACK = [0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0], WIDX = [0, 0, 1, 1, 2, 3, 3, 4, 4, 5, 5, 6], KEYN = ['C', 'C\u266F', 'D', 'E\u266D', 'E', 'F', 'F\u266F', 'G', 'A\u266D', 'A', 'B\u266D', 'B'];
-const pc = k => ((k % 12) + 12) % 12, whiteU = k => 7 * Math.floor(k / 12) + WIDX[pc(k)], keyName = k => noteText(KEYN[pc(k)] + (Math.floor(k / 12) - 1));
-let kbLo = whiteU(ANY_RANGE[0]), kbHi = whiteU(ANY_RANGE[1]) + 1, kbShown = null, kbEnds = ANY_RANGE;
-function fitKeyboard(dt) {
-  const inst = RANGES[V.inst] ? V.inst : '', r = RANGES[inst] || ANY_RANGE; let lo = r[0], hi = r[1];
-  for (const n of notes) if (n.t1 < 0 || vt - n.t1 < 3.4) { if (n.k < lo) lo = n.k; if (n.k > hi) hi = n.k; }      // every note still on the stage stays in view
-  lo = Math.max(12, lo); hi = Math.min(120, hi); if (BLACK[pc(lo)]) lo--; if (BLACK[pc(hi)]) hi++;
-  const tLo = whiteU(lo), tHi = whiteU(hi) + 1, f = kbShown === null || reduceMotion ? 1 : Math.min(1, dt * 5);
-  kbLo += (tLo - kbLo) * f; kbHi += (tHi - kbHi) * f; kbEnds = [lo, hi];
-  kbShown = inst;
-}
-/* where a key sits across the picture: white keys one unit wide, black keys on the line between two whites */
-function keyBox(k, ww) { const u = whiteU(k); return BLACK[pc(k)] ? { x: (u + 1 - kbLo) * ww, w: Math.max(3, ww * 0.62), black: true } : { x: (u + 0.5 - kbLo) * ww, w: ww, black: false }; }
-function drawPiano(w, h, dt) {
-  fitKeyboard(dt);
-  // keys in a piano's proportions, 5.5 times as long as they are wide, but no more than 40% of the picture, so the notes keep room to fall
-  const g = vg, ww = w / (kbHi - kbLo), kbH = Math.max(14, Math.min(ww * 5.5, h * 0.4)), top = h - kbH, speed = top / 3.2, lit = curKey != null ? curKey : -1;
-  g.save(); rrect(g, 0, 0, w, h, 10); g.clip();
-  g.fillStyle = '#080D15'; g.fillRect(0, 0, w, h);
-  for (const n of notes) { const yB = n.t1 < 0 ? top : top - (vt - n.t1) * speed, yT = Math.max(-6, top - (vt - n.t0) * speed); if (yB < 0) continue;
-    const b = keyBox(n.k, ww), bw = Math.max(4, b.w * (b.black ? 1 : 0.74));
-    g.fillStyle = COL.accent; g.globalAlpha = 0.92; rrect(g, b.x - bw / 2, yT, bw, Math.max(3, yB - yT), 3); g.fill();
-    g.globalAlpha = 0.9; g.strokeStyle = '#E3FFF5'; g.lineWidth = 1; rrect(g, b.x - bw / 2 + 0.5, yT + 0.5, bw - 1, Math.max(2, yB - yT - 1), 3); g.stroke(); }
-  g.globalAlpha = 1;
-  if (top > 40) { g.font = '11px Inter, system-ui, sans-serif'; g.fillStyle = COL.mute; g.textBaseline = 'alphabetic';                // the lowest and highest notes on the keyboard
-    g.textAlign = 'left'; g.fillText(keyName(kbEnds[0]), 6, top - 16); g.textAlign = 'right'; g.fillText(keyName(kbEnds[1]), w - 6, top - 16); g.textAlign = 'start'; }
-  const glow = g.createLinearGradient(0, top - 12, 0, top); glow.addColorStop(0, 'rgba(60,130,255,0)'); glow.addColorStop(1, 'rgba(60,130,255,0.5)');
-  g.fillStyle = glow; g.fillRect(0, top - 12, w, 12); g.fillStyle = '#5B9BFF'; g.fillRect(0, top - 1, w, 2);
-  const gap = ww > 5 ? 1 : 0.5, u0 = Math.floor(kbLo) - 1, u1 = Math.ceil(kbHi) + 1, litU = lit >= 0 && !BLACK[pc(lit)] ? whiteU(lit) : -1;
-  // white keys shaded under the glow line and rounded at the near end; black keys with a lighter front edge
-  const ivory = g.createLinearGradient(0, top, 0, h); ivory.addColorStop(0, '#CDD5E0'); ivory.addColorStop(Math.min(0.5, 10 / kbH), '#EEF2F7'); ivory.addColorStop(1, '#F8FAFC');
-  const end = (x, y, bw, bh, r) => { g.beginPath(); if (g.roundRect) g.roundRect(x, y, bw, bh, [0, 0, r, r]); else g.rect(x, y, bw, bh); g.fill(); };
-  const rW = Math.min(4, ww * 0.12), bH = kbH * 0.62, lip = Math.max(1, Math.min(5, bH * 0.07));
-  for (let u = u0; u <= u1; u++) { g.fillStyle = u === litU ? COL.accent : ivory; end((u - kbLo) * ww + gap / 2, top + 1, ww - gap, kbH - 1, rW); }
-  const kA = 12 * Math.floor(u0 / 7) - 1, kZ = 12 * Math.ceil(u1 / 7) + 12;
-  for (let k = kA; k <= kZ; k++) if (BLACK[pc(k)]) { const b = keyBox(k, ww); if (b.x < -b.w || b.x > w + b.w) continue;
-    g.fillStyle = k === lit ? COL.accent : '#0B1019'; end(b.x - b.w / 2, top + 1, b.w, bH, rW * 0.6);
-    if (k !== lit) { g.fillStyle = '#323C4E'; g.fillRect(b.x - b.w / 2 + 1, top + 1 + bH - lip - 1, b.w - 2, lip); } }
-  if (lit >= 0) { const b = keyBox(lit, ww);                                               // where the note meets the key: a flash and a few sparks
-    g.fillStyle = COL.accent; g.globalAlpha = 0.35; g.beginPath(); g.arc(b.x, top, 11, 0, 7); g.fill();
-    g.fillStyle = '#FFFFFF'; g.globalAlpha = 0.95; g.beginPath(); g.arc(b.x, top, 4.5, 0, 7); g.fill(); g.globalAlpha = 1;
-    if (!reduceMotion && Math.random() < dt * 40 && sparks.length < 40) sparks.push({ x: b.x + (Math.random() - 0.5) * 8, y: top - 2, vx: (Math.random() - 0.5) * 46, vy: -18 - Math.random() * 46, t: 0, life: 0.45 + Math.random() * 0.45 }); }
-  for (let i = sparks.length - 1; i >= 0; i--) { const s = sparks[i]; s.t += dt; if (s.t >= s.life) { sparks.splice(i, 1); continue; }
-    s.x += s.vx * dt; s.y += s.vy * dt; s.vy += 30 * dt; g.globalAlpha = 1 - s.t / s.life; g.fillStyle = i % 3 ? COL.accent : '#FFFFFF'; g.fillRect(s.x, s.y, 1.6, 1.6); }
-  g.globalAlpha = 1; g.restore();
-}
-
-function drawTrail(w, h) {
-  const g = vg, y = m => Math.max(5, Math.min(h - 5, h - (m - 46) / 40 * h)), head = w - 48, pps = head / 4.5;
-  g.fillStyle = COL.rule; for (const m of [64, 67, 71, 74, 77]) g.fillRect(0, Math.round(y(m)), w, 1);
-  g.lineCap = 'round';
-  for (let i = 1; i < hist.length; i++) { const a = hist[i - 1], b = hist[i], x = head - (vt - b.t) * pps; if (x < -4) continue;
-    if (a.mu && b.mu && a.m != null && b.m != null) { g.strokeStyle = COL.accent; g.globalAlpha = 0.3 + 0.7 * Math.max(0, x / head); g.lineWidth = 3; g.beginPath(); g.moveTo(head - (vt - a.t) * pps, y(a.m)); g.lineTo(x, y(b.m)); g.stroke(); }
-    else if (b.m != null) { g.fillStyle = COL.mute; g.globalAlpha = 0.5 * Math.max(0, x / head); g.fillRect(x - 1, y(b.m) - 1, 2, 2); } }
-  g.globalAlpha = 1; const last = hist[hist.length - 1];
-  if (last && last.mu && last.m != null) { const hy = y(last.m); g.fillStyle = COL.accent; g.beginPath(); g.arc(head, hy, 5, 0, 7); g.fill();
-    g.font = '800 15px Inter, system-ui, sans-serif'; g.textBaseline = 'middle'; g.fillText(noteText(V.note || ''), head + 10, Math.max(10, Math.min(h - 10, hy))); }
-}
-
-/* spectrogram: one column per detector frame (46 ms), taken from the detector's full power spectrum, about 11 Hz per bin.
-   Rows run from 60 Hz to 6 kHz on a log scale, so each octave gets the same height, like the keyboard. Colour follows the
-   loudest recent sound over a 70 dB range, so a quiet microphone still shows its overtones while silence stays dark.
-   A device following a session has no spectrum, only the 44 shared level bands, so it draws its columns from those. */
-const SG_ROWS = 192, SG_COLS = 150, SG_LO = 60, SG_HI = 6000, SG_DT = 0.046, SG_RANGE = 70;
-const sgCv = document.createElement('canvas'); sgCv.width = SG_COLS; sgCv.height = SG_ROWS;
-const sgG = sgCv.getContext('2d'), sgCol = sgG.createImageData(1, SG_ROWS), sgV = new Float32Array(SG_ROWS);
-let sgAt = 0, sgAcc = 0, sgRef = -40, sgInit = false;
-const SG_LUT = (function () {                                   // near black, violet, magenta, orange, yellow, then pale yellow: each step louder is a new colour
-  const stops = [[0, 0x080D15], [0.18, 0x2A1260], [0.38, 0x7A1FA2], [0.56, 0xD8327E], [0.72, 0xFF6A3D], [0.87, 0xFFC23A], [1, 0xFFF6C8]], lut = new Uint8Array(256 * 3);
-  for (let i = 0; i < 256; i++) { const t = i / 255; let j = 0; while (j < stops.length - 2 && t > stops[j + 1][0]) j++;
-    const [t0, c0] = stops[j], [t1, c1] = stops[j + 1], u = Math.min(1, Math.max(0, (t - t0) / (t1 - t0)));
-    for (let k = 0; k < 3; k++) { const sh = 16 - 8 * k, a = (c0 >> sh) & 255, b = (c1 >> sh) & 255; lut[i * 3 + k] = Math.round(a + (b - a) * u); } }
-  return lut;
-})();
-const sgY = (f, h) => h * (1 - Math.log(f / SG_LO) / Math.log(SG_HI / SG_LO));   // where a frequency sits in a picture h high
-function sgColumn(live) {
-  if (!live) sgV.fill(0);
-  else if (A.det && mode !== 'follow') {
-    const P = A.det.P, bh = A.det.binHz, top = P.length - 2, step = Math.pow(SG_HI / SG_LO, 1 / SG_ROWS); let peak = -200;
-    for (let r = 0, f0 = SG_LO; r < SG_ROWS; r++, f0 *= step) {
-      const x0 = f0 / bh, x1 = f0 * step / bh; let p;
-      if (x1 - x0 < 1) { const x = Math.min(top, (x0 + x1) / 2), k = Math.floor(x), u = x - k; p = P[k] * (1 - u) + P[k + 1] * u; }   // low notes: between two bins
-      else { p = 0; for (let k = Math.floor(x0), e = Math.min(top, Math.ceil(x1)); k <= e; k++) if (P[k] > p) p = P[k]; }          // high notes: the strongest bin in the row
-      const d = 10 * Math.log10(p + 1e-20); sgV[r] = d; if (d > peak) peak = d; }
-    sgRef = Math.max(peak, sgRef - 0.15, -40);                      // follows a louder sound at once and a quieter one by about 3 dB a second
-    for (let r = 0; r < SG_ROWS; r++) { const v = (sgV[r] - sgRef + SG_RANGE) / SG_RANGE; sgV[r] = v <= 0 ? 0 : v >= 1 ? 1 : Math.pow(v, 1.25); }
-  } else {
-    const L = Math.log(5000 / 70), step = Math.pow(SG_HI / SG_LO, 1 / SG_ROWS);
-    for (let r = 0, f = SG_LO * Math.sqrt(step); r < SG_ROWS; r++, f *= step) {
-      const x = NB * Math.log(f / 70) / L - 0.5, k = Math.floor(x), u = x - k;
-      const a = k >= 0 && k < NB ? bars[k] : 0, b = k + 1 >= 0 && k + 1 < NB ? bars[k + 1] : 0; sgV[r] = Math.pow(a + (b - a) * u, 1.3); }
-  }
-  const d = sgCol.data;
-  for (let r = 0; r < SG_ROWS; r++) { const o = (SG_ROWS - 1 - r) * 4, c = Math.round(sgV[r] * 255) * 3; d[o] = SG_LUT[c]; d[o + 1] = SG_LUT[c + 1]; d[o + 2] = SG_LUT[c + 2]; d[o + 3] = 255; }
-  sgG.putImageData(sgCol, sgAt, 0); sgAt = (sgAt + 1) % SG_COLS;
-}
-function drawSpectrogram(w, h, dt) {
-  const g = vg;
-  if (!sgInit) { sgInit = true; sgG.fillStyle = '#080D15'; sgG.fillRect(0, 0, SG_COLS, SG_ROWS); }
-  sgAcc += dt; let n = 0; while (sgAcc >= SG_DT && n++ < 8) { sgAcc -= SG_DT; sgColumn(V.st === 'running'); } if (sgAcc > 0.5) sgAcc = 0;
-  g.save(); rrect(g, 0, 0, w, h, 10); g.clip(); g.imageSmoothingEnabled = true;
-  const cw = w / (SG_COLS - 1), x0 = -sgAcc / SG_DT * cw, a = SG_COLS - sgAt;          // oldest column on the left; slides a little each frame so the scroll is smooth
-  g.drawImage(sgCv, sgAt, 0, a, SG_ROWS, x0, 0, a * cw, h);
-  if (sgAt > 0) g.drawImage(sgCv, 0, 0, sgAt, SG_ROWS, x0 + a * cw, 0, sgAt * cw, h);
-  g.font = '11px Inter, system-ui, sans-serif'; g.textBaseline = 'middle'; g.textAlign = 'left';
-  const oct = sgY(SG_LO, h) - sgY(2 * SG_LO, h), every = oct < 22 ? 2 : 1;                 // a short picture labels every other C
-  for (let o = 2; o <= 8; o++) { const y = Math.round(sgY(440 * Math.pow(2, (12 * (o + 1) - 69) / 12), h)) + 0.5; if (y < 8 || y > h - 6) continue;   // each C, from C2 up
-    g.fillStyle = 'rgba(244,247,251,.08)'; g.fillRect(0, y, w, 1);
-    if (o % every === 0) { g.shadowColor = 'rgba(8,13,21,.95)'; g.shadowBlur = 4; g.fillStyle = COL.mute; g.fillText(noteText('C' + o), 6, y - 7); g.shadowBlur = 0; } }
-  g.shadowColor = 'rgba(8,13,21,.95)'; g.shadowBlur = 4;                                         // labels stay readable over bright overtones
-  if (V.st === 'running' && V.music && V.midi != null) {                                        // the note being played, at the right edge
-    const f = 440 * Math.pow(2, (V.midi - 69) / 12), y = sgY(f, h);
-    if (y > 4 && y < h - 4) { g.fillStyle = COL.accent; g.beginPath(); g.moveTo(w - 2, y - 6); g.lineTo(w - 10, y); g.lineTo(w - 2, y + 6); g.closePath(); g.fill();
-      if (V.note) { g.font = '800 13px Inter, system-ui, sans-serif'; g.textAlign = 'right'; g.fillText(noteText(V.note), w - 14, Math.max(9, Math.min(h - 9, y))); } }
-  }
-  g.restore();
-}
-
-const WCOLS = 180, wcv = document.createElement('canvas'); wcv.width = WCOLS; wcv.height = NB;
-const wg = wcv.getContext('2d'), wimg = wg.createImageData(WCOLS, NB); let wAcc = 0, wInit = false;
-function drawWaterfall(w, h, dt) {
-  const d = wimg.data, bg = [20, 29, 43], ac = hexRgb(COL.accent), gr = hexRgb(COL.mute), hi = [244, 247, 251], live = V.st === 'running';
-  if (!wInit) { wInit = true; for (let i = 0; i < d.length; i += 4) { d[i] = bg[0]; d[i + 1] = bg[1]; d[i + 2] = bg[2]; d[i + 3] = 255; } }
-  wAcc += dt; let n = 0;
-  while (wAcc >= 1 / 40 && n++ < 6) { wAcc -= 1 / 40;
-    for (let r = 0; r < NB; r++) { const row = r * WCOLS * 4, o = row + (WCOLS - 1) * 4, v = live ? bars[NB - 1 - r] : 0; d.copyWithin(row, row + 4, row + WCOLS * 4);
-      let c0 = bg, c1 = gr, u = Math.min(1, v * 1.25);
-      if (V.music) { if (v < 0.6) { c1 = ac; u = v / 0.6; } else { c0 = ac; c1 = hi; u = Math.min(1, (v - 0.6) / 0.4); } }
-      d[o] = c0[0] + (c1[0] - c0[0]) * u; d[o + 1] = c0[1] + (c1[1] - c0[1]) * u; d[o + 2] = c0[2] + (c1[2] - c0[2]) * u; } }
-  if (wAcc > 0.2) wAcc = 0;
-  wg.putImageData(wimg, 0, 0);
-  const g = vg; g.save(); rrect(g, 0, 0, w, h, 10); g.clip(); g.imageSmoothingEnabled = true; g.drawImage(wcv, 0, 0, w, h);
-  if (h > 56) { g.font = '11px Inter, system-ui, sans-serif'; g.fillStyle = COL.mute; g.textBaseline = 'middle';
-    for (const f of [[200, '200 Hz'], [1000, '1 kHz'], [3000, '3 kHz']]) g.fillText(f[1], 6, h - Math.log(f[0] / 70) / Math.log(5000 / 70) * h); }
-  g.restore();
-}
-
-function drawHalo(w, h) {
-  const g = vg, cx = w / 2, cy = h / 2, r0 = Math.max(10, h * 0.25), maxLen = Math.max(4, h / 2 - r0 - 3);
-  g.strokeStyle = COL.rule; g.lineWidth = 1; g.beginPath(); g.arc(cx, cy, Math.max(4, r0 - 5), 0, 7); g.stroke();
-  g.lineCap = 'round'; g.lineWidth = Math.max(2, Math.min(3.5, h / 40)); g.strokeStyle = V.music ? COL.accent : COL.mute; g.globalAlpha = V.music ? 1 : 0.6;
-  for (let i = 0; i < NB; i++) { const a = -Math.PI / 2 + i / NB * 2 * Math.PI, len = 2 + shown[i] * maxLen, c = Math.cos(a), s = Math.sin(a);
-    g.beginPath(); g.moveTo(cx + c * r0, cy + s * r0); g.lineTo(cx + c * (r0 + len), cy + s * (r0 + len)); g.stroke(); }
-  g.globalAlpha = 1;
-  if (V.music && V.note && r0 > 16) { g.fillStyle = COL.accent; g.font = '800 ' + Math.round(Math.min(24, r0 * 0.8)) + 'px Inter, system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(noteText(V.note), cx, cy + 1); g.textAlign = 'start'; }
-}
-
-function drawViz(dt) {
-  trackNotes(dt);
-  const w = viz.clientWidth, h = viz.clientHeight; if (w < 10 || h < 10) return;
-  const dpr = Math.min(2, window.devicePixelRatio || 1), cw = Math.round(w * dpr), chh = Math.round(h * dpr);
-  if (viz.width !== cw || viz.height !== chh) { viz.width = cw; viz.height = chh; }
-  if (colN-- <= 0) { colN = 40; const cs = getComputedStyle(app), v = (n, f) => cs.getPropertyValue(n).trim() || f;
-    COL = { rule: v('--rule', COL.rule), mute: v('--mute-2', COL.mute), accent: v('--accent', COL.accent), ink: v('--ink', COL.ink) }; }
-  vg.setTransform(dpr, 0, 0, dpr, 0, 0); vg.clearRect(0, 0, w, h);
-  const live = V.st === 'running', a = Math.min(1, dt * 16);
-  for (let i = 0; i < NB; i++) shown[i] += ((live ? bars[i] : 0) - shown[i]) * a;
-  const kind = VIZ[vizI][0];
-  if (kind === 'piano') drawPiano(w, h, dt); else if (kind === 'spectrogram') drawSpectrogram(w, h, dt); else if (kind === 'trail') drawTrail(w, h); else if (kind === 'waterfall') drawWaterfall(w, h, dt); else drawHalo(w, h);
-}
 
 let lastF = 0;
 function frame(t) {
   const dt = Math.min(0.1, Math.max(0, (t - lastF) / 1000)); if (DBG.readout) dbgFrame(t - lastF); lastF = t;
   if (mode === 'follow') followStep(dt);
-  while (sim.events.length) fire(sim.events.shift());
   paint();
-  if (visible(0)) drawViz(dt);
-  if (visible(1)) rocket.draw({ running: V.st === 'running', playing: V.music, power: V.pw }, dt);
-  if (visible(2)) drawCity(dt);
-  dashStep(dt, V.st === 'running', V.music, V.pw, V.goal > 0 ? V.play / V.goal : 0);
-  let geo = null;
-  if (visible(3)) { let lv = 0; for (let i = 0; i < NB; i++) lv += bars[i]; geo = dashView.draw({ running: V.st === 'running', music: V.music, level: Math.min(1, lv / NB * 2.2) }, dt); }
-  while (dash.events.length) { const e = dash.events.shift(); if (geo) dashView.event(e, geo); if (e === 'complete' && skin === 3) dashBanner(tr('Level complete!')); }
-  race.move(dt);                                                    // the car on screen, on real time; the race itself runs in tick()
-  while (race.events.length) raceEvent(race.events.shift());
-  if (raceNotes) { if (visible(4) && V.music && race.racing) raceView.event('note'); raceNotes = 0; }
-  if (visible(4)) raceView.draw({ minute: mode === 'follow' ? null : session.minute }, dt);
-  fw.update(dt, { state: V.st, music: V.music, notes: fwNotes, midi: V.midi, recent: V.pw, play: V.play, shown: visible(5) }); fwNotes = 0;   // shells go up only while playing; the finale waits to be seen
-  while (fw.events.length) { const e = fw.events.shift(); if (visible(5)) fwView.event(e); if (e.k === 'finale' && skin === 5) fireBanner(tr('Grand finale!'));
-    if (e.k === 'finaleEnd' && awardWait) { award(awardWait); awardWait = 0; } }
-  if (visible(5)) { let lv = 0; for (let i = 0; i < NB; i++) lv += bars[i]; fwView.draw({ st: V.st, music: V.music, level: Math.min(1, lv / NB * 2.2) }, dt); }
+  for (let i = 0; i < TH.length; i++) { const t = TH[i], shown = visible(i); if (t.inst.frame) t.inst.frame(dt, { shown: shown, v: V }); if (shown && t.inst.paint) t.inst.paint(V); }   // only the theme on screen is drawn
   requestAnimationFrame(frame);
 }
 
-/* ---------- themes: swipe (touch, mouse drag or trackpad) or arrow keys ---------- */
-const SKINS = ['classic', 'rocket', 'city', 'dash', 'race', 'fireworks'], SKIN_NAMES = ['Classic', 'Rocket', 'City', 'Dash', 'Grand Prix', 'Fireworks'], PANELS = ['pClassic', 'pRocket', 'pCity', 'pDash', 'pRace', 'pFire'], stage = $('stage'), track = $('track');
-let skin = Math.max(0, SKINS.indexOf(S.skin)), dragging = false, peek = -1;   // peek: the theme a swipe is pulling into view
+/* ---------- themes: the modules installed in the page (src/themes/, docs/theme-modules.md), in swipe order ----------
+   Each theme's create(host) is called once, here; the page then drives it through its hooks. A theme that fails to start is left out (and
+   said in the console and the debug tools), so one broken theme never stops the others */
+const stage = $('stage'), track = $('track');
+let lastSwipe = 0;                                  // when a swipe last landed: Classic's picture changes on a tap, not on the lift of a swipe
+function html(el, s) { if (cache.get(el) !== s) { cache.set(el, s); el.innerHTML = s; } }
+const themeErrors = (MT.themeErrors || []).slice();
+/* what the page offers a theme (docs/theme-modules.md, The host) */
+function makeHost(t) {
+  const T = MT.translator(t.def.words);
+  return {
+    id: t.id, panel: t.panel, $: $, tr: T.tr, trn: T.trn, view: V, reduceMotion: reduceMotion,
+    fmt: fmt, text: text, html: html, width: width, left: left, heardLine: heardLine, goalLeft: goalLeft, powerBar: powerBar, noteText: noteText, drawPixelTrophy: drawPixelTrophy,
+    locale: () => MT.getLang() === 'en' ? 'en-US' : loc(),
+    audio: { bars: bars, det: () => A.det },
+    shown: () => visible(t.i), current: () => skin === t.i, following: () => mode === 'follow',
+    between: () => mode === 'local' && session.state !== 'running' && session.state !== 'paused',
+    award: releaseAward, ask: ask, log: () => log, push: push, layoutChanged: layoutChanged, lastSwipe: () => lastSwipe,
+    homeChanged: () => { if (homeOn) renderHome(); },
+    pref: function (k, v) { const p = S.prefs[t.id] || {}; if (arguments.length < 2) return p[k]; S.prefs = Object.assign({}, S.prefs, { [t.id]: Object.assign({}, p, { [k]: v }) }); saveS(); },
+  };
+}
+const TH = [];
+for (const def of MT.themes()) {
+  const t = { id: def.id, def: def, panel: $(def.panel), i: TH.length, inst: null };
+  try {
+    if (!t.panel) throw new Error('its panel #' + def.panel + ' is not in the page');
+    t.inst = def.create(makeHost(t)); const bad = MT.checkInstance(t.inst); if (bad.length) throw new Error(bad.join('; '));
+    TH.push(t);
+  } catch (e) { themeErrors.push(def.id + ': ' + e.message); console.error('Music Timer: the ' + def.id + ' theme did not start. ' + (e && e.message)); if (t.panel) t.panel.remove(); }
+}
+/* calls a hook on every theme that has it */
+function each(hook) { const a = [].slice.call(arguments, 1); for (const t of TH) if (t.inst[hook]) t.inst[hook].apply(t.inst, a); }
+const themeName = t => MT.translator(t.def.words).tr(t.def.name);   // in its own words
+let skin = Math.max(0, TH.findIndex(t => t.id === S.skin)), dragging = false, peek = -1;   // peek: the theme a swipe is pulling into view
 /* Whether a theme can be chosen yet. Every theme is open for now; to hold one back until a condition is met, return false for it here
    and call refreshSkins() when the condition changes. A locked theme keeps its icon in the theme bar (faint, with a padlock) but leaves the swipe
-   track, so swipes, arrow keys and the bar all skip it. Classic is always open, so there is somewhere to land. */
+   track, so swipes, arrow keys and the bar all skip it. The base theme (Classic) is always open, so there is somewhere to land. */
 function skinOpen(i) { return true; }   // eslint-disable-line no-unused-vars -- i is for when a theme is held back
-/* Themes the player turned off (Settings, Themes; S.themesOff) leave the swipe track and the theme bar altogether, with no padlock: nothing to earn back */
-function skinOn(i) { return MT.themesOn(SKINS, S.themesOff).includes(SKINS[i]); }
+/* Themes the player turned off (Settings, Themes; S.themesOff), and themes not written for the page's language, leave the swipe track and the
+   theme bar altogether, with no padlock: nothing to earn back */
+const offered = i => MT.themesOpen(TH.map(t => t.def), S.themesOff, MT.getLang()).indexOf(TH[i].id) >= 0;
 let open = [];   // indices of the open themes, in swipe order
 function refreshSkins() {
-  open = SKINS.map((_, i) => i).filter(i => i === 0 || (skinOpen(i) && skinOn(i)));
-  PANELS.forEach((id, i) => { $(id).hidden = !open.includes(i); });
+  open = TH.map((_, i) => i).filter(i => i === 0 || (skinOpen(i) && offered(i)));
+  TH.forEach((t, i) => { t.panel.hidden = !open.includes(i); });
   track.style.width = open.length * 100 + '%';
-  setSkin(SKINS.indexOf(MT.themeLanding(open.map(i => SKINS[i]), SKINS[skin])), false);
+  setSkin(TH.findIndex(t => t.id === MT.themeLanding(open.map(i => TH[i].id), TH[skin].id)), false);
 }
 function stepSkin(d) { const p = open.indexOf(skin) + d; return open[Math.max(0, Math.min(open.length - 1, p))]; }   // the next open theme that way, or the same one at either end
 /* Only the theme on screen is drawn, plus the one a swipe is revealing. Each scene is costly (City is WebGL), so drawing every theme while a finger is down made swipes lag.
@@ -855,39 +461,39 @@ function stepSkin(d) { const p = open.indexOf(skin) + d; return open[Math.max(0,
 let homeOn = false;
 function visible(i) { return !homeOn && (i === skin || (dragging && i === peek)); }
 function setSkin(i, animate) {
-  if (awardWait && i !== 5) { award(awardWait); awardWait = 0; }   // left Fireworks before its finale ended: the card shows now
-  skin = i; app.dataset.skin = SKINS[i]; app.dataset.chrome = i === 0 ? 'clean' : 'pixel'; S.skin = SKINS[i]; saveS();
-  if (i === 2) city.ensure();
-  if (i === 5) fwView.ensure();
+  if (awardWait && TH[i] !== awardBy) releaseAward();   // left the theme holding the trophy card (the Fireworks finale): the card shows now
+  const was = skin; skin = i; app.dataset.skin = TH[i].id; app.dataset.chrome = TH[i].def.chrome; S.skin = TH[i].id; saveS();
+  if (was !== i && TH[was].inst.hide) TH[was].inst.hide();
+  if (TH[i].inst.show) TH[i].inst.show();
   track.style.transition = animate && !reduceMotion ? 'transform .3s cubic-bezier(.2,.8,.2,1)' : 'none';
   track.style.transform = 'translateX(' + (-open.indexOf(i) * 100 / open.length) + '%)';
-  PANELS.forEach((id, j) => { $(id).inert = j !== i; });
+  TH.forEach((t, j) => { t.panel.inert = j !== i; });
   paintSkinBar(); if (homeOn) paintHomeThemes();
   layoutChanged();
 }
 /* The theme bar: each theme's icon (the #ico-<theme> symbols in the page), the current one lit. Tapping an icon goes to that theme. */
 const skinBar = $('skinBar');
-SKINS.forEach((id, i) => { const b = document.createElement('button'); b.type = 'button';
-  b.innerHTML = '<svg class="ic" aria-hidden="true"><use href="#ico-' + id + '"/></svg><svg class="lk" aria-hidden="true"><use href="#ico-lock"/></svg>';
+TH.forEach((t, i) => { const b = document.createElement('button'); b.type = 'button';
+  b.innerHTML = '<svg class="ic" aria-hidden="true"><use href="#ico-' + t.id + '"/></svg><svg class="lk" aria-hidden="true"><use href="#ico-lock"/></svg>';
   b.onclick = () => { if (open.includes(i) && i !== skin) setSkin(i, true); }; skinBar.appendChild(b); });
 function paintSkinBar() {
   [...skinBar.children].forEach((b, i) => {
-    const locked = !open.includes(i), on = i === skin;
-    b.hidden = !skinOn(i); b.disabled = locked; b.dataset.state = locked ? 'locked' : on ? 'on' : 'off';
+    const locked = !open.includes(i), on = i === skin, name = themeName(TH[i]);
+    b.hidden = i > 0 && !offered(i); b.disabled = locked; b.dataset.state = locked ? 'locked' : on ? 'on' : 'off';
     if (on) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current');
-    b.setAttribute('aria-label', tr(locked ? '{name} theme, locked' : '{name} theme', { name: tr(SKIN_NAMES[i]) })); b.title = tr(locked ? '{name} (locked)' : SKIN_NAMES[i], { name: tr(SKIN_NAMES[i]) });
+    b.setAttribute('aria-label', tr(locked ? '{name} theme, locked' : '{name} theme', { name: name })); b.title = locked ? tr('{name} (locked)', { name: name }) : name;
   });
 }
-/* Event banners sit just under the read-outs, clear of the scene: each panel gets --hud-b, the bottom of its read-outs, for the CSS to use */
-function layoutChanged() { requestAnimationFrame(() => { rocket.resize(); city.resize(); dashView.resize(); raceView.resize(); fwView.resize();
-  for (const [p, h] of [['pRocket', 'hud'], ['pCity', 'cityHud'], ['pDash', 'dashHud'], ['pRace', 'raceHud'], ['pFire', 'fireHud']]) { const el = $(h); $(p).style.setProperty('--hud-b', el.offsetTop + el.offsetHeight + 'px'); } }); }
+/* Event banners sit just under the read-outs, clear of the scene: each panel gets --hud-b, the bottom of its read-out card (.hud-card), for the CSS to use */
+function layoutChanged() { requestAnimationFrame(() => { each('resize');
+  for (const t of TH) { const el = t.panel.querySelector('.hud-card'); if (el) t.panel.style.setProperty('--hud-b', el.offsetTop + el.offsetHeight + 'px'); } }); }
 const swipe = new MT.DragSwipe();
 stage.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse' && e.button !== 0) return; swipe.down(e.pointerId, e.clientX, e.clientY, performance.now(), stage.clientWidth); });
 stage.addEventListener('pointermove', e => {
   if (!swipe.has(e.pointerId)) return;
   if (e.pointerType === 'mouse' && !e.buttons) { endDrag(e); return; }   // the button was let go somewhere else
   const was = swipe.locked, dx = swipe.move(e.clientX, e.clientY); if (dx == null) return;
-  if (!was) { dragging = true; try { stage.setPointerCapture(e.pointerId); } catch (er) {} rocket.resize(); }
+  if (!was) { dragging = true; try { stage.setPointerCapture(e.pointerId); } catch (er) {} each('resize'); }   // the scene coming into view at its size
   peek = stepSkin(dx < 0 ? 1 : -1);
   track.style.transition = 'none'; track.style.transform = 'translateX(' + swipe.offset(dx, open.indexOf(skin), open.length) + 'px)';
 });
@@ -915,7 +521,7 @@ window.addEventListener('pagehide', writeLive);   // the app is being closed: ke
 document.addEventListener('visibilitychange', () => { if (document.visibilityState !== 'visible') { writeLive(); return; }
   if (session.state === 'running' || session.state === 'paused') keepAwake();
   if (A.ctx && A.ctx.state === 'suspended') A.ctx.resume().catch(() => {});
-  if (homeOn && mode === 'local' && session.state !== 'running' && session.state !== 'paused') { carryRocket(); renderHome(); }   // a new day since: fresh words, and the rocket on the pad
+  if (homeOn && mode === 'local' && session.state !== 'running' && session.state !== 'paused') { each('restore', log); renderHome(); }   // a new day since: fresh words, and the rocket on the pad
   checkVersion(); });
 window.addEventListener('pageshow', e => { if (e.persisted) checkVersion(); });   // back from the browser's page cache
 
@@ -952,43 +558,29 @@ function setSource(v) { S.source = v; saveS(); updSource(); paintDemoBar(); }
 seg('segSens', 'sens', () => { if (A.det) A.det.setSensitivity(S.sens); });
 seg('segHold', 'hold', () => { session.hold = +S.hold; });
 function paintGoal() { $('goalOut').textContent = tr('{m} min', { m: S.goalMin }); }
-function bumpGoal(d) { S.goalMin = Math.max(5, Math.min(180, S.goalMin + d)); saveS(); paintGoal(); if (session.state === 'running' || session.state === 'paused') { session.goal = race.goal = fw.goal = S.goalMin * 60; if (session.play < session.goal) { goalHit = false; race.finished = false; if (!fw.inFinale) fw.finaleDone = false; awardWait = 0; hideAward(); } } }
+function bumpGoal(d) { S.goalMin = Math.max(5, Math.min(180, S.goalMin + d)); saveS(); paintGoal(); if (session.state === 'running' || session.state === 'paused') { session.goal = S.goalMin * 60; each('goalChanged', session.goal, session.play); if (session.play < session.goal) { goalHit = false; awardWait = 0; awardBy = null; hideAward(); } } }
 $('goalDn').onclick = () => bumpGoal(-5); $('goalUp').onclick = () => bumpGoal(5);
 $('nameIn').value = S.name; $('nameIn').oninput = () => { S.name = $('nameIn').value.replace(/[\u0000-\u001F\u007F-\u009F\u200B-\u200F\u2028-\u202F\u2060-\u206F\uFEFF]/g, '').slice(0, 40); saveS(); };   // eslint-disable-line no-control-regex -- strips control and invisible characters from the name
 $('recIn').checked = S.record; $('recIn').onchange = () => { S.record = $('recIn').checked; saveS(); };
-/* the goal's hint in the words of the theme Settings is opened from */
-const GOAL_HINT = {
-  classic: 'The total play time to reach.',
-  rocket: 'The total play time to reach. The rocket gets to Moon orbit after about 30 minutes of playing. If your last session today left the rocket in space, the next one carries on from there.',
-  city: 'The total play time to reach.',
-  dash: 'The total play time to reach. It is also the length of the course.',
-  race: 'The total play time to reach. The race runs until you reach it.',
-  fireworks: 'The total play time to reach. Reaching it sets off a grand finale.',
-};
-function paintSettingsSkin() { $('goalHint').textContent = tr(GOAL_HINT[SKINS[skin]]); }
-/* Settings, Themes: a page of its own in the sheet, with a switch for each theme. Classic is always on and its switch can't be turned off;
-   turning off the one on screen moves to Classic, the first one on (MT.themeLanding), during a session too */
-const THEME_LINE = {
-  classic: 'The clock, with your play time and efficiency.',
-  rocket: 'Playing flies a rocket up to Moon orbit.',
-  city: 'Playing fires the cannons that keep the city safe.',
-  dash: 'Playing runs the course; your goal is its length.',
-  race: 'Playing races a car; your last minute is its speed.',
-  fireworks: 'Every note sends up a firework in its own colour.',
-};
-const themeRows = SKINS.map(id => { const li = document.createElement('li'), sw = document.createElement('input'); li.className = 'trow'; li.dataset.theme = id;
-  li.innerHTML = '<span class="tile" aria-hidden="true"><svg><use href="#ico-' + id + '"/></svg></span><span class="tx"><b></b><span></span></span>';
+/* the goal's hint in the words of the theme Settings is opened from (its goalHint) */
+function paintSettingsSkin() { const d = TH[skin].def; $('goalHint').textContent = d.goalHint ? MT.translator(d.words).tr(d.goalHint) : tr('The total play time to reach.'); }
+/* Settings, Themes: a page of its own in the sheet, with a switch for each theme. The base theme (Classic) is always on and its switch can't be turned off;
+   turning off the one on screen moves to Classic, the first one on (MT.themeLanding), during a session too. A theme not written for the page's
+   language is dimmed, its switch kept as it is, until a language it is written for is chosen */
+const themeRows = TH.map(t => { const li = document.createElement('li'), sw = document.createElement('input'); li.className = 'trow'; li.dataset.theme = t.id;
+  li.innerHTML = '<span class="tile" aria-hidden="true"><svg><use href="#ico-' + t.id + '"/></svg></span><span class="tx"><b></b><span></span></span>';
   sw.type = 'checkbox'; sw.setAttribute('role', 'switch'); sw.className = 'tg';
-  sw.onchange = () => { const was = skin; S.themesOff = MT.themeSwitch(SKINS, S.themesOff, id, sw.checked); saveS(); refreshSkins(); paintThemes(skin !== was); };
+  sw.onchange = () => { const was = skin; S.themesOff = MT.themeSwitch(TH.map(x => x.id), S.themesOff, t.id, sw.checked); saveS(); refreshSkins(); paintThemes(skin !== was); };
   li.append(sw); $('themeList').append(li); return li; });
 function paintThemes(moved) {
-  const on = MT.themesOn(SKINS, S.themesOff), names = on.map(id => tr(SKIN_NAMES[SKINS.indexOf(id)]));
-  themeRows.forEach((li, i) => { const sw = li.querySelector('input'), o = on.includes(SKINS[i]); sw.checked = o; sw.disabled = i === 0; li.classList.toggle('off', !o);
-    li.querySelector('b').textContent = tr(SKIN_NAMES[i]); li.querySelector('.tx span').textContent = tr(THEME_LINE[SKINS[i]]); sw.setAttribute('aria-label', tr(SKIN_NAMES[i])); });
-  $('themesSum').textContent = on.length === SKINS.length ? tr('All of them are on.') : on.length === 1 ? tr('Only {name} is on.', { name: names[0] })
+  const ids = TH.map(t => t.id), on = MT.themesOn(ids, S.themesOff), names = on.map(id => themeName(TH[ids.indexOf(id)]));
+  themeRows.forEach((li, i) => { const t = TH[i], sw = li.querySelector('input'), o = on.includes(t.id), here = t.def.langs.indexOf(MT.getLang()) >= 0;
+    sw.checked = o; sw.disabled = i === 0 || !here; li.classList.toggle('off', !o || !here);
+    li.querySelector('b').textContent = themeName(t); li.querySelector('.tx span').textContent = here ? MT.translator(t.def.words).tr(t.def.line) : tr('Not in this language yet.'); sw.setAttribute('aria-label', themeName(t)); });
+  $('themesSum').textContent = on.length === ids.length ? tr('All of them are on.') : on.length === 1 ? tr('Only {name} is on.', { name: names[0] })
     : tr('{list} and {last} are on.', { list: listText(names.slice(0, -1)), last: names[names.length - 1] });
   $('themesMini').innerHTML = on.map(id => '<i data-theme="' + id + '"><svg><use href="#ico-' + id + '"/></svg></i>').join('');
-  $('themesNote').textContent = moved ? tr('Now playing with {name}.', { name: tr(SKIN_NAMES[skin]) }) : '';
+  $('themesNote').textContent = moved ? tr('Now playing with {name}.', { name: themeName(TH[skin]) }) : '';
 }
 /* About, from Settings: the credits roll up over the whole screen like the end of a film, round and round while open; a tap pauses them, holding speeds them up.
    With reduced motion they stand still in a box that scrolls */
@@ -1055,8 +647,8 @@ function paintLang() {
 }
 /* the language changed in Settings: the page's own words at once, and everything the app writes, which is drawn again */
 function langChanged() {
-  applyLang(); paintLang(); paintThemes(false); paintSkinBar(); paintHomeThemes(); paintCredits(); setViz(vizI, false); paintGoal(); paintSettingsSkin(); paintControls(); paintVersion();
-  raceView.rebuild(); if (homeOn) renderHome(); layoutChanged();
+  applyLang(); refreshSkins(); paintLang(); paintThemes(false); paintSkinBar(); paintHomeThemes(); paintCredits(); paintGoal(); paintSettingsSkin(); paintControls(); paintVersion();
+  each('langChanged'); if (homeOn) renderHome(); layoutChanged();   // a theme not written for the new language leaves the swipe
 }
 $('openAbout').onclick = () => { $('dlgCredits').showModal(); rollCredits(true); rollHint(); };   // over Settings, which is still there when it closes
 $('creditsClose').onclick = () => $('dlgCredits').close();
@@ -1071,7 +663,7 @@ let testing = false;
 $('btnTests').onclick = async () => {
   if (testing || session.state === 'running') return; testing = true; paintControls();
   const list = $('tests'), sum = $('testSum'); list.textContent = '';
-  const tests = MT.detectionTests(A.det ? A.det.sr : 44100); let pass = 0;
+  const tests = MT.detectionTests(A.det ? A.det.sr : 44100).concat(...TH.map(t => (t.def.tests || []).map(x => ({ name: x.name, run: () => MT.inLang('en', x.run) })))); let pass = 0;   // the themes' own after the page's
   for (let i = 0; i < tests.length; i++) {
     sum.textContent = 'Running ' + (i + 1) + ' of ' + tests.length;
     await new Promise(r => setTimeout(r, 30));
@@ -1098,7 +690,7 @@ function showRecording() { if (!rec.blob) return; $('recBox').hidden = false;
   try { rec.url = URL.createObjectURL(rec.blob); const a = $('recAudio'); a.hidden = false; a.onerror = () => { a.hidden = true; }; a.src = rec.url; } catch (e) { $('recAudio').hidden = true; } }
 /* the session just stopped: keep it in the practice log unless it was too short. Demo sound sessions are kept like any other */
 function finishSession() {
-  const R = MT.sessionReport(session.runs), r = MT.sessionRecord(session, R, S.name, sim.save());
+  const R = MT.sessionReport(session.runs), r = MT.sessionRecord(session, R, S.name, kept());
   let note;
   if (!MT.worthKeeping(R)) note = { text: tr('Sessions with less than 10 seconds of playing are not saved to your practice log.') };
   else if (!addToLog(r)) note = { text: tr('This session could not be saved on this device.') };
@@ -1183,7 +775,7 @@ let liveAt = 0, lost = null;
 function writeLive() {
   if (mode !== 'local' || (session.state !== 'running' && session.state !== 'paused')) return;
   liveAt = performance.now();
-  try { localStorage.setItem(LIVE_KEY, JSON.stringify(MT.liveSnapshot(session, S.name, sim.save(), Date.now()))); } catch (e) {}
+  try { localStorage.setItem(LIVE_KEY, JSON.stringify(MT.liveSnapshot(session, S.name, kept(), Date.now()))); } catch (e) {}
 }
 function clearLive() { try { localStorage.removeItem(LIVE_KEY); } catch (e) {} }
 function readLive() { try { return JSON.parse(localStorage.getItem(LIVE_KEY) || 'null'); } catch (e) { return null; } }
@@ -1200,22 +792,22 @@ function checkLost(prev) {
 function whenText(ms) { const k = MT.dayKey(ms), now = new Date(), y = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
   return tr(k === MT.dayKey(now) ? 'today at {time}' : k === MT.dayKey(y) ? 'yesterday at {time}' : 'on {date} at {time}', { date: date(ms, { weekday: 'long', day: 'numeric', month: 'long' }), time: at(ms) }); }
 $('lostYes').onclick = () => { $('dlgLost').close(); clearLive(); if (!lost) return;
-  toast(tr(addToLog(lost) ? 'Saved to your practice log.' : 'This session could not be saved on this device.')); lost = null; rocketAfterDelete(); if (homeOn) renderHome(); };
+  toast(tr(addToLog(lost) ? 'Saved to your practice log.' : 'This session could not be saved on this device.')); lost = null; logChanged(); if (homeOn) renderHome(); };
 $('lostNo').onclick = () => { $('dlgLost').close(); clearLive(); lost = null; };
 
 /* ---------- practice log: finished sessions, kept on this device (no audio) ---------- */
 const LOG_KEY = 'musicTimer.log';
-function readLog() { try { const j = JSON.parse(localStorage.getItem(LOG_KEY) || '[]'); if (Array.isArray(j)) return j.filter(r => r && r.v === 1 && r.R && r.start > 0).sort((a, b) => a.start - b.start); } catch (e) {} return []; }
+function readLog() { try { const j = JSON.parse(localStorage.getItem(LOG_KEY) || '[]'); if (Array.isArray(j)) return j.filter(r => r && r.v === 1 && r.R && r.start > 0).map(MT.upgradeRecord).sort((a, b) => a.start - b.start); } catch (e) {} return []; }
 let log = readLog(), logShown = 30;
 function writeLog() {
   for (;;) { try { localStorage.setItem(LOG_KEY, JSON.stringify(log)); return true; }
     catch (e) { const full = e && (e.name === 'QuotaExceededError' || e.code === 22 || e.code === 1014);   // storage full: drop the oldest fifth and try again
       if (!full || log.length < 2) return false; log.splice(0, Math.ceil(log.length / 5)); } }
 }
-/* the rocket carries on from where the day's latest saved session left it, and starts on the pad each new day */
-function carryRocket() { if (mode === 'local' && DBG.rocket) return sim.restore(DBG.rocket === 'pad' ? null : MT.rocketAt(MT.MILESTONES[DBG.rocket]));
-  return sim.restore(mode === 'local' ? MT.rocketCarry(log, Date.now(), flightFrom) : null); }
-function rocketAfterDelete() { if (mode === 'local' && (session.state === 'idle' || session.state === 'stopped')) { carryRocket(); rocket.reset(); } }
+/* what each theme keeps with the session (keep: the rocket's flight), by its id */
+function kept() { const o = {}; for (const t of TH) if (t.inst.keep) { const x = t.inst.keep(); if (x != null) o[t.id] = x; } return o; }
+/* the practice log changed between sessions: the themes pick up where it leaves off (restore: the rocket carries on from the day's latest session) */
+function logChanged() { if (mode === 'local' && (session.state === 'idle' || session.state === 'stopped')) each('restore', log); }
 /* add a session; if it cannot be written, the log stays as it was, so nothing shows that is not saved */
 function addToLog(r) { const was = log; log = log.filter(x => x.id !== r.id); log.push(r); log.sort((a, b) => a.start - b.start); if (log.length > MT.LOG_MAX) log.splice(0, log.length - MT.LOG_MAX);
   if (writeLog()) return true; log = was; return false; }
@@ -1228,9 +820,9 @@ function twoTap(b, label, armedLabel, act) { b.onclick = () => {
 twoTap($('sumDelete'), () => tr('Delete session'), () => tr('Tap again to delete'), () => {
   const id = onSheet && onSheet.id; log = log.filter(x => x.id !== id); writeLog();
   if (current && current.rec.id === id) current.note = { text: tr('Deleted from your practice log.') };
-  rocketAfterDelete(); $('dlgSummary').close(); if ($('dlgLog').open) renderLog(); toast(tr('Session deleted'));
+  logChanged(); $('dlgSummary').close(); if ($('dlgLog').open) renderLog(); toast(tr('Session deleted'));
 });
-twoTap($('logClear'), () => tr('Delete all sessions'), () => tr('Tap again to delete all'), () => { log = []; writeLog(); rocketAfterDelete(); logShown = 30; renderLog(); toast(tr('All sessions deleted')); });
+twoTap($('logClear'), () => tr('Delete all sessions'), () => tr('Tap again to delete all'), () => { log = []; writeLog(); logChanged(); logShown = 30; renderLog(); toast(tr('All sessions deleted')); });
 const compact = s => { if (s <= 0) return ''; const m = Math.round(s / 60); return m < 1 ? tr('<1m') : m < 60 ? tr('{m}m', { m: m }) : m % 60 ? tr('{h}h{mm}', { h: Math.floor(m / 60), mm: String(m % 60).padStart(2, '0') }) : tr('{h}h', { h: m / 60 }); };
 const TROPHY_SVG = '<svg class="trophy" viewBox="0 0 64 64" aria-hidden="true"><path d="M19 13H9c0 10 5 15 12 16M45 13h10c0 10-5 15-12 16" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/><path fill="currentColor" d="M18 7h28v15c0 10-6 17-14 17s-14-7-14-17zM29 38h6v9h-6zM20 49h24v9H20z"/></svg>';
 function renderLog() {
@@ -1297,16 +889,17 @@ $('logStart').onclick = () => { $('dlgLog').close(); if ($('dlgSummary').open) $
 /* ---------- Home Screen: shown when the app opens and after a finished session's summary is closed. Start playing goes into the chosen theme ---------- */
 const homeEl = $('home');
 $('homeIcon').src = document.querySelector('#top .app-icon img').src;     // the same embedded icon as the title row
-const homeChips = SKINS.map((id, i) => { const b = el('button'); b.type = 'button';
-  b.innerHTML = '<svg aria-hidden="true"><use href="#ico-' + id + '"/></svg>'; b.onclick = () => { if (open.includes(i)) setSkin(i, false); }; $('homeThemes').append(b); return b; });
+const homeChips = TH.map((t, i) => { const b = el('button'); b.type = 'button';
+  b.innerHTML = '<svg aria-hidden="true"><use href="#ico-' + t.id + '"/></svg>'; b.onclick = () => { if (open.includes(i)) setSkin(i, false); }; $('homeThemes').append(b); return b; });
+let homeLink = null;
 function paintHomeThemes() {
-  homeChips.forEach((b, i) => { b.hidden = !open.includes(i); b.setAttribute('aria-pressed', String(i === skin)); b.setAttribute('aria-label', tr(SKIN_NAMES[i])); });
-  $('homeTheme').textContent = tr(SKIN_NAMES[skin]);
-  // with Rocket chosen and today's flight carrying on, the next session can start a new one instead
-  const c = SKINS[skin] === 'rocket' && mode === 'local' ? MT.rocketCarry(log, Date.now(), flightFrom) : null;
-  $('homeFlightGo').hidden = !c;
+  homeChips.forEach((b, i) => { b.hidden = !open.includes(i); b.setAttribute('aria-pressed', String(i === skin)); b.setAttribute('aria-label', themeName(TH[i])); });
+  $('homeTheme').textContent = themeName(TH[skin]);
+  // the chosen theme's link after its name, if it has one (homeLink: Rocket's "Start a new flight" while today's flight carries on)
+  homeLink = TH[skin].inst.homeLink ? TH[skin].inst.homeLink() : null;
+  $('homeLink').hidden = !homeLink; $('homeLink').textContent = homeLink ? homeLink.text : '';
 }
-$('homeFlightGo').onclick = () => askFlight(true);
+$('homeLink').onclick = () => { if (homeLink) homeLink.run(); };
 let homeSeed = 0;                                                     // which playful words: new each time the Home Screen shows, the same while it stays
 function renderHome() {
   const now = Date.now(), P = MT.practiceStats(log, now), c = MT.homeCopy(P, log.length ? log[log.length - 1] : null, now, { seed: homeSeed, name: S.name });
@@ -1377,17 +970,19 @@ $('dlgDebug').addEventListener('close', () => { if (homeOn) renderHome(); resume
 function paintDbg() {
   $('setDebugRow').hidden = !DBG.on; $('dbgRead').hidden = !(DBG.on && DBG.readout);
   if (!DBG.on) return;
-  const c = $('dbgSample'), r = $('dbgRocket'); c.textContent = ''; r.textContent = '';
+  const c = $('dbgSample'); c.textContent = '';
   for (const [k, label] of MT.SAMPLE_LOGS) { const b = el('button', null, label); b.type = 'button'; c.append(b);   // asks twice: it replaces the saved log
     twoTap(b, label, 'Tap again to replace', () => setSample(k, label)); }
-  for (const [k, label] of [['', 'As usual'], ['pad', 'On the pad'], ['space', 'In space'], ['orbit', 'In Moon orbit']])
-    chip(r, label, DBG.rocket === k, () => { DBG.rocket = k; rocketAfterDelete(); paintDbg(); });   // shown at once while no session is on
+  // each theme's own tools (debugTools: where the next session's rocket starts), and any theme that did not install or start
+  const box = $('dbgThemes'); box.textContent = '';
+  for (const t of TH) if (t.inst.debugTools) { const f = el('div', 'field'); box.append(f); t.inst.debugTools(f); }
+  if (themeErrors.length) { const f = el('div', 'field'); f.append(el('span', 'lab', 'Themes that did not start'), el('p', 'hint', themeErrors.join(' '))); box.append(f); }
   $('dbgReadIn').checked = DBG.readout;
 }
 /* replace the saved practice log with a sample one. From then on it is the practice log: sessions are added to it and the rocket carries on from it */
-function setSample(k, label) { log = MT.sampleLog(k, Date.now()); logShown = 30;
+function setSample(k, label) { log = MT.sampleLog(k, Date.now()); each('sampleLog', log); logShown = 30;
   if (!writeLog()) { log = readLog(); toast('The sample log could not be saved on this device'); return; }
-  rocketAfterDelete(); if (homeOn) renderHome(); toast('Your practice log is now \u201c' + label + '\u201d'); }
+  logChanged(); if (homeOn) renderHome(); toast('Your practice log is now \u201c' + label + '\u201d'); }
 function dbgFrame(ms) {
   if (ms > 0 && ms < 1000) DBG.fps = DBG.fps ? DBG.fps * 0.9 + 100 / ms : 1000 / ms;
   const now = performance.now(); if (now - dbgAt < 250) return; dbgAt = now;
@@ -1397,27 +992,23 @@ function dbgFrame(ms) {
     r ? 'level ' + f1(r.levelDb) + ' dB' + (r.active ? '' : ' (too soft)') + '  pitch ' + (r.pitch > 0 ? Math.round(r.pitch) + ' Hz ' + r.note : 'none') : 'not listening',
     r ? 'score ' + f1(r.score) + '  ' + (r.isMusic ? 'music, ' + r.instrument : r.kind) : '',
     'play ' + fmt(session.play) + ' of ' + fmt(session.active) + (session.holdLeft > 0 ? '  hold ' + f1(session.holdLeft) + ' s' : ''),
-    'rocket ' + sim.mode + ', ' + Math.round(sim.fp) + ' s flown, power ' + Math.round(sim.power * 100) + '%',
-    'race ' + race.mode + (race.pit ? ' (pit ' + race.pit.phase + ')' : '') + ', P' + race.pos + ', lap ' + race.lap,
-    'fireworks ' + fw.shells + ' shells, ' + fw.colours + ' colours' + (fw.inFinale ? ', finale' : '') + ', ' + fwView.busy() + ' in the air' + (fwView.is3d ? ', 3D' : ', flat'),
-  ].filter(Boolean).join('\n');
+  ].concat(TH.map(t => t.inst.debugLine ? t.inst.debugLine() : '')).filter(Boolean).join('\n');   // a line from each theme that has one
 }
 $('dbgReadIn').onchange = () => { DBG.readout = $('dbgReadIn').checked; saveDbg(); paintDbg(); };
 $('dbgTrophy').onclick = () => { $('dlgDebug').close(); hideHome(); award(session.goal || S.goalMin * 60); };
 $('dbgHome').onclick = () => { $('dlgDebug').close(); showHome(); };
 $('dbgSave').onclick = () => { const d = new Date(), p = n => String(n).padStart(2, '0');
   saveFile('music-timer-log-' + d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + '.json', JSON.stringify(readLog())); };
-$('dbgOff').onclick = () => { DBG.on = false; DBG.readout = false; DBG.rocket = ''; if (S.source === 'demo') setSource('mic');
-  saveDbg(); paintDbg(); rocketAfterDelete(); hideNotice('mic'); $('dlgDebug').close(); };
+$('dbgOff').onclick = () => { DBG.on = false; DBG.readout = false; each('debugTools', null); if (S.source === 'demo') setSource('mic');
+  saveDbg(); paintDbg(); logChanged(); hideNotice('mic'); $('dlgDebug').close(); };
 
 /* ---------- go ---------- */
-carryRocket(); refreshSkins(); paintGoal(); paintControls(); paintDemoBar(); paintDbg(); showHome(); checkLost();
+each('restore', log); refreshSkins(); paintGoal(); paintControls(); paintDemoBar(); paintDbg(); showHome(); checkLost();
 try { if (sessionStorage.getItem('musicTimer.updated')) { sessionStorage.removeItem('musicTimer.updated'); toast(tr('Music Timer has been updated.')); } } catch (e) {}
 function paintVersion() { const b = document.querySelector('meta[name="build"]'); $('ver').textContent = tr('Version {n}', { n: b && b.content && b.content.indexOf('__') < 0 ? b.content : 'dev' }); }
 paintVersion();
 if (S.source === 'mic' && (micPolicyBlocked() || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia))
   micNotice(framed ? MIC_FRAMED() : micMessage({ name: window.isSecureContext === false ? 'Insecure' : 'Unsupported' }));
-if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { raceView.rebuild(); layoutChanged(); }, () => {});   // the race's boards and read-outs are drawn in its condensed type
 requestAnimationFrame(t => { lastF = t; frame(t); });
-window.__mt = { session: session, sim: sim, rocket: rocket, city: city, dash: dash, race: race, fw: fw, A: A, S: S, V: V, start: start, stop: stop };
+window.__mt = { session: session, themes: TH, errors: themeErrors, A: A, S: S, V: V, start: start, stop: stop };
 })();

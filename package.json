@@ -6,7 +6,7 @@
   "license": "MIT",
   "scripts": {
     "lint": "eslint .",
-    "test": "node test/run.js && node test/words.js",
+    "test": "node test/run.js && node test/words.js && node test/themes.js",
     "build": "node scripts/build.js",
     "check": "node test/smoke.js && node test/browser.js",
     "ci": "npm run lint && npm test && npm run build && npm run check",

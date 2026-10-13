@@ -1,0 +1,24 @@
+<section class="panel" id="pCity" aria-label="City theme">
+  <canvas id="cityCv" aria-hidden="true"></canvas>
+  <div class="city-hud bevel hud-card" id="cityHud">
+    <div class="ch-top hc-top">
+      <div class="ch-play hc-play"><span class="k">Play time</span><span class="big" id="yPlay">00:00</span></div>
+      <div class="ch-side hc-side">
+        <div><canvas class="px-trophy badge" id="yTrophy" width="16" height="16"></canvas>Goal <b id="yGoal">30:00</b></div>
+        <div id="yGoalLeft" translate="no">30:00</div>
+        <div>Pauses <b id="yPauses">0</b></div>
+      </div>
+    </div>
+    <div class="engine hc-bar"><span class="k">Power</span><b class="pn" id="yPwN">0%</b><div class="pbar"><i id="yPw"></i><span class="avg" id="yAvg" hidden></span></div><span class="eff"><span class="k">Efficiency</span> <b id="yEff">0%</b></span></div>
+    <div class="ch-stats hc-stats">
+      <div><span>Shot down</span><b id="yDown">0</b></div>
+      <div><span>Impacts</span><b id="yImp">0</b></div>
+      <div><span>Buildings</span><b id="yBld">0</b></div>
+      <div><span>Cannons</span><b id="yCan" class="ok">3/3</b></div>
+    </div>
+    <div class="ch-line hc-heard" id="yHeard">Press Start, then play</div>
+    <div class="ch-line dim hc-next" id="yHint">Play to defend the city</div>
+  </div>
+  <div id="yBanner" class="bevel" role="status"></div>
+  <div id="yMsg" class="bevel" hidden></div>
+</section>

@@ -1,0 +1,23 @@
+<section class="panel" id="pRocket" aria-label="Rocket theme">
+  <canvas id="rk" aria-hidden="true"></canvas>
+  <div class="hud hud-card" id="hud">
+    <div class="hud-row hc-top">
+      <div class="hud-play hc-play"><span class="k">Play time</span><span class="big" id="rPlay">00:00</span></div>
+      <div class="hud-side hc-side">
+        <div><canvas class="px-trophy badge" id="rTrophy" width="16" height="16"></canvas>Goal <b id="rGoal">30:00</b></div>
+        <div id="rGoalLeft" translate="no">30:00</div>
+      </div>
+    </div>
+    <div class="engine hc-bar"><span class="k">Power</span><b class="pn" id="rPwN">0%</b><div class="pbar"><i id="rPw"></i><b class="m50"></b><span class="avg" id="rAvg" hidden></span></div><span class="eff"><span class="k">Efficiency</span> <b id="rEff">0%</b></span></div>
+    <div class="hud-stats hc-stats">
+      <div><span>Active</span><b id="rActive">00:00</b></div>
+      <div><span>Total</span><b id="rTotal">00:00</b></div>
+      <div><span>Pauses</span><b id="rPauses">0</b></div>
+      <div><span id="rAltK">Alt m</span><b id="rAlt">0</b></div>
+    </div>
+    <div class="hud-line hc-heard" id="rHeard">Press Start, then play</div>
+    <div class="hud-line hc-next" id="rNext"></div>
+    <button type="button" class="hud-flight" id="rFlight" hidden>New flight</button>
+  </div>
+  <div id="rBanner" role="status"></div>
+</section>
