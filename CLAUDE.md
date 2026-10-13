@@ -113,6 +113,11 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
 - Adding, removing or renaming a theme: keep Settings, Themes in sync with it. That is its id and name in `SKINS`, `SKIN_NAMES` and `PANELS`,
   its line in `THEME_LINE` (`src/app.js`) and their Chinese and French (`src/lang.js`), its tile colours (`[data-theme="<id>"]` in `src/template.html`), its `#ico-<id>` icon, and the
   theme list in the "Themes: the player turns off" test (`src/core.js`). Check the page still fits an iPhone SE.
+- Third-party dependencies and assets: `THIRD_PARTY_NOTICES.md` is the inventory of everything not written for the app (npm packages,
+  what the page loads from other servers such as three.js and the Google Fonts, copied code or data, GitHub Actions and other tools),
+  with each one's version, license and the notice it needs, and the provenance of our own icons, images and sounds. Update it in the
+  same pull request whenever any of these is added, removed, upgraded or used differently (including any change to `package-lock.json`),
+  and keep a copied item's license notice next to the copy, as the wheel-gestures one above `WHEEL_TRACES` in `src/core.js`.
 - Only the theme on screen (and the one a swipe is revealing) is drawn; drawing hidden themes made swipes lag on phones.
 - Words the player sees: write them in English through `tr()` or `trn()` (or in a table `test/words.js` knows), never joined from pieces, and add
   their Chinese and French to `src/lang.js`; `npm test` names any that are missing or no longer used. French is the longest: check it still fits an iPhone SE.

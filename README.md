@@ -64,3 +64,4 @@ For a custom domain, build with `CNAME=timer.example.com npm run build` and set 
 
 MIT; see [LICENSE](LICENSE). The trackpad test data in `src/core.js` comes from
 [wheel-gestures](https://github.com/xiel/wheel-gestures), also MIT, with its notice kept in place.
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) lists every third-party dependency, font and asset with its license.
