@@ -22,7 +22,7 @@ function makeRocketView(cv, hud, sim, MT) {
   })();
   /* how dark the sky is at a given height above the ground, following the altitude read-out (black at 100 km on the read-out) */
   const LUTN = 400, LLO = Math.log(RH * 0.2), LSTEP = (Math.log(SPACE_ALT) - LLO) / LUTN, SKYLUT = new Float32Array(LUTN + 1);
-  for (let i = 0; i <= LUTN; i++) SKYLUT[i] = Math.min(1, sim.kmAt(Math.exp(LLO + i * LSTEP)) / 100) * SKYN;
+  for (let i = 0; i <= LUTN; i++) SKYLUT[i] = Math.min(1, sim.kmAtAlt(Math.exp(LLO + i * LSTEP)) / 100) * SKYN;
   const STAR_FROM = 0.74 * SKYN;
 
   /* far view of Earth: a blocky map looked at from the side; the pad (top of the disc) sits on land */
@@ -155,35 +155,44 @@ function makeRocketView(cv, hud, sim, MT) {
   }
 
   /* Three framings, blended along the flight clock (seconds of playing since ignition):
-     Earth    - the view widens with altitude and shows more sky and less ground, until the whole planet is small and distant;
-     close-up - from the edge of space (E3) Earth slides out of sight and the view closes on the rocket;
-     Moon     - from stage 2 separation (E4) the view widens again until the Moon is in the picture, then tightens as the rocket nears it.
+     Earth    - the view widens with altitude and shows more sky and less ground as the rocket climbs and turns, until the whole planet is
+                small and distant;
+     orbit    - from the edge of space (E3) the view holds still on Earth and its parking orbit, and the rocket goes round it;
+     Moon     - from stage 2 separation (E4) the view widens to take in the Moon as the rocket swings out on its way, then tightens as it nears it.
      Each framing says how big the world is drawn and where the rocket sits on screen; blending those keeps the rocket in view throughout. */
   function camera(p) {
     const usable = Math.max(40 * RES, H - topInset), r0 = topInset + usable / 2, T = MT.MILESTONES, fp = sim.fp, orbit = sim.mode === 'orbit';
-    // Earth framing
     // Earth framing: the ground takes less and less of the picture as the rocket climbs (30% at the pad, under 10% high up),
     // then the horizon curves, the planet rounds into a ball, and by the edge of space all of it is in view, small and distant
     const alt = p.alt, top = 0.9 * alt + 1.6 * RH, share = lerp(0.30, 0.09, smooth(0, 3.2, Math.log10(Math.max(alt, RH) / RH)));
-    const d = lerp(share / (1 - share) * (alt + top), 2.35, smooth(0.25, 3.2, alt)), yBot = 1 - d, yTop = p.y + top;
+    const d = lerp(share / (1 - share) * (alt + top), 2.35, smooth(0.25, 3.2, alt)), yBot = Math.min(1 - d, p.y - 0.3 * alt), yTop = p.y + top;
     const wE = smooth(0.25, 2.0, alt), padX = 0.3 * alt + RH;
     const xMin = Math.min(p.x - padX, -1.08 * wE), xMax = Math.max(p.x + padX, 1.08 * wE);
     let s = Math.min(0.32 * H / RH, usable / (yTop - yBot), W * 0.9 / (xMax - xMin));
     let rx = W / 2 + (p.x - (xMin + xMax) / 2) * s, ry = H - (p.y - yBot) * s;      // where the rocket's tail sits on screen
-    // close-up
-    const wC = orbit ? 0 : smooth(T.space, T.space + 120, fp);
-    if (wC > 0) { s = Math.exp(lerp(Math.log(s), Math.log(usable / 6), wC)); rx = lerp(rx, W / 2, wC); ry = lerp(ry, r0 + 0.14 * H, wC); }
+    /* fit the rocket and the bodies given ([x, y, radius]) into the scene, clear of the flight plan down the right, with room on screen
+       for the rocket's body and for the flame trailing behind it */
+    const fw = W - 40 / ps, bx = -Math.sin(p.ang), by = -Math.cos(p.ang);
+    function frame(bodies) {
+      const fit = (a0, a1, b0, b1) => Math.min(usable / (b1 - b0), fw * 0.94 / (a1 - a0));
+      let x0 = p.x, x1 = p.x, y0 = p.y, y1 = p.y;
+      for (const b of bodies) { x0 = Math.min(x0, b[0] - b[2]); x1 = Math.max(x1, b[0] + b[2]); y0 = Math.min(y0, b[1] - b[2]); y1 = Math.max(y1, b[1] + b[2]); }
+      const s0 = fit(x0, x1, y0, y1), back = 36 * RES / s0, ahead = ([32, 18, 11][sim.stage] * 1.4 + 8) * RES / s0, side = 14 * RES / s0;   // p is the tail
+      x0 = Math.min(x0, p.x + bx * back - side, p.x - bx * ahead - side); x1 = Math.max(x1, p.x + bx * back + side, p.x - bx * ahead + side);
+      y0 = Math.min(y0, p.y + by * back - side, p.y - by * ahead - side); y1 = Math.max(y1, p.y + by * back + side, p.y - by * ahead + side);
+      const sF = fit(x0, x1, y0, y1);
+      return [sF, fw / 2 + (p.x - (x0 + x1) / 2) * sF, r0 - (p.y - (y0 + y1) / 2) * sF];
+    }
+    const blend = (f, w) => { s = Math.exp(lerp(Math.log(s), Math.log(f[0]), w)); rx = lerp(rx, f[1], w); ry = lerp(ry, f[2], w); };
+    // orbit framing: Earth and the rocket going round it
+    const wO = orbit ? 0 : smooth(T.space - 40, T.space + 20, fp);
+    if (wO > 0) blend(frame([[0, 0, 1.3]]), wO);
     // Moon framing
-    const wM = orbit ? 1 : smooth(T.stage2 + 3, T.stage2 + 55, fp);
+    const wM = orbit ? 1 : smooth(T.stage2 + 3, T.stage2 + 70, fp);
     // on the way in, the margins tighten and the rocket is drawn larger, so it does not shrink to a speck beside the Moon
-    const appr = orbit ? 1 : smooth(T.stage2 + 55, T.orbit - 60, fp);
-    if (wM > 0) { const m = RO * lerp(1.3, 1.22, appr), fit = (a0, a1, b0, b1) => Math.min(usable / (b1 - b0), W * 0.94 / (a1 - a0));
-      let x0 = Math.min(p.x, MOON.x - m), x1 = Math.max(p.x, MOON.x + m), y0 = Math.min(p.y, MOON.y - m), y1 = Math.max(p.y, MOON.y + m);
-      const s0 = fit(x0, x1, y0, y1), back = 36 * RES / s0, side = 14 * RES / s0;          // room on screen for the flame trailing behind and for the body
-      x0 = Math.min(p.x - back, MOON.x - m); x1 = Math.max(p.x + side, MOON.x + m); y0 = Math.min(p.y - back, MOON.y - m); y1 = Math.max(p.y + side, MOON.y + m);
-      const sM = fit(x0, x1, y0, y1);
-      s = Math.exp(lerp(Math.log(s), Math.log(sM), wM)); rx = lerp(rx, W / 2 + (p.x - (x0 + x1) / 2) * sM, wM); ry = lerp(ry, r0 - (p.y - (y0 + y1) / 2) * sM, wM); }
-    return { s: s, cx: p.x - (rx - W / 2) / s, cy: p.y + (ry - H / 2) / s, wM: wM, k: lerp(lerp(1, 2.2, wC), lerp(1.05, 1.6, appr) + 0.5 * sim.spinUp, wM) };          // a little larger still once it is spinning in orbit
+    const appr = orbit ? 1 : smooth(T.stage2 + 400, T.orbit - 60, fp);
+    if (wM > 0) blend(frame([[MOON.x, MOON.y, RO * lerp(1.3, 1.22, appr)]]), wM);
+    return { s: s, cx: p.x - (rx - W / 2) / s, cy: p.y + (ry - H / 2) / s, wM: wM, k: lerp(lerp(1, 1.15, wO), lerp(1.05, 1.6, appr) + 0.5 * sim.spinUp, wM) };          // a little larger still once it is spinning in orbit
   }
 
   function background(cam) {
@@ -262,7 +271,7 @@ function makeRocketView(cv, hud, sim, MT) {
     // after an explosion everything drawn over the scenery shakes for a moment
     if (shake > 0) { shake -= dt; g.save(); g.translate(Math.round((Math.random() - 0.5) * 5 * RES * shake), Math.round((Math.random() - 0.5) * 5 * RES * shake)); } else g.save();
 
-    const hp = s * RH, k = Math.max(cam.k * RES, Math.min(2.5 * RES, hp / 32)), pk = k / RES;     // pk: the size of a sprite pixel     // true size near the pad, an icon after that: larger in the close-up and on the approach to the Moon
+    const hp = s * RH, k = Math.max(cam.k * RES, Math.min(2.5 * RES, hp / 32)), pk = k / RES;     // true size near the pad, an icon after that: larger on the approach to the Moon; pk: the size of a sprite pixel
     const sx = X(p.x), sy = Y(p.y), wreck = sim.mode === 'pad' && sim.down > 0;
 
     // the orbit around the Moon, as a dotted ring

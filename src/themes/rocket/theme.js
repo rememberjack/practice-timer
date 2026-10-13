@@ -95,6 +95,7 @@ module.exports = {
         if (!shared) return;                                            // following: glide to where the other device's rocket is
         sim.l += (shared.l - sim.l) * Math.min(1, s.rdt * 4);
         if (sim.down > 0) sim.down -= s.rdt;
+        if (sim.mode === 'fall') sim.fallT += s.rdt;
         if (sim.mode === 'orbit' && s.state === 'running') { sim.th += sim.wOrbit * s.rdt; sim.spin(s.rdt); }
       },
       frame(dt, f) { while (sim.events.length) fire(sim.events.shift()); if (f.shown) view.draw({ running: f.v.st === 'running', playing: f.v.music, power: f.v.pw }, dt); },
@@ -132,7 +133,7 @@ module.exports = {
           if (prev.mode === 'pad' && m.mode === 'ascent') fire('liftoff');
           if (m.mode === 'ascent' && prev.fp < MILESTONES.tower && m.fp >= MILESTONES.tower) fire('tower');
           if (m.mode === 'ascent' && prev.fp < MILESTONES.space && m.fp >= MILESTONES.space) fire('space');
-          if (prev.mode === 'ascent' && m.mode === 'fall') fire('fall');
+          if (prev.mode === 'ascent' && m.mode === 'fall') { fire('fall'); sim.fallT = 0; }
           if (prev.mode === 'fall' && m.mode === 'pad') { fire('crash'); sim.down = 2.6; sim.l = 0; }
           if (prev.mode !== 'orbit' && m.mode === 'orbit') { fire('orbit'); sim.th = m.th; }
           if (prev.spin === 0 && m.spin > 0) fire('spin');
