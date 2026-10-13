@@ -1062,7 +1062,7 @@ function detectionTests(sr) {
     const saved = THEMES.splice(0), base = Object.assign(okTheme(), { id: 'base', langs: LANGS.map(l => l[0]), words: undefined }), out = [];
     try {
       out.push(checkTheme(okTheme()).length, addTheme(Object.assign(okTheme(), { id: 'first' })).join(), addTheme(base).length, addTheme(okTheme()).length, addTheme(okTheme()).join(), themes().map(t => t.id).join(' '),
-        checkTheme(Object.assign(okTheme(), { goalHint: undefined, words: undefined, fonts: undefined, tests: undefined, langs: ['en'] })).length, removeTheme('sample'), removeTheme('sample'), themes().map(t => t.id).join(' '));
+        checkTheme(Object.assign(okTheme(), { goalHint: undefined, words: undefined, fonts: undefined, tests: undefined, credits: undefined, langs: ['en'] })).length, removeTheme('sample'), removeTheme('sample'), themes().map(t => t.id).join(' '));
     } finally { THEMES.splice(0, THEMES.length, ...saved); }
     const want = [0, 'the base theme (the first installed) must be written for every language', 0, 0, 'the id sample is taken by another installed theme', 'base sample', 0, true, false, 'base'];
     return { name: 'Theme modules: a definition that keeps to the interface is installed once', expect: 'a sound definition has no problems and installs; a second with the same id does not; the first installed (the base) must have every language; the optional keys can go; a theme can be taken out again',
@@ -1074,6 +1074,7 @@ function detectionTests(sr) {
       [Object.assign(vary('langs', ['en', 'fr', 'zh'])), 'no words for zh'], [vary('words', { fr: { '{n} star': 'étoile' } }), 'same {blanks}'], [vary('words', { fr: { 'Sample': '' } }), 'same {blanks}'],
       [Object.assign(vary('langs', ['en', 'fr', 'zh']), { words: { fr: { a: 'b' }, zh: { c: 'd' } } }), 'not the same words as fr'], [vary('words', [1]), 'words must be'], [vary('panel', '#pSample'), 'panel must be'], [vary('panel'), 'no panel'],
       [vary('chrome', 'fancy'), 'chrome must be'], [vary('fonts', ['Barlow Condensed']), 'fonts must be'], [vary('fonts', 'Inter'), 'fonts must be'], [vary('tests', [{ name: 'x' }]), 'tests must be'], [vary('tests', {}), 'tests must be'],
+      [vary('credits', 'Jayden Chen'), 'credits must be'], [vary('credits', []), 'credits must be'], [vary('credits', ['Ann', 'Ann']), 'credits must be'], [vary('credits', [' Ann']), 'credits must be'],
       [vary('create'), 'no create'], [vary('create', {}), 'create must be'], [vary('crate', () => ({})), 'unknown key crate']];
     const bad = cases.filter(c => !checkTheme(c[0]).some(p => p.indexOf(c[1]) >= 0)).map(c => c[1] + ' (got ' + (checkTheme(c[0]).join('; ') || 'nothing') + ')');
     return { name: 'Theme modules: each way a definition can break is named', expect: cases.length + ' broken definitions, each with its problem in words', got: bad.length ? 'not named: ' + bad.slice(0, 3).join(' / ') : cases.length + ' of ' + cases.length + ' named', pass: !bad.length }; } });
@@ -1166,6 +1167,7 @@ const THEME_KEYS = {
   chrome: [true, v => v === 'clean' || v === 'pixel', '\'clean\' (the Classic title row) or \'pixel\' (the compact title row over a scene)'],
   fonts: [false, v => Array.isArray(v) && v.every(f => typeof f === 'string' && /^[A-Za-z][A-Za-z+]*(:[A-Za-z0-9@;,.]+)?$/.test(f)), 'Google Fonts families it needs, as the css2 URL writes them'],
   tests: [false, v => Array.isArray(v) && v.every(t => t && isText(t.name) && typeof t.run === 'function'), 'its tests: a list of { name, run }, run returning { name, expect, got, pass }'],
+  credits: [false, v => Array.isArray(v) && v.length > 0 && v.every(isText) && new Set(v).size === v.length, 'the people who made it, for the credits: a list of names, each once'],
   create: [true, v => typeof v === 'function', 'create(host): the instance whose hooks the page calls'],
 };
 /* the hooks an instance may have; all are optional (the docs say when each is called and with what) */

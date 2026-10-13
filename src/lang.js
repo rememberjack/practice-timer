@@ -199,6 +199,7 @@ const zh = {
   // About
   'Music Timer counts your practice only while it hears your instrument, so every minute it shows is a minute you played.': 'Music Timer 只在听到你的乐器时计时，所以它显示的每一分钟，都是你真正演奏的一分钟。',
   'Starring you, every time you play.': '领衔主演：每一次演奏的你。',
+  'Theme contributions': '主题贡献',
   'Tap to carry on.': '点按继续。',
   'Tap to pause. Hold to speed up. Drag to move.': '点按暂停，按住加速，拖动翻看。',
   'Product and design': '产品与设计',
@@ -490,6 +491,7 @@ const fr = {
   // About
   'Music Timer counts your practice only while it hears your instrument, so every minute it shows is a minute you played.': 'Music Timer ne compte ta pratique que lorsqu’il entend ton instrument : chaque minute affichée est une minute jouée.',
   'Starring you, every time you play.': 'Avec toi en vedette, chaque fois que tu joues.',
+  'Theme contributions': 'Contributions aux thèmes',
   'Tap to carry on.': 'Touche pour continuer.',
   'Tap to pause. Hold to speed up. Drag to move.': 'Touche pour mettre en pause. Maintiens pour accélérer. Fais glisser pour te déplacer.',
   'Product and design': 'Produit et design',
