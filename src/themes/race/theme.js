@@ -68,11 +68,11 @@ module.exports = {
         if (f.shown) view.draw({ minute: f.v.minute }, dt);
       },
       paint(v) {
-        const st = v.st, text = host.text, fmt = host.fmt, playTxt = fmt(v.play), el = $('gPlay'), cls = playTxt.length > 5 ? 'big long' : 'big', reached = st !== 'idle' && v.play >= v.goal;
+        const st = v.st, text = host.text, fmt = host.fmt, playTxt = fmt(v.play), el = $('gPlay'), cls = playTxt.length > 5 ? 'big long' : 'big';
         text(el, playTxt); if (el.className !== cls) el.className = cls;
         text($('gLap'), race.finished ? tr('{n}, extra', { n: race.lap }) : String(race.lap)); host.width($('gBar'), v.goal > 0 ? v.play / v.goal : 0);
         const box = $('gBarBox'); if (box.classList.contains('flag') !== race.finished) box.classList.toggle('flag', race.finished);   // chequered once the goal is reached
-        text($('gGoal'), fmt(v.goal)); text($('gGoalLeft'), reached ? tr('Reached') : host.goalLeft(v)); text($('gPauses'), String(v.pauses));
+        text($('gGoal'), fmt(v.goal)); host.showGoalLeft($('gGoalLeft'), v); text($('gPauses'), String(v.pauses));
         text($('gPos'), 'P' + race.pos);
         const gapIn = c => !race.racing || !c ? '–' : gapText(c.lead);
         text($('gGap'), gapIn(race.ahead)); text($('gBehind'), gapIn(race.behind));

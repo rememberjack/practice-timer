@@ -352,6 +352,8 @@ function paint() {
 /* the line under each theme's read-outs: what is heard while running, else the session's state */
 function heardLine(v) { return v.st === 'running' ? v.label : tr(v.st === 'paused' ? 'Paused: not listening' : v.st === 'idle' ? 'Press Start, then play' : 'Session finished'); }
 function goalLeft(v) { return tr('{t} left', { t: fmt(Math.ceil(v.goal - v.play)) }); }   // the play time still to go to the goal
+/* the same into el, its figure in <b> like the read-outs' other figures, or Reached once the goal is reached */
+function showGoalLeft(el, v) { html(el, v.st !== 'idle' && v.play >= v.goal ? tr('Reached') : tr('{t} left', { t: '<b>' + fmt(Math.ceil(v.goal - v.play)) + '</b>' })); }
 /* a power bar (Rocket and City): the fill and Power are the last minute of playing, the tick and Efficiency the whole session.
    els: { fill, tick, power, eff }, the bar's fill, its tick and the two figures */
 function powerBar(els, v, cls) {
@@ -418,7 +420,7 @@ function makeHost(t) {
   const T = MT.translator(t.def.words);
   return {
     id: t.id, panel: t.panel, $: $, tr: T.tr, trn: T.trn, view: V, reduceMotion: reduceMotion,
-    fmt: fmt, text: text, html: html, width: width, left: left, heardLine: heardLine, goalLeft: goalLeft, powerBar: powerBar, noteText: noteText, drawPixelTrophy: drawPixelTrophy,
+    fmt: fmt, text: text, html: html, width: width, left: left, heardLine: heardLine, goalLeft: goalLeft, showGoalLeft: showGoalLeft, powerBar: powerBar, noteText: noteText, drawPixelTrophy: drawPixelTrophy,
     locale: () => MT.getLang() === 'en' ? 'en-US' : loc(),
     audio: { bars: bars, det: () => A.det },
     shown: () => visible(t.i), current: () => skin === t.i, following: () => mode === 'follow',
