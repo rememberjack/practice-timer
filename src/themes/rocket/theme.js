@@ -11,6 +11,20 @@ const W = MT.word;
 const EVENT_TEXT = { ignition: W('Engines lit'), liftoff: W('Lift-off!'), tower: W('Tower cleared'), stage1: W('Stage 1 separation'), space: W('You have left the atmosphere'),
   stage2: W('Stage 2 separation'), orbit: W('Moon orbit reached!'), spin: W('Module spinning'), fall: W('Engines out. Falling!'), crash: W('The rocket exploded!') };
 const NEXT = [['tower', W('Clearing the tower in {t}')], ['stage1', W('Stage 1 separation in {t}')], ['space', W('Leaving the atmosphere in {t}')], ['stage2', W('Stage 2 separation in {t}')], ['orbit', W('Moon orbit in {t}')]];
+/* the flight plan beside the scene: Earth at the foot, the Moon at the top, and between them stage 1, the edge of space and stage 2,
+   evenly spaced (RocketSim.plan). Small pixel pictures, drawn as SVG so they stay sharp */
+const PLAN_PAL = { E: '#2F6FD0', G: '#5DA831', M: '#D8DCE4', m: '#9AA2B2', W: '#F4F6FA', w: '#B8C0CE', R: '#D23B2E', B: '#5CC8FF' };
+const PLAN_PIX = {
+  earth: ['..EEE..', '.EGGEE.', 'EGGGEEE', 'EEGEEGE', 'EEEEGGE', '.EEEEE.', '..EEE..'],
+  moon: ['..MMM..', '.MMMmM.', 'MmMMMMM', 'MMMMmMM', 'MMmMMMM', '.MMMMM.', '..MMM..'],
+  ship: ['..W..', '.WWw.', '.WBw.', '.WWw.', '.RRR.', '.WWw.', 'RWWwR', 'R...R'],
+};
+function pix(rows) {
+  let r = '';
+  rows.forEach((row, y) => { for (let x = 0; x < row.length; x++) if (PLAN_PAL[row[x]]) r += '<rect x="' + x + '" y="' + y + '" width="1" height="1" fill="' + PLAN_PAL[row[x]] + '"/>'; });
+  return '<svg viewBox="0 0 ' + rows[0].length + ' ' + rows.length + '" shape-rendering="crispEdges">' + r + '</svg>';
+}
+const PLAN_STOPS = [['stage', 0.25], ['space', 0.5], ['stage', 0.75]];
 const FLIGHT_KEY = 'musicTimer.newFlight';   // when a new flight was last started: sessions that had ended by then no longer carry their flight on (rocketCarry)
 
 module.exports = {
@@ -30,6 +44,18 @@ module.exports = {
     let flightFrom = 0, flightAt = -1e9, bannerT = 0, forced = '', shared = null;   // forced: where the next session's rocket starts (debug tools)
     try { flightFrom = +localStorage.getItem(FLIGHT_KEY) || 0; } catch (e) {}
     host.drawPixelTrophy($('rTrophy'));
+    const plan = $('rPlan'); let planP = -1, planMode = '';
+    plan.innerHTML = '<i class="pl-end pl-moon">' + pix(PLAN_PIX.moon) + '</i><span class="pl-rail"><i class="pl-fill"></i>'
+      + PLAN_STOPS.map(s => '<b class="pl-stop pl-' + s[0] + '" style="bottom:' + s[1] * 100 + '%"></b>').join('')
+      + '<i class="pl-ship">' + pix(PLAN_PIX.ship) + '</i></span><i class="pl-end pl-earth">' + pix(PLAN_PIX.earth) + '</i>';
+    const stops = plan.querySelectorAll('.pl-stop');
+    function paintPlan() {
+      const p = Math.round(sim.plan() * 1000) / 1000, mode = sim.mode === 'fall' ? 'fall' : p >= 1 ? 'done' : '';
+      if (p === planP && mode === planMode) return;
+      planP = p; planMode = mode; plan.style.setProperty('--p', p); plan.dataset.mode = mode;
+      let next = true;
+      PLAN_STOPS.forEach((s, i) => { const passed = p >= s[1] - 1e-6; stops[i].classList.toggle('on', passed); stops[i].classList.toggle('next', !passed && next); if (!passed) next = false; });
+    }
     function banner(msg) { const b = $('rBanner'); b.textContent = msg; b.classList.add('on'); clearTimeout(bannerT); bannerT = setTimeout(() => b.classList.remove('on'), 3600); }
     /* the rocket's own effects (explosions, falling stages, the flash) only while it is on screen: they age only as it is drawn,
        so effects from another theme would all play at once on coming back to Rocket. A new flight's banner is not replaced at once by "Engines lit" */
@@ -89,6 +115,7 @@ module.exports = {
         else if (st === 'running' && !v.music) next = tr('Losing power. Keep playing');
         else for (const n of NEXT) { const at = MILESTONES[n[0]]; if (sim.fp < at) { next = tr(n[1], { t: fmt(Math.ceil(at - sim.fp)) }); break; } }
         text($('rNext'), next);
+        paintPlan();
         const nf = flying(); if ($('rFlight').hidden === nf) { $('rFlight').hidden = !nf; $('hud').classList.toggle('has-flight', nf); }   // New flight, once off the pad
       },
       keep() { return sim.save(); },                                    // where the rocket got to, if in space or Moon orbit

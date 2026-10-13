@@ -58,6 +58,16 @@ class RocketSim {
   reset() { this.mode = 'pad'; this.l = 0; this.v = 0; this.hold = 0; this.stage = 0; this.inSpace = false; this.cleared = false;
     this.ignited = false; this.lit0 = false; this.fp = 0; this.power = 0; this.g = 0; this.prevT = 0; this.down = 0;
     this.th = this.th0; this.tOrb = 0; this.spinUp = 0; this.spinA = 0; this.events.length = 0; }
+  /* how far along the flight plan the rocket is, from 0 on the pad to 1 in Moon orbit: four equal legs (to stage 1, the edge of space,
+     stage 2 and the Moon), each filled by the playing it takes. Falling, it drops back with the rocket */
+  plan() {
+    if (this.mode === 'orbit') return 1;
+    const T = MILESTONES, at = [0, T.stage1, T.space, T.stage2, T.orbit], fp = this.fp;
+    let i = 0; while (i < 3 && fp >= at[i + 1]) i++;
+    const p = Math.min(1, (i + clamp01((fp - at[i]) / (at[i + 1] - at[i]))) / 4);
+    if (this.mode !== 'fall') return p;
+    const l0 = this.lenAt(fp); return l0 > 0 ? p * clamp01(this.l / l0) : 0;
+  }
   /* where the flight has got to, to carry on in the day's next session. Only a rocket in space or in Moon orbit carries on:
      anywhere below the edge of space (on the pad, climbing or falling) is null, and the next session starts on the pad */
   save() {

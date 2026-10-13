@@ -64,5 +64,14 @@ list.push({ name: 'Rocket: a new flight while a session is still running', run: 
     && sampleFlights(sampleLog('first', now)).length === 0;
   return { name: 'Rocket: sample practice logs carry the flight on', expect: 'in a sample log each day\'s sessions fly one flight on, so today\'s rocket carries on; below the edge of space a flight starts on the pad',
     got: 'today ' + T.today.sessions + ' sessions, rocket ' + (carried ? 'carried on' : 'on the pad'), pass: !!ok }; } });
+list.push({ name: 'Rocket: the flight plan follows the flight', run: () => {
+  const sim = new RocketSim(), at = {}, T = MILESTONES; let up = true, last = 0, fellTo = 1;
+  for (let t = 0; t < 1830; t += 0.1) { sim.update(0.1, { running: true, playing: true, eff: 1 }); sim.events.length = 0; const p = sim.plan(); if (p < last - 1e-9) up = false; last = p;
+    for (const k of ['stage1', 'space', 'stage2']) if (at[k] == null && sim.fp >= T[k]) at[k] = p; }
+  const orbit = sim.plan(), f = new RocketSim(); for (let t = 0; t < 120; t += 0.1) f.update(0.1, { running: true, playing: true, eff: 1 });
+  const before = f.plan(); for (let t = 0; t < 60 && f.mode !== 'pad'; t += 0.1) { f.update(0.1, { running: true, playing: false, eff: 0.2 }); if (f.mode === 'fall') fellTo = Math.min(fellTo, f.plan()); }
+  const near = (a, b) => Math.abs(a - b) < 0.002, ok = up && near(at.stage1, 0.25) && near(at.space, 0.5) && near(at.stage2, 0.75) && orbit === 1 && fellTo < before * 0.2 && f.plan() === 0;
+  return { name: 'Rocket: the flight plan follows the flight', expect: 'only rises while flying: a quarter at stage 1, half at the edge of space, three quarters at stage 2, full in Moon orbit; drops back in a fall, empty on the pad',
+    got: 'stage 1 ' + (at.stage1 || 0).toFixed(3) + ', space ' + (at.space || 0).toFixed(3) + ', stage 2 ' + (at.stage2 || 0).toFixed(3) + ', orbit ' + orbit + (up ? '' : ', went down while flying') + ', falling ' + before.toFixed(2) + ' to ' + fellTo.toFixed(2) + ', then ' + f.plan(), pass: ok }; } });
 
 module.exports = list;
