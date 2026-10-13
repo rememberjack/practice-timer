@@ -34,7 +34,7 @@ const HOLD = 3, ORBIT_PERIOD = 60, WRECK = 2.6, SPIN_AT = 3, SPIN_UP = 4, SPIN =
    and keeps turning as it climbs until it flies level at the edge of space, in a parking orbit round Earth at 1 + SPACE.
    E3-E4, the parking orbit: on round Earth to the side away from where it will meet the Moon.
    E4, translunar injection, then the transfer: half an ellipse with Earth at one focus, out to the Moon, fast near Earth and slow near the Moon,
-   as Kepler has it. It meets the Moon's orbit on a tangent on its near side and goes round the other way: a figure of eight, as the Apollo flights flew. */
+   as Kepler has it. It swings round behind the Moon and meets the Moon's orbit on a tangent on its far side, where the Apollo flights went into orbit. */
 const PATH = (function () {
   const RH = WORLD.ROCKET_H, H = WORLD.SPACE, R = 1 + H, M = WORLD.MOON, Ro = WORLD.ORBIT;
   const xs = [0], ys = [1], ls = [0], hs = [0], push = (x, y) => { ls.push(ls[ls.length - 1] + Math.hypot(x - xs[xs.length - 1], y - ys[ys.length - 1])); xs.push(x); ys.push(y); };
@@ -46,14 +46,14 @@ const PATH = (function () {
   while (H - h > 1e-9) { const dh = Math.min(Math.max(RH * 0.05, h * 0.003), (H - h) * 0.02, 0.01);
     phi -= Math.tan(tilt(h + dh / 2)) * dh / (1 + h + dh / 2); h += dh; push((1 + h) * Math.cos(phi), (1 + h) * Math.sin(phi)); hs.push(h); }
   const lSpace = ls[ls.length - 1], nAscent = ls.length;
-  /* where the transfer ends: on the line from Earth to the Moon, one orbit radius short of the Moon; it starts on the far side of Earth */
-  const toMoon = Math.atan2(M.y, M.x), ra = Math.hypot(M.x, M.y) - Ro, phiP = toMoon - Math.PI;
+  /* where the transfer ends: on the line from Earth to the Moon, one orbit radius beyond the Moon; it starts on the far side of Earth */
+  const toMoon = Math.atan2(M.y, M.x), ra = Math.hypot(M.x, M.y) + Ro, phiP = toMoon - Math.PI;
   for (let f = phi - 0.004; f > phiP; f -= 0.004) push(R * Math.cos(f), R * Math.sin(f));
   push(R * Math.cos(phiP), R * Math.sin(phiP));
   const lStage2 = ls[ls.length - 1], e = (ra - R) / (ra + R), p = R * (1 + e), NU = [0], NL = [lStage2];
   for (let i = 1; i <= 1600; i++) { const nu = Math.PI * i / 1600, r = p / (1 + e * Math.cos(nu)); push(r * Math.cos(phiP - nu), r * Math.sin(phiP - nu)); NU.push(nu); NL.push(ls[ls.length - 1]); }
   return { px: Float64Array.from(xs), py: Float64Array.from(ys), pl: Float64Array.from(ls), hs: Float64Array.from(hs), nAscent, lSpace, lStage2, e, NU, NL, R,
-    th0: Math.atan2(-Math.sin(toMoon), -Math.cos(toMoon)) };                                  // where it joins the Moon's orbit, seen from the Moon
+    th0: toMoon };                                                                              // where it joins the Moon's orbit, seen from the Moon
 })();
 const lerpAt = (xs, ys, x) => { let lo = 0, hi = xs.length - 1; if (x <= xs[0]) return ys[0]; if (x >= xs[hi]) return ys[hi];
   while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (xs[mid] <= x) lo = mid; else hi = mid; }
@@ -95,7 +95,7 @@ class RocketSim {
     this.events = []; this.reset();
   }
   reset() { this.mode = 'pad'; this.l = 0; this.v = 0; this.hold = 0; this.stage = 0; this.inSpace = false; this.cleared = false;
-    this.ignited = false; this.lit0 = false; this.fp = 0; this.fallT = 0; this.power = 0; this.g = 0; this.prevT = 0; this.down = 0;
+    this.ignited = false; this.lit0 = false; this.fp = 0; this.power = 0; this.g = 0; this.prevT = 0; this.down = 0;
     this.th = this.th0; this.tOrb = 0; this.spinUp = 0; this.spinA = 0; this.events.length = 0; }
   /* how far along the flight plan the rocket is, from 0 on the pad to 1 in Moon orbit: four equal legs (to stage 1, the edge of space,
      stage 2 and the Moon), each filled by the playing it takes. Falling, it drops back with the rocket */
@@ -138,7 +138,7 @@ class RocketSim {
       if (this.lit0 && inp.playing) this.fp = Math.min(HOLD, this.fp + dt);                        // the clock waits at lift-off
       if (this.ignited && this.hold >= HOLD) { this.mode = 'ascent'; this.prevT = this.target(this.fp); this.v = 0; this.events.push('liftoff'); }
     } else if (this.mode === 'ascent') {
-      if (eff < 0.5 && !this.inSpace) { this.mode = 'fall'; this.fallT = 0; this.ignited = false; this.g = Math.max(this.l / 8, 2e-5); this.events.push('fall'); return; }
+      if (eff < 0.5 && !this.inSpace) { this.mode = 'fall'; this.ignited = false; this.g = Math.max(this.l / 8, 2e-5); this.events.push('fall'); return; }
       this.ignited = eff >= 0.5;
       if (inp.playing) this.fp += dt;
       const tgt = this.target(this.fp), tv = (tgt - this.prevT) / dt, n = Math.max(1, Math.ceil(dt / 0.05)), h = dt / n, w = 1.2;
@@ -153,13 +153,13 @@ class RocketSim {
       if (this.stage < 2 && fp >= T.stage2 && this.l >= this.lStage2 * 0.97) { this.stage = 2; this.events.push('stage2'); }
       if (fp >= T.orbit && this.l >= this.L - 0.03) { this.mode = 'orbit'; this.l = this.L; this.ignited = false; this.th = this.th0; this.tOrb = 0; this.events.push('orbit'); }
     } else if (this.mode === 'fall') {
-      this.v -= this.g * dt; this.l += this.v * dt; this.fallT += rdt;
+      this.v -= this.g * dt; this.l += this.v * dt;
       if (this.l <= 0) { this.l = 0; this.v = 0; this.mode = 'pad'; this.hold = 0; this.stage = 0; this.inSpace = false; this.cleared = false;
         this.lit0 = false; this.fp = 0; this.down = WRECK; this.events.push('crash'); }
     } else if (this.mode === 'orbit') {
       this.ignited = false; this.tOrb += rdt;                                                       // circles the Moon for as long as the session runs
-      this.th += (0.004 + (this.wOrbit - 0.004) * smooth(0, 12, this.tOrb)) * rdt;
-      if (this.th > Math.PI) this.th -= 2 * Math.PI;
+      this.th -= (0.004 + (this.wOrbit - 0.004) * smooth(0, 12, this.tOrb)) * rdt;              // clockwise, the way it came round Earth
+      if (this.th < -Math.PI) this.th += 2 * Math.PI;
       const was = this.spinUp;                                                                      // E6: the module is sent spinning about its length
       this.spinUp = smooth(SPIN_AT, SPIN_AT + SPIN_UP, this.tOrb);
       if (was === 0 && this.spinUp > 0) this.events.push('spin');
@@ -169,14 +169,13 @@ class RocketSim {
   spin(dt) { this.spinA = (this.spinA + SPIN * this.spinUp * dt) % (2 * Math.PI); }
   pose() {
     if (this.mode === 'orbit') { const M = WORLD.MOON, c = Math.cos(this.th), s = Math.sin(this.th), x = M.x + WORLD.ORBIT * c, y = M.y + WORLD.ORBIT * s;
-      return { x: x, y: y, ang: Math.atan2(-s, c), alt: Math.max(0, Math.hypot(x, y) - 1) }; }
+      return { x: x, y: y, ang: Math.atan2(s, -c), alt: Math.max(0, Math.hypot(x, y) - 1) }; }
     const ls = this.pl, l = this.l; let lo = 0, hi = this.S;
     while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (ls[mid] <= l) lo = mid; else hi = mid; }
     const seg = ls[hi] - ls[lo], t = seg > 0 ? (l - ls[lo]) / seg : 0;
     const dx = this.px[hi] - this.px[lo], dy = this.py[hi] - this.py[lo];
     const x = this.px[lo] + dx * t, y = this.py[lo] + dy * t;
-    const tip = this.mode === 'fall' ? Math.PI * smooth(0, 1.6, this.fallT) : 0;                 // falling, it tips over and comes down nose first
-    return { x: x, y: y, ang: Math.atan2(dx, dy) + tip, alt: Math.max(0, Math.hypot(x, y) - 1) };
+    return { x: x, y: y, ang: Math.atan2(dx, dy), alt: Math.max(0, Math.hypot(x, y) - 1) };
   }
 }
 /* the rocket flight to carry on today: where the day's latest saved session left it (null to start on the pad, as on a new day).

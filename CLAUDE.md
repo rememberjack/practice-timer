@@ -48,8 +48,9 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
   to save never move the carried flight; demo sound sessions are saved like any other.
 - The rocket flies a real mission's shape (`PATH` and `TIMING` in `src/themes/rocket/sim.js`): upright past the tower, a gravity turn (20° from upright by
   stage 1) that levels off at the edge of space into a parking orbit round Earth, then at stage 2 a transfer half ellipse, on Kepler's clock (fast near
-  Earth, slow near the Moon), that meets the Moon's orbit on a tangent on its near side (a figure of eight). The camera (`camera` in its `view.js`) frames
-  the climb, then Earth and the rocket going round it, then the rocket and the Moon. Falling, the rocket tips over and comes down nose first.
+  Earth, slow near the Moon), that swings behind the Moon and meets its orbit on a tangent on the far side (clockwise, like the rest of the flight). The camera (`camera` in its
+  `view.js`) turns with the rocket, so away from Earth (from the Moon, once in its orbit) is always up the screen: the horizon stays level, the
+  rocket leans over and flies level, and it never points down the screen. It frames the climb, then Earth and the rocket, then the rocket and the Moon.
 - "Start a new flight" puts the rocket back on the pad: the New flight button at the end of the Rocket read-outs while it is
   off the pad, or the link after "Playing with Rocket" on the Home Screen. Both ask first. The time is kept in
   `musicTimer.newFlight`, and `rocketCarry` skips sessions that had ended by then. Play time, the goal and the trophy stay.
