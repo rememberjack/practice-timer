@@ -1047,11 +1047,13 @@ function detectionTests(sr) {
       && D.n === 11 && D.count === 11 && D.before === 600 && D.upTo === 660 && D.play === 660 && D1.n === 1 && D1.before === 0 && D1.upTo === 60 && dayRecap(recs, rec(at(12, 19))) === null && dayRecap(recs, null) === null && dayRecap([], recs[0]) === null;
     return { name: 'Clock and duration text at the edges, and the eleventh session of a day', expect: 'the clock shows whole seconds (59.9 s is 0:59) and hours from 1:00:00; durations round to the minute from 59.5 s and to the hour from 59.5 min; the tenth session is "your tenth", the eleventh "session 11"; a day with one session, or a session not in the log, has no line',
       got: clock + ' | ' + dur + ' | ' + line(10) + ' ' + line(11) + ' | eleventh: ' + D.n + ' of ' + D.count + ', ' + D.before + ' s before it', pass: ok }; } });
-  list.push({ name: 'Recordings: kept three days after their session, and only while it is in the log', run: () => {
-    const h = 36e5, now = new Date(2026, 9, 12, 20).getTime(), x = (id, ago) => ({ id: id, end: now - ago * h }), log = [1, 2, 3, 4].map(id => ({ id: id }));
-    const got = recordingsToDrop([x(1, 1), x(2, 71.9), x(3, 72), x(4, 200), x(5, 1), { id: 6 }, null], log, now).join(',');
-    const ok = got === '3,4,5,6,' && recordingKept(x(1, 0), now) && !recordingKept(x(1, -0), now + 72 * h) && !recordingKept(null, now) && recordingsToDrop([], log, now).length === 0;
-    return { name: 'Recordings: kept three days after their session, and only while it is in the log', expect: 'a recording goes 72 hours after its session ended, or as soon as its session leaves the log; one with no end, or not readable, goes too',
+  list.push({ name: 'Recordings: kept for today\'s and yesterday\'s sessions, and only while they are in the log', run: () => {
+    const at = (d, h, m) => new Date(2026, 9, d, h, m || 0).getTime(), now = at(12, 0, 5), ids = [at(12, 0), at(11, 0), at(11, 23, 59), at(10, 23, 59), at(10, 9), at(12, 0, 1), 7];
+    const log = ids.slice(0, 5).map(id => ({ id: id })), kept = ids.map(id => ({ id: id })).concat([{}, null]);
+    const got = recordingsToDrop(kept, log, now).map(id => id == null ? '-' : ids.indexOf(id)).join(',');
+    const ok = got === '3,4,5,6,-,-' && recordingKept({ id: at(11, 0) }, at(12, 23, 59)) && !recordingKept({ id: at(11, 23, 59) }, at(13, 0)) && recordingKept({ id: at(12, 23) }, at(13, 23, 59))
+      && !recordingKept(null, now) && recordingsToDrop([], log, now).length === 0;
+    return { name: 'Recordings: kept for today\'s and yesterday\'s sessions, and only while they are in the log', expect: 'just after midnight the sessions of today and yesterday keep theirs and the day before\'s go; a session from yesterday goes at midnight; one no longer in the log, or not readable, goes too',
       got: got, pass: ok }; } });
   list.push({ name: 'New versions: placeholders, dev builds and whitespace', run: () => {
     const page = b => '<meta name="build" content="' + b + '">', P = '__' + 'BUILD__';
@@ -1330,10 +1332,12 @@ function clockText(s) { s = Math.max(0, Math.floor(s));   // down to the second,
 
 /* ---------- Practice log: saved sessions and the week (the streak is worked out but not shown for now) ---------- */
 const LOG_MAX = 2000, KEEP_PLAY = 10;   // the log keeps the latest LOG_MAX sessions (years of practice, about 2.5 MB); a session needs KEEP_PLAY seconds of playing to be saved
-/* recordings (Settings, Record the playing) are kept on the device, apart from the log, for REC_DAYS days after their session ends.
-   recordingsToDrop: of the recordings kept ({ id, end }), the ids to delete: past their days, or their session no longer in the log */
-const REC_DAYS = 3;
-function recordingKept(x, now) { return !!x && x.end > 0 && now - x.end < REC_DAYS * 864e5; }
+/* recordings (Settings, Record the playing) are kept on the device, apart from the log, for the sessions of the last REC_DAYS days: today and
+   yesterday, by the day the session started (its id). recordingsToDrop: of the recordings kept ({ id }), the ids to delete: from an earlier day,
+   or their session no longer in the log */
+const REC_DAYS = 2;
+function recordingKept(x, now) { if (!x || !(x.id > 0)) return false; const d = new Date(now);
+  return x.id >= new Date(d.getFullYear(), d.getMonth(), d.getDate() - (REC_DAYS - 1)).getTime(); }
 function recordingsToDrop(kept, log, now) { const ids = new Set((log || []).map(r => r.id));
   return (kept || []).filter(x => !x || !ids.has(x.id) || !recordingKept(x, now)).map(x => x && x.id); }
 /* what is saved for a finished session: its times and its report, rounded so the log stays small (no audio: recordings are kept apart, see recordingsToDrop).

@@ -36,8 +36,8 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
 - Finished sessions are saved in localStorage under `musicTimer.log` (no audio); the practice log's figures (week,
   totals, calendar) come from `practiceStats` in `src/core.js`, which also works out a streak that is not shown for now.
 - Recordings (Settings, Record the playing; microphone only) are kept apart from the log, in IndexedDB (`musicTimer` database,
-  `recordings` store, by the session's id), for three days after their session ends (`REC_DAYS`, `recordingKept`, `recordingsToDrop` in
-  `src/core.js`). The summary plays and saves them, a past session's too while it has one. Each time the Home Screen shows,
+  `recordings` store, by the session's id), for the sessions of today and yesterday, by the day they started (`REC_DAYS`, `recordingKept`,
+  `recordingsToDrop` in `src/core.js`). The summary plays and saves them, a past session's too while it has one. Each time the Home Screen shows,
   `sweepRecordings` in `src/app.js` deletes the expired ones and those whose session left the log; deleting a session deletes its recording.
   A session cut short (`musicTimer.live`) comes back without one.
 - A day can hold several sessions. The calendar, week bars and Home Screen add up the whole day; `dayRecap` and `dayLine` give the
