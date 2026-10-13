@@ -510,11 +510,15 @@ document.addEventListener('wheel', e => {   // the whole page: on a computer the
   const row = e.target.closest && e.target.closest('#demoClips');
   if (row && (e.deltaX > 0 ? row.scrollLeft + row.clientWidth < row.scrollWidth - 1 : row.scrollLeft > 0)) return;   // the row of demo sounds scrolls sideways while it can
   e.preventDefault();   // also stops the browser reading it as back/forward, which would leave the page and lose the session
+  if (e.target.closest && e.target.closest('#logWeekSec')) { const n = performance.now(), d = weekWheel.feed({ t: e.timeStamp || n, now: n, drawn: n, dx: e.deltaX * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? weekSec.clientWidth : 1) });
+    if (d) showWeek(logBack - d, d); return; }   // over the practice log's week: the week changes instead
   if (row || document.querySelector('dialog[open]')) return;   // no theme change over the demo sounds or behind an open sheet
   const now = performance.now(), d = wheel.feed({ t: e.timeStamp || now, now: now, drawn: lastF, dx: e.deltaX * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? stage.clientWidth : 1) });
   if (d) setSkin(stepSkin(d), true);
 }, { passive: false });
-document.addEventListener('keydown', e => { if (document.querySelector('dialog[open]') || /INPUT|TEXTAREA/.test(e.target.tagName)) return;
+document.addEventListener('keydown', e => { if (/INPUT|TEXTAREA/.test(e.target.tagName)) return;
+  const top = [...document.querySelectorAll('dialog[open]')].pop();
+  if (top) { if (top.id === 'dlgLog' && /^Arrow(Left|Right)$/.test(e.key)) showWeek(logBack + (e.key === 'ArrowLeft' ? 1 : -1), e.key === 'ArrowLeft' ? -1 : 1); return; }   // the practice log: the week before or after
   if (e.key === 'ArrowRight') setSkin(stepSkin(1), true); else if (e.key === 'ArrowLeft') setSkin(stepSkin(-1), true); });
 window.addEventListener('resize', layoutChanged);
 window.addEventListener('pagehide', writeLive);   // the app is being closed: keep the session so far
@@ -825,6 +829,48 @@ twoTap($('sumDelete'), () => tr('Delete session'), () => tr('Tap again to delete
 twoTap($('logClear'), () => tr('Delete all sessions'), () => tr('Tap again to delete all'), () => { log = []; writeLog(); logChanged(); logShown = 30; renderLog(); toast(tr('All sessions deleted')); });
 const compact = s => { if (s <= 0) return ''; const m = Math.round(s / 60); return m < 1 ? tr('<1m') : m < 60 ? tr('{m}m', { m: m }) : m % 60 ? tr('{h}h{mm}', { h: Math.floor(m / 60), mm: String(m % 60).padStart(2, '0') }) : tr('{h}h', { h: m / 60 }); };
 const TROPHY_SVG = '<svg class="trophy" viewBox="0 0 64 64" aria-hidden="true"><path d="M19 13H9c0 10 5 15 12 16M45 13h10c0 10-5 15-12 16" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/><path fill="currentColor" d="M18 7h28v15c0 10-6 17-14 17s-14-7-14-17zM29 38h6v9h-6zM20 49h24v9H20z"/></svg>';
+const dayWhat = c => c.play > 0 ? (c.sessions > 1 ? tr('{time} in {n} sessions', { time: MT.durationText(c.play), n: c.sessions }) : MT.durationText(c.play)) : tr('no practice');
+/* the week bars: this week, or one of the four before it (logBack weeks back), Monday to Sunday. Each day's bar is as tall as its playing next to
+   the others (a full bar is the longest day, or 30 minutes), one block a session. The goal is for one session, so a day is not measured against it */
+let logBack = 0, logP = null;
+function renderWeek(P) {
+  logP = P; const W = MT.weekAt(P, logBack); logBack = W.back;
+  const top = Math.max(1800, ...W.days.map(c => c.play));
+  $('logWeek').replaceChildren(...W.days.map(c => { const d = el('div', 'd' + (c.today ? ' today' : '') + (c.future ? ' future' : '')), bar = el('div', 'bar');
+    if (c.play > 0) { const i = el('i', c.plays.length > 1 ? 'segs' : ''); i.style.height = Math.max(4, c.play / top * 100) + '%';
+      if (c.plays.length > 1) for (const p of c.plays) { const b = el('b'); b.style.flexGrow = String(p); i.append(b); }
+      bar.append(i); }
+    d.append(el('span', 't', compact(c.play)), bar, el('span', null, date(c.date, { weekday: 'narrow' }))); return d; }));
+  const name = W.back === 0 ? tr('This week') : W.back === 1 ? tr('Last week') : tr('Week of {date}', { date: date(W.days[0].date, { day: 'numeric', month: 'long' }) });
+  $('logWeekH').textContent = name;
+  $('logWeek').setAttribute('aria-label', tr('{week}: {list}.', { week: name, list: listText(W.days.filter(c => !c.future).map(c => tr('{day} {what}', { day: date(c.date, { weekday: 'long' }), what: dayWhat(c) }))) }));
+  $('logWeekLine').textContent = W.back ? MT.pastWeekLine(W) : MT.weekLine(P);
+  $('logWeekPrev').disabled = W.back >= MT.WEEKS_BACK; $('logWeekNext').disabled = W.back === 0;
+}
+/* to the week `back` weeks before this one; dir: the way it came (-1 an earlier week, in from the left; 1 a later one, in from the right; 0 back into place) */
+function showWeek(back, dir) {
+  const wk = $('logWeek'), was = logBack; logBack = Math.max(0, Math.min(MT.WEEKS_BACK, back));
+  if (logBack !== was && logP) renderWeek(logP); else dir = 0;
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (dir && !still) { wk.style.transition = 'none'; wk.style.transform = 'translateX(' + dir * 40 + '%)'; wk.style.opacity = '0'; void wk.offsetWidth; }
+  wk.style.transition = still ? 'none' : 'transform .26s cubic-bezier(.2,.8,.2,1), opacity .2s'; wk.style.transform = ''; wk.style.opacity = '';
+}
+$('logWeekPrev').onclick = () => showWeek(logBack + 1, -1);
+$('logWeekNext').onclick = () => showWeek(logBack - 1, 1);
+const weekSwipe = new MT.DragSwipe(), weekSec = $('logWeekSec');   // a finger or the mouse drags the bars: right to the week before, left to the week after
+weekSec.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse' && e.button !== 0) return; weekSwipe.down(e.pointerId, e.clientX, e.clientY, performance.now(), $('logWeek').clientWidth); });
+weekSec.addEventListener('pointermove', e => {
+  if (!weekSwipe.has(e.pointerId)) return;
+  if (e.pointerType === 'mouse' && !e.buttons) { weekDragEnd(e); return; }
+  const was = weekSwipe.locked, dx = weekSwipe.move(e.clientX, e.clientY); if (dx == null) return;
+  if (!was) try { weekSec.setPointerCapture(e.pointerId); } catch (er) {}
+  const at = MT.WEEKS_BACK - logBack, w = $('logWeek').clientWidth;   // the weeks in a row, the earliest on the left: it gives a little past either end
+  $('logWeek').style.transition = 'none'; $('logWeek').style.transform = 'translateX(' + (weekSwipe.offset(dx, at, MT.WEEKS_BACK + 1) + at * w) + 'px)';
+});
+function weekDragEnd(e) { if (e && !weekSwipe.has(e.pointerId)) return; const s = weekSwipe.up(e ? e.clientX : null, performance.now()); if (s == null) return; showWeek(logBack - s, s); }
+weekSec.addEventListener('pointerup', weekDragEnd); weekSec.addEventListener('pointercancel', () => weekDragEnd(null));
+weekSec.addEventListener('dragstart', e => e.preventDefault());
+const weekWheel = new MT.WheelSwipe();   // a two-finger trackpad swipe over the week, one week a swipe
 function renderLog() {
   const P = MT.practiceStats(log, Date.now()), empty = !log.length, pct = x => Math.round(x * 100) + '%';
   $('logEmpty').hidden = !empty; $('logMain').hidden = empty; $('logMore').hidden = empty;
@@ -836,17 +882,7 @@ function renderLog() {
   const week = P.weekPlay > 0;
   $('logBig').textContent = MT.durationText(week ? P.weekPlay : P.totalPlay); $('logBigCap').textContent = tr(week ? 'of music this week' : 'of music so far');
   $('logTotalBox').hidden = !week; $('logTotal').textContent = MT.durationText(P.totalPlay); $('logNudge').textContent = MT.practiceNudge(P);
-  // this week, Monday to Sunday: each day's bar as tall as its playing next to the others (a full bar is the longest day, or 30 minutes), one block a session.
-  // The goal is for one session, so a day is not measured against it
-  const top = Math.max(1800, ...P.week.map(c => c.play));
-  $('logWeek').replaceChildren(...P.week.map(c => { const d = el('div', 'd' + (c.today ? ' today' : '') + (c.future ? ' future' : '')), bar = el('div', 'bar');
-    if (c.play > 0) { const i = el('i', c.plays.length > 1 ? 'segs' : ''); i.style.height = Math.max(4, c.play / top * 100) + '%';
-      if (c.plays.length > 1) for (const p of c.plays) { const b = el('b'); b.style.flexGrow = String(p); i.append(b); }
-      bar.append(i); }
-    d.append(el('span', 't', compact(c.play)), bar, el('span', null, date(c.date, { weekday: 'narrow' }))); return d; }));
-  const dayWhat = c => c.play > 0 ? (c.sessions > 1 ? tr('{time} in {n} sessions', { time: MT.durationText(c.play), n: c.sessions }) : MT.durationText(c.play)) : tr('no practice');
-  $('logWeek').setAttribute('aria-label', tr('This week: {list}.', { list: listText(P.week.filter(c => !c.future).map(c => tr('{day} {what}', { day: date(c.date, { weekday: 'long' }), what: dayWhat(c) }))) }));
-  $('logWeekLine').textContent = MT.weekLine(P);
+  renderWeek(P);
   // the last 12 weeks, one column a week, a month name where a month begins
   const cells = [], months = []; let lastLabel = -9, lastMonth = -1;
   P.grid.forEach((col, w) => { const m = col[0].date.getMonth();
@@ -881,7 +917,7 @@ function renderLog() {
       b.onclick = () => openSummary(r, true); d.append(b); } return d; }));
   $('logOlder').hidden = log.length <= logShown;
 }
-function openLog() { pauseForSheet(); logShown = 30; disarm($('logClear'), tr('Delete all sessions')); renderLog(); $('dlgLog').querySelector('.sh-body').scrollTop = 0; if (!$('dlgLog').open) $('dlgLog').showModal(); }
+function openLog() { pauseForSheet(); logShown = 30; logBack = 0; disarm($('logClear'), tr('Delete all sessions')); renderLog(); $('dlgLog').querySelector('.sh-body').scrollTop = 0; if (!$('dlgLog').open) $('dlgLog').showModal(); }
 $('logClose').onclick = () => $('dlgLog').close();
 $('logOlder').onclick = () => { logShown += 30; renderLog(); };
 $('logStart').onclick = () => { $('dlgLog').close(); if ($('dlgSummary').open) $('dlgSummary').close(); start(); };

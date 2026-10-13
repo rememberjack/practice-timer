@@ -1000,6 +1000,15 @@ function detectionTests(sr) {
       && [S, M, Y].every(shape) && M.grid[0][0].key === '2026-07-27' && practiceStats([], at(2027, 1, 1), 3).grid.length === 3;
     return { name: 'Practice log: the week turns on Monday, and at the turn of the year', expect: 'on Sunday 11 October the week is Monday 5 to Sunday 11 and last week so far is all of last week; on Monday 12 a new week starts with six days to come and only last Monday counted so far; New Year\'s Day sits in the week of 28 December; the calendar is 12 columns of 7 ending in this week',
       got: keys(S) + sum(S) + ' | ' + keys(M) + sum(M) + ' | ' + keys(Y) + sum(Y), pass: ok }; } });
+  list.push({ name: 'Practice log: the week bars go back a month, one week at a time', run: () => {
+    const at = (m, d, h) => new Date(2026, m - 1, d, h || 12).getTime(), rec = (t, play) => ({ start: t, play: play, goal: 1800, eff: 0.8, R: { active: play / 0.8 } });
+    const recs = [rec(at(10, 13), 600), rec(at(10, 6), 300), rec(at(10, 8), 900), rec(at(9, 14), 1200), rec(at(9, 7), 60)];   // weeks 0, 1, 1, 4 and 5 back from Wednesday 14 October 2026
+    const P = practiceStats(recs, at(10, 14, 18)), W = [0, 1, 2, 3, 4].map(b => weekAt(P, b)), far = weekAt(P, 9), near = weekAt(P, -1), short = weekAt(practiceStats(recs, at(10, 14), 2), 4);
+    const got = W.map(w => w.days[0].key + ' ' + w.play).join(', ') + ' | ' + far.back + ' ' + near.back + ' ' + short.back + ' | ' + pastWeekLine(W[1]) + ' / ' + pastWeekLine(W[2]);
+    const ok = WEEKS_BACK === 4 && got.startsWith('2026-10-12 600, 2026-10-05 1200, 2026-09-28 0, 2026-09-21 0, 2026-09-14 1200 | 4 0 1 | ') && W[0].days.every((c, i) => c.key === P.week[i].key)
+      && W[0].play === P.weekPlay && W[1].play === P.lastWeekPlay && W.every(w => w.days.length === 7) && !/miss|lost|streak|only/i.test(pastWeekLine(W[2]));
+    return { name: 'Practice log: the week bars go back a month, one week at a time', expect: 'this week and the four before it, each Monday to Sunday with its playing; further back stays at four weeks, before this week at this week, and a shorter calendar at its first week; a week without music reads gently',
+      got: got, pass: ok }; } });
   list.push({ name: 'Practice log: an empty log, records in any order and the shades of the calendar', run: () => {
     const at = (d, h) => new Date(2026, 9, d, h || 12).getTime(), mon = at(12, 9), rec = (t, play, o) => Object.assign({ start: t, play: play, goal: 1800, eff: 0.8, R: { active: play / 0.8 } }, o);
     const E = practiceStats([], mon), O = practiceStats([rec(at(12), 100), rec(at(1), 700), rec(at(7), 500)], mon), N = practiceStats([rec(at(12, 8), 600, { eff: 0.5, R: null }), rec(at(12, 9), 300, { eff: 0, R: null })], mon);
@@ -1395,6 +1404,15 @@ function dayRecap(records, rec) {
   let before = 0, play = 0; day.forEach((r, i) => { play += r.play; if (i < n - 1) before += r.play; });
   return { key: k, n: n, count: day.length, sessions: day, before: before, upTo: before + rec.play, play: play };
 }
+/* the practice log's week bars swipe back through this many weeks before this one, about a month */
+const WEEKS_BACK = 4;
+/* the week `back` weeks before this one (0: this week, at most WEEKS_BACK) from practiceStats: its seven days, Monday first, and its playing */
+function weekAt(P, back) {
+  back = Math.max(0, Math.min(WEEKS_BACK, P.grid.length - 1, Math.round(back) || 0)); const days = P.grid[P.grid.length - 1 - back];
+  return { back: back, days: days, play: days.reduce((s, c) => s + c.play, 0) };
+}
+/* the line under an earlier week's bars: only what was played, and nothing to make up for a week without music */
+function pastWeekLine(W) { return W.play > 0 ? tr('{time} of playing that week.', { time: durationText(W.play) }) : tr('A quiet week. The music will be here when you are.'); }
 /* the words for a day of several sessions on the summary: { lead, text }, or null for a day with one session */
 const ORDINALS = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth', 'ninth', 'tenth'];
 function dayLine(D, now) {
@@ -1622,6 +1640,6 @@ function wheelTrace(k) { const a = WHEEL_TRACES[k], out = []; let t = 0; for (le
 const api = { LANGS, addWords, setLang, getLang, pickLang, locale, tr, trn, inLang, both, OnsetTracker, DragSwipe, WheelSwipe, MusicDetector, Session, SENSITIVITY, CLIPS, DETECTION_CASES,
   detectionTests, runDetectionTests, analyzeClip, sessionReport, clockText, sessionRecord, upgradeRecord, worthKeeping, liveSnapshot, liveRecord, buildOf, newerBuild, themesOn, themeSwitch, themeLanding,
   THEME_API, THEME_HOOKS, checkTheme, checkInstance, translator, word, addTheme, removeTheme, themes, themesOpen, seededRng, COMMON_WORDS,
-  practiceStats, dayRecap, dayLine, practiceNudge, homeCopy, weekLine, durationText, dayKey, dayStart, LOG_MAX, LEVEL_MIN, SAMPLE_LOGS, sampleLog, fraction, heardAs, noteOf, clamp01 };
+  practiceStats, dayRecap, dayLine, practiceNudge, homeCopy, weekLine, WEEKS_BACK, weekAt, pastWeekLine, durationText, dayKey, dayStart, LOG_MAX, LEVEL_MIN, SAMPLE_LOGS, sampleLog, fraction, heardAs, noteOf, clamp01 };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.MT = api;
 })(typeof self !== 'undefined' ? self : this);
