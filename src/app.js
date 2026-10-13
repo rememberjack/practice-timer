@@ -16,6 +16,7 @@ const S = Object.assign({}, DEF);
 try { const j = JSON.parse(localStorage.getItem('musicTimer.settings') || 'null');
   if (j && typeof j === 'object') { for (const k in DEF) if (typeof j[k] === typeof DEF[k] && j[k] !== null) S[k] = j[k];
     if (j.v !== 2 && S.goalMin === 20) S.goalMin = 30;             // settings saved before the default changed: the old default of 20 moves to 30 once
+    if (Array.isArray(S.prefs)) S.prefs = {};
     if (typeof j.viz === 'string' && !(S.prefs.classic && S.prefs.classic.viz)) S.prefs = Object.assign({}, S.prefs, { classic: { viz: j.viz } }); }   // Classic's sound picture, saved before themes kept their own
   S.v = 2; } catch (e) {}
 if (!(S.goalMin >= 5 && S.goalMin <= 180)) S.goalMin = 30;

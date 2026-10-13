@@ -3,9 +3,9 @@
 //   --themes classic,race    install these instead of the list (the first is the base theme)
 //   --theme-dir <dir>        also look for theme folders here (after src/themes), for a theme kept outside the app
 //   --out <dir>              write the page there instead of dist/
-const fs = require('fs'), path = require('path'), cp = require('child_process');
+const fs = require('fs'), path = require('path'), cp = require('child_process'), T = require('./themes.js'), MT = require('../src/core.js');
 const root = path.join(__dirname, '..'), src = f => fs.readFileSync(path.join(root, 'src', f), 'utf8');
-const arg = name => { const i = process.argv.indexOf('--' + name); return i > 0 ? process.argv[i + 1] : null; };
+const arg = name => T.option(process.argv, name);
 /* the version is a plain number: how many changes have been merged into main (each push to main adds one), so the live page
    counts up 56, 57, 58... It needs the whole history; a shallow clone would count wrong, so CI stops there rather than ship a wrong number */
 const git = c => cp.execSync('git ' + c, { cwd: root, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
@@ -16,19 +16,19 @@ try {
 } catch (e) { if (process.env.CI) throw e; }
 
 /* ---------- the theme modules ---------- */
-const THEME_DIRS = [path.join(root, 'src', 'themes')].concat(arg('theme-dir') ? [path.resolve(arg('theme-dir'))] : []);
-const installed = arg('themes') ? arg('themes').split(',').filter(Boolean) : JSON.parse(src('themes/themes.json'));
 const HOST_FONTS = ['Inter:wght@400;500;600;700;800', 'Silkscreen:wght@400;700'];   // the page's own type, and the pixel chrome's
-function readTheme(id) {
-  const dir = THEME_DIRS.map(d => path.join(d, id)).find(d => fs.existsSync(path.join(d, 'theme.js')));
-  if (!dir) throw new Error('theme ' + id + ': no ' + id + '/theme.js in ' + THEME_DIRS.join(' or '));
+function readTheme(t) {
+  const fail = msg => { throw new Error('theme ' + t.id + ': ' + msg); }, dir = t.dir || fail('no ' + t.id + '/theme.js in src/themes' + (arg('theme-dir') ? ' or ' + arg('theme-dir') : ''));
   const read = f => fs.existsSync(path.join(dir, f)) ? fs.readFileSync(path.join(dir, f), 'utf8') : null;
-  const js = fs.readdirSync(dir).filter(f => f.endsWith('.js')).sort();
-  const def = require(path.join(dir, 'theme.js'));   // read in Node too, for its fonts (and so a broken module stops the build)
-  for (const [f, text] of [['panel.html', read('panel.html')], ['icon.svg', read('icon.svg')]]) if (text == null) throw new Error('theme ' + id + ': no ' + f);
-  return { id: id, dir: dir, def: def, css: read('style.css') || '', panel: read('panel.html'), icon: read('icon.svg'), js: js.map(f => [f, read(f)]) };
+  const def = T.loadTheme(dir), bad = MT.checkTheme(def);   // read in Node too, so a module that breaks the interface stops the build
+  if (bad.length) fail(bad.join('; '));
+  if (def.id !== t.id) fail('its id is ' + def.id + ', in a folder named ' + t.id);
+  for (const f of ['panel.html', 'icon.svg']) if (read(f) == null) fail('no ' + f);
+  return { id: t.id, dir: dir, def: def, css: read('style.css') || '', panel: read('panel.html'), icon: read('icon.svg'), js: fs.readdirSync(dir).filter(f => f.endsWith('.js')).sort().map(f => [f, read(f)]) };
 }
-const themes = installed.map(readTheme);
+const themes = T.themeDirs(process.argv).map(readTheme);
+if (!themes.length) throw new Error('no themes to install');
+{ const ids = themes.map(t => t.id); if (new Set(ids).size !== ids.length) throw new Error('a theme is listed twice: ' + ids.join(', ')); }
 /* each theme folder is a small set of CommonJS files: in the page each file is a function, and require finds the files of the same folder
    ('./view.js') and the core ('../../core.js', which is MT). theme.js is the module; mtTheme installs what it exports (MT.addTheme) */
 const LOADER = `function mtTheme(id, files) {

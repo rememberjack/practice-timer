@@ -6,7 +6,7 @@
 //   panel.html, its name, line and goalHint), in each language it is written for (langs), from its own words or the page's. A theme has no
 //   words for a language it is not written for, and none it no longer uses.
 // Exits 1 if anything is missing. Run with --themes a,b or --theme-dir <dir> to check another set (as the build takes them).
-const fs = require('fs'), path = require('path'), vm = require('vm');
+const fs = require('fs'), path = require('path'), vm = require('vm'), { themeDirs, loadTheme } = require('../scripts/themes.js');
 const ROOT = path.join(__dirname, '..');
 const src = f => fs.readFileSync(path.join(ROOT, 'src', f), 'utf8');
 
@@ -60,16 +60,9 @@ function hostWords(bad) {
   for (const f of ['core.js', 'app.js']) { scanCode(src(f), adder(f)); scanTables(f, adder(f + ' table'), bad); }
   return used;
 }
-/* the folder of each installed theme, as the build finds it */
-function themeDirs(argv) {
-  const arg = n => { const i = argv.indexOf('--' + n); return i >= 0 ? argv[i + 1] : null; };
-  const dirs = [path.join(ROOT, 'src', 'themes')].concat(arg('theme-dir') ? [path.resolve(arg('theme-dir'))] : []);
-  const ids = arg('themes') ? arg('themes').split(',') : JSON.parse(src('themes/themes.json'));
-  return ids.map(id => ({ id: id, dir: dirs.map(d => path.join(d, id)).find(d => fs.existsSync(path.join(d, 'theme.js'))) }));
-}
 /* the words a theme shows: English -> where */
 function themeWords(t) {
-  const used = new Map(), adder = where => s => { if (!used.has(s)) used.set(s, where); }, def = require(path.join(t.dir, 'theme.js'));
+  const used = new Map(), adder = where => s => { if (!used.has(s)) used.set(s, where); }, def = loadTheme(t.dir);
   for (const f of fs.readdirSync(t.dir).filter(f => f.endsWith('.js') && f !== 'words.js')) scanCode(fs.readFileSync(path.join(t.dir, f), 'utf8'), adder(t.id + '/' + f));
   if (fs.existsSync(path.join(t.dir, 'panel.html'))) scanHtml(fs.readFileSync(path.join(t.dir, 'panel.html'), 'utf8'), adder(t.id + '/panel.html'));
   for (const k of ['name', 'line', 'goalHint']) if (def[k]) adder(t.id + ' ' + k)(def[k]);
