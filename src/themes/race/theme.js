@@ -8,6 +8,9 @@ const { makeRaceView } = require('./view.js');
 const words = require('./words.js');
 const { tr, trn } = MT.translator(words);
 /* a gap in laps, in words for the read-outs: seconds at full speed, or whole laps */
+/* the rivals' full names, shown in the race order for a moment when one overtakes */
+const RIVAL_NAMES = { BAC: MT.word('Bach'), MOZ: MT.word('Mozart'), BEE: MT.word('Beethoven'), CHO: MT.word('Chopin'), VIV: MT.word('Vivaldi'),
+  DEB: MT.word('Debussy'), HAN: MT.word('Handel'), RAV: MT.word('Ravel'), SCH: MT.word('Schubert') }, WIDE_MS = 3000;
 function raceGap(l) { const a = Math.abs(l); return a >= 1 ? trn(Math.floor(a), '{n} lap', '{n} laps') : Math.max(0.1, a * RACE.LAPU / RACE.VNOM).toFixed(1); }
 
 module.exports = {
@@ -25,6 +28,7 @@ module.exports = {
   create: function (host) {
     const $ = host.$, race = new RaceSim(), view = makeRaceView($('raceCv'), $('raceHud'), race, Object.assign(Object.create(MT), { tr: tr, trn: trn, RACE: RACE, RACE_PIT: RACE_PIT }));
     let notes = 0, doneAt = 0, bannerT = 0;          // note starts for the sparks under the car; when the chequered flag fell
+    const order = new Map(), wideUntil = new Map();   // each rival's place in the race order at the last paint; until when an overtaker's row shows their name
     function banner(msg, sub, kind, ms) {
       const b = $('gBanner'); b.textContent = msg; if (sub) { const s = document.createElement('small'); s.textContent = sub; b.append(s); }
       b.dataset.kind = kind || ''; b.classList.add('on'); clearTimeout(bannerT); if (ms) bannerT = setTimeout(() => b.classList.remove('on'), ms);
@@ -55,7 +59,7 @@ module.exports = {
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { view.rebuild(); host.layoutChanged(); }, () => {});   // its boards and read-outs are drawn in its condensed type
     return {
       /* a new field each session; a following device races the same one (the seed is shared) */
-      reset(s) { race.reset(s.goal, s.seed); view.reset(); notes = 0; hideBanner(); },
+      reset(s) { race.reset(s.goal, s.seed); view.reset(); notes = 0; order.clear(); wideUntil.clear(); hideBanner(); },
       notes(n) { notes += n; },
       tick(dt, s) { race.update(dt, { state: s.state, music: s.music, recent: s.recent, play: s.play }); },   // the race runs on session time, like the clock
       stopped(s) { race.update(0, { state: 'stopped', music: false, recent: 0, play: s.play }); hideBanner(); },   // the car slows to a stop; the race order stays as it ended
@@ -85,16 +89,27 @@ module.exports = {
         // the race order: the leader, and you with the cars either side of you
         const all = race.cars.map(c => ({ code: c.code, lead: c.lead, col: c.c1, me: false })); all.push({ code: tr('YOU'), lead: 0, col: RACE.YOU[2], me: true });
         all.sort((p, q) => q.lead - p.lead);
-        const me = all.findIndex(o => o.me), rows = new Set([0]);
+        const me = all.findIndex(o => o.me), rows = new Set([0]), now = performance.now();
         if (me <= 3) [1, 2, 3].forEach(i => rows.add(i)); else [me - 1, me, me + 1].forEach(i => { if (i < all.length) rows.add(i); });
-        let html = '', last = -1;
-        for (const i of [...rows].sort((p, q) => p - q)) {
-          if (i > last + 1) html += '<li class="gap"></li>';
-          const o = all[i], gap = o.me && race.inPit ? tr('PIT') : !race.racing ? '' : i === 0 ? tr('Leader') : '+' + raceGap(all[i - 1].lead - o.lead);
-          html += '<li' + (o.me ? ' class="me"' : '') + '><span class="p">' + (i + 1) + '</span><span class="s" style="background:' + o.col + '"></span><span class="c">' + o.code + '</span><span class="g">' + gap + '</span></li>';
-          last = i;
-        }
-        host.html($('gTower'), html);
+        all.forEach((o, i) => { if (!o.me && race.racing && order.has(o.code) && i < order.get(o.code)) wideUntil.set(o.code, now + WIDE_MS); order.set(o.code, i); });   // a rival who overtakes shows their name a moment
+        const T = $('gTower'), want = [];
+        let last = -1;
+        for (const i of [...rows].sort((p, q) => p - q)) { if (i > last + 1) want.push(-1); want.push(i); last = i; }
+        while (T.children.length < want.length) T.append(document.createElement('li'));
+        while (T.children.length > want.length) T.lastChild.remove();
+        want.forEach((i, k) => {
+          const li = T.children[k];
+          if (i < 0) { if (li.className !== 'gap') { li.className = 'gap'; li.textContent = ''; li.style.width = ''; } return; }
+          if (!li.firstChild) li.innerHTML = '<span class="p"></span><span class="s"></span><span class="c"></span><span class="g"></span>';
+          const o = all[i], gap = o.me && race.inPit ? tr('PIT') : !race.racing ? '' : i === 0 ? tr('Leader') : '+' + raceGap(all[i - 1].lead - o.lead), wide = !o.me && (wideUntil.get(o.code) || 0) > now;
+          const [p, sw, c, g] = li.children;
+          if (li.classList.contains('gap')) li.classList.remove('gap'); if (li.classList.contains('me') !== o.me) li.classList.toggle('me', o.me);
+          text(p, String(i + 1)); text(g, gap); if (sw.style.background !== o.col) sw.style.background = o.col;
+          if (wide !== li.classList.contains('wide')) {   // the row grows to fit the full name, then goes back to its size
+            li.classList.toggle('wide', wide); text(c, wide ? tr(RIVAL_NAMES[o.code]) : o.code);
+            if (wide) { const from = li.offsetWidth; li.style.width = 'max-content'; if (from) { const to = Math.max(from, li.offsetWidth); li.style.width = from + 'px'; void li.offsetWidth; li.style.width = to + 'px'; } } else li.style.width = '';
+          } else text(c, wide ? tr(RIVAL_NAMES[o.code]) : o.code);
+        });
       },
       resize() { view.resize(); },
       langChanged() { view.rebuild(); },
