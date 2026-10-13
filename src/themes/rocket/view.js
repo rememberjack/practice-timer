@@ -154,8 +154,9 @@ function makeRocketView(cv, hud, sim, MT) {
     return true;
   }
 
-  /* The view turns with the rocket: away from Earth is always up the screen at the rocket (away from the Moon, once in its orbit), so the
-     horizon stays level under it, it leans over as it turns, flies level round its orbit, and never points down the screen.
+  /* The view turns with the rocket: away from Earth is always up the screen at the rocket, so the horizon stays level under it and it leans
+     over as it turns, to the 26° it then keeps all the way out (sim.tilt); in the Moon's orbit the view keeps it at that same lean, the Moon
+     below and to its right. It never points down the screen.
      Three framings, blended along the flight clock (seconds of playing since ignition), all worked out in that turned view:
      Earth    - the view widens with altitude and shows more sky and less ground as the rocket climbs and turns, until the whole planet is
                 small and distant;
@@ -163,7 +164,7 @@ function makeRocketView(cv, hud, sim, MT) {
      Moon     - from stage 2 separation (E4) the view widens to take in the Moon as the rocket swings out on its way, then tightens as it nears it.
      Each framing says how big the world is drawn and where the rocket sits on screen; blending those keeps the rocket in view throughout. */
   function camera(pw) {
-    const rot = sim.mode === 'orbit' ? sim.th - Math.PI / 2 : Math.atan2(pw.y, pw.x) - Math.PI / 2, rc = Math.cos(rot), rs = Math.sin(rot);
+    const rot = sim.mode === 'orbit' ? sim.tilt - pw.ang : Math.atan2(pw.y, pw.x) - Math.PI / 2, rc = Math.cos(rot), rs = Math.sin(rot);
     const turn = (x, y) => ({ x: rc * x + rs * y, y: -rs * x + rc * y });                    // world to the turned view
     const pt = turn(pw.x, pw.y), p = { x: pt.x, y: pt.y, alt: pw.alt, ang: pw.ang + rot }, Mt = turn(MOON.x, MOON.y);
     const usable = Math.max(40 * RES, H - topInset), r0 = topInset + usable / 2, T = MT.MILESTONES, fp = sim.fp, orbit = sim.mode === 'orbit';
@@ -182,7 +183,7 @@ function makeRocketView(cv, hud, sim, MT) {
       const fit = (a0, a1, b0, b1) => Math.min(usable / (b1 - b0), fw * 0.94 / (a1 - a0));
       let x0 = p.x, x1 = p.x, y0 = p.y, y1 = p.y;
       for (const b of bodies) { x0 = Math.min(x0, b[0] - b[2]); x1 = Math.max(x1, b[0] + b[2]); y0 = Math.min(y0, b[1] - b[2]); y1 = Math.max(y1, b[1] + b[2]); }
-      const s0 = fit(x0, x1, y0, y1), back = 36 * RES / s0, ahead = ([32, 18, 11][sim.stage] * 1.4 + 8) * RES / s0, side = 14 * RES / s0;   // p is the tail
+      const s0 = fit(x0, x1, y0, y1), back = 36 * RES / s0, ahead = (32 * 1.4 + 8) * RES / s0, side = 14 * RES / s0;   // p is the full rocket's tail: the nose stays put as stages drop
       x0 = Math.min(x0, p.x + bx * back - side, p.x - bx * ahead - side); x1 = Math.max(x1, p.x + bx * back + side, p.x - bx * ahead + side);
       y0 = Math.min(y0, p.y + by * back - side, p.y - by * ahead - side); y1 = Math.max(y1, p.y + by * back + side, p.y - by * ahead + side);
       const sF = fit(x0, x1, y0, y1);

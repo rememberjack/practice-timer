@@ -1,7 +1,7 @@
 /* Rocket's tests: run by npm test and by the debug tools' Sound tests, with the page's own */
 'use strict';
 const { Session, practiceStats, sampleLog } = require('../../core.js');
-const { MILESTONES, WORLD, RocketSim, rocketAt, rocketCarry, sampleFlights } = require('./sim.js');
+const { MILESTONES, TILT, WORLD, RocketSim, rocketAt, rocketCarry, sampleFlights } = require('./sim.js');
 const list = [];
 list.push({ name: 'Rocket: timeline from ignition to Moon orbit', run: () => {
   const sim = new RocketSim(), s = new Session(), at = {}; s.start();
@@ -75,19 +75,18 @@ list.push({ name: 'Rocket: the flight plan follows the flight', run: () => {
     got: 'stage 1 ' + (at.stage1 || 0).toFixed(3) + ', space ' + (at.space || 0).toFixed(3) + ', stage 2 ' + (at.stage2 || 0).toFixed(3) + ', orbit ' + orbit + (up ? '' : ', went down while flying') + ', falling ' + before.toFixed(2) + ' to ' + fellTo.toFixed(2) + ', then ' + f.plan(), pass: ok }; } });
 list.push({ name: 'Rocket: flies a curved path to the Moon, as real flights do', run: () => {
   const sim = new RocketSim(), T = MILESTONES, M = WORLD.MOON, deg = 180 / Math.PI, at = t => { sim.mode = 'ascent'; sim.l = sim.lenAt(t); return sim.pose(); };
-  const radial = q => Math.atan2(q.x, q.y);                                                   // the angle of upright, where the rocket is
-  const tower = at(T.tower), st1 = at(T.stage1), sp = at(T.space), park = at((T.space + T.stage2) / 2), tli = at(T.stage2);
-  const tilt1 = (st1.ang - radial(st1)) * deg, level = Math.abs(((sp.ang - radial(sp)) * deg + 360) % 360 - 90);
-  let down = 0, nearMoon = 1e9;                                                               // heading back towards Earth (down the turned screen); closest pass by the Moon
+  const tiltAt = q => ((q.ang - Math.atan2(q.x, q.y)) * deg + 540) % 360 - 180;               // from upright, where the rocket is
+  const tower = at(T.tower), st1 = tiltAt(at(T.stage1));
+  let hold = 0; for (let t = 280; t < T.orbit; t += 10) hold = Math.max(hold, Math.abs(tiltAt(at(t)) - TILT * deg));
+  let down = 0, nearMoon = 1e9, kink = 0;
   for (let i = 1; i < sim.px.length; i++) { const dx = sim.px[i] - sim.px[i - 1], dy = sim.py[i] - sim.py[i - 1], r = Math.hypot(sim.px[i], sim.py[i]), d = Math.hypot(dx, dy);
-    if (d > 0) down = Math.max(down, -(dx * sim.px[i] + dy * sim.py[i]) / (r * d)); if (i < sim.px.length - 1) nearMoon = Math.min(nearMoon, Math.hypot(sim.px[i] - M.x, sim.py[i] - M.y)); }
-  let kink = 0; for (let i = 2; i < sim.px.length; i++) { const a0 = Math.atan2(sim.px[i - 1] - sim.px[i - 2], sim.py[i - 1] - sim.py[i - 2]), a1 = Math.atan2(sim.px[i] - sim.px[i - 1], sim.py[i] - sim.py[i - 1]);
-    let dd = Math.abs(a1 - a0) * deg; if (dd > 180) dd = 360 - dd; kink = Math.max(kink, dd); }
-  const e = sim.px.length - 1, endGap = Math.hypot(Math.hypot(sim.px[e] - M.x, sim.py[e] - M.y) - WORLD.ORBIT, 0), endAng = Math.atan2(sim.px[e] - sim.px[e - 1], sim.py[e] - sim.py[e - 1]);
-  const joinAng = Math.atan2(Math.sin(sim.th0), -Math.cos(sim.th0)), joinErr = Math.abs(endAng - joinAng) * deg;
-  const ok = Math.abs(tower.ang) < 0.01 && tilt1 > 12 && tilt1 < 30 && level < 3 && Math.abs(park.alt - WORLD.SPACE) < 0.01 && Math.abs(tli.alt - WORLD.SPACE) < 0.01
-    && kink < 1.5 && endGap < 1e-6 && joinErr < 1.5 && down < 1e-3 && nearMoon > M.r * 1.3;
-  return { name: 'Rocket: flies a curved path to the Moon, as real flights do', expect: 'upright past the tower, leaning over by stage 1, level at the edge of space, round Earth in a parking orbit, then out on a smooth curve, never heading back down, that passes clear of the Moon and meets its orbit on a tangent',
-    got: 'tower ' + (tower.ang * deg).toFixed(1) + '°, stage 1 ' + tilt1.toFixed(0) + '° from upright, ' + level.toFixed(1) + '° from level at the edge of space, parking orbit ' + park.alt.toFixed(2) + ' up, sharpest bend ' + kink.toFixed(2) + '°, ' + endGap.toExponential(1) + ' from the Moon\'s orbit, ' + joinErr.toFixed(2) + '° off its tangent, heading down ' + down.toFixed(4) + ', closest to the Moon ' + nearMoon.toFixed(2), pass: ok }; } });
+    if (d > 0) down = Math.max(down, -(dx * sim.px[i] + dy * sim.py[i]) / (r * d)); if (i < sim.px.length - 1) nearMoon = Math.min(nearMoon, Math.hypot(sim.px[i] - M.x, sim.py[i] - M.y));
+    if (i > 1) { const a0 = Math.atan2(sim.px[i - 1] - sim.px[i - 2], sim.py[i - 1] - sim.py[i - 2]), a1 = Math.atan2(dx, dy); let dd = Math.abs(a1 - a0) * deg; if (dd > 180) dd = 360 - dd; kink = Math.max(kink, dd); } }
+  const e = sim.px.length - 1, endGap = Math.abs(Math.hypot(sim.px[e] - M.x, sim.py[e] - M.y) - WORLD.ORBIT), endAng = Math.atan2(sim.px[e] - sim.px[e - 1], sim.py[e] - sim.py[e - 1]);
+  const joinAng = Math.atan2(Math.sin(sim.th0), -Math.cos(sim.th0)), joinErr = Math.abs(endAng - joinAng) * deg, dist = Math.hypot(M.x, M.y);
+  const ok = Math.abs(tower.ang) < 0.01 && st1 > 15 && st1 < 25 && hold < 1 && kink < 1.5 && endGap < 1e-3 && joinErr < 1.5 && down < 1e-3 && nearMoon > M.r * 1.3 && Math.abs(dist - 13.86) < 0.05;
+  return { name: 'Rocket: flies a curved path to the Moon, as real flights do', expect: 'upright past the tower, leaning over by stage 1, then keeping a 26° lean all the way out on a smooth curve, never heading back down, clear of the Moon, meeting its orbit on a tangent',
+    got: 'tower ' + (tower.ang * deg).toFixed(1) + '°, stage 1 ' + st1.toFixed(0) + '° from upright, then within ' + hold.toFixed(2) + '° of ' + Math.round(TILT * deg) + '°, sharpest bend ' + kink.toFixed(2) + '°, '
+      + endGap.toExponential(1) + ' from the Moon\'s orbit, ' + joinErr.toFixed(2) + '° off its tangent, heading down ' + down.toFixed(4) + ', closest to the Moon ' + nearMoon.toFixed(2) + ', Moon ' + dist.toFixed(2) + ' away', pass: ok }; } });
 
 module.exports = list;

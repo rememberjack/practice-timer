@@ -46,11 +46,11 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
   `record.themes.rocket` through the theme's `keep` hook; older records' `record.rocket` is moved there by `upgradeRecord`); the next session
   that day carries on from it (`rocketCarry`, the theme's `restore` hook). Below space, and on a new day, it starts on the pad. Sessions too short
   to save never move the carried flight; demo sound sessions are saved like any other.
-- The rocket flies a real mission's shape (`PATH` and `TIMING` in `src/themes/rocket/sim.js`): upright past the tower, a gravity turn (20° from upright by
-  stage 1) that levels off at the edge of space into a parking orbit round Earth, then at stage 2 a transfer half ellipse, on Kepler's clock (fast near
-  Earth, slow near the Moon), that swings behind the Moon and meets its orbit on a tangent on the far side (clockwise, like the rest of the flight). The camera (`camera` in its
-  `view.js`) turns with the rocket, so away from Earth (from the Moon, once in its orbit) is always up the screen: the horizon stays level, the
-  rocket leans over and flies level, and it never points down the screen. It frames the climb, then Earth and the rocket, then the rocket and the Moon.
+- The rocket's path (`PATH` and `TIMING` in `src/themes/rocket/sim.js`): upright past the tower, then a gravity turn, 20° from upright by stage 1 and
+  26° (`TILT`) a little above, and from there it keeps that lean to the way up all the way out, on a curve round Earth; the Moon is where that path reaches
+  its distance, and the rocket meets the Moon's orbit on a tangent and goes round it clockwise. The camera (`camera` in its `view.js`) turns with the
+  rocket so away from Earth is up the screen at the rocket: the horizon stays level, the rocket leans over and then always shows the same 26° lean (in
+  Moon orbit too, the Moon below and to its right), and it never points down the screen. It frames the climb, then Earth and the rocket, then the rocket and the Moon.
 - "Start a new flight" puts the rocket back on the pad: the New flight button at the end of the Rocket read-outs while it is
   off the pad, or the link after "Playing with Rocket" on the Home Screen. Both ask first. The time is kept in
   `musicTimer.newFlight`, and `rocketCarry` skips sessions that had ended by then. Play time, the goal and the trophy stay.
