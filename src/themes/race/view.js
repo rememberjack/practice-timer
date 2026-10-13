@@ -272,13 +272,13 @@ function makeRaceView(cv, hud, sim, MT) {
     const d = sim.d, base = Math.floor(d / SEG), pct = d / SEG - base;
     const pa = (d + PZ) / SEG, ps = Math.floor(pa), pp = pa - ps, pi = ps % N;
     const playerY = track.y[pi] + (track.y[pi + 1] - track.y[pi]) * pp, camY = playerY + CAMH, camX = sim.x * ROADW;
-    bgX += track.curve[base % N] * sim.v * dt * 0.00045;
+    bgX += track.curve[base % N] * sim.v * dt * 0.00007;   // the hills turn about as fast as the car does, the far ones slowest
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     if (shake > 0) { shake -= dt; if (!RM) g.translate((Math.random() - 0.5) * 3, (Math.random() - 0.5) * 2); }
     // sky and hills
     g.drawImage(sky, 0, 0, W, sky.height / dpr);
     const hill = clamp((playerY - track.y[(base + 60) % N]) / 60, -30, 30);
-    for (const [L, par, hh] of [[far, 0.25, Math.min(110, HY * 0.45)], [near, 0.6, Math.min(70, HY * 0.3)]]) {
+    for (const [L, par, hh] of [[far, 0.25, Math.min(110, HY * 0.45)], [near, 0.4, Math.min(70, HY * 0.3)]]) {
       const tw = 1024 * hh / L.height, ox = -(((bgX * par * W) % tw) + tw) % tw;
       for (let x = ox; x < W; x += tw) g.drawImage(L, x, HY - hh + 2 + hill * par, tw + 1, hh);
     }

@@ -73,7 +73,8 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
   out is set when the car turns in, so the garages never vanish. On track every car keeps to the racing line (`raceLine`, `RaceSim.lineAt`): wide on the
   way in, the inside tyres on the kerb at the apex, wide on the way out; close bends the other way go apex to apex. A test checks every corner.
   On screen the car brakes for each bend to its corner speed (`raceCorners`, `RaceSim.cornerAt`: the hairpin about 110 km/h) and speeds up
-  out of it; that is only the picture, as every car takes the same bends: the race distance, places and laps still come from playing alone. The race runs until the practice goal; the trophy card names the place.
+  out of it; that is only the picture, as every car takes the same bends: the race distance, places and laps still come from playing alone. In the race order, a rival who overtakes has their row grow to show their full name for 3 s (`RIVAL_NAMES` in `src/themes/race/theme.js`).
+  The race runs until the practice goal; the trophy card names the place.
 - Fireworks (`FireworkSim` in `src/themes/fireworks/sim.js`, drawn by its `view.js`) sends up a shell for each note played: its colour is the note (the twelve
   notes are twelve colours, `fwHue`) and its height how high the note is. The last minute of playing is shown as Intensity (Power in the other
   themes): it sets the pace, so the higher it is the more shells are in the sky at once (`FW.PACE`; a held note keeps them going up), and their

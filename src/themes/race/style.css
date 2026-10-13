@@ -44,17 +44,20 @@ body:has(> #app[data-skin="race"]){background:#0A0E1C}
 .gp-line{margin-top:4px; min-height:17px; font-family:var(--sans); font-weight:600; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .gp-line.dim{margin-top:0; font-weight:400; color:#A9B0C6}
 /* the race order, under the read-outs on the left (the speed panel is drawn on the right) */
-.gp-tower{position:absolute; left:10px; top:calc(var(--hud-b, 170px) + 8px); width:124px; margin:0; padding:0; list-style:none; font-size:14px; border-radius:8px; overflow:hidden; background:rgba(9,12,26,.84); pointer-events:none}
-.gp-tower li{display:grid; grid-template-columns:20px 4px 1fr auto; align-items:center; gap:5px; height:22px; padding-right:6px}
+.gp-tower{position:absolute; left:10px; top:calc(var(--hud-b, 170px) + 8px); width:124px; margin:0; padding:0; list-style:none; font-size:14px; pointer-events:none}
+.gp-tower li{display:grid; grid-template-columns:20px 4px 1fr auto; align-items:center; gap:5px; box-sizing:border-box; width:100%; height:22px; padding-right:6px; overflow:hidden; background:rgba(9,12,26,.84); transition:width .35s ease-out, border-radius .35s}
+.gp-tower li:first-child{border-top-left-radius:8px; border-top-right-radius:8px} .gp-tower li:last-child{border-bottom-left-radius:8px; border-bottom-right-radius:8px}
+.gp-tower li.wide{gap:8px; padding-right:8px; border-top-right-radius:6px; border-bottom-right-radius:6px; box-shadow:0 2px 10px rgba(0,0,0,.4)}   /* a rival who just overtook: the row grows to show their full name */
+.gp-tower li.wide .c{color:#FFFFFF}
 .gp-tower li + li{border-top:1px solid rgba(255,255,255,.07)}
 .gp-tower .p{background:#E9ECF4; color:#0B1020; height:100%; display:grid; place-items:center; font-weight:800}
 .gp-tower .s{height:12px; border-radius:1px}
-.gp-tower .c{font-weight:700; letter-spacing:.04em}
+.gp-tower .c{font-weight:700; letter-spacing:.04em; white-space:nowrap; overflow:hidden}
 .gp-tower .g{color:#A9B0C6; font-variant-numeric:tabular-nums; font-size:13px}
-.gp-tower li.me{background:rgba(134,220,192,.2)}
+.gp-tower li.me{background:linear-gradient(rgba(134,220,192,.2), rgba(134,220,192,.2)), rgba(9,12,26,.84)}
 .gp-tower li.me .p{background:#86DCC0; color:#0D2A22}
 .gp-tower li.me .g{color:#F5F6FA}
-.gp-tower li.gap{height:8px; background:transparent}
+.gp-tower li.gap{height:8px}
 .gp-lights{position:absolute; left:50%; top:calc(var(--hud-b, 170px) + 112px); transform:translateX(-50%); display:flex; gap:7px; padding:8px 10px; background:#05060B; border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,.45); pointer-events:none}
 .gp-lights div{display:grid; gap:5px; padding:4px; background:#14161E; border-radius:5px}
 .gp-lights i{display:block; width:16px; height:16px; border-radius:50%; background:#2A0B0E}
