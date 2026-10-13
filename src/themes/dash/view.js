@@ -1,8 +1,8 @@
 /* Dash theme renderer: a neon runner in the spirit of rhythm platformers, with its own original shapes and colours.
-   Everything about the run (the course, position, jumps, pads, orbs, crashes, attempts) comes from DashSim in the core; this only draws it. */
-/* exported makeDashView */   // used by src/app.js, which the build puts after this file
+   Everything about the run (the course, position, jumps, pads, orbs, crashes, attempts) comes from DashSim (sim.js); this only draws it.
+   MT: the core, with this theme's tr and DASH */
+'use strict';
 function makeDashView(cv, hud, sim, MT) {
-  'use strict';
   const g = cv.getContext('2d'), reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
   const GRACE = MT.DASH.GRACE, TAU = Math.PI * 2, SPEED_COL = { '\u00BD\u00D7': '#FFB347', '1\u00D7': '#2DE2FF', '2\u00D7': '#7CFF4F', '3\u00D7': '#FF5BD1' };
   let W = 0, H = 0, dpr = 1, top = 0, clock = 0, flash = 0, pulse = 0, beat = 0, hue = 222, camY = 0, speedT = 0, gone = null, glow = 0, U = 30;
@@ -158,3 +158,5 @@ function makeDashView(cv, hud, sim, MT) {
   }
   return { resize: resize, draw: draw, event: event, reset: reset };
 }
+
+module.exports = { makeDashView };

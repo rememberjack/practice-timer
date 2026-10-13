@@ -1,6 +1,6 @@
-/* Fireworks theme renderer: drawn in 3D (src/fireworks3d.js) once three.js has loaded, as City loads it, and by the flat drawing here until
-   then or without it. What goes up, and when, comes from FireworkSim in the core. Nothing here makes a sound: the microphone is listening. */
-/* exported makeFireworkView */   // used by src/app.js, which the build puts after this file
+/* Fireworks theme renderer: drawn in 3D (view3d.js) once three.js has loaded, as City loads it, and by the flat drawing here until
+   then or without it. What goes up, and when, comes from FireworkSim in sim.js. Nothing here makes a sound: the microphone is listening. */
+const { makeFirework3D } = require('./view3d.js');
 function makeFireworkView(host, hud, sim, MT) {
   'use strict';
   const THREE_URL = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
@@ -47,7 +47,7 @@ function makeFirework2D(cv, hud, sim, MT) {
   /* the stars and the waterfront are the same every time (a fixed seed), drawn once per size: moonlit ridges, a harbour town of pastel houses
      climbing the hill, the bell tower, the lighthouse on the left and the Ferris wheel on the right, as in the 3D scene */
   function buildScene() {
-    const r = MT.raceRng(1234); stars = [];
+    const r = MT.seededRng(1234); stars = [];
     for (let i = 0; i < 90; i++) stars.push({ x: r() * W, y: r() * GY * 0.92, s: r() < 0.15 ? 1.6 : 1, p: r() * TAU, f: 0.6 + r() * 1.8 });
     MOONX = W * 0.58; MOONY = GY - Math.max(40, Math.min(150, SKY * 0.3)); MOONR = Math.max(7, Math.min(16, W * 0.025));
     skyline = document.createElement('canvas'); skyline.width = Math.round(W * dpr); const tall = Math.max(30, Math.min(120, SKY * 0.32)); skyline.height = Math.round((tall + 4) * dpr);
@@ -204,3 +204,5 @@ function makeFirework2D(cv, hud, sim, MT) {
   function busy() { return rockets.length + sparks.length; }
   return { resize: resize, draw: draw, event: event, reset: reset, busy: busy };
 }
+
+module.exports = { makeFireworkView };

@@ -1,6 +1,5 @@
 /* Fireworks in 3D (three.js r128): a harbour town at night across the bay, under a low moon, with a lighthouse, a Ferris wheel and boats.
    Shells burst as spheres and tilted rings at different depths, light up the town and show again in the water; the camera drifts along the shore. */
-/* exported makeFirework3D */   // used by src/fireworks.js
 function makeFirework3D(cv, hud, MT) {
   'use strict';
   const T = THREE, RM = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches, TAU = Math.PI * 2;
@@ -37,7 +36,7 @@ function makeFirework3D(cv, hud, MT) {
       'c+=vec3(0.5,0.58,0.76)*(pow(m,10.0)*0.16+pow(m,120.0)*0.3);c+=flash*(1.0-smoothstep(-0.05,0.7,h));gl_FragColor=vec4(c,1.0);}' });
   const dome = new T.Mesh(new T.SphereGeometry(1000, 24, 16), skyMat); dome.renderOrder = -3; sky.add(dome);
   {
-    const mc = document.createElement('canvas'); mc.width = mc.height = 128; const g = mc.getContext('2d'), r = MT.raceRng(5);
+    const mc = document.createElement('canvas'); mc.width = mc.height = 128; const g = mc.getContext('2d'), r = MT.seededRng(5);
     const gr = g.createRadialGradient(56, 56, 4, 64, 64, 62); gr.addColorStop(0, '#FFF8E8'); gr.addColorStop(0.9, '#EFE4C8'); gr.addColorStop(1, 'rgba(239,228,200,0)');
     g.fillStyle = gr; g.beginPath(); g.arc(64, 64, 62, 0, TAU); g.fill();
     for (let i = 0; i < 9; i++) { g.fillStyle = 'rgba(160,150,130,' + (0.12 + r() * 0.16).toFixed(2) + ')'; g.beginPath(); g.arc(30 + r() * 68, 30 + r() * 68, 5 + r() * 14, 0, TAU); g.fill(); }   // the seas
@@ -63,7 +62,7 @@ function makeFirework3D(cv, hud, MT) {
   const M = { ground: lam(0x15232B), quay: lam(0x3A3A42), tree: lam(0x14291F), roof: lam(0xFFFFFF), stone: lam(0x2A2C33), white: lam(0xE8E2D6), red: lam(0xB8433A), steel: lam(0x4A5268), hull: lam(0x2E3442), sail: lam(0xD8D0BE) };
   M.sail.side = T.DoubleSide;
   M.house = new T.MeshLambertMaterial({ color: 0xFFFFFF, emissive: 0xFFFFFF, emissiveMap: (() => {
-    const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'), r = MT.raceRng(77); g.fillStyle = '#000'; g.fillRect(0, 0, 64, 64);
+    const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'), r = MT.seededRng(77); g.fillStyle = '#000'; g.fillRect(0, 0, 64, 64);
     for (let y = 0; y < 3; y++) for (let x = 0; x < 3; x++) if (r() < 0.45) { g.fillStyle = r() < 0.75 ? '#FFB868' : '#FFE2A8'; g.globalAlpha = 0.45 + r() * 0.5; g.fillRect(8 + x * 19, 8 + y * 19, 9, 11); }
     const t = new T.CanvasTexture(c); t.magFilter = T.NearestFilter; return t; })() });
   M.lamp = new T.MeshBasicMaterial({ color: 0xFFE7A8 });
@@ -74,7 +73,7 @@ function makeFirework3D(cv, hud, MT) {
   const roofGeo = (() => { const sh = new T.Shape(); sh.moveTo(-0.55, 0); sh.lineTo(0.55, 0); sh.lineTo(0, 0.5); sh.closePath(); return new T.ExtrudeGeometry(sh, { depth: 1, bevelEnabled: false }).translate(0, 0, -0.5); })();
   const HOUSE = ['#B8684A', '#C49A4A', '#C88276', '#C8BCA2', '#5E8E88', '#6C7EAA', '#A88A6A', '#9C5050', '#C4AA88'], ROOF = ['#7A3B2E', '#8C4A32', '#3B4152', '#5A3A36'];
   function ridge(z, h, top, bottom, seed) {   // a mountain ridge, moonlit along its top
-    const sh = new T.Shape(), r = MT.raceRng(seed); sh.moveTo(-1600, -8);
+    const sh = new T.Shape(), r = MT.seededRng(seed); sh.moveTo(-1600, -8);
     for (let x = -1600; x <= 1600; x += 50) sh.lineTo(x, h * (0.5 + 0.28 * Math.sin(x / 210 + seed) + 0.14 * Math.sin(x / 77 + seed * 2) + 0.12 * r()));
     sh.lineTo(1600, -8); sh.closePath();
     const g = new T.ShapeGeometry(sh), p = g.attributes.position, c = new Float32Array(p.count * 3), a = new T.Color(bottom), b = new T.Color(top);
@@ -88,7 +87,7 @@ function makeFirework3D(cv, hud, MT) {
     return im;
   }
   function scenery(root, mirrored) {
-    const r = MT.raceRng(2024), pick = a => a[Math.floor(r() * a.length)], add = (geo, mat, x, y, z, sx, sy, sz) => { const m = new T.Mesh(geo, mat); m.position.set(x, y, z); m.scale.set(sx, sy, sz); root.add(m); return m; };
+    const r = MT.seededRng(2024), pick = a => a[Math.floor(r() * a.length)], add = (geo, mat, x, y, z, sx, sy, sz) => { const m = new T.Mesh(geo, mat); m.position.set(x, y, z); m.scale.set(sx, sy, sz); root.add(m); return m; };
     root.add(ridge(-720, 170, 0x44587C, 0x1E2A44, 1), ridge(-560, 110, 0x31446A, 0x162036, 2), ridge(-420, 64, 0x22314E, 0x0E1628, 3));
     const ground = new T.PlaneGeometry(800, 180, 80, 18).rotateX(-Math.PI / 2).translate(0, 0, SHORE - 96), gp = ground.attributes.position;
     for (let i = 0; i < gp.count; i++) gp.setY(i, hillY(gp.getX(i), gp.getZ(i)) - 0.5);
@@ -318,3 +317,5 @@ function makeFirework3D(cv, hud, MT) {
   function busy() { return rockets.length + sparks.length; }
   return { resize: resize, draw: draw, event: event, reset: reset, busy: busy };
 }
+
+module.exports = { makeFirework3D };

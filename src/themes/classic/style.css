@@ -1,0 +1,77 @@
+/* Classic theme: the clock, its figures and the sound monitor, in the page's own colours (the Classic chrome) */
+.classic{height:100%; max-width:596px; margin:0 auto; padding:6px 18px 0; display:flex; flex-direction:column; overflow-y:auto; scrollbar-width:none; touch-action:pan-y pinch-zoom}   /* a scroll area does not inherit #stage's pan-y, so without this Android Chrome takes a sideways swipe on Classic and cancels it */
+.classic > *{flex:none}
+.status, .mon-state{display:flex; align-items:center; gap:10px; font-size:13px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--mute-2)}
+.status{min-height:22px}
+.status > span:last-child, .mon-state > span:last-child{min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}   /* one line, whatever the words */
+.lamp{width:9px; height:9px; border-radius:50%; background:var(--mute-2); flex:none; transition:background-color .2s, box-shadow .2s}
+#app[data-music="1"] .lamp{background:var(--accent); box-shadow:0 0 0 4px rgba(134,220,192,.2)}
+#app[data-music="1"] .status, #app[data-music="1"] .mon-state{color:var(--accent)}
+.clock-label{color:var(--mute); font-size:15px; margin:10px 0 0}
+.clock{font-size:clamp(60px, 21vw, 112px); font-weight:800; line-height:1; letter-spacing:-.05em; font-variant-numeric:tabular-nums; margin:2px 0 0 -.03em; display:flex; align-items:baseline; color:var(--ink); transition:color .25s}
+#app[data-music="1"] .clock{color:var(--accent)}
+.clock .d, .clock .c{display:inline-block}
+.tenths{font-size:.4em; font-weight:500; letter-spacing:0; color:var(--mute-2); margin-left:.08em}
+.stats{display:grid; grid-template-columns:1fr 1fr; gap:10px 20px; margin-top:12px}
+.stat{min-width:0}
+.stat .k{font-size:14px; color:var(--mute); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.stat .v{font-size:26px; font-weight:800; letter-spacing:-.02em; line-height:1.15; font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.stat .v small{font-size:14px; font-weight:500; letter-spacing:0; color:var(--mute)}
+.meter{height:4px; border-radius:2px; background:var(--rule); margin-top:6px; overflow:hidden}
+.meter i{display:block; height:100%; width:0; background:var(--accent); border-radius:2px; transition:width .25s linear}
+.classic > .monitor{flex:1 1 0; min-height:104px; display:flex; flex-direction:column; margin:14px 0 4px; padding:14px 16px 12px; background:var(--surface); border:1px solid var(--rule); border-radius:22px}
+.mon-head{display:flex; align-items:center; justify-content:space-between; gap:10px}
+.mon-head h2{font-size:17px; font-weight:800; margin:0; flex:none; white-space:nowrap}
+.mon-state{font-size:12px; gap:8px; min-width:0}
+/* The read-out above the picture keeps one fixed height whatever it says (one-line label, two reserved lines of detail, a note that
+   comes and goes), so the picture below never shifts or resizes as the words change. */
+.heard{display:flex; align-items:flex-start; gap:12px; margin-top:6px}
+.heard .txt{flex:1; min-width:0}
+.heard h3{font-size:16px; font-weight:600; line-height:24px; height:24px; margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.heard p{margin:1px 0 0; font-size:13px; line-height:17px; height:34px; overflow:hidden; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; color:var(--mute)}
+.note{flex:none; font-size:24px; font-weight:800; line-height:24px; height:24px; min-width:2.2ch; text-align:right; white-space:nowrap; color:var(--accent)}
+.viz{flex:1 1 0; min-height:26px; position:relative; margin-top:6px}
+.viz{cursor:pointer; border-radius:10px}
+.viz canvas{position:absolute; inset:0; width:100%; height:100%}
+.viz-name{position:absolute; right:8px; top:8px; padding:3px 10px; font-size:12px; font-weight:700; color:var(--ink); background:rgba(18,26,39,.86); border:1px solid var(--rule); border-radius:999px; opacity:0; transition:opacity .25s; pointer-events:none}
+.viz-name.on{opacity:1}
+[data-theme="classic"]{--g:#121A27; --t:#86DCC0}   /* its tile in Settings, Themes */
+@media (max-width:359px){ .classic{padding-left:14px; padding-right:14px} .stats{gap:8px 14px} }
+/* the clock, stats and monitor give way when the panel is short (small phones, or a notice showing) */
+@supports (font-size:1cqh){ .clock{font-size:clamp(42px, min(21vw, 20cqh), 112px)} }
+@container (max-height:470px){ .clock-label{margin-top:4px; font-size:14px} .stats{gap:6px 16px; margin-top:8px} .stat .k{font-size:13px} .stat .v{font-size:21px} .meter{margin-top:3px}
+  .classic > .monitor{margin-top:10px; padding:10px 12px 8px; border-radius:16px; min-height:74px} .heard{margin-top:3px} .heard p{display:none} .heard h3{font-size:15px; line-height:20px; height:20px} .note{font-size:20px; line-height:20px; height:20px} }
+@container (max-height:330px){ .classic > .monitor{min-height:52px} .mon-head h2{font-size:15px} .heard{display:none} .stat .v{font-size:19px} }
+@container (max-height:262px){ .classic > .monitor{display:none} .clock-label{display:none} .stats{margin-top:6px} }
+/* tablets (the shared layout is in src/template.html) */
+@media (min-width:700px) and (min-height:600px){
+  /* ----- classic: read-outs on top, lined up with the read-out cards of the other themes, and the sound monitor underneath ----- */
+  .classic{max-width:none; padding:14px calc(var(--edge) + 18px) 0}
+  .status{font-size:14px; min-height:24px}
+  .clock-label{font-size:17px; margin-top:12px}
+  .clock{font-size:clamp(60px, min(20cqw, 17cqh), 200px)}
+  .stats{gap:14px 28px; margin-top:20px}
+  @container (min-width:820px){ .stats{grid-template-columns:repeat(4, minmax(0, 1fr))} }   /* the four figures in a row when they fit */
+  .stat .k{font-size:15px}
+  .stat .v{font-size:30px}
+  .stat .v small{font-size:15px}
+  .meter{height:5px; margin-top:8px}
+  .classic > .monitor{margin:22px -18px 12px; padding:16px 18px 16px; border-radius:20px}   /* the monitor spans the page edge to edge, like the scene cards */
+  .mon-head h2{font-size:19px}
+  .mon-state{font-size:13px}
+  .heard{margin-top:10px}
+  .heard h3{font-size:18px; line-height:26px; height:26px}
+  .heard p{font-size:14px; line-height:19px; height:38px}
+  .note{font-size:28px; line-height:26px; height:26px}
+  .viz{margin-top:10px}
+  .viz-name{font-size:13px}
+  /* landscape: the same strip plan as the other themes. Status over the clock on the left, the four figures on the right, the monitor below */
+  @container (min-width:900px) and (orientation:landscape){
+    .classic{display:grid; grid-template-columns:auto minmax(0, 1fr); grid-template-rows:auto auto auto minmax(0, 1fr); grid-template-areas:"status stats" "label stats" "clock stats" "mon mon"; column-gap:56px}
+    .classic > .status{grid-area:status}
+    .classic > .clock-label{grid-area:label}
+    .classic > .clock{grid-area:clock; font-size:clamp(60px, min(11cqw, 22cqh), 150px)}
+    .classic > .stats{grid-area:stats; align-self:end; grid-template-columns:1fr 1fr; gap:12px 32px; margin:0 0 4px}
+    .classic > .monitor{grid-area:mon; margin-top:18px; min-height:0}
+  }
+}

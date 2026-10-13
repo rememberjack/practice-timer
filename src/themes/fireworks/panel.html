@@ -1,0 +1,23 @@
+<section class="panel" id="pFire" aria-label="Fireworks theme">
+  <canvas id="fireCv" aria-hidden="true"></canvas>
+  <canvas id="fire3d" aria-hidden="true" hidden></canvas>
+  <div class="fw-hud hud-card" id="fireHud">
+    <div class="fw-top hc-top">
+      <div class="fw-play hc-play"><span class="k">Play time</span><span class="big" id="fPlay">00:00</span></div>
+      <div class="fw-side hc-side">
+        <div><svg class="trophy badge" viewBox="0 0 64 64" aria-hidden="true"><use href="#ico-trophy"/></svg>Goal <b id="fGoal">30:00</b></div>
+        <div id="fGoalLeft" translate="no">30:00</div>
+        <div>Pauses <b id="fPauses">0</b></div>
+      </div>
+    </div>
+    <div class="fw-prog hc-bar"><span class="k">Finale</span><div class="fw-bar"><i id="fBar"></i></div><b id="fPct">0%</b></div>
+    <div class="fw-stats hc-stats">
+      <div><span>Shells</span><b id="fShells">0</b></div>
+      <div><span>Intensity</span><b id="fPw">0%</b></div>
+      <div><span>Efficiency</span><b id="fEff">0%</b></div>
+    </div>
+    <div class="fw-line hc-heard" id="fHeard">Press Start, then play</div>
+    <div class="fw-line dim hc-next" id="fHint">Every note you play sends up a firework</div>
+  </div>
+  <div id="fBanner" role="status"></div>
+</section>

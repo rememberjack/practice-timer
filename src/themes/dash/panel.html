@@ -1,0 +1,24 @@
+<section class="panel" id="pDash" aria-label="Dash theme">
+  <canvas id="dashCv" aria-hidden="true"></canvas>
+  <div class="dash-hud hud-card" id="dashHud">
+    <div class="dh-prog hc-bar"><span class="k">Level</span><div class="dh-bar"><i id="dBar"></i></div><b id="dPct">0%</b></div>
+    <div class="dh-top hc-top">
+      <div class="dh-play hc-play"><span class="k">Play time</span><span class="big" id="dPlay">00:00</span></div>
+      <div class="dh-side hc-side">
+        <div><svg class="trophy badge" viewBox="0 0 64 64" aria-hidden="true"><use href="#ico-trophy"/></svg>Goal <b id="dGoal">30:00</b></div>
+        <div id="dGoalLeft" translate="no">30:00</div>
+        <div>Pauses <b id="dPauses">0</b></div>
+      </div>
+    </div>
+    <div class="dh-stats hc-stats">
+      <div><span>Attempt</span><b id="dAtt">1</b></div>
+      <div><span>Jumps</span><b id="dJumps">0</b></div>
+      <div><span>Speed</span><b id="dSpeed">1&times;</b></div>
+      <div><span>Power</span><b id="dPw">0%</b></div>
+      <div><span>Efficiency</span><b id="dEff">0%</b></div>
+    </div>
+    <div class="dh-line hc-heard" id="dHeard">Press Start, then play</div>
+    <div class="dh-line dim hc-next" id="dHint">Play to run the course</div>
+  </div>
+  <div id="dBanner" role="status"></div>
+</section>

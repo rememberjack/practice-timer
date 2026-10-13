@@ -1,0 +1,83 @@
+/* Grand Prix theme: a race at sunset, with timing-screen read-outs. Condensed italic type, dark panels, a red kerb line */
+:root{--cond:"Barlow Condensed","Arial Narrow","Roboto Condensed",system-ui,sans-serif}   /* timing-screen type */
+body:has(> #app[data-skin="race"]){background:#0A0E1C}
+.ask[data-skin="race"]{--sheet:#121831; --surface:#1B2340; --ink:#F5F6FA; --mute:#A9B0C6; --rule:#2B3354; --accent:#86DCC0; --on-accent:#0D2A22; border:0; border-top:3px solid #E8333B}
+.ask[data-skin="race"] h2{font-family:var(--cond); font-style:italic; font-weight:800; font-size:24px; text-transform:uppercase; letter-spacing:.01em}
+.ask[data-skin="race"] .btn{font-family:var(--cond); font-style:italic; font-weight:800; font-size:17px; text-transform:uppercase; letter-spacing:.03em; border:0; border-radius:12px; background:#252E4E; color:#F5F6FA}
+.ask[data-skin="race"] .btn.solid{background:#86DCC0; color:#0D2A22}
+[data-theme="race"]{--g:#0A0E1C; --t:#FF5A5F}   /* its tile in Settings, Themes */
+#app[data-skin="race"]{--paper:#0A0E1C; --surface:#161D36; --ink:#F5F6FA; --mute:#A9B0C6; --rule:#2B3354; --accent:#86DCC0; --on-accent:#0D2A22}
+#app[data-skin="race"][data-chrome="pixel"] #top h1{font-family:var(--cond); font-style:italic; font-size:22px; font-weight:800; text-transform:uppercase; letter-spacing:.01em}
+#app[data-skin="race"][data-chrome="pixel"] .icon-btn{border-radius:10px}
+#app[data-skin="race"][data-chrome="pixel"] #notice, #app[data-skin="race"][data-chrome="pixel"] #demoBar{border-radius:12px}
+#app[data-skin="race"][data-chrome="pixel"] .chips button{border-radius:999px}
+#app[data-skin="race"][data-chrome="pixel"] .chips button[aria-pressed="true"], #app[data-skin="race"][data-chrome="pixel"] #notice .act{background:var(--accent); color:var(--on-accent); border-color:var(--accent); font-weight:700; border-radius:999px}
+#app[data-skin="race"][data-chrome="pixel"] #controls button{font-family:var(--cond); font-style:italic; font-size:19px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; border-radius:12px; border:2px solid #05070D; background:#252E4E; color:#F5F6FA; text-shadow:none; box-shadow:none}
+#app[data-skin="race"][data-chrome="pixel"] #controls button.primary{background:#86DCC0; color:#0D2A22}
+#app[data-skin="race"][data-chrome="pixel"] #controls button:active{transform:translateY(1px)}
+#app[data-skin="race"][data-chrome="pixel"] .award-card{background:#121831; border:0; border-left:5px solid #86DCC0; border-radius:6px; font-family:var(--cond); box-shadow:0 10px 30px rgba(0,0,0,.5)}
+#app[data-skin="race"][data-chrome="pixel"] .award-card .trophy{display:block}
+#app[data-skin="race"][data-chrome="pixel"] .award-card .px-trophy{display:none}
+#app[data-skin="race"][data-chrome="pixel"] .award-card h3{font-family:var(--cond); font-style:italic; font-size:28px; font-weight:800; text-transform:uppercase; color:#F5F6FA}
+#app[data-skin="race"][data-chrome="pixel"] .award-card p{font-family:var(--sans); font-size:14px; color:#A9B0C6}
+#pRace{background:#0A0E1C; color:#F5F6FA; font-family:var(--cond)}
+#raceCv{position:absolute; inset:0; width:100%; height:100%; display:block}
+.gp-hud{position:absolute; left:10px; right:10px; top:8px; padding:8px 11px 7px; font-size:14px; line-height:1.2; background:rgba(9,12,26,.84); border-top:3px solid #E8333B; border-radius:12px}
+#pRace[data-flag="red"] .gp-hud{border-top-color:#FF2B2B}
+.gp-hud .k{color:#A9B0C6; font-weight:600; text-transform:uppercase; letter-spacing:.06em; font-size:12px}
+.gp-prog{display:flex; align-items:center; gap:8px}
+#gLap{flex:none; font-weight:800; font-size:15px; font-variant-numeric:tabular-nums; white-space:nowrap}
+.gp-bar{flex:1; min-width:0; height:8px; border-radius:4px; background:rgba(255,255,255,.13); overflow:hidden}
+.gp-bar i{display:block; height:100%; width:0; background:#86DCC0; border-radius:4px}
+.gp-bar.flag i{background:repeating-linear-gradient(90deg, #FFFFFF 0 6px, #111111 6px 12px)}
+.gp-top{display:flex; justify-content:space-between; align-items:flex-end; gap:10px; margin-top:5px}
+.gp-play{min-width:0}
+.gp-play .k{display:block; white-space:nowrap}
+.gp-hud .big{display:block; font-size:clamp(34px, 11vw, 46px); line-height:.95; font-weight:800; font-style:italic; letter-spacing:-.01em; font-variant-numeric:tabular-nums; white-space:nowrap}
+.gp-hud .big.long{font-size:clamp(26px, 8.4vw, 36px)}
+#app[data-music="1"] .gp-hud .big{color:#86DCC0}
+.gp-side{flex:none; text-align:right; white-space:nowrap; color:#A9B0C6}
+.gp-side b{color:#F5F6FA; font-weight:700; font-variant-numeric:tabular-nums}
+.gp-stats{display:grid; grid-template-columns:repeat(5, minmax(0, 1fr)); gap:0 4px; margin-top:6px; padding-top:6px; border-top:1px solid rgba(255,255,255,.1); text-align:center}
+.gp-stats span{display:block; font-size:11px; color:#A9B0C6; text-transform:uppercase; letter-spacing:.05em; font-weight:600; white-space:nowrap}
+.gp-stats b{display:block; font-size:19px; line-height:1.15; font-weight:800; font-variant-numeric:tabular-nums; white-space:nowrap}
+.gp-line{margin-top:4px; min-height:17px; font-family:var(--sans); font-weight:600; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.gp-line.dim{margin-top:0; font-weight:400; color:#A9B0C6}
+/* the race order, under the read-outs on the left (the speed panel is drawn on the right) */
+.gp-tower{position:absolute; left:10px; top:calc(var(--hud-b, 170px) + 8px); width:124px; margin:0; padding:0; list-style:none; font-size:14px; border-radius:8px; overflow:hidden; background:rgba(9,12,26,.84); pointer-events:none}
+.gp-tower li{display:grid; grid-template-columns:20px 4px 1fr auto; align-items:center; gap:5px; height:22px; padding-right:6px}
+.gp-tower li + li{border-top:1px solid rgba(255,255,255,.07)}
+.gp-tower .p{background:#E9ECF4; color:#0B1020; height:100%; display:grid; place-items:center; font-weight:800}
+.gp-tower .s{height:12px; border-radius:1px}
+.gp-tower .c{font-weight:700; letter-spacing:.04em}
+.gp-tower .g{color:#A9B0C6; font-variant-numeric:tabular-nums; font-size:13px}
+.gp-tower li.me{background:rgba(134,220,192,.2)}
+.gp-tower li.me .p{background:#86DCC0; color:#0D2A22}
+.gp-tower li.me .g{color:#F5F6FA}
+.gp-tower li.gap{height:8px; background:transparent}
+.gp-lights{position:absolute; left:50%; top:calc(var(--hud-b, 170px) + 112px); transform:translateX(-50%); display:flex; gap:7px; padding:8px 10px; background:#05060B; border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,.45); pointer-events:none}
+.gp-lights div{display:grid; gap:5px; padding:4px; background:#14161E; border-radius:5px}
+.gp-lights i{display:block; width:16px; height:16px; border-radius:50%; background:#2A0B0E}
+.gp-lights div.on i{background:#FF2B2B; box-shadow:0 0 10px #FF2B2B}
+#gBanner{position:absolute; left:50%; top:max(calc(var(--hud-b, 170px) + 150px), calc(var(--gp-hy, 400px) - 24px)); transform:translate(-50%, -50%); width:max-content; max-width:calc(100% - 32px);
+  padding:9px 18px 8px; background:#121831; border-left:5px solid #86DCC0; border-radius:4px; text-align:center; font-style:italic; font-weight:800; font-size:30px; line-height:1; text-transform:uppercase; letter-spacing:.02em;
+  opacity:0; transition:opacity .25s; pointer-events:none}
+#gBanner small{display:block; margin-top:4px; font-style:normal; font-weight:600; font-size:14px; letter-spacing:.02em; text-transform:none; color:#A9B0C6}
+#gBanner.on{opacity:1}
+#gBanner[data-kind="red"]{border-left-color:#FF2B2B} #gBanner[data-kind="green"]{border-left-color:#3BD16F} #gBanner[data-kind="gold"]{border-left-color:#FFC23D}
+@media (max-width:350px){ .gp-hud{font-size:13px; padding:7px 9px 6px} .gp-stats span{font-size:9px} .gp-stats b{font-size:16px} .gp-tower{width:112px} #app[data-skin="race"][data-chrome="pixel"] #controls button{font-size:16px} }
+@media (max-height:620px){ .gp-line.dim{display:none} }
+#app[data-skin="race"] #skinBar{--tint:#86DCC0}
+/* phones: more room for the scene */
+@media (max-width:699px), (max-width:760px) and (max-height:599px){
+  @media (max-width:419px){ #app[data-skin="race"][data-chrome="pixel"][data-state="stopped"] #controls button{font-size:17px} }
+}
+/* tablets (the shared layout is in src/template.html) */
+@media (min-width:700px) and (min-height:600px){
+  #app[data-skin="race"][data-chrome="pixel"] #top h1{font-size:26px}
+  #app[data-skin="race"][data-chrome="pixel"] #controls button{font-size:21px}
+  .gp-hud.hud-card{padding:10px 16px 12px; font-size:16px; border-radius:16px}
+  .gp-stats{padding-top:0; border-top:0}
+  .gp-bar{height:12px} .gp-line{font-size:14px} .gp-stats span{font-size:13px} .gp-stats b{font-size:23px}
+  .gp-tower{left:var(--edge); top:calc(var(--hud-b, 0px) + 12px); width:150px; font-size:16px} .gp-tower li{height:26px; grid-template-columns:24px 4px 1fr auto}
+}

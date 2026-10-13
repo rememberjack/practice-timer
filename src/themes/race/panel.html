@@ -1,0 +1,26 @@
+<section class="panel" id="pRace" aria-label="Grand Prix theme">
+  <canvas id="raceCv" aria-hidden="true"></canvas>
+  <div class="gp-hud hud-card" id="raceHud">
+    <div class="gp-prog hc-bar"><span class="k">Lap</span><b id="gLap">1</b><div class="gp-bar" id="gBarBox"><i id="gBar"></i></div></div>
+    <div class="gp-top hc-top">
+      <div class="gp-play hc-play"><span class="k">Play time</span><span class="big" id="gPlay">00:00</span></div>
+      <div class="gp-side hc-side">
+        <div><svg class="trophy badge" viewBox="0 0 64 64" aria-hidden="true"><use href="#ico-trophy"/></svg>Goal <b id="gGoal">30:00</b></div>
+        <div id="gGoalLeft" translate="no">30:00</div>
+        <div>Pauses <b id="gPauses">0</b></div>
+      </div>
+    </div>
+    <div class="gp-stats hc-stats">
+      <div><span>Position</span><b id="gPos" translate="no">P10</b></div>
+      <div><span>Ahead</span><b id="gGap">&ndash;</b></div>
+      <div><span>Behind</span><b id="gBehind">&ndash;</b></div>
+      <div><span>Power</span><b id="gPw">0%</b></div>
+      <div><span>Efficiency</span><b id="gEff">0%</b></div>
+    </div>
+    <div class="gp-line hc-heard" id="gHeard">Press Start, then play</div>
+    <div class="gp-line dim hc-next" id="gHint">Play to start the race</div>
+  </div>
+  <ol class="gp-tower" id="gTower" aria-label="Race order"></ol>
+  <div class="gp-lights" id="gLights" hidden aria-hidden="true"><div><i></i><i></i></div><div><i></i><i></i></div><div><i></i><i></i></div><div><i></i><i></i></div><div><i></i><i></i></div></div>
+  <div id="gBanner" role="status"></div>
+</section>

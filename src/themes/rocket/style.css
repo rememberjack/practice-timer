@@ -1,0 +1,52 @@
+/* Rocket theme: a pixel rocket on its way to the Moon; pixel type, its read-outs over the scene */
+body:has(> #app[data-skin="rocket"]){background:#070A14}
+.ask[data-skin="rocket"]{--sheet:#070A14; --surface:#1B2030; --ink:#F4F6FA; --mute:#A3ACC2; --rule:#3A4258; --accent:#5DA831; --on-accent:#FFFFFF; border:0; border-top:2px solid #FFD23F; border-radius:0}
+.ask[data-skin="rocket"] h2{font-family:var(--pixel); font-weight:400; letter-spacing:0; font-size:18px; color:#FFD23F}
+.ask[data-skin="rocket"] .btn{font-family:var(--pixel); font-weight:400; font-size:13px; border-radius:0; border:2px solid #05070D; background:#7B8293; color:#fff; text-shadow:2px 2px 0 rgba(0,0,0,.45)}
+.ask[data-skin="rocket"] .btn.solid{background:#5DA831}
+@media (max-width:560px){ .ask[data-skin="rocket"]{border-radius:0} }
+/* New flight, at the end of the Rocket read-outs' last line while the rocket is off the pad */
+.hud-flight{position:absolute; right:12px; bottom:6px; min-height:28px; padding:3px 7px; border:2px solid #05070D; border-radius:0; background:#7B8293; color:#fff;
+  font-family:var(--pixel); font-size:10px; text-shadow:1px 1px 0 rgba(0,0,0,.45); box-shadow:inset -2px -2px 0 rgba(0,0,0,.25); cursor:pointer}
+.hud-flight:active{box-shadow:inset 2px 2px 0 rgba(0,0,0,.32)}
+.hud.has-flight #rNext{padding-right:98px}
+#app[data-skin="rocket"]{--paper:#070A14; --surface:#1B2030; --ink:#F4F6FA; --mute:#A3ACC2; --rule:#3A4258; --accent:#FFD23F; --accent:#5DA831; --on-accent:#FFFFFF}
+#pRocket{background:#070A14; color:#F4F6FA; font-family:var(--pixel)}
+#rk{position:absolute; left:0; top:0; image-rendering:pixelated; image-rendering:crisp-edges}
+.hud{position:absolute; left:0; right:0; top:0; padding:8px 14px 10px; font-size:12px; text-shadow:2px 2px 0 rgba(0,0,0,.55);
+  background:linear-gradient(rgba(7,10,20,.72), rgba(7,10,20,.72) 82%, rgba(7,10,20,0))}
+.hud-row{display:flex; justify-content:space-between; gap:10px; align-items:flex-end}
+.hud-play{min-width:0}
+.hud-play .k{display:block; white-space:nowrap}
+.hud .k{color:#C5CCDD}
+.hud .big{font-size:clamp(34px, 11vw, 52px); line-height:1; font-weight:700; display:block; margin-top:2px; white-space:nowrap}
+.hud .big.long{font-size:clamp(22px, 7.2vw, 36px)}                          /* an hour or more: h:mm:ss */
+#app[data-music="1"] .hud .big{color:#FFD23F}
+/* Same plan as the City read-outs, for the same wide pixel font: play time beside a short goal block, then one row of equal cells. */
+.hud-side{flex:none; text-align:right; white-space:nowrap; line-height:1.45; color:#C5CCDD}
+.hud-side b{color:#F4F6FA; font-weight:700}
+.hud-stats{display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:0 4px; margin-top:6px; text-align:center}
+.hud-stats span{display:block; font-size:9px; line-height:1.3; color:#C5CCDD; white-space:nowrap}
+.hud-stats b{display:block; font-size:13px; line-height:1.25; font-weight:700; white-space:nowrap}
+.hud-line{margin-top:6px; min-height:16px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+#rNext{color:#C5CCDD}
+#rBanner{position:absolute; left:50%; top:max(0px, calc(var(--hud-b, 156px) - 6px)); transform:translateX(-50%); max-width:92%; text-align:center; padding:8px 12px; background:#05070D; color:#FFD23F; border:2px solid #FFD23F;
+  font-size:14px; opacity:0; transition:opacity .25s; pointer-events:none}
+#rBanner.on{opacity:1}
+[data-theme="rocket"]{--g:#070A14; --t:#FFD23F}   /* its tile in Settings, Themes */
+@media (max-width:359px){ .hud{padding-left:10px; padding-right:10px; font-size:11px} .hud-stats span{font-size:8px} .hud-stats b{font-size:11px} }
+#app[data-skin="rocket"] #skinBar{--tint:#FFFFFF}
+#app[data-skin="rocket"] #skinBar button::before{border-radius:0}
+/* phones: more room for the scene */
+@media (max-width:699px), (max-width:760px) and (max-height:599px){
+  .hud{padding:6px 12px 8px}
+  .hud .big{font-size:clamp(30px, 9.5vw, 44px)}
+  .hud-line{margin-top:3px}
+}
+/* tablets (the shared layout is in src/template.html) */
+@media (min-width:700px) and (min-height:600px){
+  .hud.hud-card{padding:12px 16px; background:rgba(7,10,20,.8); border:2px solid #2C3550; box-shadow:4px 4px 0 rgba(0,0,0,.35)}
+  #rPwN, #rEff{display:inline-block; min-width:4ch; font-size:inherit}
+  .hud-stats span{font-size:12px} .hud-stats b{font-size:18px}
+  #rBanner{top:calc(var(--hud-b, 0px) + 14px); bottom:auto; margin:0; font-size:17px; padding:10px 16px}
+}

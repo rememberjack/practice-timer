@@ -1,0 +1,72 @@
+/* Fireworks theme: an evening by the harbour. Serif type, lantern amber and cream on deep harbour blue, slim square corners, hairlines */
+:root{--serif:"Fraunces",Georgia,"Times New Roman",serif}   /* an evening programme */
+body:has(> #app[data-skin="fireworks"]){background:#08131F}
+.ask[data-skin="fireworks"]{--sheet:#0B1724; --surface:#13212F; --ink:#F6ECDC; --mute:#A9B6C4; --rule:#24384A; --accent:#F2B35E; --on-accent:#1E1406; border:0; border-top:1px solid rgba(242,179,94,.6); border-radius:6px 6px 0 0}
+.ask[data-skin="fireworks"] h2{font-family:var(--serif); font-style:italic; font-weight:600; font-size:26px; letter-spacing:0}
+.ask[data-skin="fireworks"] .btn{font-family:var(--serif); font-style:italic; font-weight:600; font-size:18px; border:1px solid rgba(246,236,220,.45); border-radius:4px; background:transparent; color:#F6ECDC; box-shadow:none}
+.ask[data-skin="fireworks"] .btn.solid{background:#F6ECDC; border-color:#F6ECDC; color:#0B1A2A}
+[data-theme="fireworks"]{--g:#08131F; --t:#F2B35E}   /* its tile in Settings, Themes */
+#app[data-skin="fireworks"]{--paper:#08131F; --surface:#13212F; --ink:#F6ECDC; --mute:#A9B6C4; --rule:#24384A; --accent:#F2B35E; --on-accent:#1E1406}
+#app[data-skin="fireworks"][data-chrome="pixel"] #top h1{font-family:var(--serif); font-style:italic; font-size:23px; font-weight:600; letter-spacing:0}
+#app[data-skin="fireworks"][data-chrome="pixel"] .icon-btn{border-radius:4px; background:transparent; border:1px solid rgba(246,236,220,.3)}
+#app[data-skin="fireworks"][data-chrome="pixel"] #notice, #app[data-skin="fireworks"][data-chrome="pixel"] #demoBar{border-radius:4px; background:rgba(19,33,47,.85); border:1px solid rgba(246,236,220,.16)}
+#app[data-skin="fireworks"][data-chrome="pixel"] .chips button{border-radius:4px}
+#app[data-skin="fireworks"][data-chrome="pixel"] .chips button[aria-pressed="true"], #app[data-skin="fireworks"][data-chrome="pixel"] #notice .act{background:#F6ECDC; color:#0B1A2A; border-color:#F6ECDC; font-weight:600; border-radius:4px}
+#app[data-skin="fireworks"][data-chrome="pixel"] #controls button{font-family:var(--serif); font-style:italic; font-size:19px; font-weight:600; border-radius:4px; border:1px solid rgba(246,236,220,.45); background:transparent; color:#F6ECDC; text-shadow:none; box-shadow:none}
+#app[data-skin="fireworks"][data-chrome="pixel"] #controls button.primary{background:#F6ECDC; border-color:#F6ECDC; color:#0B1A2A}
+#app[data-skin="fireworks"][data-chrome="pixel"] #controls button:active{background:rgba(246,236,220,.14)}
+#app[data-skin="fireworks"][data-chrome="pixel"] #controls button.primary:active{background:#E4D3B6}
+#app[data-skin="fireworks"][data-chrome="pixel"] .award-card{background:rgba(7,16,28,.95); border:0; border-top:2px solid #F2B35E; border-radius:4px; font-family:var(--sans); box-shadow:0 20px 50px rgba(0,0,0,.5), 0 0 60px rgba(242,179,94,.12)}
+#app[data-skin="fireworks"][data-chrome="pixel"] .award-card .trophy{display:block; color:#F2B35E}
+#app[data-skin="fireworks"][data-chrome="pixel"] .award-card .px-trophy{display:none}
+#app[data-skin="fireworks"][data-chrome="pixel"] .award-card h3{font-family:var(--serif); font-style:italic; font-size:28px; font-weight:600; color:#F6ECDC}
+#app[data-skin="fireworks"][data-chrome="pixel"] .award-card p{font-size:14px; color:#A9B6C4}
+#pFire{background:#08131F; color:#F6ECDC; font-family:var(--sans)}
+#fireCv, #fire3d{position:absolute; inset:0; width:100%; height:100%; display:block}
+#fireCv[hidden], #fire3d[hidden]{display:none}
+/* the read-outs: no box, a dark veil fading down from an amber hairline, so the sky shows through under it */
+.fw-hud{position:absolute; left:10px; right:10px; top:8px; padding:10px 14px 9px; font-size:12px; line-height:1.4; color:#F6ECDC;
+  background:linear-gradient(180deg, rgba(7,16,28,.92), rgba(7,16,28,.66)); border-top:1px solid rgba(242,179,94,.6); border-radius:2px 2px 6px 6px; box-shadow:0 14px 30px rgba(0,0,0,.22)}
+.fw-hud .k{font-size:10px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:#A9B6C4}
+.fw-top{display:flex; justify-content:space-between; align-items:flex-end; gap:10px}
+.fw-play{min-width:0}
+.fw-play .k{display:block; white-space:nowrap}
+.fw-hud .big{display:block; margin-top:3px; font-family:var(--serif); font-size:clamp(34px, 10.4vw, 48px); line-height:1; font-weight:600; font-variant-numeric:tabular-nums lining-nums; white-space:nowrap}
+.fw-hud .big.long{font-size:clamp(26px, 8vw, 38px)}
+#app[data-music="1"] .fw-hud .big{color:#F2B35E; text-shadow:0 0 22px rgba(242,179,94,.35)}
+.fw-side{flex:none; text-align:right; white-space:nowrap; color:#A9B6C4}
+.fw-side b{color:#F6ECDC; font-family:var(--serif); font-weight:600; font-size:14px; font-variant-numeric:tabular-nums lining-nums}
+.fw-side .trophy{color:#F2B35E}
+/* the Finale bar is a fuse: it burns toward the grand finale, a spark at its end */
+.fw-prog{display:flex; align-items:center; gap:10px; margin-top:9px}
+.fw-prog .k{flex:none}
+.fw-bar{flex:1; min-width:0; height:2px; background:rgba(246,236,220,.18)}
+.fw-bar i{display:block; position:relative; height:100%; width:0; background:linear-gradient(90deg, rgba(242,179,94,.3), #F2B35E); transition:width .2s linear}
+.fw-bar i::after{content:""; position:absolute; right:-4px; top:50%; width:8px; height:8px; margin-top:-4px; border-radius:50%; background:#FFE6B8; box-shadow:0 0 8px 3px rgba(242,179,94,.75)}
+#fPct{flex:none; min-width:4ch; text-align:right; font-family:var(--serif); font-weight:600; font-size:14px; font-variant-numeric:tabular-nums lining-nums}
+.fw-stats{display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); margin-top:8px; text-align:center}
+.fw-stats > div + div{border-left:1px solid rgba(246,236,220,.14)}
+.fw-stats span{display:block; font-size:10px; color:#A9B6C4; white-space:nowrap}
+.fw-stats b{display:block; font-family:var(--serif); font-size:19px; line-height:1.25; font-weight:600; font-variant-numeric:tabular-nums lining-nums; white-space:nowrap}
+.fw-line{margin-top:6px; min-height:18px; font-family:var(--serif); font-style:italic; font-weight:500; font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.fw-line.dim{margin-top:0; font-family:var(--sans); font-style:normal; font-weight:400; font-size:12px; color:#A9B6C4}
+#fBanner{position:absolute; left:50%; bottom:16px; transform:translateX(-50%); width:max-content; max-width:calc(100% - 40px); padding:8px 18px; background:rgba(7,16,28,.92); color:#F2B35E; border:0; border-top:1px solid #F2B35E; border-radius:2px;
+  font-family:var(--serif); font-style:italic; font-size:17px; font-weight:600; text-align:center; opacity:0; transition:opacity .25s; pointer-events:none; box-shadow:0 10px 30px rgba(0,0,0,.35)}
+#fBanner.on{opacity:1}
+@media (max-width:350px){ .fw-hud{font-size:11px; padding:8px 10px 7px} .fw-stats span{font-size:9px} .fw-stats b{font-size:16px} #app[data-skin="fireworks"][data-chrome="pixel"] #controls button{font-size:17px} }
+@media (max-height:620px){ .fw-line.dim{display:none} }
+#app[data-skin="fireworks"] #skinBar{--tint:#F2B35E}
+#app[data-skin="fireworks"] #skinBar button::before{border-radius:4px}
+/* phones: more room for the scene */
+@media (max-width:699px), (max-width:760px) and (max-height:599px){
+  @media (max-width:419px){ #app[data-skin="fireworks"][data-chrome="pixel"][data-state="stopped"] #controls button{font-size:17px} }
+}
+/* tablets (the shared layout is in src/template.html) */
+@media (min-width:700px) and (min-height:600px){
+  #app[data-skin="fireworks"][data-chrome="pixel"] #top h1{font-size:28px}
+  #app[data-skin="fireworks"][data-chrome="pixel"] #controls button{font-size:22px}
+  .fw-hud.hud-card{padding:12px 18px; font-size:14px}
+  #fPct{font-size:17px} .fw-hud .k{font-size:11px} .fw-side b{font-size:17px} .fw-line{font-size:17px} .fw-line.dim{font-size:14px}
+  .fw-stats span{font-size:13px} .fw-stats b{font-size:23px}
+  #fBanner{top:calc(var(--hud-b, 0px) + 14px); bottom:auto; margin:0; font-size:20px; padding:10px 22px}
+}
