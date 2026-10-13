@@ -50,14 +50,15 @@ For a custom domain, build with `CNAME=timer.example.com npm run build` and set 
 
     src/template.html   page, styles and markup
     src/assets/         Music Timer icon, favicon and iPhone home-screen icon
-    src/core.js         detector, session timer, rocket flight model, dash course (tested)
-    src/rocket.js       rocket theme renderer
-    src/city.js         city defence theme (three.js, loaded from cdnjs the first time the theme is shown)
-    src/dash.js         dash theme renderer
-    src/race.js         Grand Prix theme renderer (a race whose speeds are each player's last minute)
-    src/app.js          app logic
+    src/core.js         detector, session timer, practice log, and the registry of theme modules (tested)
+    src/lang.js         the page's words in Chinese and French
+    src/app.js          app logic: the host that drives the theme modules
+    src/themes/         one folder per theme (Classic, Rocket, City, Dash, Grand Prix, Fireworks): its definition, panel,
+                        style, icon, words, logic, drawing and tests; themes.json lists the installed ones, in swipe order.
+                        docs/theme-modules.md describes the interface, and how to add or remove a theme
     scripts/build.js    joins them into one file
-    test/run.js         unit tests
+    test/run.js         unit tests (the core's and each theme's)
+    test/themes.js      the theme modules keep to their interface, and can be taken out or added
     test/smoke.js       checks the built page
 
 ## License

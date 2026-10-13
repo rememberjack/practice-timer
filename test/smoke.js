@@ -26,6 +26,6 @@ check(/<meta name="viewport"[^>]*viewport-fit=cover/.test(html), 'viewport tag')
 check(html.includes('cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js'), 'City and Fireworks load three.js r128 from cdnjs');
 // a tripwire against the page growing unnoticed, not a hard limit: this is the raw file (comments and the icon included); GitHub Pages sends it
 // compressed, about a third of this. Main was 525 KB, the Fireworks theme took it to about 608 KB, the Chinese and French words to about 696 KB
-// and the Fireworks musical symbols to about 704 KB
+// the Fireworks musical symbols to about 704 KB, and the theme modules (their loader, registry and contract tests) to about 754 KB
 check(html.length < 900 * 1024, 'size under 900 KB (' + Math.round(html.length / 1024) + ' KB)');
 process.exit(bad ? 1 : 0);
