@@ -304,6 +304,14 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 .log-total{font-weight:800; font-size:clamp(20px, 6.5vw, 26px); letter-spacing:-.03em; line-height:1; font-variant-numeric:tabular-nums}
 .log-nudge{margin:12px 0 0; padding:10px 12px; border:1px solid var(--rule); border-radius:14px; background:var(--surface); font-size:15px; font-weight:600}
 .log-start{width:100%; margin-top:10px}
+/* the week bars swipe back a month, one week at a time; the arrows either side of the heading show which way there is more */
+.log-wk{touch-action:pan-y pinch-zoom; user-select:none; -webkit-user-select:none; overflow:hidden}
+.log-wk-h{display:grid; grid-template-columns:36px 1fr 36px; align-items:center; margin:-8px 0 -6px}
+.log-wk-h h3{text-align:center}
+.log-wk-go{width:36px; height:36px; display:grid; place-items:center; padding:0; border:0; border-radius:50%; background:none; color:var(--ink); cursor:pointer; -webkit-tap-highlight-color:transparent}
+.log-wk-go svg{width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round}
+.log-wk-go:disabled{opacity:.22; cursor:default}
+.log-wk-go:not(:disabled):active{background:var(--surface)}
 .log-week{display:grid; grid-template-columns:repeat(7, minmax(0, 1fr)); gap:6px; align-items:end}
 .log-week .d{display:grid; gap:4px; justify-items:center; font-size:12px; color:var(--mute)}
 .log-week .bar{position:relative; width:100%; height:72px; border-radius:6px; background:var(--surface); overflow:hidden}
@@ -819,8 +827,12 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
     </div>
     <button class="btn solid log-start" id="logStart" hidden>Start practicing</button>
     <div id="logMore">
-      <section class="sum-blk">
-        <h3>This week</h3>
+      <section class="sum-blk log-wk" id="logWeekSec">
+        <div class="log-wk-h">
+          <button class="log-wk-go" id="logWeekPrev" aria-label="Earlier week"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+          <h3 id="logWeekH" aria-live="polite">This week</h3>
+          <button class="log-wk-go" id="logWeekNext" aria-label="Later week"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+        </div>
         <div class="log-week" id="logWeek" role="img"></div>
         <div class="log-key" aria-hidden="true"><span><i class="lv3"></i>Time played, one block for each session</span></div>
         <p class="log-line" id="logWeekLine"></p>
