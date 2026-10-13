@@ -25,6 +25,7 @@
   padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
 }
 *,*::before,*::after{box-sizing:border-box}
+*{touch-action:manipulation}   /* a quick second tap (Pause, then Resume) must not zoom the page; pinching still zooms. Rules that name an element (#stage's pan-y) override it */
 html{height:100%; scroll-padding-top:env(safe-area-inset-top,0px)}
 body{height:100%; margin:0; background:var(--paper); color:var(--ink); font-family:var(--sans); font-size:16px; line-height:1.35;
   overflow:hidden; -webkit-text-size-adjust:100%; -webkit-tap-highlight-color:transparent}

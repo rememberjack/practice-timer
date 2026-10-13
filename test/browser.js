@@ -64,6 +64,9 @@ async function run(wsUrl) {
   await cmd('Page.navigate', { url: 'http://127.0.0.1:' + server.address().port + '/' });
   for (let i = 0; i < 100 && !(await js('document.readyState === "complete" && !!document.getElementById("homeGo")')); i++) await sleep(100);
 
+  const ta = id => js('getComputedStyle(document.getElementById("' + id + '")).touchAction');   // a double tap never zooms: every element is manipulation (pans and pinch) or narrower
+  const tas = [await ta('homeGo'), await ta('btnSettings'), await ta('home'), await ta('stage'), await ta('btnPause')];
+  check(tas.join(' ') === 'manipulation manipulation manipulation pan-y manipulation', 'a double tap does not zoom: buttons and the Home Screen take manipulation, the scene keeps pan-y (' + tas.join(', ') + ')');
   await js('document.getElementById("homeGo").click()');   // start a session (a fake microphone), which puts the themes on screen
   for (let i = 0; i < 50 && !(await js('document.getElementById("home").hidden')); i++) await sleep(100);
   check(await js('document.getElementById("home").hidden'), 'Start playing leaves the Home Screen');
