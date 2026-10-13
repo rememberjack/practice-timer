@@ -118,9 +118,10 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
   pause (`Session.away`), so it never lowers efficiency or the last minute's power.
 - While no name is set, the Home Screen greeting calls the player a fun word instead ("Hi there, rock star", or the greeting's own title: "Ahoy, Captain";
   `HOME_FRIEND`, `friend` from `homeCopy`), and that word is a link that opens Settings at the name field.
-- The practice log's week bars swipe back through the four weeks before this one (`WEEKS_BACK`, `weekAt`, `pastWeekLine` in `src/core.js`;
-  `renderWeek`, `showWeek` in `src/app.js`): by finger or mouse (`DragSwipe`), a trackpad, the arrow keys, or the ‹ › arrows either side of the
-  heading, which fade at either end. It opens on this week.
+- The practice log's week bars and the Home Screen's week dots swipe back through the four weeks before this one (`WEEKS_BACK`, `weekAt`,
+  `pastWeekLine` in `src/core.js`; `weekPager`, `renderWeek`, `renderHomeWeek` in `src/app.js`): by finger or mouse (`DragSwipe`), a trackpad,
+  or the ‹ › arrows (either side of the log's heading, and of the Home Screen's dots), which fade at either end; the arrow keys too in the log.
+  Each opens on this week.
 - The practice goal is for one session. The practice log never marks a day as reaching it: the week bars compare days by time
   played, and the calendar shades days by minutes (`LEVEL_MIN` in `src/core.js`). Only a session's trophy is gold.
 
