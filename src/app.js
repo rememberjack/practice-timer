@@ -595,9 +595,13 @@ const CREDITS = [
   ['Engineering', [['Front-end Developer (JavaScript / HTML / CSS)', 'Claude'], ['Audio / DSP Engineer', 'Claude'], ['Graphics / Game Developer', 'Claude'], ['Mobile Web / iOS Specialist', 'Claude']]],
   ['Quality and operations', [['QA Engineer', 'Claude'], ['Human QA Engineer', 'Jack Chen'], ['Student Beta Tester', 'Jayden Chen'], ['Test Automation Engineer', 'Claude'], ['DevOps / Release Engineer', 'Claude']]],
 ];
-function paintCredits() {
-  $('rollIn').innerHTML = '<li class="t">Music Timer</li><li class="lead">' + tr('Music Timer counts your practice only while it hears your instrument, so every minute it shows is a minute you played.') + '</li>' + CREDITS.map(([h, rows]) => '<li class="h">' + tr(h) + '</li>' +
-    rows.map(([r, n]) => '<li><span class="r">' + tr(r) + '</span><span class="n">' + (n === 'Claude' ? '<svg class="ai" aria-hidden="true"><use href="#ico-claude"/></svg>' : '') + n + '</span></li>').join('')).join('') + '<li class="end">' + tr('Starring you, every time you play.') + '</li>';
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);   // names from a theme module go into the page as text
+function paintCredits() {   // the page's credits, then each theme's own (its credits key: one name or more), by the theme's name
+  const who = n => '<span class="n">' + (n === 'Claude' ? '<svg class="ai" aria-hidden="true"><use href="#ico-claude"/></svg>' : '') + esc(n) + '</span>';
+  const rows = (h, list) => '<li class="h">' + esc(h) + '</li>' + list.map(([r, names]) => '<li><span class="r">' + esc(r) + '</span>' + [].concat(names).map(who).join('') + '</li>').join('');
+  const themed = TH.filter(t => t.def.credits).map(t => [themeName(t), t.def.credits]);
+  $('rollIn').innerHTML = '<li class="t">Music Timer</li><li class="lead">' + tr('Music Timer counts your practice only while it hears your instrument, so every minute it shows is a minute you played.') + '</li>'
+    + CREDITS.map(([h, list]) => rows(tr(h), list.map(([r, n]) => [tr(r), n]))).join('') + (themed.length ? rows(tr('Theme contributions'), themed) : '') + '<li class="end">' + tr('Starring you, every time you play.') + '</li>';
 }
 paintCredits();
 let rollAnim = null, rollHold = 0, rollFast = false, rollDown = false, rollDrag = false, rollWasPaused = false, rollY0 = 0, rollT0 = 0;

@@ -24,6 +24,7 @@ module.exports = {
   panel: 'pRocket',
   chrome: 'pixel',
   tests: require('./tests.js'),
+  credits: ['Jayden Chen'],
   create: function (host) {
     const $ = host.$, sim = new RocketSim(), view = makeRocketView($('rk'), $('hud'), sim, Object.assign(Object.create(MT), { tr: tr, MILESTONES: MILESTONES, WORLD: WORLD, smooth: smooth }));
     let flightFrom = 0, flightAt = -1e9, bannerT = 0, forced = '', shared = null;   // forced: where the next session's rocket starts (debug tools)

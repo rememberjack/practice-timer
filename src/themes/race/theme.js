@@ -25,6 +25,7 @@ module.exports = {
   chrome: 'pixel',
   fonts: ['Barlow+Condensed:ital,wght@0,600;0,700;0,800;1,700;1,800'],
   tests: require('./tests.js'),
+  credits: ['Jayden Chen'],
   create: function (host) {
     const $ = host.$, race = new RaceSim(), view = makeRaceView($('raceCv'), $('raceHud'), race, Object.assign(Object.create(MT), { tr: tr, trn: trn, RACE: RACE, RACE_PIT: RACE_PIT }));
     let notes = 0, doneAt = 0, bannerT = 0;          // note starts for the sparks under the car; when the chequered flag fell

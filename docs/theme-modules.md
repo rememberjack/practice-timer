@@ -85,6 +85,7 @@ is an error (a typo, or a newer interface).
 | `chrome` | yes | The page around the scene: `'clean'` (Classic's title row, with the app icon and tagline) or `'pixel'` (the compact title row and pixel buttons the scene themes share, which a theme restyles in its `style.css`). |
 | `fonts` | no | Google Fonts families it needs, as the css2 URL writes them: `['Barlow+Condensed:ital,wght@0,600;1,800']`. The build adds them to the page's one font link. |
 | `tests` | no | Its tests: `[{ name, run }]`, where `run()` returns `{ name, expect, got, pass }`. |
+| `credits` | no | The people who made it, for the credits in Settings, About: `['Jayden Chen']`, one name or more, each once. They roll under "Theme contributions", by the theme's name. |
 | `create` | yes | `create(host)`: called once when the page starts; returns the instance, an object of [hooks](#the-hooks). |
 
 ```js
@@ -271,7 +272,7 @@ Things a theme draws only while shown (`f.shown`) still have to stay right while
 | `MT.checkTheme(def)` (`src/core.js`) | the definition: every key, its type and value, unknown keys, the words against `langs` and `{blanks}` |
 | `MT.addTheme(def)` | the definition, a unique id, and the base theme written for every language |
 | `MT.checkInstance(inst)` | what `create` returned: only known hooks, each a function |
-| core tests (`npm test`, Sound tests) | the checks above against a sound definition and 31 broken ones; the translator; which themes a language offers; what a theme keeps |
+| core tests (`npm test`, Sound tests) | the checks above against a sound definition and 35 broken ones; the translator; which themes a language offers; what a theme keeps |
 | `test/themes.js` (`npm test`) | the manifest; each theme's folder (definition, panel, icon, style, requires, its own tests, nothing of another theme's); the registry; pages built with only the base theme, each theme alone, the reverse order and a theme from another folder; a broken theme stopping the build |
 | `test/words.js` (`npm test`) | the page's words and each theme's words, per language it is written for |
 | `test/browser.js` (`npm run check`) | in Chromium: every theme starts and keeps to the interface; a page with only the base theme; the English-only test theme driven through its hooks, saved under its id, and leaving the swipe in French |
