@@ -172,6 +172,7 @@ What `create(host)` is given. A theme reaches the page only through it (and `req
 | `text(el, s)`, `html(el, s)`, `width(el, f)`, `left(el, f)` | write an element's text, HTML, width or left (as a fraction), only when it changed |
 | `heardLine(v)` | the line under the read-outs: what is heard while running, else the session's state |
 | `goalLeft(v)` | "12:00 left" |
+| `showGoalLeft(el, v)` | writes "12:00 left" into `el` with the figure in `<b>`, like the other figures, or "Reached" once the goal is reached |
 | `powerBar({ fill, tick, power, eff }, v, cls)` | fills a power bar: the fill and Power for the last minute, the tick and Efficiency for the session (`cls` on the fill) |
 | `noteText(note)` | a note's name in the page's language (French says do, ré, mi) |
 | `drawPixelTrophy(canvas)` | draws the 16 by 16 pixel trophy |

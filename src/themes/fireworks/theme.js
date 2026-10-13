@@ -56,10 +56,10 @@ module.exports = {
       },
       /* the bar fills toward the goal and its grand finale; Shells counts the player's shells (each note's colour shows in the sky) */
       paint(v) {
-        const st = v.st, text = host.text, fmt = host.fmt, p = v.goal > 0 ? v.play / v.goal : 0, playTxt = fmt(v.play), el = $('fPlay'), cls = playTxt.length > 5 ? 'big long' : 'big', reached = st !== 'idle' && v.play >= v.goal;
+        const text = host.text, fmt = host.fmt, p = v.goal > 0 ? v.play / v.goal : 0, playTxt = fmt(v.play), el = $('fPlay'), cls = playTxt.length > 5 ? 'big long' : 'big';
         text(el, playTxt); if (el.className !== cls) el.className = cls;
         host.width($('fBar'), p); text($('fPct'), Math.min(100, Math.floor(p * 100)) + '%');
-        text($('fGoal'), fmt(v.goal)); text($('fGoalLeft'), reached ? tr('Reached') : host.goalLeft(v)); text($('fPauses'), String(v.pauses));
+        text($('fGoal'), fmt(v.goal)); host.showGoalLeft($('fGoalLeft'), v); text($('fPauses'), String(v.pauses));
         text($('fShells'), String(fw.shells)); text($('fPw'), Math.round(v.pw * 100) + '%'); text($('fEff'), Math.round(v.eff * 100) + '%');
         text($('fHeard'), host.heardLine(v));
         text($('fHint'), hint(v));

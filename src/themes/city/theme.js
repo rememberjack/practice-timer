@@ -36,8 +36,7 @@ module.exports = {
         text($('yBld'), city.ready ? cs.standing + '/' + cs.total : '-');
         const can = $('yCan'), cc = cs.cannons === 3 ? 'ok' : cs.cannons === 0 ? 'bad' : ''; text(can, cs.cannons + '/3'); if (can.className !== cc) can.className = cc;
         host.powerBar({ fill: $('yPw'), tick: $('yAvg'), power: $('yPwN'), eff: $('yEff') }, v, v.pw >= 0.8 ? 'go' : v.pw >= 0.5 ? 'ok' : '');
-        const reached = st !== 'idle' && v.play >= v.goal;
-        text($('yGoal'), fmt(v.goal)); text($('yGoalLeft'), reached ? tr('Reached') : host.goalLeft(v)); text($('yPauses'), String(v.pauses));
+        text($('yGoal'), fmt(v.goal)); host.showGoalLeft($('yGoalLeft'), v); text($('yPauses'), String(v.pauses));
         text($('yHeard'), host.heardLine(v));
         let hint;
         if (st === 'idle') hint = tr('Play to defend the city');

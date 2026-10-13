@@ -72,9 +72,9 @@ module.exports = {
       },
       frame(dt, f) { while (sim.events.length) fire(sim.events.shift()); if (f.shown) view.draw({ running: f.v.st === 'running', playing: f.v.music, power: f.v.pw }, dt); },
       paint(v) {
-        const st = v.st, text = host.text, fmt = host.fmt, fol = v.follow, play = fmt(v.play), reached = v.play >= v.goal && st !== 'idle';
+        const st = v.st, text = host.text, fmt = host.fmt, fol = v.follow, play = fmt(v.play);
         const rp = $('rPlay'), rpc = play.length > 5 ? 'big long' : 'big'; text(rp, play); if (rp.className !== rpc) rp.className = rpc;
-        text($('rActive'), fmt(v.active)); text($('rGoal'), fmt(v.goal)); text($('rGoalLeft'), reached ? tr('Reached') : host.goalLeft(v)); text($('rTotal'), fmt(v.total)); text($('rPauses'), String(v.pauses));
+        text($('rActive'), fmt(v.active)); text($('rGoal'), fmt(v.goal)); host.showGoalLeft($('rGoalLeft'), v); text($('rTotal'), fmt(v.total)); text($('rPauses'), String(v.pauses));
         const km = sim.kmAt(sim.l); text($('rAltK'), tr(km < 1 ? 'Alt m' : 'Alt km')); text($('rAlt'), km < 1 ? String(Math.round(km * 1000)) : km < 100 ? km.toFixed(1) : Math.round(km).toLocaleString(host.locale()));
         host.powerBar({ fill: $('rPw'), tick: $('rAvg'), power: $('rPwN'), eff: $('rEff') }, v, v.pw >= LIFTOFF ? 'go' : '');
         text($('rHeard'), host.heardLine(v));

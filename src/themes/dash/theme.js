@@ -39,10 +39,10 @@ module.exports = {
         while (dash.events.length) { const e = dash.events.shift(); if (geo) view.event(e, geo); if (e === 'complete' && host.current()) banner(tr('Level complete!')); }
       },
       paint(v) {
-        const st = v.st, p = v.goal > 0 ? v.play / v.goal : 0, playTxt = host.fmt(v.play), el = $('dPlay'), cls = playTxt.length > 5 ? 'big long' : 'big', reached = st !== 'idle' && v.play >= v.goal, text = host.text;
+        const st = v.st, p = v.goal > 0 ? v.play / v.goal : 0, playTxt = host.fmt(v.play), el = $('dPlay'), cls = playTxt.length > 5 ? 'big long' : 'big', text = host.text;
         text(el, playTxt); if (el.className !== cls) el.className = cls;
         host.width($('dBar'), p); text($('dPct'), Math.min(100, Math.floor(p * 100)) + '%');
-        text($('dGoal'), host.fmt(v.goal)); text($('dGoalLeft'), reached ? tr('Reached') : host.goalLeft(v)); text($('dPauses'), String(v.pauses));
+        text($('dGoal'), host.fmt(v.goal)); host.showGoalLeft($('dGoalLeft'), v); text($('dPauses'), String(v.pauses));
         text($('dAtt'), String(dash.attempts)); text($('dJumps'), String(dash.jumps)); text($('dSpeed'), dash.tag); text($('dPw'), Math.round(v.pw * 100) + '%'); text($('dEff'), Math.round(v.eff * 100) + '%');
         text($('dHeard'), host.heardLine(v));
         let hint;
