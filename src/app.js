@@ -195,21 +195,53 @@ function micNotice(msg, then) {
 }
 
 /* ---------- recording ---------- */
-const rec = { mr: null, chunks: [], blob: null, url: '', ext: 'webm' };
+const rec = { mr: null, chunks: [], blob: null, id: 0 };   // id: the session it is of (its record's id)
+const extOf = type => (type || '').indexOf('mp4') >= 0 ? 'mp4' : 'webm';
 function startRecording() {
-  rec.blob = null; rec.chunks = []; if (rec.url) { try { URL.revokeObjectURL(rec.url); } catch (e) {} rec.url = ''; }
+  rec.blob = null; rec.chunks = []; rec.id = session.startedAt;
   if (!S.record || A.kind !== 'mic' || typeof MediaRecorder === 'undefined') return;
   try {
     const types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'];
     let type = ''; for (const t of types) if (MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) { type = t; break; }
     const mr = new MediaRecorder(A.stream, type ? { mimeType: type } : undefined);
     mr.ondataavailable = ev => { if (ev.data && ev.data.size) rec.chunks.push(ev.data); };
-    mr.onstop = () => { const tp = mr.mimeType || type || 'audio/webm'; rec.ext = tp.indexOf('mp4') >= 0 ? 'mp4' : 'webm';
-      if (rec.chunks.length) { rec.blob = new Blob(rec.chunks, { type: tp }); showRecording(); } };
+    mr.onstop = () => { const tp = mr.mimeType || type || 'audio/webm';
+      if (!rec.chunks.length) return;
+      rec.blob = new Blob(rec.chunks, { type: tp });
+      if (onSheet && onSheet.id === rec.id && $('dlgSummary').open) showRecording(rec.id, rec.blob);
+      const r = log.find(x => x.id === rec.id); if (r) keepRecording(r, rec.blob); };
     mr.start(1000); rec.mr = mr;
   } catch (e) { rec.mr = null; toast(tr('Recording is not available here')); }
 }
 function recCall(fn) { try { if (rec.mr && rec.mr.state !== 'inactive') rec.mr[fn](); } catch (e) {} }
+/* recordings are kept on this device in IndexedDB (too big for localStorage), by their session's id, for MT.REC_DAYS days after the session
+   ends, and only while the session is in the practice log (sweepRecordings). Kept as bytes with their type, which every Safari can store */
+let recDB = null;
+function openRecDB() {
+  if (!recDB) recDB = new Promise((ok, no) => { const q = indexedDB.open('musicTimer', 1);
+    q.onupgradeneeded = () => { if (!q.result.objectStoreNames.contains('recordings')) q.result.createObjectStore('recordings', { keyPath: 'id' }); };
+    q.onsuccess = () => ok(q.result); q.onerror = () => no(q.error); q.onblocked = () => no(new Error('blocked')); });
+  recDB.catch(() => { recDB = null; });
+  return recDB;
+}
+async function recStore(mode, act) { const db = await openRecDB();
+  return new Promise((ok, no) => { const t = db.transaction('recordings', mode), q = act(t.objectStore('recordings'));
+    t.oncomplete = () => ok(q && q.result); t.onerror = t.onabort = () => no(t.error); }); }
+async function keepRecording(r, blob) {
+  try { const data = await blob.arrayBuffer(); await recStore('readwrite', o => o.put({ id: r.id, end: r.end, type: blob.type, data: data })); }
+  catch (e) { toast(tr('The recording could not be kept on this device.')); }
+}
+async function recordingOf(r) {
+  try { const x = await recStore('readonly', o => o.get(r.id)); return x && x.data && MT.recordingKept(x, Date.now()) ? new Blob([x.data], { type: x.type || '' }) : null; }
+  catch (e) { return null; }
+}
+function dropRecordings(ids) { if (ids.length) recStore('readwrite', o => { for (const id of ids) o.delete(id); }).catch(() => {}); }
+/* delete the recordings past their days, or whose session has left the practice log (deleted, or a sample log put in its place) */
+async function sweepRecordings() {
+  if (typeof indexedDB === 'undefined') return;
+  try { const all = await recStore('readonly', o => o.getAll()), keep = (all || []).map(x => ({ id: x.id, end: x.end }));
+    dropRecordings(MT.recordingsToDrop(keep, log, Date.now())); } catch (e) {}
+}
 
 /* ---------- session control ---------- */
 let timer = 0, lastT = 0, busy = false, wake = null, lastPush = 0;
@@ -696,8 +728,12 @@ const date = (ms, o) => new Date(ms).toLocaleDateString(loc(), o);
 function dayName(ms) { const k = MT.dayKey(ms), now = new Date();
   return k === MT.dayKey(now) ? tr('Today') : k === MT.dayKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1)) ? tr('Yesterday')
     : date(ms, { weekday: 'short', day: 'numeric', month: 'short' }); }
-function showRecording() { if (!rec.blob) return; $('recBox').hidden = false;
-  try { rec.url = URL.createObjectURL(rec.blob); const a = $('recAudio'); a.hidden = false; a.onerror = () => { a.hidden = true; }; a.src = rec.url; } catch (e) { $('recAudio').hidden = true; } }
+/* the recording on the summary sheet: the session just finished (rec.blob), or a past session's kept one */
+let shown = null;   // { id, blob, url }
+function showRecording(id, blob) { hideRecording(); shown = { id: id, blob: blob, url: '' }; $('recBox').hidden = false;
+  try { shown.url = URL.createObjectURL(blob); const a = $('recAudio'); a.hidden = false; a.onerror = () => { a.hidden = true; }; a.src = shown.url; } catch (e) { $('recAudio').hidden = true; } }
+function hideRecording() { const a = $('recAudio'); try { a.pause(); } catch (e) {} a.removeAttribute('src');
+  if (shown && shown.url) { try { URL.revokeObjectURL(shown.url); } catch (e) {} } shown = null; $('recBox').hidden = true; }
 /* the session just stopped: keep it in the practice log unless it was too short. Demo sound sessions are kept like any other */
 function finishSession() {
   const R = MT.sessionReport(session.runs), r = MT.sessionRecord(session, R, S.name, kept());
@@ -763,7 +799,9 @@ function openSummary(r, past) {
     [tr('Paused'), R.pauses ? dur(R.paused) : tr('No pauses'), R.pauses ? times(R.pauses) : '\u00a0'],
   ];
   $('sFacts').replaceChildren(...facts.map(f => { const d = el('div'), dd = el('dd', null, f[1]); dd.append(el('small', null, f[2])); d.append(el('dt', null, f[0]), dd); return d; }));
-  $('recBox').hidden = past || !rec.blob;                 // recordings are not kept with saved sessions
+  // its recording: kept for a few days after the session (MT.REC_DAYS), so a past one may have it too
+  if (!past && rec.id === r.id && rec.blob) { if (!shown || shown.id !== r.id) showRecording(r.id, rec.blob); }
+  else { hideRecording(); if (past) recordingOf(r).then(b => { if (b && onSheet === r && $('dlgSummary').open) showRecording(r.id, b); }); }
   $('sumDelete').hidden = !past; disarm($('sumDelete'), tr('Delete session'));
   $('dlgSummary').querySelector('.sh-body').scrollTop = 0;
   if (!$('dlgSummary').open) $('dlgSummary').showModal();
@@ -775,8 +813,9 @@ async function saveFile(filename, data) {
     a.href = u; a.download = filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 8000); }
   catch (e) { toast(tr('The file could not be saved here')); }
 }
-function stamp() { const d = new Date(session.startedAt || Date.now()), p = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes()); }
-$('btnSaveRec').onclick = () => { if (rec.blob) saveFile('practice-recording-' + stamp() + '.' + rec.ext, rec.blob); };
+function stamp(ms) { const d = new Date(ms || Date.now()), p = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes()); }
+$('btnSaveRec').onclick = () => { if (shown) saveFile('practice-recording-' + stamp(shown.id) + '.' + extOf(shown.blob.type), shown.blob); };
+$('dlgSummary').addEventListener('close', () => { try { $('recAudio').pause(); } catch (e) {} });
 
 /* ---------- a session cut short: while a session runs, the session so far is kept every few seconds and whenever the app
    goes to the background. If the app is closed or iOS discards it before End, the next time it opens it offers to save it ---------- */
@@ -828,11 +867,11 @@ function twoTap(b, label, armedLabel, act) { b.onclick = () => {
   if (!b.classList.contains('armed')) { b.classList.add('armed'); b.textContent = said(armedLabel); clearTimeout(b._t); b._t = setTimeout(() => disarm(b, label), 4000); return; }
   disarm(b, label); act(); }; }
 twoTap($('sumDelete'), () => tr('Delete session'), () => tr('Tap again to delete'), () => {
-  const id = onSheet && onSheet.id; log = log.filter(x => x.id !== id); writeLog();
+  const id = onSheet && onSheet.id; log = log.filter(x => x.id !== id); writeLog(); dropRecordings([id]);
   if (current && current.rec.id === id) current.note = { text: tr('Deleted from your practice log.') };
   logChanged(); $('dlgSummary').close(); if ($('dlgLog').open) renderLog(); toast(tr('Session deleted'));
 });
-twoTap($('logClear'), () => tr('Delete all sessions'), () => tr('Tap again to delete all'), () => { log = []; writeLog(); logChanged(); logShown = 30; renderLog(); toast(tr('All sessions deleted')); });
+twoTap($('logClear'), () => tr('Delete all sessions'), () => tr('Tap again to delete all'), () => { log = []; writeLog(); sweepRecordings(); logChanged(); logShown = 30; renderLog(); toast(tr('All sessions deleted')); });
 const compact = s => { if (s <= 0) return ''; const m = Math.round(s / 60); return m < 1 ? tr('<1m') : m < 60 ? tr('{m}m', { m: m }) : m % 60 ? tr('{h}h{mm}', { h: Math.floor(m / 60), mm: String(m % 60).padStart(2, '0') }) : tr('{h}h', { h: m / 60 }); };
 const TROPHY_SVG = '<svg class="trophy" viewBox="0 0 64 64" aria-hidden="true"><path d="M19 13H9c0 10 5 15 12 16M45 13h10c0 10-5 15-12 16" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/><path fill="currentColor" d="M18 7h28v15c0 10-6 17-14 17s-14-7-14-17zM29 38h6v9h-6zM20 49h24v9H20z"/></svg>';
 const dayWhat = c => c.play > 0 ? (c.sessions > 1 ? tr('{time} in {n} sessions', { time: MT.durationText(c.play), n: c.sessions }) : MT.durationText(c.play)) : tr('no practice');
@@ -968,7 +1007,7 @@ function renderHome() {
 }
 function showHome() {
   if (mode === 'follow' || session.state === 'running' || session.state === 'paused') return;
-  homeSeed = 1 + Math.floor(Math.random() * 2e9); renderHome(); homeEl.hidden = false; homeOn = true; app.inert = true; checkVersion();
+  homeSeed = 1 + Math.floor(Math.random() * 2e9); renderHome(); homeEl.hidden = false; homeOn = true; app.inert = true; checkVersion(); sweepRecordings();
 }
 function hideHome() { if (!homeOn) return; homeEl.hidden = true; homeOn = false; app.inert = false; layoutChanged(); }
 $('homeGo').onclick = () => { hideHome(); start(); };
@@ -1024,7 +1063,7 @@ function paintDbg() {
 /* replace the saved practice log with a sample one. From then on it is the practice log: sessions are added to it and the rocket carries on from it */
 function setSample(k, label) { log = MT.sampleLog(k, Date.now()); each('sampleLog', log); logShown = 30;
   if (!writeLog()) { log = readLog(); toast('The sample log could not be saved on this device'); return; }
-  logChanged(); if (homeOn) renderHome(); toast('Your practice log is now \u201c' + label + '\u201d'); }
+  sweepRecordings(); logChanged(); if (homeOn) renderHome(); toast('Your practice log is now \u201c' + label + '\u201d'); }
 function dbgFrame(ms) {
   if (ms > 0 && ms < 1000) DBG.fps = DBG.fps ? DBG.fps * 0.9 + 100 / ms : 1000 / ms;
   const now = performance.now(); if (now - dbgAt < 250) return; dbgAt = now;
