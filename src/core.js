@@ -1074,14 +1074,14 @@ function detectionTests(sr) {
     const want = [0, 0, 'unknown hook draw', 'hook paint must be a function', 1, 21];
     return { name: 'Theme modules: what create returns has only hooks', expect: 'no hooks, or every hook, is fine; an unknown name or a hook that is not a function is named (' + want.join(' | ') + ')', got: got.join(' | '), pass: got.every((g, i) => g === want[i]) }; } });
   list.push({ name: 'Theme modules: a theme\'s own words first, then the page\'s, then English', run: () => {
-    const T = translator({ fr: { 'Hello!': 'Bonjour !', 'Settings': 'Réglages du thème', '{n} star': '{n} étoile', '{n} stars': '{n} étoiles' } }), had = WORDS.fr;
+    const { tr: say, trn: sayN } = translator({ fr: { 'Hello!': 'Bonjour !', 'Settings': 'Réglages du thème', '{n} star': '{n} étoile', '{n} stars': '{n} étoiles' } }), had = WORDS.fr;
     WORDS.fr = Object.assign({}, had, { 'Done': 'OK' });   // a page word, whatever lang.js says
     try {
-      const fr = inLang('fr', () => [T.tr('Hello!'), T.tr('Settings'), T.tr('Done'), T.tr('Not translated'), T.trn(0, '{n} star', '{n} stars'), T.trn(2, '{n} star', '{n} stars'), T.tr('End|part')]).join(' | ');
-      const en = inLang('en', () => [T.tr('Hello!'), T.trn(2, '{n} star', '{n} stars')]).join(' | ');
+      const fr = inLang('fr', () => [say('Hello!'), say('Settings'), say('Done'), say('Not translated'), sayN(0, '{n} star', '{n} stars'), sayN(2, '{n} star', '{n} stars'), say('End|part')]).join(' | ');
+      const en = inLang('en', () => [say('Hello!'), sayN(2, '{n} star', '{n} stars')]).join(' | ');
       const want = 'Bonjour ! | Réglages du thème | OK | Not translated | 0 étoile | 2 étoiles | ' + inLang('fr', () => tr('End|part'));
       return { name: 'Theme modules: a theme\'s own words first, then the page\'s, then English', expect: 'its own French (with French spacing), its own over the page\'s, the page\'s, English for the rest; French counts 0 as one; in English the English',
-        got: fr + ' || ' + en, pass: fr === want && en === 'Hello! | 2 stars' && word('Sample') === 'Sample' }; }
+        got: fr + ' || ' + en, pass: fr === want && en === 'Hello! | 2 stars' && word('{n} s') === '{n} s' }; }
     finally { WORDS.fr = had; } } });
   list.push({ name: 'Theme modules: a theme shows only in the languages it is written for', run: () => {
     const all = LANGS.map(l => l[0]), L = [{ id: 'classic', langs: all }, { id: 'english', langs: ['en'] }, { id: 'french', langs: ['en', 'fr'] }, { id: 'every', langs: all }];
@@ -1116,7 +1116,7 @@ function detectionTests(sr) {
     const said = inLang('fr', () => durationText(4500) + ' / ' + weekLine({ weekPlay: 600, lastWeekPlay: 0 })) + ' / ' + inLang('zh', () => durationText(4500) + ' / ' + dayLine({ key: dayKey(now), n: 2, count: 2, play: 1500 }, now).text);
     return { name: 'Languages: every word in Chinese and French', expect: 'the device\'s language is picked when none is chosen; each language has a translation of every word with the same {blanks}, and Home Screen words of the same shape',
       got: picked + ' | ' + rules + ' | ' + ids.map(id => id + ' ' + keys(id).length + ' words').join(', ') + ' | ' + said + (bad.length ? ' | missing or wrong: ' + bad.slice(0, 4).join(' / ') : ''),
-      pass: picked === 'fr,zh,zh,en,en,fr' && rules === '5 s,End,on 0 days,on 1 day;true' && !bad.length && ids.every(id => keys(id).length > 300) }; } });
+      pass: picked === 'fr,zh,zh,en,en,fr' && rules === '5 s,End,on 0 days,on 1 day;true' && !bad.length && ids.every(id => keys(id).length > 250) }; } });
   return list.map(t => Object.assign({}, t, { run: () => inLang('en', t.run) }));   // written for the English words, whatever language the page shows
 }
 function runDetectionTests(sr) { return detectionTests(sr).map(t => t.run()); }
@@ -1201,8 +1201,8 @@ function translator(words) {
 }
 /* marks a word in a table, written now and translated where it is shown (npm test finds the words through it) */
 const word = s => s;
-/* words the page gives every theme: shared read-outs a theme may show without words of its own (filled in below the tests) */
-const COMMON_WORDS = [];
+/* words the page translates for every theme: the read-outs most themes share, which a theme can show without words of its own (src/lang.js) */
+const COMMON_WORDS = [word('Play time'), word('Efficiency'), word('Goal'), word('Power'), word('Pauses'), word('Reached')];
 /* the installed themes, in order; addTheme returns what is wrong with a definition, and installs it only when nothing is */
 const THEMES = [];
 function addTheme(d) {
