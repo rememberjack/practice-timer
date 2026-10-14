@@ -126,6 +126,42 @@ function makeRocketView(cv, hud, sim, MT) {
     ROLL.push(sprite(rows.concat(ENGINE)));
   }
   const SPR = [sprite(CAPSULE.concat(STAGE2, STAGE1)), sprite(CAPSULE.concat(STAGE2)), ROLL[0]];
+  /* the module close up (deep space): the same 11 x 11 footprint drawn at three times the pixels. A nose with an antenna tip, a round
+     porthole in a metal frame with a glint on the glass, the hull shaded round from the light side, panel seams and rivets, the red band,
+     control thrusters on either side, the base ring and a ribbed engine bell */
+  const DETAIL = (function () {
+    const N = 33, cx = 16, P = { H: '#FFFFFF', W: '#E8ECF2', w: '#C3CAD6', v: '#9AA3B2', R: '#D23B2E', r: '#A82C22', S: '#F0645A', B: '#5CC8FF', b: '#2F86C8',
+      L: '#DDF6FF', F: '#8A93A3', f: '#5E6470', G: '#8A93A3', M: '#B8C0CE', D: '#3A3F4B', E: '#5A606C', e: '#7C8494', K: '#2A2F3A' };
+    const px = []; for (let y = 0; y < N; y++) px.push(new Array(N).fill(''));
+    const hull = (x, y, hw) => { const u = (x - cx) / hw; return u < -0.86 ? 'w' : u < -0.55 ? 'H' : u < 0.5 ? 'W' : u < 0.84 ? 'w' : 'v'; };   // light from the left
+    /* rows as the 11 x 11 module, each three pixels tall: tip and nose 0-8, shoulder 9-11, body 12-23 with the porthole high up and the
+       red band at 18-20, base ring 24-26, then the engine: a ribbed grey skirt 27-29 and the nozzle 30-32 */
+    for (let y = 0; y < N; y++) {
+      const hw = y < 2 ? 0.5 : y < 9 ? 1 + 6.5 * (y - 2) / 6 : y < 12 ? 7.5 + (y - 8) : y < 27 ? 10.5 : y < 30 ? 7.5 - (y - 27) * 0.5 : 3.5 + (y - 30) * 0.8;
+      for (let x = 0; x < N; x++) { const dx = x - cx; if (Math.abs(dx) > hw) continue;
+        let c;
+        if (y < 2) c = y === 0 ? 'H' : 'M';                                                        // antenna tip
+        else if (y < 24) {
+          c = hull(x, y, hw);
+          if (y >= 18 && y <= 20) { const u = dx / hw; c = y === 18 ? (u < 0.5 ? 'S' : 'R') : y === 20 ? 'r' : (u < 0.6 ? 'R' : 'r'); }   // the red band
+          else if ((y === 13 || y === 22) && x % 3 === 1 && Math.abs(dx) < hw - 1) c = 'v';         // rivets
+          else if (y === 16 && Math.abs(dx) < hw - 0.5) c = c === 'H' ? 'W' : c === 'W' ? 'w' : 'v';   // a panel seam
+        }
+        else if (y < 27) c = y === 24 ? 'M' : y === 25 ? 'G' : 'D';                                  // base ring
+        else if (y < 30) { const u = dx / hw; c = u < -0.5 ? 'M' : (x % 2 ? 'G' : 'F'); }              // engine skirt, ribbed
+        else { const u = dx / hw; c = y === N - 1 ? 'K' : u < -0.3 ? 'e' : 'E'; }                    // nozzle
+        px[y][x] = c; }
+    }
+    for (let y = 5; y < 19; y++) for (let x = 0; x < N; x++) { const d = Math.hypot(x - cx, y - 11);   // porthole
+      if (d > 4.6) continue;
+      px[y][x] = d > 3.4 ? (x - cx + y - 11 < 0 ? 'M' : 'F') : (x - cx) + (y - 11) > 2.2 ? 'b' : 'B';
+      if (d < 3.4 && Math.abs(x - cx + 1.5) + Math.abs(y - 11 + 1.5) < 1.2) px[y][x] = 'L'; }
+    for (const side of [-1, 1]) for (let y = 13; y < 16; y++) for (let i = 0; i < 2; i++) {         // control thrusters
+      const x = side < 0 ? cx - 11 - i : cx + 11 + i; px[y][x] = i ? 'G' : (y === 14 ? 'K' : 'D'); }
+    const c = document.createElement('canvas'); c.width = N; c.height = N; const g2 = c.getContext('2d');
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (px[y][x]) { g2.fillStyle = P[px[y][x]]; g2.fillRect(x, y, 1, 1); }
+    return c;
+  })();
   const DROP = [null, sprite(STAGE1), sprite(STAGE2)];
   const CUT = [0, 14, 21];           // rows gone from the tail after each separation
   const FLAME_W = [7, 5, 3];
@@ -400,9 +436,12 @@ function makeRocketView(cv, hud, sim, MT) {
     if (shown > 0) {
       const spr = stage === 2 && sim.spinUp > 0 ? ROLL[Math.floor(sim.spinA / (2 * Math.PI) * ROLL_N) % ROLL_N] : SPR[stage], hh = spr.height * pk;   // in Moon orbit the module spins about its length (E6)
       g.save(); g.translate(Math.round(sx), Math.round(sy)); g.rotate(ang + tilt); g.globalAlpha = shown;
-      g.drawImage(spr, -5.5 * k, -cut - hh, 11 * k, hh);
+      const fine = stage === 2 && sim.spinUp === 0 ? smooth(0.5, 0.95, cam.wC) : 0;               // close up, the detailed module fades in
+      if (fine < 1) { g.globalAlpha = shown * (1 - fine); g.drawImage(spr, -5.5 * k, -cut - hh, 11 * k, hh); }
+      if (fine > 0) { g.globalAlpha = shown * fine; g.drawImage(DETAIL, -5.5 * k, -cut - 11 * k, 11 * k, 11 * k); }
+      g.globalAlpha = shown;
       if (lit) {
-        const blk = Math.max(1, Math.round(pk)), fw = FLAME_W[stage] * k, flying = sim.mode !== 'pad';
+        const blk = Math.max(1, Math.round(lerp(pk, k / 3, fine))), fw = FLAME_W[stage] * k, flying = sim.mode !== 'pad';
         const thrust = flying ? Math.max(0, Math.min(1, (v.power - 0.5) / 0.5)) : v.power;
         let len = k * (flying ? 5 + 16 * thrust : 3 + 11 * thrust) * (0.82 + 0.36 * flick);
         if (sput) len *= flick < 0.5 ? 0.15 : 0.55;

@@ -51,7 +51,7 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
   its distance, and the rocket meets the Moon's orbit on a tangent and goes round it clockwise. The camera (`camera` in its `view.js`) turns with the
   rocket so away from Earth is up the screen at the rocket: the horizon stays level, the rocket leans over and then always shows the same 26° lean (in
   Moon orbit too, the Moon below and to its right), and it never points down the screen. It frames the climb, then Earth and the rocket, then (from stage 2 separation until 15 minutes before
-  Moon orbit) the rocket alone, zoomed in on the capsule, with a few faint streaks of light rushing past (now and then one in front of it) and the still starfield
+  Moon orbit) the rocket alone, zoomed in on the capsule (drawn in finer detail close up: `DETAIL` in its `view.js`), with a few faint streaks of light rushing past (now and then one in front of it) and the still starfield
   giving way to one that drifts past in short trails, all following the rocket's speed (they slow and stop when the playing does), then the rocket and the Moon.
 - "Start a new flight" puts the rocket back on the pad: the New flight button at the end of the Rocket read-outs while it is
   off the pad, or the link after "Playing with Rocket" on the Home Screen. Both ask first. The time is kept in
