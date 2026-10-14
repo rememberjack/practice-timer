@@ -95,7 +95,7 @@ module.exports = {
         if (!shared) return;                                            // following: glide to where the other device's rocket is
         sim.l += (shared.l - sim.l) * Math.min(1, s.rdt * 4);
         if (sim.down > 0) sim.down -= s.rdt;
-        if (sim.mode === 'orbit' && s.state === 'running') { sim.th += sim.wOrbit * s.rdt; sim.spin(s.rdt); }
+        if (sim.mode === 'orbit' && s.state === 'running') { sim.th -= sim.wOrbit * s.rdt; sim.spin(s.rdt); }
       },
       frame(dt, f) { while (sim.events.length) fire(sim.events.shift()); if (f.shown) view.draw({ running: f.v.st === 'running', playing: f.v.music, power: f.v.pw }, dt); },
       paint(v) {

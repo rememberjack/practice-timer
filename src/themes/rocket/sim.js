@@ -29,29 +29,59 @@ const MILESTONES = {}; (function () { let t = 0; for (const s of STEPS) { t += s
 const LIFTOFF = 0.5;   // engine power the rocket needs, held for HOLD seconds, to leave the pad
 const HOLD = 3, ORBIT_PERIOD = 60, WRECK = 2.6, SPIN_AT = 3, SPIN_UP = 4, SPIN = 2 * Math.PI * 0.6;   // E6: 3 s after arrival the module starts to roll about its long axis, reaching 0.6 turns a second
 
+/* The flight path, built once: arrays of points (x, y) with the distance along the path to each (l).
+   Straight up past the tower, then a gravity turn: the rocket pitches over to the right, 20° from upright by stage 1 separation and 26° a little
+   above (TILT), and from there it keeps that angle to the way up (away from Earth) all the way out. That curves gently round Earth as it climbs,
+   so on screen, where the view turns with it (view.js), it looks the same from then on: leaning 26° to the right, Earth below.
+   The Moon is where that path reaches its distance; the rocket meets the Moon's orbit on a tangent and goes round it the same way (clockwise). */
+const TILT = 26 * Math.PI / 180;
+const PATH = (function () {
+  const RH = WORLD.ROCKET_H, Ro = WORLD.ORBIT, DIST = Math.hypot(WORLD.MOON.x, WORLD.MOON.y);   // the Moon stays as far from Earth; where it is follows the path
+  const xs = [0], ys = [1], ls = [0], hs = [0], push = (x, y) => { ls.push(ls[ls.length - 1] + Math.hypot(x - xs[xs.length - 1], y - ys[ys.length - 1])); xs.push(x); ys.push(y); };
+  const HA = 2 * RH, H1 = 0.026, H2 = 0.72, G1 = 20 * Math.PI / 180;
+  const tilt = h => h < H1 ? G1 * smooth(Math.log(HA), Math.log(H1), Math.log(Math.max(h, 1e-12))) : G1 + (TILT - G1) * smooth(Math.log(H1), Math.log(H2), Math.log(h));
+  /* where the rocket meets the Moon's orbit, heading (dx, dy): the Moon is one orbit radius to its right */
+  const moonAt = (x, y, dx, dy) => ({ x: x + Ro * dy, y: y - Ro * dx });
+  let h = 0, phi = Math.PI / 2, M;
+  for (;;) {
+    const dh = Math.min(Math.max(RH * 0.05, h * 0.003), 0.01); phi -= Math.tan(tilt(h + dh / 2)) * dh / (1 + h + dh / 2); h += dh;
+    const x = (1 + h) * Math.cos(phi), y = (1 + h) * Math.sin(phi), d = Math.hypot(x - xs[xs.length - 1], y - ys[ys.length - 1]);
+    const m = moonAt(x, y, (x - xs[xs.length - 1]) / d, (y - ys[ys.length - 1]) / d);
+    push(x, y); hs.push(h);
+    if (Math.hypot(m.x, m.y) >= DIST) { M = m; break; }
+  }
+  const e = xs.length - 1;
+  return { px: Float64Array.from(xs), py: Float64Array.from(ys), pl: Float64Array.from(ls), hs: Float64Array.from(hs), moon: M,
+    th0: Math.atan2(ys[e] - M.y, xs[e] - M.x) };                                                   // where it joins the Moon's orbit, seen from the Moon
+})();
+WORLD.MOON.x = PATH.moon.x; WORLD.MOON.y = PATH.moon.y;
+const lerpAt = (xs, ys, x) => { let lo = 0, hi = xs.length - 1; if (x <= xs[0]) return ys[0]; if (x >= xs[hi]) return ys[hi];
+  while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (xs[mid] <= x) lo = mid; else hi = mid; }
+  return ys[lo] + (ys[hi] - ys[lo]) * (x - xs[lo]) / (xs[hi] - xs[lo]); };
+/* Distance along the path at each point of the timeline.
+   Lift-off is a real one: off the pad at about half a g, past the top of the tower at 10 s (30 m/s), 1.4 km up at 30 s, 5.8 km at 60 s.
+   From there the drawn distance grows at a steady rate (the view widens about 3% a second) up to the edge of space (SPACE up), then on at a
+   steady pace, easing off as it nears the Moon. */
+const TIMING = (function () {
+  const RH = WORLD.ROCKET_H, T = MILESTONES, RHs = v => Math.log(v * RH), S1 = 0.031, L = PATH.pl[PATH.pl.length - 1];
+  const SP = lerpAt(PATH.hs, PATH.pl, WORLD.SPACE), S2 = SP + (L - SP) * 0.15, far = [T.stage2 + 400, T.stage2 + 800], v0 = (S2 - SP) / (T.stage2 - T.space);
+  const pad = pchip([0, HOLD, T.tower], [0, 0, 1.15 * RH], 0, 0.306 * RH);
+  const climb = pchip([T.tower, 30, 60, T.stage1, T.space], [RHs(1.15), RHs(14.4), RHs(57.7), Math.log(S1), Math.log(SP)], 0.266, v0 / SP);
+  const cruise = pchip([T.space, T.stage2, far[0], far[1], T.orbit], [SP, S2, S2 + (L - S2) * 0.4, S2 + (L - S2) * 0.75, L], v0, 0.004);
+  const lenAt = t => t <= T.tower ? pad(t) : t <= T.space ? Math.exp(climb(t)) : t < T.orbit ? cruise(t) : L;
+  /* altitude read-out: a believable climb in kilometres (40 km at stage 1 separation, 100 km at the edge of space), tied to the same clock */
+  const kmT = pchip([0, HOLD, T.tower, 30, 60, T.stage1, T.space], [0, 0, 0.115, 1.44, 5.77, 40, 100], 0, 0.33), kx = [0], ky = [0];
+  for (const t of [4, 5, 7, 10, 15, 20, 30, 45, 60, 90, 120, 150, 190, 220, 250, 280, 310, 340, 360, 370]) { kx.push(lenAt(t)); ky.push(kmT(t)); }
+  const kmAt = pchip(kx.concat([S2, S2 + (L - S2) * 0.4, S2 + (L - S2) * 0.75, L]), ky.concat([25000, 150000, 290000, 384400]));
+  return { lenAt, kmAt, kmAtAlt: a => kmAt(lerpAt(PATH.hs, PATH.pl, a)), S1, SP, S2, L };
+})();
+
 class RocketSim {
   constructor() {
-    const M = WORLD.MOON, Ro = WORLD.ORBIT, RH = WORLD.ROCKET_H, T = MILESTONES;
-    const th0 = this.th0 = Math.atan2(-0.447, 0.894), tx = -Math.sin(th0), ty = Math.cos(th0);   // the path meets the orbit on a tangent
-    const P3 = [M.x + Ro * Math.cos(th0), M.y + Ro * Math.sin(th0)], P2 = [P3[0] - tx * 5, P3[1] - ty * 5], P0 = [0, 1], P1 = [0, 6.5];
-    const S = 800, xs = this.px = new Float64Array(S + 1), ys = this.py = new Float64Array(S + 1), ls = this.pl = new Float64Array(S + 1);
-    for (let i = 0; i <= S; i++) { const t = i / S, u = 1 - t, a = u * u * u, b = 3 * u * u * t, c = 3 * u * t * t, d = t * t * t;
-      xs[i] = a * P0[0] + b * P1[0] + c * P2[0] + d * P3[0]; ys[i] = a * P0[1] + b * P1[1] + c * P2[1] + d * P3[1];
-      ls[i] = i ? ls[i - 1] + Math.hypot(xs[i] - xs[i - 1], ys[i] - ys[i - 1]) : 0; }
-    this.S = S; const L = this.L = ls[S];
-    /* Distance along the path at each point of the timeline.
-       Lift-off is a real one: off the pad at about half a g, past the top of the tower at 10 s (30 m/s), 1.4 km up at 30 s, 5.8 km at 60 s.
-       From there the drawn distance grows at a steady rate (the view widens about 2.7% a second) and eases off at the edge of space. */
-    const RHs = v => Math.log(v * RH), far = [T.stage2 + 400, T.stage2 + 800], S1 = 0.031, SP = WORLD.SPACE, S2 = 5.2;
-    const pad = pchip([0, HOLD, T.tower], [0, 0, 1.15 * RH], 0, 0.306 * RH);
-    const climb = pchip([T.tower, 30, 60, T.stage1, T.space], [RHs(1.15), RHs(14.4), RHs(57.7), Math.log(S1), Math.log(SP)], 0.266, 0.00125);
-    const cruise = pchip([T.space, T.stage2, far[0], far[1], T.orbit], [SP, S2, S2 + (L - S2) * 0.37, S2 + (L - S2) * 0.72, L], 0.005, 0.004);
-    this.lenAt = t => t <= T.tower ? pad(t) : t <= T.space ? Math.exp(climb(t)) : cruise(t);
-    this.lTower = 0.95 * RH; this.lStage1 = S1; this.lSpace = SP; this.lStage2 = S2;
-    /* altitude read-out: a believable climb in kilometres (40 km at stage 1 separation, 100 km at the edge of space), tied to the same clock */
-    const kmT = pchip([0, HOLD, T.tower, 30, 60, T.stage1, T.space], [0, 0, 0.115, 1.44, 5.77, 40, 100], 0, 0.33), kx = [0], ky = [0];
-    for (const t of [4, 5, 7, 10, 15, 20, 30, 45, 60, 90, 120, 150, 190, 220, 250, 280, 310, 340, 360, 370]) { kx.push(this.lenAt(t)); ky.push(kmT(t)); }
-    this.kmAt = pchip(kx.concat([S2, S2 + (L - S2) * 0.37, S2 + (L - S2) * 0.72, L]), ky.concat([25000, 150000, 290000, 384400]));
+    const RH = WORLD.ROCKET_H;
+    this.px = PATH.px; this.py = PATH.py; this.pl = PATH.pl; this.S = PATH.pl.length - 1; this.L = TIMING.L; this.th0 = PATH.th0; this.tilt = TILT;
+    this.lenAt = TIMING.lenAt; this.kmAt = TIMING.kmAt; this.kmAtAlt = TIMING.kmAtAlt;
+    this.lTower = 0.95 * RH; this.lStage1 = TIMING.S1; this.lSpace = TIMING.SP; this.lStage2 = TIMING.S2;
     this.wOrbit = 2 * Math.PI / ORBIT_PERIOD;
     this.events = []; this.reset();
   }
@@ -79,8 +109,8 @@ class RocketSim {
   restore(x) {
     this.reset();
     const n = (v, lo, hi) => typeof v === 'number' && isFinite(v) && v >= lo && v <= hi;
-    if (!x || (x.mode !== 'orbit' && !(x.mode === 'ascent' && x.inSpace)) || !n(x.fp, HOLD, 1e6) || !n(x.l, 0, this.L) || !n(x.stage, 0, 2) || !n(x.th, -4, 4) || !n(x.tOrb, 0, 1e6)) return false;
-    this.mode = x.mode; this.fp = x.fp; this.l = x.l; this.prevT = this.target(x.fp); this.stage = Math.round(x.stage); this.lit0 = true;
+    if (!x || (x.mode !== 'orbit' && !(x.mode === 'ascent' && x.inSpace)) || !n(x.fp, HOLD, 1e6) || !n(x.l, 0, 1e3) || !n(x.stage, 0, 2) || !n(x.th, -4, 4) || !n(x.tOrb, 0, 1e6)) return false;
+    this.mode = x.mode; this.fp = x.fp; this.l = this.lenAt(x.fp); this.prevT = this.target(x.fp); this.stage = Math.round(x.stage); this.lit0 = true;
     this.inSpace = true; this.cleared = true;
     if (x.mode === 'orbit') { this.l = this.L; this.stage = 2; this.th = x.th; this.tOrb = x.tOrb; this.spinUp = smooth(SPIN_AT, SPIN_AT + SPIN_UP, x.tOrb); }
     return true;
@@ -119,8 +149,8 @@ class RocketSim {
         this.lit0 = false; this.fp = 0; this.down = WRECK; this.events.push('crash'); }
     } else if (this.mode === 'orbit') {
       this.ignited = false; this.tOrb += rdt;                                                       // circles the Moon for as long as the session runs
-      this.th += (0.004 + (this.wOrbit - 0.004) * smooth(0, 12, this.tOrb)) * rdt;
-      if (this.th > Math.PI) this.th -= 2 * Math.PI;
+      this.th -= (0.004 + (this.wOrbit - 0.004) * smooth(0, 12, this.tOrb)) * rdt;              // clockwise, the way it came round Earth
+      if (this.th < -Math.PI) this.th += 2 * Math.PI;
       const was = this.spinUp;                                                                      // E6: the module is sent spinning about its length
       this.spinUp = smooth(SPIN_AT, SPIN_AT + SPIN_UP, this.tOrb);
       if (was === 0 && this.spinUp > 0) this.events.push('spin');
@@ -130,7 +160,7 @@ class RocketSim {
   spin(dt) { this.spinA = (this.spinA + SPIN * this.spinUp * dt) % (2 * Math.PI); }
   pose() {
     if (this.mode === 'orbit') { const M = WORLD.MOON, c = Math.cos(this.th), s = Math.sin(this.th), x = M.x + WORLD.ORBIT * c, y = M.y + WORLD.ORBIT * s;
-      return { x: x, y: y, ang: Math.atan2(-s, c), alt: Math.max(0, Math.hypot(x, y) - 1) }; }
+      return { x: x, y: y, ang: Math.atan2(s, -c), alt: Math.max(0, Math.hypot(x, y) - 1) }; }
     const ls = this.pl, l = this.l; let lo = 0, hi = this.S;
     while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (ls[mid] <= l) lo = mid; else hi = mid; }
     const seg = ls[hi] - ls[lo], t = seg > 0 ? (l - ls[lo]) / seg : 0;
@@ -159,4 +189,4 @@ function sampleFlights(records) {
   return records;
 }
 
-module.exports = { LIFTOFF, MILESTONES, WORLD, RocketSim, pchip, rocketAt, rocketCarry, sampleFlights, smooth };
+module.exports = { LIFTOFF, MILESTONES, TILT, WORLD, RocketSim, pchip, rocketAt, rocketCarry, sampleFlights, smooth };
