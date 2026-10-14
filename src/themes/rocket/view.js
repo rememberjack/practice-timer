@@ -139,6 +139,10 @@ function makeRocketView(cv, hud, sim, MT) {
   const rcs = { wait: 1.5, t: 0, on: false, side: 1, a: 3, along: 0, x: 0, y: 0, jx: 0, jy: 0 };   // reaction-control thruster firings in Moon orbit: for show only
   let flick = 0, flickT = 0, flash = 0, shake = 0;
   const STAR_PAR = 5 * RES;         // stars drift this many pixels per Earth radius travelled
+  /* deep space at speed: streaks of light rush past from ahead, faster the faster the rocket goes, and the starfield behind slides too */
+  const STREAKS = [], vRef = (sim.L - sim.lStage2) / (MT.MILESTONES.orbit - MT.MILESTONES.stage2);
+  let rush = 0, driftX = 0, driftY = 0;
+  for (let i = 0; i < 34; i++) STREAKS.push({ x: -1, y: -1, d: 0.45 + Math.random(), b: 0.35 + 0.65 * Math.random() });
 
   function resize() {
     const r = cv.parentElement.getBoundingClientRect(); if (r.width < 10 || r.height < 10) return false;
@@ -157,11 +161,12 @@ function makeRocketView(cv, hud, sim, MT) {
   /* The view turns with the rocket: away from Earth is always up the screen at the rocket, so the horizon stays level under it and it leans
      over as it turns, to the 26° it then keeps all the way out (sim.tilt); in the Moon's orbit the view keeps it at that same lean, the Moon
      below and to its right. It never points down the screen.
-     Three framings, blended along the flight clock (seconds of playing since ignition), all worked out in that turned view:
+     Four framings, blended along the flight clock (seconds of playing since ignition), all worked out in that turned view:
      Earth    - the view widens with altitude and shows more sky and less ground as the rocket climbs and turns, until the whole planet is
                 small and distant;
-     orbit    - from the edge of space (E3) the view holds still on Earth and its parking orbit, and the rocket goes round it;
-     Moon     - from stage 2 separation (E4) the view widens to take in the Moon as the rocket swings out on its way, then tightens as it nears it.
+     Earth and rocket - from the edge of space (E3), Earth and the rocket climbing away from it;
+     deep space - after stage 2 separation (E4) the view closes on the rocket alone, Earth out of sight, stars streaking past;
+     Moon     - from 15 minutes before Moon orbit the view widens to take in the Moon, then tightens as the rocket nears it.
      Each framing says how big the world is drawn and where the rocket sits on screen; blending those keeps the rocket in view throughout. */
   function camera(pw) {
     const rot = sim.mode === 'orbit' ? sim.tilt - pw.ang : Math.atan2(pw.y, pw.x) - Math.PI / 2, rc = Math.cos(rot), rs = Math.sin(rot);
@@ -194,12 +199,15 @@ function makeRocketView(cv, hud, sim, MT) {
     const wO = orbit ? 0 : smooth(T.space - 40, T.space + 20, fp);
     if (wO > 0) blend(frame([[0, 0, 1.3]]), wO);
     // Moon framing
-    const wM = orbit ? 1 : smooth(T.stage2 + 3, T.stage2 + 70, fp);
+    // deep space: after stage 2 separation Earth falls away and for a while there is only the rocket, close up, rushing on (streaks in draw)
+    const wC = orbit ? 0 : smooth(T.stage2 + 10, T.stage2 + 50, fp);
+    if (wC > 0) blend([usable / 5.5, fw * 0.42, r0 + usable * 0.12], wC);
+    const wM = orbit ? 1 : smooth(T.orbit - 900, T.orbit - 780, fp);              // then the Moon comes into view
     // on the way in, the margins tighten and the rocket is drawn larger, so it does not shrink to a speck beside the Moon
-    const appr = orbit ? 1 : smooth(T.stage2 + 400, T.orbit - 60, fp);
+    const appr = orbit ? 1 : smooth(T.orbit - 780, T.orbit - 60, fp);
     if (wM > 0) blend(frame([[Mt.x, Mt.y, RO * lerp(1.3, 1.22, appr)]]), wM);
     const ox = (rx - W / 2) / s, oy = -(ry - H / 2) / s;                                      // the rocket's offset from the middle of the screen, turned
-    return { s: s, rot: rot, rc: rc, rs: rs, cx: pw.x - (rc * ox - rs * oy), cy: pw.y - (rs * ox + rc * oy), wM: wM, k: lerp(lerp(1, 1.15, wO), lerp(1.05, 1.6, appr) + 0.5 * sim.spinUp, wM) };          // a little larger still once it is spinning in orbit
+    return { s: s, rot: rot, rc: rc, rs: rs, cx: pw.x - (rc * ox - rs * oy), cy: pw.y - (rs * ox + rc * oy), wM: wM, wC: wC * (1 - wM), k: lerp(lerp(lerp(1, 1.15, wO), 2, wC), lerp(1.05, 1.6, appr) + 0.5 * sim.spinUp, wM) };          // a little larger still once it is spinning in orbit
   }
 
   function background(cam) {
@@ -209,7 +217,7 @@ function makeRocketView(cv, hud, sim, MT) {
     const tf = Math.round(256 * Math.min(1, Math.max(0, (iv - B * 0.45) / (B * 0.55)))), en2 = EN / 2;
     /* ground texture between the close-up blocks and the far-away map: blocks that regroup as the view widens, so the climb reads as motion */
     const lv = Math.log2(iv / B), lf = lv - Math.floor(lv), S0 = B * Math.pow(2, Math.floor(lv) + 3), S1 = S0 * 2, amp = lv > -1 ? Math.round(9 * (1 - smooth(0.05, 0.5, 1.5 * inv * H))) : 0;
-    const n = W * H, so = ((Math.round(-cam.cy * STAR_PAR) * W + Math.round(cam.cx * STAR_PAR)) % n + n) % n;
+    const n = W * H, so = ((Math.round(-cam.cy * STAR_PAR + driftY) * W + Math.round(cam.cx * STAR_PAR + driftX)) % n + n) % n;
     let i = 0;
     for (let py = 0; py < H; py++) {
       const vy = -(py + 0.5 - H / 2) * inv, vx = (0.5 - W / 2) * inv, dx = rc * inv, dy = rs * inv;
@@ -262,7 +270,9 @@ function makeRocketView(cv, hud, sim, MT) {
   /* v: {running, playing, power}; dt in real seconds */
   function draw(v, dt) {
     if (!W && !resize()) return;
-    const p = sim.pose(), cam = camera(p), s = cam.s;
+    const p = sim.pose(), cam = camera(p), s = cam.s, hx = Math.sin(p.ang + cam.rot), hy = -Math.cos(p.ang + cam.rot);   // heading on screen
+    rush += ((cam.wC > 0 && sim.mode === 'ascent' ? Math.max(0, Math.min(1.4, sim.v / vRef)) : 0) - rush) * Math.min(1, dt * 2);   // eases with the rocket's speed
+    if (rush > 0.01) { const sp = 70 * RES * rush * cam.wC * dt; driftX += hx * sp; driftY += hy * sp; }
     const rc = cam.rc, rs = cam.rs;
     const P = (x, y) => { const dx = x - cam.cx, dy = y - cam.cy; return [W / 2 + (rc * dx + rs * dy) * s, H / 2 - (rc * dy - rs * dx) * s]; };   // world to screen
     const toW = (sx, sy) => { const vx = (sx - W / 2) / s, vy = -(sy - H / 2) / s; return [cam.cx + rc * vx - rs * vy, cam.cy + rs * vx + rc * vy]; };
@@ -279,6 +289,20 @@ function makeRocketView(cv, hud, sim, MT) {
       g.globalAlpha = 0.9 * smooth(4 * RES, 9 * RES, w);
       g.fillRect(x, y, Math.round(w), Math.round(h)); g.fillRect(x + Math.round(w * 0.18), y - Math.round(h * 0.6), Math.round(w * 0.5), Math.round(h * 0.6)); g.fillRect(x + Math.round(w * 0.1), y + Math.round(h), Math.round(w * 0.7), Math.max(1, Math.round(h * 0.4))); }
     g.globalAlpha = 1;
+
+    // deep space: streaks rushing past, from ahead of the rocket to behind it, their tails pointing where it is going
+    if (rush > 0.01 && cam.wC > 0) { const a0 = cam.wC * Math.min(1, rush);
+      for (const q of STREAKS) {
+        if (q.x < -40 * RES || q.y < -40 * RES || q.x > W + 40 * RES || q.y > H + 40 * RES || q.x < 0 && q.y < 0) {    // off screen (or new): back in, ahead
+          q.x = Math.random() * W; q.y = Math.random() * H;
+          const t = Math.min(hx > 0 ? (W - q.x) / hx : hx < 0 ? -q.x / hx : 1e9, hy > 0 ? (H - q.y) / hy : hy < 0 ? -q.y / hy : 1e9);
+          q.x += hx * (t + 4 * RES); q.y += hy * (t + 4 * RES); }
+        const v = 900 * RES * rush * q.d * dt, len = (6 + 22 * rush * q.d) * RES;
+        q.x -= hx * v; q.y -= hy * v;
+        g.fillStyle = '#D6E4FF';
+        for (let j = 0; j < len; j += RES) { g.globalAlpha = a0 * q.b * (1 - j / len); g.fillRect(Math.round(q.x + hx * j), Math.round(q.y + hy * j), RES, RES); }
+      }
+      g.globalAlpha = 1; }
 
     // after an explosion everything drawn over the scenery shakes for a moment
     if (shake > 0) { shake -= dt; g.save(); g.translate(Math.round((Math.random() - 0.5) * 5 * RES * shake), Math.round((Math.random() - 0.5) * 5 * RES * shake)); } else g.save();
