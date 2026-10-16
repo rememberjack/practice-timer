@@ -1173,7 +1173,7 @@ const THEME_KEYS = {
   words: [false, v => !!v && typeof v === 'object' && !Array.isArray(v), 'its own words by language: { zh: { English: Chinese } }'],
   panel: [true, v => typeof v === 'string' && /^[A-Za-z][\w-]*$/.test(v), 'the id of its panel (the section in panel.html)'],
   chrome: [true, v => v === 'clean' || v === 'pixel', '\'clean\' (the Classic title row) or \'pixel\' (the compact title row over a scene)'],
-  fonts: [false, v => Array.isArray(v) && v.every(f => typeof f === 'string' && /^[A-Za-z][A-Za-z+]*(:[A-Za-z0-9@;,.]+)?$/.test(f)), 'Google Fonts families it needs, as the css2 URL writes them'],
+  fonts: [false, v => Array.isArray(v) && v.every(f => typeof f === 'string' && /^[A-Za-z][A-Za-z0-9+]*(:[A-Za-z0-9@;,.]+)?$/.test(f)), 'Google Fonts families it needs, as the css2 URL writes them'],
   tests: [false, v => Array.isArray(v) && v.every(t => t && isText(t.name) && typeof t.run === 'function'), 'its tests: a list of { name, run }, run returning { name, expect, got, pass }'],
   credits: [false, v => Array.isArray(v) && v.length > 0 && v.every(isText) && new Set(v).size === v.length, 'the people who made it, for the credits: a list of names, each once'],
   create: [true, v => typeof v === 'function', 'create(host): the instance whose hooks the page calls'],

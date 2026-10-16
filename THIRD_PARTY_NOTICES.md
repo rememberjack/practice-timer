@@ -63,7 +63,7 @@ notice goes in if one is ever bundled or self-hosted.
 
 Loaded from Google Fonts by the one stylesheet link in `src/template.html` (`fonts.googleapis.com`, files from
 `fonts.gstatic.com`). The build writes the families into it: Inter and Silkscreen for the page, and those each installed theme
-names in its `fonts` (Barlow Condensed for Grand Prix, Fraunces for Fireworks), so a font goes when its theme does. All four are under the SIL Open Font License 1.1, which allows use in any page; the license only adds
+names in its `fonts` (Barlow Condensed for Grand Prix, Fraunces for Fireworks, Press Start 2P for Invaders), so a font goes when its theme does. All five are under the SIL Open Font License 1.1, which allows use in any page; the license only adds
 conditions when the font files themselves are redistributed or changed.
 
 | Font | Used for | Copyright | Upstream |
@@ -72,6 +72,7 @@ conditions when the font files themselves are redistributed or changed.
 | Silkscreen | Rocket and City pixel lettering (`--pixel`) | Copyright 2001 The Silkscreen Project Authors | https://github.com/googlefonts/silkscreen |
 | Barlow Condensed | Grand Prix (`--cond`) | Copyright 2017 The Barlow Project Authors | https://github.com/jpt/barlow |
 | Fraunces | Fireworks (`--serif`) | Copyright 2018 The Fraunces Project Authors | https://github.com/undercasetype/Fraunces |
+| Press Start 2P | Invaders, its read-outs, buttons and scene lettering (`--arcade`) | Copyright 2012 The Press Start 2P Project Authors (cody@zone38.net), with Reserved Font Name "Press Start 2P" | https://github.com/google/fonts/tree/main/ofl/pressstart2p |
 
 If the fonts are ever self-hosted (for example to work offline), copy each font's `OFL.txt` alongside the files and keep the
 font names unchanged, or rename them if the files are modified (OFL Reserved Font Name rules).

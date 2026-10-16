@@ -7,7 +7,7 @@ const { seededRng } = require('../../core.js');
 const { SPRITES } = require('./sprites.js');
 
 const INV = {
-  W: 224, H: 200,                       // the field
+  W: 224, H: 206,                       // the field, with a row under the ground line for the wave and the invaders left
   COLS: 11, ROWS: 5, CELL: 16,          // the fleet: 11 by 5, one invader in each 16 px cell
   KINDS: ['bug', 'claw', 'claw', 'blob', 'blob'],   // by row, the top first
   POINTS: { bug: 30, claw: 20, blob: 10 },

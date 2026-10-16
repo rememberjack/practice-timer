@@ -19,12 +19,14 @@ module.exports = {
   words: words,
   panel: 'pInvaders',
   chrome: 'pixel',
+  fonts: ['Press+Start+2P'],
   tests: require('./tests.js'),
   create: function (host) {
     const $ = host.$, sim = new InvaderSim(1), view = makeInvadersView($('ivCv'), $('ivHud'), sim, { INV: INV, SPRITES: SPRITES });
     let notes = 0, bank = 0, frameAt = 0, bannerT = 0, hi = 0;   // bank: session time the ticks have given that the frames have not yet played
     host.drawPixelTrophy($('ivTrophy'));
-    function banner(msg) { const b = $('ivBanner'); b.textContent = msg; b.classList.add('on'); clearTimeout(bannerT); bannerT = setTimeout(() => b.classList.remove('on'), 2600); }
+    if (document.fonts && document.fonts.load) document.fonts.load('8px "Press Start 2P"').catch(() => {});   // the lettering it draws on its canvas
+    function banner(msg) { const b = $('ivBanner'); b.textContent = msg; b.classList.add('on'); clearTimeout(bannerT); bannerT = setTimeout(() => b.classList.remove('on'), 2000); }   // while the field is empty between waves
     /* the game runs on session time: the ticks bank it and the frames play it out smoothly, a little behind (all at once on the ticks when no
        frames are drawn, the page in the background). Its effects are drawn only while it is on screen, so none play at once on coming back */
     function step(dt, running, music, pw) {
@@ -32,8 +34,7 @@ module.exports = {
       while (sim.events.length) { const ev = sim.events.shift();
         if (host.shown()) view.event(ev);
         if (!host.current()) continue;
-        if (ev.e === 'cleared') banner(tr('Wave {n} cleared!', { n: ev.wave }));
-        else if (ev.e === 'ufo') banner(tr('Mystery ship: {n} points', { n: ev.pts })); }
+        if (ev.e === 'cleared') banner(tr('Wave {n} cleared!', { n: ev.wave })); }   // the mystery ship's points show where it was hit, as on the cabinet
     }
     return {
       reset(s) { sim.reset(s.seed); view.reset(); notes = 0; bank = 0; },
@@ -42,7 +43,7 @@ module.exports = {
       tick(dt, s) { if (s.state !== 'running') { bank = 0; return; } bank += dt; if (performance.now() - frameAt > 250) { step(bank, true, s.heard, s.recent); bank = 0; } },
       frame(dt, f) {
         const v = f.v, take = Math.min(bank, dt * Math.max(0.5, bank / 0.08)); frameAt = performance.now(); bank -= take;
-        step(take, v.st === 'running', v.music, v.pw); if (f.shown) view.draw(dt, { running: v.st === 'running' });
+        step(take, v.st === 'running', v.music, v.pw); if (f.shown) view.draw(dt, { running: v.st === 'running', wave: tr('Wave {n}', { n: sim.wave }), left: trn(sim.left, '{n} invader left', '{n} invaders left') });
       },
       paint(v) {
         const st = v.st, text = host.text, fmt = host.fmt, playTxt = fmt(v.play), el = $('ivPlay'), cls = playTxt.length > 5 ? 'big long' : 'big';

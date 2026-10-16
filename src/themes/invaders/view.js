@@ -66,11 +66,15 @@ function makeInvadersView(cv, hud, sim, MT) {
       if (b.k === 'burst') { const c = sprite('burst', 0); put(c, b.x - c.width / 2, b.y - c.height / 2); }
       else { g.fillStyle = '#FFFFFF'; for (const [dx, dy] of [[-2, -1], [2, -1], [0, -2], [-1, 1], [1, 1], [0, 0]]) rect(b.x + dx, b.y + dy, 1, 1); }
     }
-    g.font = Math.max(8, Math.round(8 * s)) + 'px Silkscreen, "Courier New", monospace'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = Math.max(8, Math.min(16, Math.round(6 * s))) + 'px "Press Start 2P", "Courier New", monospace'; g.textAlign = 'center'; g.textBaseline = 'middle';
     for (let k = texts.length - 1; k >= 0; k--) {
       const t = texts[k]; t.t += dt; if (t.t >= t.life) { texts.splice(k, 1); continue; }
       g.fillStyle = '#FFFFFF'; g.fillText(t.s, ox + px(t.x), oy + px(t.y));
     }
+    /* under the ground line, where the cabinets show the lives and credits: the wave on the left, the invaders left on the right */
+    g.fillStyle = '#FFFFFF'; g.textBaseline = 'middle';
+    if (o.wave) { g.textAlign = 'left'; g.fillText(o.wave.toUpperCase(), ox + px(4), oy + px(INV.GROUND + 9)); }
+    if (o.left) { g.textAlign = 'right'; g.fillText(o.left.toUpperCase(), ox + px(INV.W - 4), oy + px(INV.GROUND + 9)); }
     /* the coloured film over the screen, as on the cabinets: white turns red at the top and green at the foot; black stays black */
     g.globalCompositeOperation = 'multiply';
     g.fillStyle = RED; g.fillRect(0, oy, W, px(RED_TO));
