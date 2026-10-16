@@ -106,7 +106,7 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
 - Invaders (`InvaderSim` in `src/themes/invaders/sim.js`, drawn by its `view.js`) is in the manner of the 1978 arcade invader games, with its own sprites
   (`sprites.js`; the name "Space Invaders" is not used): 55 invaders march over four shields and the laser cannon shoots them down, wave after wave.
   It runs on session time (the ticks bank it, the frames play it out). Only playing moves it on: while music is heard the fleet marches and the cannon
-  charges its shots at a rate set by the last minute of playing (`INV.RATE`, `INV.RATE_PW`; a note just started fires a charged shot at once), so a wave
+  charges its shots at a rate set by the last minute of playing, shown as Charge (Power in the other themes; `INV.RATE`, `INV.RATE_PW`; a note just started fires a charged shot at once), so a wave
   falls in about 2.5 minutes at 80%. In a quiet moment the invaders wait; they never come below just above the shields (`INV.FLOOR`) and bombs cannot
   harm the cannon, so nothing is lost. Its scene is white on black under red and green film (a `multiply` fill). Each session keeps its score
   (`keep`), and the Hi-score is the best in the practice log (`hiScore`).
