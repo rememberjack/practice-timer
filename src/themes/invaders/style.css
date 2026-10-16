@@ -1,0 +1,88 @@
+/* Invaders theme: a 1978 arcade cabinet. Black screen, the arcade's own blocky capitals (Press Start 2P), white with red and green film;
+   the read-outs are the cabinet's score line (SCORE, the play time, HI-SCORE) and the buttons plain lettering in a faint outline */
+body:has(> #app[data-skin="invaders"]){background:#000}
+#app[data-skin="invaders"], .ask[data-skin="invaders"], #pInvaders{--arcade:"Press Start 2P", "Courier New", ui-monospace, monospace}
+.ask[data-skin="invaders"]{--sheet:#000; --surface:#141414; --ink:#FFFFFF; --mute:#B8B8B8; --rule:#3A3A3A; --accent:#3CFF3C; --on-accent:#000; border:0; border-top:2px solid #3CFF3C; border-radius:0}
+.ask[data-skin="invaders"] h2{font-family:var(--arcade); font-weight:400; letter-spacing:0; font-size:14px; line-height:1.5; text-transform:uppercase; color:#3CFF3C}
+.ask[data-skin="invaders"] .btn{font-family:var(--arcade); font-weight:400; font-size:10px; line-height:1.4; text-transform:uppercase; border-radius:0; border:2px solid transparent; background:#000; color:#fff}
+.ask[data-skin="invaders"] .btn.solid{border-color:#3CFF3C; color:#3CFF3C}
+.ask[data-skin="invaders"] .btn:active{background:#fff; color:#000}
+@media (max-width:560px){ .ask[data-skin="invaders"]{border-radius:0} }
+@media (max-width:359px){ .ask[data-skin="invaders"] .btn{font-size:9px} }
+[data-theme="invaders"]{--g:#000000; --t:#3CFF3C}   /* its tile in Settings, Themes */
+#app[data-skin="invaders"]{--paper:#000; --surface:#141414; --ink:#FFFFFF; --mute:#B8B8B8; --rule:#3A3A3A; --accent:#3CFF3C; --on-accent:#000}
+/* the title and the buttons: plain lettering, as on the cabinet's screen, the buttons in a faint outline. The borders stay 2 px so the scene keeps its height */
+#app[data-skin="invaders"][data-chrome="pixel"] #top h1{font-family:var(--arcade); font-size:13px; text-transform:uppercase}
+#app[data-skin="invaders"][data-chrome="pixel"] .icon-btn{border:2px solid transparent; border-radius:0; background:#000}
+#app[data-skin="invaders"][data-chrome="pixel"] .icon-btn:active{border-color:#fff}
+#app[data-skin="invaders"][data-chrome="pixel"] #controls button{font-family:var(--arcade); font-size:12px; text-transform:uppercase; border:2px solid #3A3A3A; background:#000; color:#FFFFFF; text-shadow:none; box-shadow:none}
+#app[data-skin="invaders"][data-chrome="pixel"] #controls button.primary{border-color:#3CFF3C; color:#3CFF3C}
+#app[data-skin="invaders"][data-chrome="pixel"] #controls button:active{background:#FFFFFF; color:#000}
+#app[data-skin="invaders"][data-chrome="pixel"][data-state="stopped"] #controls button{font-size:10px}
+#app[data-skin="invaders"][data-chrome="pixel"] #notice, #app[data-skin="invaders"][data-chrome="pixel"] #demoBar{border-radius:0}
+#app[data-skin="invaders"][data-chrome="pixel"] .award-card{background:#000; border:2px solid #3CFF3C; box-shadow:none}
+#app[data-skin="invaders"][data-chrome="pixel"] .award-card h3{font-family:var(--arcade); font-size:16px; line-height:1.5; text-transform:uppercase; color:#3CFF3C}
+#app[data-skin="invaders"][data-chrome="pixel"] .award-card p{font-family:var(--arcade); font-size:10px; line-height:1.6}
+#app[data-skin="invaders"] #skinBar{--tint:#3CFF3C}
+#app[data-skin="invaders"] #skinBar button::before{border-radius:0}
+#pInvaders{background:#000; color:#FFFFFF; font-family:var(--arcade)}
+#ivCv{position:absolute; inset:0; width:100%; height:100%; display:block; image-rendering:pixelated; image-rendering:crisp-edges}
+/* the read-outs */
+.iv-hud{position:absolute; left:12px; right:12px; top:8px; padding:4px 0; font-size:8px; line-height:1.5; text-transform:uppercase; background:#000}
+.iv-hud b{font-weight:400}
+.iv-hud .k{color:#FF3B3B}
+.iv-top{display:flex; justify-content:space-between; align-items:flex-end; gap:10px}
+.iv-play{min-width:0}
+.iv-play .k{display:block; white-space:nowrap}
+.iv-hud .big{display:block; font-size:24px; line-height:1; margin-top:4px; white-space:nowrap}
+.iv-hud .big.long{font-size:18px}                                             /* an hour or more: h:mm:ss */
+#app[data-music="1"] .iv-hud .big{color:#3CFF3C}
+.iv-side{flex:none; text-align:right; white-space:nowrap; color:#B8B8B8}
+.iv-side b{color:#FFFFFF}
+.iv-hud .engine{margin-top:6px}
+.iv-hud .engine .k{color:#B8B8B8}
+.iv-hud .pbar{min-width:0; height:8px; background:#000; border:0; box-shadow:inset 0 0 0 1px #3A3A3A}
+.iv-hud .pbar i{background:repeating-linear-gradient(90deg, #FF3B3B 0 6px, transparent 6px 8px)}
+.iv-hud .pbar i.ok{background:repeating-linear-gradient(90deg, #FFFFFF 0 6px, transparent 6px 8px)}
+.iv-hud .pbar i.go{background:repeating-linear-gradient(90deg, #3CFF3C 0 6px, transparent 6px 8px)}
+.iv-hud .pbar .avg{top:-3px; bottom:-3px; width:2px; margin-left:-1px; background:#FFFFFF; box-shadow:none}
+.iv-stats{display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:0 4px; margin-top:6px; text-align:center}
+.iv-stats span{display:block; color:#FF3B3B; white-space:nowrap}
+.iv-stats b{display:block; font-size:12px; line-height:1.4; white-space:nowrap}
+.iv-line{margin-top:4px; min-height:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.iv-line.dim{color:#B8B8B8; margin-top:2px}
+/* "Wave cleared": in the middle of the field, empty between waves */
+#ivBanner{position:absolute; left:50%; top:calc(var(--hud-b, 150px) / 2 + 50%); transform:translate(-50%, -50%); width:max-content; max-width:calc(100% - 32px); padding:6px 8px; background:#000; color:#FFFFFF;
+  font-size:10px; line-height:1.5; text-transform:uppercase; text-align:center; opacity:0; transition:opacity .25s; pointer-events:none}
+#ivBanner.on{opacity:1}
+@media (max-height:620px){ .iv-line.dim{display:none} }
+/* phones: the cabinet's score line. SCORE on the left, the play time in the middle, HI-SCORE on the right, labels over the figures;
+   the goal under it on one line, then the charge as a thin strip. The wave and the invaders left are drawn under the ground line instead */
+@media (max-width:699px), (max-width:760px) and (max-height:599px){
+  .iv-hud{top:6px; display:grid; grid-template-columns:minmax(0, 1fr) auto minmax(0, 1fr); column-gap:8px; align-items:end;
+    grid-template-areas:"sc play hi" "side side side" "bar bar bar" "heard heard heard" "next next next"}
+  .iv-top, .iv-stats{display:contents}
+  .iv-play{grid-area:play; text-align:center}
+  .iv-sc{grid-area:sc; text-align:left} .iv-hi{grid-area:hi; text-align:right}
+  .iv-sc b, .iv-hi b{margin-top:4px}
+  .iv-wave, .iv-left{display:none}
+  .iv-side{grid-area:side; display:flex; justify-content:space-between; gap:8px; margin-top:8px; text-align:left}
+  .iv-hud .engine{grid-area:bar; margin-top:5px}
+  .iv-hud .hc-heard{grid-area:heard} .iv-hud .hc-next{grid-area:next}
+  @media (max-width:359px){ .iv-hud{left:8px; right:8px} .iv-side{gap:4px} .iv-sc b, .iv-hi b{font-size:10px} #app[data-skin="invaders"][data-chrome="pixel"][data-state="stopped"] #controls button{font-size:8px} }
+}
+/* tablets (the shared layout is in src/template.html): the shared card, in the arcade's lettering */
+@media (min-width:700px) and (min-height:600px){
+  .iv-hud.hud-card{padding:10px 0; font-size:11px}
+  .iv-hud.hud-card .big{font-size:40px} .iv-hud.hud-card .big.long{font-size:30px}
+  .iv-hud .pbar{height:12px}
+  #ivPwN, #ivEff{display:inline-block; min-width:5ch; font-size:inherit}
+  .iv-stats b{font-size:18px}
+  #app[data-skin="invaders"][data-chrome="pixel"] #controls button{font-size:14px}
+  #app[data-skin="invaders"][data-chrome="pixel"] #top h1{font-size:16px}
+  #ivBanner{font-size:13px; padding:9px 16px}
+}
+/* Chinese has no arcade lettering and falls back to the phone's own font, which is hard to read this small */
+html[lang="zh-CN"] .iv-hud{font-size:11px}
+html[lang="zh-CN"] #ivBanner{font-size:13px}
+html[lang="zh-CN"] #app[data-skin="invaders"][data-chrome="pixel"] #controls button, html[lang="zh-CN"] .ask[data-skin="invaders"] .btn{font-size:15px}

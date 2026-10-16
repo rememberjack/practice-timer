@@ -1,6 +1,6 @@
 # Theme modules
 
-Every theme in Music Timer (Classic, Rocket, City, Dash, Grand Prix, Fireworks) is a self-contained module: one folder holding
+Every theme in Music Timer (Classic, Rocket, City, Dash, Grand Prix, Fireworks, Invaders) is a self-contained module: one folder holding
 everything the theme is, from its picture and read-outs to its words and tests. The page knows nothing about any particular theme. It
 installs the modules listed in a manifest and drives each one through a small, versioned interface.
 
@@ -21,7 +21,7 @@ the checks), the "themes" section of `src/app.js` (the host), `scripts/build.js`
 
 ```
 src/themes/
-  themes.json          the installed themes, in swipe order: ["classic", "rocket", "city", "dash", "race", "fireworks"]
+  themes.json          the installed themes, in swipe order: ["classic", "rocket", "city", "dash", "race", "fireworks", "invaders"]
   race/
     theme.js           the module: its definition (required)
     panel.html         its panel, one <section class="panel"> (required)
@@ -33,7 +33,7 @@ src/themes/
     tests.js           its tests (by convention)
 ```
 
-Only `theme.js`, `panel.html` and `icon.svg` are required; the rest is how the six built-in themes are laid out, and any split works.
+Only `theme.js`, `panel.html` and `icon.svg` are required; the rest is how the built-in themes are laid out, and any split works.
 Every `.js` file in the folder is a CommonJS module: it gets `require`, `module` and `exports`, and `require` finds two things only:
 
 - `./other.js`: another file of the same folder;
