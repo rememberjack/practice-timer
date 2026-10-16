@@ -101,10 +101,13 @@ async function run(wsUrl) {
   await touch(right, y, left, y); await touch(right, y, left, y); check(await skin() === 'race', 'two more swipes left reach Grand Prix (got ' + await skin() + ')');
   await sleep(1500);   // let the race scene draw for a while
   check(await js('(() => { const c = document.getElementById("raceCv"); return c.width > 0 && c.height > 0; })()'), 'the Grand Prix scene has a canvas to draw on');
-  await touch(right, y, left, y); check(await skin() === 'fireworks', 'one more swipe left reaches Fireworks, the last theme (got ' + await skin() + ')');
-  await touch(right, y, left, y); check(await skin() === 'fireworks', 'a swipe past the last theme stays on it (got ' + await skin() + ')');
+  await touch(right, y, left, y); check(await skin() === 'fireworks', 'one more swipe left reaches Fireworks (got ' + await skin() + ')');
   await sleep(1500);   // let the fireworks draw for a while
   check(await js('(() => { const c = document.querySelector("#pFire canvas:not([hidden])"); return !!c && c.width > 0 && c.height > 0; })()'), 'the Fireworks scene has a canvas to draw on (3D, or flat when three.js cannot load)');
+  await touch(right, y, left, y); check(await skin() === 'invaders', 'one more swipe left reaches Invaders, the last theme (got ' + await skin() + ')');
+  await touch(right, y, left, y); check(await skin() === 'invaders', 'a swipe past the last theme stays on it (got ' + await skin() + ')');
+  await sleep(500);
+  check(await js('(() => { const c = document.getElementById("ivCv"); return c.width > 0 && c.height > 0; })()'), 'the Invaders scene has a canvas to draw on');
   // Settings, Language: the words change at once, during a session too, and back again
   const words = () => js('[document.getElementById("btnPause").textContent, document.getElementById("btnResume").textContent, document.querySelector("#setMain .lab").textContent, document.getElementById("fHint").textContent, document.documentElement.lang].join(" | ")');
   const pickLang = async i => { await js('document.querySelectorAll("#langList .lrow")[' + i + '].click()'); await sleep(300); };

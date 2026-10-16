@@ -1,0 +1,23 @@
+<section class="panel" id="pInvaders" aria-label="Invaders theme">
+  <canvas id="ivCv" aria-hidden="true"></canvas>
+  <div class="iv-hud hud-card" id="ivHud">
+    <div class="iv-top hc-top">
+      <div class="iv-play hc-play"><span class="k">Play time</span><span class="big" id="ivPlay">00:00</span></div>
+      <div class="iv-side hc-side">
+        <div><canvas class="px-trophy badge" id="ivTrophy" width="16" height="16"></canvas>Goal <b id="ivGoal">30:00</b></div>
+        <div id="ivGoalLeft" translate="no">30:00</div>
+        <div>Pauses <b id="ivPauses">0</b></div>
+      </div>
+    </div>
+    <div class="engine hc-bar"><span class="k">Power</span><b class="pn" id="ivPwN">0%</b><div class="pbar"><i id="ivPw"></i><span class="avg" id="ivAvg" hidden></span></div><span class="eff"><span class="k">Efficiency</span> <b id="ivEff">0%</b></span></div>
+    <div class="iv-stats hc-stats">
+      <div><span>Score</span><b id="ivScore" translate="no">0000</b></div>
+      <div><span>Hi-score</span><b id="ivHi" translate="no">0000</b></div>
+      <div><span>Wave</span><b id="ivWave" translate="no">1</b></div>
+      <div><span>Left</span><b id="ivLeft" translate="no">55</b></div>
+    </div>
+    <div class="iv-line hc-heard" id="ivHeard">Press Start, then play</div>
+    <div class="iv-line dim hc-next" id="ivHint">Play to fire the laser cannon</div>
+  </div>
+  <div id="ivBanner" role="status"></div>
+</section>
