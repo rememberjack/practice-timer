@@ -3,14 +3,17 @@
    RocketSim (sim.js); view.js draws it; this wires both to the page (docs/theme-modules.md). */
 'use strict';
 const MT = require('../../core.js');
-const { HOLD, LIFTOFF, MILESTONES, WORLD, RocketSim, rocketAt, rocketCarry, sampleFlights, smooth } = require('./sim.js');
+const { HOLD, LIFTOFF, MILESTONES, PHASES, WORLD, RocketSim, rocketAt, rocketCarry, sampleFlights, smooth } = require('./sim.js');
 const { makeRocketView } = require('./view.js');
 const words = require('./words.js');
 const { tr } = MT.translator(words);
 const W = MT.word;
 const EVENT_TEXT = { ignition: W('Engines lit'), liftoff: W('Lift-off!'), tower: W('Tower cleared'), stage1: W('Stage 1 separation'), space: W('You have left the atmosphere'),
+  earthOrbit: W('Earth orbit reached'), tli: W('Off to the Moon!'),
   stage2: W('Stage 2 separation'), orbit: W('Moon orbit reached!'), spin: W('Module spinning'), fall: W('Engines out. Falling!'), crash: W('The rocket exploded!') };
-const NEXT = [['tower', W('Clearing the tower in {t}')], ['stage1', W('Stage 1 separation in {t}')], ['space', W('Leaving the atmosphere in {t}')], ['stage2', W('Stage 2 separation in {t}')], ['orbit', W('Moon orbit in {t}')]];
+const NEXT = [['tower', W('Clearing the tower in {t}')], ['stage1', W('Stage 1 separation in {t}')], ['space', W('Leaving the atmosphere in {t}')], ['earthOrbit', W('Earth orbit in {t}')],
+  ['tli', W('Off to the Moon in {t}')], ['stage2', W('Stage 2 separation in {t}')], ['orbit', W('Moon orbit in {t}')]];
+const AT = Object.assign({ earthOrbit: PHASES.insert, tli: PHASES.tli }, MILESTONES);   // when each of NEXT comes, on the flight clock
 /* the flight plan beside the scene: Earth at the foot, the Moon at the top, and between them stage 1, the edge of space and stage 2,
    evenly spaced (RocketSim.plan). Small pixel pictures, drawn as SVG so they stay sharp */
 const PLAN_PAL = { E: '#2F6FD0', G: '#5DA831', M: '#D8DCE4', m: '#9AA2B2', W: '#F4F6FA', w: '#B8C0CE', R: '#D23B2E', B: '#5CC8FF' };
@@ -40,7 +43,7 @@ module.exports = {
   tests: require('./tests.js'),
   credits: ['Jayden Chen'],
   create: function (host) {
-    const $ = host.$, sim = new RocketSim(), view = makeRocketView($('rk'), $('hud'), sim, Object.assign(Object.create(MT), { tr: tr, MILESTONES: MILESTONES, WORLD: WORLD, smooth: smooth }));
+    const $ = host.$, sim = new RocketSim(), view = makeRocketView($('rk'), $('hud'), sim, Object.assign(Object.create(MT), { tr: tr, MILESTONES: MILESTONES, PHASES: PHASES, WORLD: WORLD, smooth: smooth }));
     let flightFrom = 0, flightAt = -1e9, bannerT = 0, forced = '', shared = null;   // forced: where the next session's rocket starts (debug tools)
     try { flightFrom = +localStorage.getItem(FLIGHT_KEY) || 0; } catch (e) {}
     host.drawPixelTrophy($('rTrophy'));
@@ -113,7 +116,7 @@ module.exports = {
         else if (v.pw < 0.5) next = tr('Power below 50%: drifting');
         else if (st === 'running' && !v.music && !sim.inSpace) next = tr('Losing power: falls below 50%');
         else if (st === 'running' && !v.music) next = tr('Losing power. Keep playing');
-        else for (const n of NEXT) { const at = MILESTONES[n[0]]; if (sim.fp < at) { next = tr(n[1], { t: fmt(Math.ceil(at - sim.fp)) }); break; } }
+        else for (const n of NEXT) { const at = AT[n[0]]; if (sim.fp < at) { next = tr(n[1], { t: fmt(Math.ceil(at - sim.fp)) }); break; } }
         text($('rNext'), next);
         paintPlan();
         const nf = flying(); if ($('rFlight').hidden === nf) { $('rFlight').hidden = !nf; $('hud').classList.toggle('has-flight', nf); }   // New flight, once off the pad
@@ -132,6 +135,8 @@ module.exports = {
           if (prev.mode === 'pad' && m.mode === 'ascent') fire('liftoff');
           if (m.mode === 'ascent' && prev.fp < MILESTONES.tower && m.fp >= MILESTONES.tower) fire('tower');
           if (m.mode === 'ascent' && prev.fp < MILESTONES.space && m.fp >= MILESTONES.space) fire('space');
+          if (m.mode === 'ascent' && prev.fp < PHASES.insert && m.fp >= PHASES.insert) fire('earthOrbit');
+          if (m.mode === 'ascent' && prev.fp < PHASES.tli && m.fp >= PHASES.tli) fire('tli');
           if (prev.mode === 'ascent' && m.mode === 'fall') fire('fall');
           if (prev.mode === 'fall' && m.mode === 'pad') { fire('crash'); sim.down = 2.6; sim.l = 0; }
           if (prev.mode !== 'orbit' && m.mode === 'orbit') { fire('orbit'); sim.th = m.th; }
