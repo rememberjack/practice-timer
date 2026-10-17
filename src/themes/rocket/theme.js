@@ -3,7 +3,7 @@
    RocketSim (sim.js); view.js draws it; this wires both to the page (docs/theme-modules.md). */
 'use strict';
 const MT = require('../../core.js');
-const { HOLD, LIFTOFF, MILESTONES, WORLD, RocketSim, rocketAt, rocketCarry, sampleFlights, smooth } = require('./sim.js');
+const { HOLD, LIFTOFF, MILESTONES, PHASES, WORLD, RocketSim, rocketAt, rocketCarry, sampleFlights, smooth } = require('./sim.js');
 const { makeRocketView } = require('./view.js');
 const words = require('./words.js');
 const { tr } = MT.translator(words);
@@ -40,7 +40,7 @@ module.exports = {
   tests: require('./tests.js'),
   credits: ['Jayden Chen'],
   create: function (host) {
-    const $ = host.$, sim = new RocketSim(), view = makeRocketView($('rk'), $('hud'), sim, Object.assign(Object.create(MT), { tr: tr, MILESTONES: MILESTONES, WORLD: WORLD, smooth: smooth }));
+    const $ = host.$, sim = new RocketSim(), view = makeRocketView($('rk'), $('hud'), sim, Object.assign(Object.create(MT), { tr: tr, MILESTONES: MILESTONES, PHASES: PHASES, WORLD: WORLD, smooth: smooth }));
     let flightFrom = 0, flightAt = -1e9, bannerT = 0, forced = '', shared = null;   // forced: where the next session's rocket starts (debug tools)
     try { flightFrom = +localStorage.getItem(FLIGHT_KEY) || 0; } catch (e) {}
     host.drawPixelTrophy($('rTrophy'));
