@@ -79,11 +79,13 @@ const PATH = (function () {
   const q = kep(Eend); add(MILESTONES.orbit + 0.1, q.x, q.y);
   const end = xs.length - 1;
   return { pt: Float64Array.from(ts), px: Float64Array.from(xs), py: Float64Array.from(ys), pl: Float64Array.from(ls), pk: Float64Array.from(ks), moon: M, K: K, coast: COASTAT,
+    real: t => t <= P.coast ? t : P.coast + tau(t - P.coast),                                     // real time at a time on the flight clock
     th0: Math.atan2(ys[end] - M.y, xs[end] - M.x) };                                               // where it joins the Moon's orbit, seen from the Moon
 })();
 WORLD.MOON.x = PATH.moon.x; WORLD.MOON.y = PATH.moon.y;
 /* the ISS passing overhead in the climb: 420 km up at 7.66 km/s, faster than the rocket still gathering speed, so it comes from behind,
-   is right overhead at 7:00 (at) and pulls ahead */
+   is right overhead at 7:00 (at) and pulls ahead. Once the rocket is in its lower orbit it is the faster, and after the burn for the Moon
+   it overtakes the ISS, passing under it, and leaves it going on round Earth (on the coast's clock, sped up like the rest) */
 const ISS = { at: 420, km: 420, v: 7.66 };
 /* the moments along the way in the order they come, each with its time on the flight clock: the ISS, then the coast's */
 const COAST = Object.keys(PATH.coast).map(k => ({ id: k, at: Math.round(PATH.coast[k] * 10) / 10 })).concat([{ id: 'iss', at: ISS.at }]).sort((p, q) => p.at - q.at);
@@ -93,14 +95,15 @@ const lerpAt = (xs, ys, x) => { let lo = 0, hi = xs.length - 1; if (x <= xs[0]) 
 /* distance along the path at each point of the timeline, and the height read-out (km above Earth) at each distance along it */
 const TIMING = (function () {
   const T = MILESTONES, L = PATH.pl[PATH.pl.length - 1], lenAt = t => lerpAt(PATH.pt, PATH.pl, Math.min(t, T.orbit));
-  return { lenAt, kmAt: l => lerpAt(PATH.pl, PATH.pk, l), kmAtAlt: a => a * R_KM, S1: lenAt(T.stage1), SP: lenAt(T.space), S2: lenAt(T.stage2), L };
+  return { lenAt, kmAt: l => lerpAt(PATH.pl, PATH.pk, l), kmAtAlt: a => a * R_KM, S1: lenAt(T.stage1), SP: lenAt(T.space), S2: lenAt(T.stage2), L, realAt: PATH.real };
 })();
 
 class RocketSim {
   constructor() {
     const RH = WORLD.ROCKET_H;
     this.px = PATH.px; this.py = PATH.py; this.pl = PATH.pl; this.S = PATH.pl.length - 1; this.L = TIMING.L; this.th0 = PATH.th0;
-    this.lenAt = TIMING.lenAt; this.kmAt = TIMING.kmAt; this.kmAtAlt = TIMING.kmAtAlt;
+    this.lenAt = TIMING.lenAt; this.kmAt = TIMING.kmAt; this.kmAtAlt = TIMING.kmAtAlt; this.realAt = TIMING.realAt;
+    const q = this.pathAt(this.lenAt(ISS.at)); this.issFrom = Math.atan2(q.x, q.y);
     this.lTower = 0.95 * RH; this.lStage1 = TIMING.S1; this.lSpace = TIMING.SP; this.lStage2 = TIMING.S2;
     this.wOrbit = 2 * Math.PI / ORBIT_PERIOD;
     this.events = []; this.reset();
@@ -187,6 +190,8 @@ class RocketSim {
       return { x: x, y: y, ang: Math.atan2(s, -c), alt: Math.max(0, Math.hypot(x, y) - 1) }; }
     return this.pathAt(this.l);
   }
+  /* where the ISS is at a time on the flight clock: going round Earth at its height and speed, right over the rocket at ISS.at */
+  issAt(fp) { const a = this.issFrom + ISS.v / (6371 + ISS.km) * (this.realAt(fp) - ISS.at), r = 1 + ISS.km / R_KM; return { x: r * Math.sin(a), y: r * Math.cos(a) }; }
   /* the point on the path l along it, with its heading */
   pathAt(l) {
     const ls = this.pl; let lo = 0, hi = this.S;
