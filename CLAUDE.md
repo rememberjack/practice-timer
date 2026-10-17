@@ -54,7 +54,7 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
   speeds the rocket up again, and Moon orbit starts at the speed it arrives with and eases down. The coast has its moments, at their real times or
   places (`COAST`), shown in the scene with no words except halfway, which has a banner and a countdown: passing the GPS satellites' height (14:47) and the weather and TV satellites' ring (15:04),
   each a faint ring round Earth with its satellites as specks moving along it (`SHELLS` in its `view.js`; none ever flies close by), a slow roll in
-  the sunshine (16:08, the close-up capsule turning, `DETAILS`), halfway to the Moon (19:17), Apollo 11's one course correction (19:55, thruster
+  the sunshine (16:08, the close-up capsule turning smoothly, easing in and out, `DETAILS`, `rollAt`), halfway to the Moon (19:17), Apollo 11's one course correction (19:55, thruster
   puffs) and into the Moon's pull (25:56); and four times the view pulls back slowly (8 s out, 10 s held, 8 s back) to show the whole way (`MAPS`:
   Earth, the path flown in gold and still to fly in grey, the rocket and the Moon). The Moon is where that orbit reaches its distance,
   met on a tangent, and the rocket goes round it clockwise. The camera (`camera` in its `view.js`) turns with the rocket so away from Earth is up the
