@@ -3,7 +3,7 @@
    RocketSim (sim.js); view.js draws it; this wires both to the page (docs/theme-modules.md). */
 'use strict';
 const MT = require('../../core.js');
-const { LIFTOFF, MILESTONES, WORLD, RocketSim, rocketAt, rocketCarry, sampleFlights, smooth } = require('./sim.js');
+const { HOLD, LIFTOFF, MILESTONES, WORLD, RocketSim, rocketAt, rocketCarry, sampleFlights, smooth } = require('./sim.js');
 const { makeRocketView } = require('./view.js');
 const words = require('./words.js');
 const { tr } = MT.translator(words);
@@ -107,7 +107,7 @@ module.exports = {
         text($('rHeard'), host.heardLine(v));
         let next = '';
         if (st === 'idle') next = tr(sim.mode !== 'pad' ? 'Carrying on from earlier today' : 'Power follows your last minute');
-        else if (sim.mode === 'pad') next = sim.down > 0 ? tr('Rolling out a new rocket') : !fol && sim.ignited && sim.hold > 0 ? tr('Lift-off in {n}', { n: Math.max(1, Math.ceil(3 - sim.hold)) }) : tr('Lift-off at {n}% engine power', { n: Math.round(LIFTOFF * 100) });
+        else if (sim.mode === 'pad') next = sim.down > 0 ? tr('Rolling out a new rocket') : !fol && sim.ignited && sim.hold > 0 ? tr('Lift-off in {n}', { n: Math.max(1, Math.ceil(HOLD - sim.hold)) }) : tr('Lift-off at {n}% engine power', { n: Math.round(LIFTOFF * 100) });
         else if (sim.mode === 'fall') next = tr('Falling back to Earth');
         else if (sim.mode === 'orbit') next = tr(sim.spinUp > 0 ? 'In Moon orbit, module spinning' : 'In orbit around the Moon');
         else if (v.pw < 0.5) next = tr('Power below 50%: drifting');
