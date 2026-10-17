@@ -131,9 +131,11 @@ function makeRocketView(cv, hud, sim, MT) {
   /* the module close up (deep space): the same 11 x 11 footprint drawn at three times the pixels. A nose with an antenna tip, a round
      porthole in a metal frame with a glint on the glass, the hull shaded round from the light side, panel seams and rivets, the red band,
      control thrusters on either side, the base ring and a ribbed engine bell. Frame f has it rolled f sixteenths of a turn about its length
-     (the slow roll in the coast): the porthole, the rivets, two seams and a red stripe on the far side come round, while the light stays put */
+     (the slow roll in the coast): the porthole, the rivets, two seams and a red stripe on the far side come round, while the light stays put.
+     ROLL_FINE frames to a turn move each of them about a pixel at a time, so the roll is smooth */
+  const ROLL_FINE = 64;
   function detail(f) {
-    const phi = -2 * Math.PI * f / ROLL_N, rim = a => 16 + 10.5 * 0.92 * Math.sin(phi + a), shows = a => Math.cos(phi + a);
+    const phi = -2 * Math.PI * f / ROLL_FINE, rim = a => 16 + 10.5 * 0.92 * Math.sin(phi + a), shows = a => Math.cos(phi + a);
     const N = 33, cx = 16, P = { H: '#FFFFFF', W: '#E8ECF2', w: '#C3CAD6', v: '#9AA3B2', R: '#D23B2E', r: '#A82C22', S: '#F0645A', B: '#5CC8FF', b: '#2F86C8',
       L: '#DDF6FF', F: '#8A93A3', f: '#5E6470', G: '#8A93A3', M: '#B8C0CE', D: '#3A3F4B', E: '#5A606C', e: '#7C8494', K: '#2A2F3A' };
     const px = []; for (let y = 0; y < N; y++) px.push(new Array(N).fill(''));
@@ -169,7 +171,7 @@ function makeRocketView(cv, hud, sim, MT) {
     for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (px[y][x]) { g2.fillStyle = P[px[y][x]]; g2.fillRect(x, y, 1, 1); }
     return c;
   }
-  const DETAILS = []; for (let f = 0; f < ROLL_N; f++) DETAILS.push(detail(f));   // DETAILS[0] is the module not rolled
+  const DETAILS = []; for (let f = 0; f < ROLL_FINE; f++) DETAILS.push(detail(f));   // DETAILS[0] is the module not rolled
   /* Earth and the Moon as small pictures for the view of the whole way (map), where they would be specks */
   function disc(N, tex) { const c = document.createElement('canvas'); c.width = N; c.height = N; const x = c.getContext('2d'), im = x.createImageData(N, N), d = new Uint32Array(im.data.buffer);
     for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) { const u = (i + 0.5) / N * 2 - 1, v = (j + 0.5) / N * 2 - 1; d[j * N + i] = u * u + v * v < 1 ? tex[j * N + i] : 0; }
@@ -259,6 +261,10 @@ function makeRocketView(cv, hud, sim, MT) {
     { A: '#D9A441', a: '#B07A2A', T: '#A3ACC2', M: '#E8ECF2' });
   const issFrom = (function () { const q = sim.pathAt(sim.lenAt(ISS.at)); return Math.atan2(q.x, q.y); })();
   const issAt = fp => { const a = issFrom + ISS.v / (6371 + ISS.km) * (fp - ISS.at), r = 1 + ISS.km * KMW; return [r * Math.sin(a), r * Math.cos(a)]; };
+  /* the slow roll: a turn every 10 s of playing from its moment until the Moon's pull, easing in over 6 s as it starts and out as it stops.
+     The frame of DETAILS it has reached at a time on the flight clock */
+  const ease = t => { const x = Math.min(1, Math.max(0, t / 6)); return t >= 6 ? t - 3 : 6 * (x * x * x - x * x * x * x / 2); };
+  const rollAt = fp => { const t = Math.min(fp, CT.pull); return Math.floor((ease(t - CT.roll) - ease(t - CT.pull + 6)) / 10 * ROLL_FINE) % ROLL_FINE; };
   /* now and then in the coast the view pulls back slowly to show the whole way: Earth, the path flown and still to fly, the rocket and the
      Moon (one of them just after halfway); 8 s out, 10 s held, 8 s back */
   const MAPS = [CT.roll + 80, CT.halfway + 4, CT.correction + 100, CT.correction + 230];
@@ -538,10 +544,9 @@ function makeRocketView(cv, hud, sim, MT) {
 
     // rocket, nose anchored so a separation never makes it jump; gone while the wreck is cleared, then a new one fades in
     const shown = wreck ? Math.max(0, 1 - sim.down / 0.6) : 1;
-    // the slow roll in the coast: a turn every 10 s of playing, until the Moon's pull takes over
-    const roll = sim.mode === 'ascent' && sim.fp >= CT.roll ? Math.floor((Math.min(sim.fp, CT.pull) - CT.roll) / 10 * ROLL_N) % ROLL_N : 0;
+    const roll = sim.mode === 'ascent' ? rollAt(sim.fp) : 0;
     if (shown > 0) {
-      const spr = stage === 2 && sim.spinUp > 0 ? ROLL[Math.floor(sim.spinA / (2 * Math.PI) * ROLL_N) % ROLL_N] : stage === 2 && roll && k >= RES ? ROLL[roll] : (k < RES ? SMALL : SPR)[stage], hh = spr.height * k / (spr === SMALL[stage] ? 1 : RES);   // in Moon orbit the module spins about its length (E6)
+      const spr = stage === 2 && sim.spinUp > 0 ? ROLL[Math.floor(sim.spinA / (2 * Math.PI) * ROLL_N) % ROLL_N] : stage === 2 && roll && k >= RES ? ROLL[Math.floor(roll * ROLL_N / ROLL_FINE)] : (k < RES ? SMALL : SPR)[stage], hh = spr.height * k / (spr === SMALL[stage] ? 1 : RES);   // in Moon orbit the module spins about its length (E6)
       g.save(); g.translate(Math.round(sx), Math.round(sy)); g.rotate(ang + tilt); g.globalAlpha = shown;
       const fine = stage === 2 && sim.spinUp === 0 ? smooth(0.5, 0.95, cam.wC) : 0;               // close up, the detailed module fades in
       if (fine < 1) { g.globalAlpha = shown * (1 - fine); g.drawImage(spr, -5.5 * k, -cut - hh, 11 * k, hh); }
