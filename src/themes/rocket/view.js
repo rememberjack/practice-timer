@@ -229,8 +229,8 @@ function makeRocketView(cv, hud, sim, MT) {
   }
 
   /* The view turns with the rocket: away from Earth is always up the screen at the rocket, so the horizon stays level under it as it pitches
-     over to fly level in Earth orbit, then climbs away; nearing the Moon the view turns to keep away from the Moon up, so in Moon orbit it flies
-     level over the Moon. It never points down the screen.
+     over to fly level in Earth orbit, then climbs away; nearing the Moon the view turns until it flies level over the Moon, and it never points
+     down the screen on the way. In Moon orbit the view holds still, the Moon in the middle, and the rocket goes round it.
      Four framings, blended along the flight clock (seconds of playing since ignition), all worked out in that turned view:
      Earth    - the view widens with altitude and shows more sky and less ground as the rocket climbs, a thin strip in Earth orbit; after the burn
                 for the Moon the horizon curves and the whole planet comes into view, small and distant; the rocket, true to size on the pad,
@@ -243,8 +243,9 @@ function makeRocketView(cv, hud, sim, MT) {
   function camera(pw) {
     const T = MT.MILESTONES, PH = MT.PHASES, fp = sim.fp, orbit = sim.mode === 'orbit', lvl = orbit ? 1 : smooth(T.orbit - 90, T.orbit - 5, fp);
     let rot = Math.atan2(pw.y, pw.x) - Math.PI / 2;
-    // nearing the Moon the view turns until the rocket flies level, as it then does in Moon orbit, the Moon below it
-    if (lvl > 0) { let dr = Math.PI / 2 - pw.ang - rot; dr -= Math.round(dr / (2 * Math.PI)) * 2 * Math.PI; rot += dr * lvl; }
+    // nearing the Moon the view turns until the rocket flies level over it, as it arrives; in Moon orbit the view stays as it was then
+    const level = Math.PI / 2 - (orbit ? Math.atan2(Math.sin(sim.th0), -Math.cos(sim.th0)) : pw.ang);
+    if (lvl > 0) { let dr = level - rot; dr -= Math.round(dr / (2 * Math.PI)) * 2 * Math.PI; rot += dr * lvl; }
     const rc = Math.cos(rot), rs = Math.sin(rot);
     const turn = (x, y) => ({ x: rc * x + rs * y, y: -rs * x + rc * y });                    // world to the turned view
     const pt = turn(pw.x, pw.y), p = { x: pt.x, y: pt.y, alt: pw.alt, ang: pw.ang + rot }, Mt = turn(MOON.x, MOON.y);
@@ -286,7 +287,11 @@ function makeRocketView(cv, hud, sim, MT) {
     const wM = orbit ? 1 : smooth(T.orbit - 300, T.orbit - 220, fp);              // then the Moon comes into view
     // on the way in, the margins tighten and the rocket is drawn larger, so it does not shrink to a speck beside the Moon
     const appr = orbit ? 1 : smooth(T.orbit - 220, T.orbit - 20, fp);
-    if (wM > 0) blend(frame([[Mt.x, Mt.y, RO * lerp(1.3, 1.22, appr)]]), wM);
+    if (wM > 0) { const f = frame([[Mt.x, Mt.y, RO * lerp(1.3, 1.22, appr)]]);
+      // in Moon orbit the Moon stays still in the middle, with room round it for the rocket going round
+      const still = orbit ? 1 : smooth(T.orbit - 25, T.orbit, fp), sO = (Math.min(usable, fw * 0.94) / 2 - 20 * RES) / RO;
+      if (still > 0) { f[0] = Math.exp(lerp(Math.log(f[0]), Math.log(sO), still)); f[1] = lerp(f[1], fw / 2 + (p.x - Mt.x) * sO, still); f[2] = lerp(f[2], r0 - (p.y - Mt.y) * sO, still); }
+      blend(f, wM); }
     const ox = (rx - W / 2) / s, oy = -(ry - H / 2) / s;                                      // the rocket's offset from the middle of the screen, turned
     return { s: s, rot: rot, rc: rc, rs: rs, cx: pw.x - (rc * ox - rs * oy), cy: pw.y - (rs * ox + rc * oy), wM: wM, wC: wC * (1 - wM), k: lerp(lerp(lerp(kE, KS, wO), 3.2, wC), lerp(0.9, 1.15, appr) + 0.3 * sim.spinUp, wM) };          // a little larger still once it is spinning in orbit
   }

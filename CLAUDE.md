@@ -52,8 +52,9 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
   into the air, glows and burns up before it reaches the ground (`HOT`, `embers` in its `view.js`). Then a minute's coast and a minute's burn for the Moon (`PHASES`; banners "Earth orbit reached" and "Off to the Moon!"), stage 2 separation at 14:10, and a
   Kepler orbit round Earth whose three days are sped up about 275 times, so Moon orbit comes at 30:00. The Moon is where that orbit reaches its distance,
   met on a tangent, and the rocket goes round it clockwise. The camera (`camera` in its `view.js`) turns with the rocket so away from Earth is up the
-  screen at the rocket: the horizon stays level as it pitches over; nearing the Moon the view turns until it flies level, as it does in Moon orbit with the
-  Moon below, its icon lifted just clear of the ground and the dotted orbit drawn at that height; it never points down the screen. It frames the climb (the
+  screen at the rocket: the horizon stays level as it pitches over; nearing the Moon the view turns until it flies level over the Moon, and on the way it
+  never points down the screen. In Moon orbit the view holds still, the Moon in the middle, and the rocket goes round it, its icon lifted just clear of the
+  ground and the dotted orbit drawn at that height. It frames the climb (the
   rocket drawn smaller and smaller as it climbs, the ground a thinner and thinner strip), then, after the burn, Earth and the rocket until Earth slips out
   of view below, then (until 5 minutes before Moon orbit) the rocket alone, zoomed in on the capsule (drawn in finer detail close up: `DETAIL` in its `view.js`), with a few faint streaks of light rushing past (now and then one in front of it) and the still starfield
   giving way to one that drifts past in short trails, all following the rocket's speed (they slow and stop when the playing does), then the rocket and the Moon.
