@@ -8,10 +8,11 @@ list.push({ name: 'Rocket: timeline from ignition to Moon orbit', run: () => {
   for (let t = 0; t < 1830; t += 0.1) { s.tick(0.1, true); sim.update(0.1, { running: true, playing: true, eff: s.efficiency });
     while (sim.events.length) { const e = sim.events.shift(); if (at[e] == null) at[e] = t + 0.1; } }
   const th1 = sim.th; for (let i = 0; i < 300; i++) { sim.update(0.1, { running: true, playing: false, eff: 0.2 }); while (sim.events.length) { const e = sim.events.shift(); if (at[e] == null) at[e] = 1830 + i * 0.1; } }
-  const want = { ignition: 0, liftoff: 1, tower: 8, stage1: 163, space: 205, earthOrbit: 710, tli: 770, stage2: 850, orbit: 1800, spin: 1803 };
+  const want = { ignition: 0, liftoff: 1, tower: 8, stage1: 163, space: 205, earthOrbit: 710, tli: 770, stage2: 850, gps: 887, geo: 904, roll: 968, halfway: 1157, correction: 1195, pull: 1556,
+    orbit: 1800, spin: 1803 };
   let ok = sim.mode === 'orbit' && sim.th !== th1 && sim.spinUp === 1 && sim.spinA !== 0;
   for (const k in want) if (!(Math.abs(at[k] - want[k]) <= 2)) ok = false;
-  return { name: 'Rocket: timeline from ignition to Moon orbit', expect: 'lift-off 1 s, tower 8 s, stage 1 2:43, space 3:25, Earth orbit 11:50, off to the Moon 12:50, stage 2 14:10, Moon orbit 30:00, module spinning 3 s later, then keeps orbiting',
+  return { name: 'Rocket: timeline from ignition to Moon orbit', expect: 'lift-off 1 s, tower 8 s, stage 1 2:43, space 3:25, Earth orbit 11:50, off to the Moon 12:50, stage 2 14:10; in the coast GPS satellites 14:47, weather satellites 15:04, slow roll 16:08, halfway 19:17, course correction 19:55, the Moon\'s pull 25:56; Moon orbit 30:00, module spinning 3 s later, then keeps orbiting',
     got: Object.keys(want).map(k => k + ' ' + (at[k] == null ? 'never' : Math.round(at[k]) + ' s')).join(', ') + (sim.mode === 'orbit' && sim.th !== th1 ? ', orbiting' : ', not orbiting'), pass: ok }; } });
 list.push({ name: 'Rocket: carries on from earlier the same day', run: () => {
   const fly = (sim, secs, eff, playing) => { for (let t = 0; t < secs; t += 0.1) sim.update(0.1, { running: true, playing: playing !== false, eff: eff }); };

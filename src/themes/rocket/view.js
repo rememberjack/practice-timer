@@ -130,8 +130,10 @@ function makeRocketView(cv, hud, sim, MT) {
   const SMALL = [sprite(CAPSULE.concat(STAGE2, STAGE1), true), sprite(CAPSULE.concat(STAGE2), true), sprite(CAPSULE.concat(ENGINE), true)];
   /* the module close up (deep space): the same 11 x 11 footprint drawn at three times the pixels. A nose with an antenna tip, a round
      porthole in a metal frame with a glint on the glass, the hull shaded round from the light side, panel seams and rivets, the red band,
-     control thrusters on either side, the base ring and a ribbed engine bell */
-  const DETAIL = (function () {
+     control thrusters on either side, the base ring and a ribbed engine bell. Frame f has it rolled f sixteenths of a turn about its length
+     (the slow roll in the coast): the porthole, the rivets, two seams and a red stripe on the far side come round, while the light stays put */
+  function detail(f) {
+    const phi = -2 * Math.PI * f / ROLL_N, rim = a => 16 + 10.5 * 0.92 * Math.sin(phi + a), shows = a => Math.cos(phi + a);
     const N = 33, cx = 16, P = { H: '#FFFFFF', W: '#E8ECF2', w: '#C3CAD6', v: '#9AA3B2', R: '#D23B2E', r: '#A82C22', S: '#F0645A', B: '#5CC8FF', b: '#2F86C8',
       L: '#DDF6FF', F: '#8A93A3', f: '#5E6470', G: '#8A93A3', M: '#B8C0CE', D: '#3A3F4B', E: '#5A606C', e: '#7C8494', K: '#2A2F3A' };
     const px = []; for (let y = 0; y < N; y++) px.push(new Array(N).fill(''));
@@ -146,24 +148,33 @@ function makeRocketView(cv, hud, sim, MT) {
         else if (y < 24) {
           c = hull(x, y, hw);
           if (y >= 18 && y <= 20) { const u = dx / hw; c = y === 18 ? (u < 0.5 ? 'S' : 'R') : y === 20 ? 'r' : (u < 0.6 ? 'R' : 'r'); }   // the red band
-          else if ((y === 13 || y === 22) && x % 3 === 1 && Math.abs(dx) < hw - 1) c = 'v';         // rivets
+          else if ((y === 13 || y === 22) && (x + f) % 3 === 1 && Math.abs(dx) < hw - 1) c = 'v';   // rivets
           else if (y === 16 && Math.abs(dx) < hw - 0.5) c = c === 'H' ? 'W' : c === 'W' ? 'w' : 'v';   // a panel seam
+          else if (y >= 12 && shows(Math.PI) > 0.15 && Math.abs(x - rim(Math.PI)) < 1.3 * shows(Math.PI) + 0.3) c = dx / hw < 0.5 ? 'R' : 'r';   // the stripe on the far side
+          else if (y >= 12 && (shows(Math.PI / 2) > 0.1 && Math.abs(x - rim(Math.PI / 2)) < 0.5 || shows(-Math.PI / 2) > 0.1 && Math.abs(x - rim(-Math.PI / 2)) < 0.5)) c = 'v';   // seams
         }
         else if (y < 27) c = y === 24 ? 'M' : y === 25 ? 'G' : 'D';                                  // base ring
         else if (y < 30) { const u = dx / hw; c = u < -0.5 ? 'M' : (x % 2 ? 'G' : 'F'); }              // engine skirt, ribbed
         else { const u = dx / hw; c = y === N - 1 ? 'K' : u < -0.3 ? 'e' : 'E'; }                    // nozzle
         px[y][x] = c; }
     }
-    for (let y = 5; y < 19; y++) for (let x = 0; x < N; x++) { const d = Math.hypot(x - cx, y - 11);   // porthole
+    const pc = rim(0), sq = Math.max(0.25, shows(0));                                              // the porthole, squeezed as it turns away
+    if (shows(0) > 0.2) for (let y = 5; y < 19; y++) for (let x = 0; x < N; x++) { const d = Math.hypot((x - pc) / sq, y - 11);
       if (d > 4.6) continue;
-      px[y][x] = d > 3.4 ? (x - cx + y - 11 < 0 ? 'M' : 'F') : (x - cx) + (y - 11) > 2.2 ? 'b' : 'B';
-      if (d < 3.4 && Math.abs(x - cx + 1.5) + Math.abs(y - 11 + 1.5) < 1.2) px[y][x] = 'L'; }
+      px[y][x] = d > 3.4 ? ((x - pc) / sq + y - 11 < 0 ? 'M' : 'F') : (x - pc) / sq + (y - 11) > 2.2 ? 'b' : 'B';
+      if (d < 3.4 && Math.abs((x - pc) / sq + 1.5) + Math.abs(y - 11 + 1.5) < 1.2) px[y][x] = 'L'; }
     for (const side of [-1, 1]) for (let y = 13; y < 16; y++) for (let i = 0; i < 2; i++) {         // control thrusters
       const x = side < 0 ? cx - 11 - i : cx + 11 + i; px[y][x] = i ? 'G' : (y === 14 ? 'K' : 'D'); }
     const c = document.createElement('canvas'); c.width = N; c.height = N; const g2 = c.getContext('2d');
     for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (px[y][x]) { g2.fillStyle = P[px[y][x]]; g2.fillRect(x, y, 1, 1); }
     return c;
-  })();
+  }
+  const DETAILS = []; for (let f = 0; f < ROLL_N; f++) DETAILS.push(detail(f));   // DETAILS[0] is the module not rolled
+  /* Earth and the Moon as small pictures for the view of the whole way (map), where they would be specks */
+  function disc(N, tex) { const c = document.createElement('canvas'); c.width = N; c.height = N; const x = c.getContext('2d'), im = x.createImageData(N, N), d = new Uint32Array(im.data.buffer);
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) { const u = (i + 0.5) / N * 2 - 1, v = (j + 0.5) / N * 2 - 1; d[j * N + i] = u * u + v * v < 1 ? tex[j * N + i] : 0; }
+    x.putImageData(im, 0, 0); return c; }
+  const EARTH_DISC = disc(EN, EARTH), MOON_DISC = disc(32 * RES, moonTex(32 * RES));
   const DROP = [null, sprite(STAGE1), sprite(STAGE2)], DROP_SMALL = [null, sprite(STAGE1, true), sprite(STAGE2, true)];
   /* stage 1 glowing as it falls back through the air */
   const PAL_HOT = { W: '#FFE0A8', w: '#F4A85C', R: '#FF6A2E', r: '#C8381E', K: '#7E2C14', G: '#E8843E', D: '#5E2612' };
@@ -240,6 +251,15 @@ function makeRocketView(cv, hud, sim, MT) {
      Moon     - from 5 minutes before Moon orbit the view widens to take in the Moon, small and far, then tightens as the rocket nears it.
      Each framing says how big the world is drawn and where the rocket sits on screen; blending those keeps the rocket in view throughout. */
   const KS = 0.5;                   // the rocket's size from the edge of space until the view closes in on it: one canvas pixel to a sprite pixel
+  const CT = {}; for (const c of MT.COAST) CT[c.id] = c.at;    // the coast's moments on the flight clock
+  /* now and then in the coast the view pulls back slowly to show the whole way: Earth, the path flown and still to fly, the rocket and the
+     Moon (one of them just after halfway); 8 s out, 10 s held, 8 s back */
+  const MAPS = [CT.roll + 80, CT.halfway + 4, CT.correction + 100, CT.correction + 230];
+  const mapW = fp => { let w = 0; for (const a of MAPS) w = Math.max(w, smooth(a, a + 8, fp) * (1 - smooth(a + 18, a + 26, fp))); return w; };
+  /* the heights the satellites fly at: the GPS satellites (20,200 km) and the weather and TV satellites' ring (35,786 km). Each is a faint
+     dotted ring round Earth with its satellites as specks moving slowly along it, shown while the rocket climbs through them:
+     [moment, height in km, satellites, seconds of playing to go round, colour] */
+  const SHELLS = [['gps', 20200, 24, 150, '#7FB8F0'], ['geo', 35786, 30, 300, '#E8D08A']];
   function camera(pw) {
     const T = MT.MILESTONES, PH = MT.PHASES, fp = sim.fp, orbit = sim.mode === 'orbit', lvl = orbit ? 1 : smooth(T.orbit - 90, T.orbit - 5, fp);
     let rot = Math.atan2(pw.y, pw.x) - Math.PI / 2;
@@ -284,6 +304,8 @@ function makeRocketView(cv, hud, sim, MT) {
     // deep space: once Earth has fallen away there is only the rocket, close up, rushing on (streaks in draw)
     const wC = orbit ? 0 : smooth(PH.coast + 120, PH.coast + 160, fp);
     if (wC > 0) blend([usable / 5, fw * 0.46, r0 + usable * 0.04], wC);                // zoomed in: the capsule (centred on p, see cut) fills the middle
+    const wW = orbit ? 0 : mapW(fp);                                                   // the view of the whole way
+    if (wW > 0) blend(frame([[0, 0, 5], [Mt.x, Mt.y, 2.5]]), wW);                  // room round Earth and the Moon for their pictures
     const wM = orbit ? 1 : smooth(T.orbit - 300, T.orbit - 220, fp);              // then the Moon comes into view
     // on the way in, the margins tighten and the rocket is drawn larger, so it does not shrink to a speck beside the Moon
     const appr = orbit ? 1 : smooth(T.orbit - 220, T.orbit - 20, fp);
@@ -293,7 +315,7 @@ function makeRocketView(cv, hud, sim, MT) {
       if (still > 0) { f[0] = Math.exp(lerp(Math.log(f[0]), Math.log(sO), still)); f[1] = lerp(f[1], fw / 2 + (p.x - Mt.x) * sO, still); f[2] = lerp(f[2], r0 - (p.y - Mt.y) * sO, still); }
       blend(f, wM); }
     const ox = (rx - W / 2) / s, oy = -(ry - H / 2) / s;                                      // the rocket's offset from the middle of the screen, turned
-    return { s: s, rot: rot, rc: rc, rs: rs, cx: pw.x - (rc * ox - rs * oy), cy: pw.y - (rs * ox + rc * oy), wM: wM, wC: wC * (1 - wM), k: lerp(lerp(lerp(kE, KS, wO), 3.2, wC), lerp(0.9, 1.15, appr) + 0.3 * sim.spinUp, wM) };          // a little larger still once it is spinning in orbit
+    return { s: s, rot: rot, rc: rc, rs: rs, cx: pw.x - (rc * ox - rs * oy), cy: pw.y - (rs * ox + rc * oy), wM: wM, wW: wW, wC: wC * (1 - wM) * (1 - wW), k: lerp(lerp(lerp(lerp(kE, KS, wO), 3.2, wC), KS, wW), lerp(0.9, 1.15, appr) + 0.3 * sim.spinUp, wM) };          // a little larger still once it is spinning in orbit
   }
 
   function background(cam) {
@@ -396,6 +418,14 @@ function makeRocketView(cv, hud, sim, MT) {
       for (let i = 0; i < 48; i++) { const a = i * Math.PI / 24; g.fillRect(Math.round(mp[0] + rr * Math.cos(a)), Math.round(mp[1] + rr * Math.sin(a)), RES, RES); }
       g.globalAlpha = 1; }
 
+    // the view of the whole way: the path flown in gold and still to fly in grey, Earth and the Moon as small pictures
+    if (cam.wW > 0.02) { let lx = -1e9, ly = -1e9;
+      for (let i = 0; i < sim.px.length; i += 12) { const q = P(sim.px[i], sim.py[i]), done = sim.pl[i] <= sim.l; if (Math.hypot(q[0] - lx, q[1] - ly) < 5 * RES) continue; lx = q[0]; ly = q[1];
+        g.globalAlpha = cam.wW * (done ? 0.9 : 0.7); g.fillStyle = done ? '#FFD23F' : '#A3ACC2'; g.fillRect(Math.round(q[0] - RES / 2), Math.round(q[1] - RES / 2), RES, RES); }
+      const e0 = P(0, 0), rE = Math.max(s, 7 * RES), m0 = P(MOON.x, MOON.y), rM = Math.max(MOON.r * s, 4.5 * RES);
+      g.globalAlpha = cam.wW; g.drawImage(EARTH_DISC, Math.round(e0[0] - rE), Math.round(e0[1] - rE), Math.round(2 * rE), Math.round(2 * rE));
+      g.drawImage(MOON_DISC, Math.round(m0[0] - rM), Math.round(m0[1] - rM), Math.round(2 * rM), Math.round(2 * rM)); g.globalAlpha = 1; }
+
     // launch pad and tower, at true scale
     const kp = hp / 32;
     if (kp > 0.3 * RES) { const gp = P(0, 1), gx = gp[0], gy = gp[1], u = v2 => Math.max(1, Math.round(v2 * kp));
@@ -428,7 +458,10 @@ function makeRocketView(cv, hud, sim, MT) {
       const at = toW(sx + cs * side * d, sy + sn * side * d), sv = velW(cs * side * 14 * RES, sn * side * 14 * RES);
       addPart(at[0], at[1], sv[0], sv[1], 0.35 + Math.random() * 0.3, 1.2 * k, 225); }
     // E6, for show only: now and then a reaction-control thruster fires a short burst. Nothing about the orbit or the spin changes.
-    if (sim.mode === 'orbit' && sim.spinUp >= 1 && v.running && dt > 0) {
+    // In the coast's course correction they fire in quick bursts for a few seconds.
+    const correcting = sim.mode === 'ascent' && sim.fp >= CT.correction && sim.fp < CT.correction + 4;
+    if (correcting) rcs.wait = Math.min(rcs.wait, 0.3);
+    if ((sim.mode === 'orbit' && sim.spinUp >= 1 || correcting) && v.running && dt > 0) {
       if (rcs.t > 0) { rcs.t -= dt; rcs.on = true;
         rcs.x = sx + sn * rcs.a * k + cs * rcs.side * 5 * k; rcs.y = sy - cs * rcs.a * k + sn * rcs.side * 5 * k;                     // the nozzle, on screen
         rcs.jx = rcs.along ? sn * rcs.along : cs * rcs.side; rcs.jy = rcs.along ? -cs * rcs.along : sn * rcs.side;                       // which way the jet points
@@ -436,7 +469,7 @@ function makeRocketView(cv, hud, sim, MT) {
           const at = toW(rcs.x, rcs.y), jv = velW(rcs.jx * sp + (Math.random() - 0.5) * 9 * RES, rcs.jy * sp + (Math.random() - 0.5) * 9 * RES);
           addPart(at[0], at[1], jv[0], jv[1], 0.22 + Math.random() * 0.26, 1.1 * k, 236); } }
       else { rcs.on = false; rcs.wait -= dt;
-        if (rcs.wait <= 0) { rcs.t = 0.2 + Math.random() * 0.3; rcs.wait = Math.random() < 0.3 ? 0.35 : 3 + Math.random() * 5;                // sometimes a quick second pulse
+        if (rcs.wait <= 0) { rcs.t = 0.2 + Math.random() * 0.3; rcs.wait = correcting ? 0.1 + Math.random() * 0.2 : Math.random() < 0.3 ? 0.35 : 3 + Math.random() * 5;   // sometimes a quick second pulse
           rcs.side = Math.random() < 0.5 ? -1 : 1; rcs.a = (Math.random() < 0.5 ? -1 : 1) * 3; rcs.along = Math.random() < 0.3 ? (Math.random() < 0.5 ? -1 : 1) : 0; } }
     } else { rcs.on = false; rcs.t = 0; }
     for (let i = parts.length - 1; i >= 0; i--) { const q = parts[i]; q.t += dt; if (q.t >= q.life) { parts.splice(i, 1); continue; }
@@ -475,14 +508,27 @@ function makeRocketView(cv, hud, sim, MT) {
     if (embers.length > 300) embers.splice(0, embers.length - 300);
     g.globalAlpha = 1;
 
+    // the satellites' heights as the rocket climbs through them: faint rings round Earth, their satellites specks moving along them
+    if (sim.mode === 'ascent') { const e0 = P(0, 0);
+      for (const [id, km, n, per, col] of SHELLS) { const a = smooth(CT[id] - 30, CT[id] - 18, sim.fp) * (1 - smooth(CT[id] + 25, CT[id] + 40, sim.fp)) * (1 - cam.wC); if (!(a > 0)) continue;
+        const rr = (1 + km * 10 * RH) * s, nd = Math.max(48, Math.min(400, Math.round(2 * Math.PI * rr / (4 * RES))));   // RH is 0.1 km
+        g.fillStyle = col; g.globalAlpha = 0.35 * a;
+        for (let i = 0; i < nd; i++) { const t = i * 2 * Math.PI / nd, x = e0[0] + rr * Math.cos(t), y = e0[1] + rr * Math.sin(t);
+          if (x > -RES && y > -RES && x < W && y < H) g.fillRect(Math.round(x), Math.round(y), RES, RES); }
+        g.fillStyle = '#F4F6FA'; g.globalAlpha = 0.9 * a;
+        for (let i = 0; i < n; i++) { const t = i * 2 * Math.PI / n + i * 0.37 - sim.fp * 2 * Math.PI / per; g.fillRect(Math.round(e0[0] + rr * Math.cos(t) - RES / 2), Math.round(e0[1] + rr * Math.sin(t) - RES / 2), RES, RES); } }
+      g.globalAlpha = 1; }
+
     // rocket, nose anchored so a separation never makes it jump; gone while the wreck is cleared, then a new one fades in
     const shown = wreck ? Math.max(0, 1 - sim.down / 0.6) : 1;
+    // the slow roll in the coast: a turn every 10 s of playing, until the Moon's pull takes over
+    const roll = sim.mode === 'ascent' && sim.fp >= CT.roll ? Math.floor((Math.min(sim.fp, CT.pull) - CT.roll) / 10 * ROLL_N) % ROLL_N : 0;
     if (shown > 0) {
-      const spr = stage === 2 && sim.spinUp > 0 ? ROLL[Math.floor(sim.spinA / (2 * Math.PI) * ROLL_N) % ROLL_N] : (k < RES ? SMALL : SPR)[stage], hh = spr.height * k / (spr === SMALL[stage] ? 1 : RES);   // in Moon orbit the module spins about its length (E6)
+      const spr = stage === 2 && sim.spinUp > 0 ? ROLL[Math.floor(sim.spinA / (2 * Math.PI) * ROLL_N) % ROLL_N] : stage === 2 && roll && k >= RES ? ROLL[roll] : (k < RES ? SMALL : SPR)[stage], hh = spr.height * k / (spr === SMALL[stage] ? 1 : RES);   // in Moon orbit the module spins about its length (E6)
       g.save(); g.translate(Math.round(sx), Math.round(sy)); g.rotate(ang + tilt); g.globalAlpha = shown;
       const fine = stage === 2 && sim.spinUp === 0 ? smooth(0.5, 0.95, cam.wC) : 0;               // close up, the detailed module fades in
       if (fine < 1) { g.globalAlpha = shown * (1 - fine); g.drawImage(spr, -5.5 * k, -cut - hh, 11 * k, hh); }
-      if (fine > 0) { g.globalAlpha = shown * fine; g.drawImage(DETAIL, -5.5 * k, -cut - 11 * k, 11 * k, 11 * k); }
+      if (fine > 0) { g.globalAlpha = shown * fine; g.drawImage(DETAILS[roll], -5.5 * k, -cut - 11 * k, 11 * k, 11 * k); }
       g.globalAlpha = shown;
       if (lit) {
         const blk = Math.max(1, Math.round(lerp(pk, k / 3, fine))), fw = FLAME_W[stage] * k, flying = sim.mode !== 'pad';

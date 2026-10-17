@@ -17,7 +17,7 @@ const smooth = (a, b, x) => { const t = clamp01((x - a) / (b - a)); return t * t
 
 /* World units are Earth radii; Earth is centred at (0,0) and the pad is at (0,1). Everything is to scale: a 100 m rocket, the edge of space
    100 km up, Earth orbit 191 km up, and the Moon 1,737 km in radius and 384,400 km away, its orbit 110 km above its ground. */
-const KM = 1 / 6371, R_KM = 6371, MU = 398600.4418;   // Earth's radius and gravitational parameter (km, km³/s²)
+const KM = 1 / 6371, R_KM = 6371, MU = 398600.4418, MU_MOON = 4904.87, SOI = 66100;   // Earth's radius and gravitational parameter (km, km³/s²); the Moon's, and how near its pull takes over (km)
 const WORLD = { ROCKET_H: 0.1 * KM, SPACE: 100 * KM, MOON: { x: 0, y: 0, r: 1737.4 * KM }, ORBIT: (1737.4 + 110) * KM, DIST: 384400 * KM };
 /* Flight timeline, in seconds of playing since ignition (E0). Up to Earth orbit it keeps a real flight's time (Apollo 11's Saturn V):
    E1 clear the tower 8 s, E2 stage 1 separation 2:43 (67 km up), E3 the edge of space 3:25 (100 km); Earth orbit (191 km) at 11:50, a minute's
@@ -35,8 +35,9 @@ const CLIMB = [[0, 0, 0], [HOLD, 0, 0], [8, 0.115, 0], [30, 1.44, 0.1], [60, 5.7
 
 /* The flight path, built once along the timeline: points (x, y) at each time (t), with the distance along the path to each (l) and the height
    above Earth (km). The climb, then Earth orbit at 7.8 km/s, the burn for the Moon to 10.83 km/s at 336 km, and from there a Kepler orbit round
-   Earth (the Moon's own pull left out), whose far end reaches the Moon's distance three days later. The Moon is where the rocket meets its
-   orbit on a tangent, one orbit radius to the rocket's right, so it passes behind the Moon and goes round it clockwise. */
+   Earth, whose far end reaches the Moon's distance three days later. Once within the Moon's reach (SOI) the Moon's pull speeds it up again,
+   from 0.7 km/s to 2.4 km/s as it arrives. The Moon is where the rocket meets its orbit on a tangent, one orbit radius to the rocket's right,
+   so it passes behind the Moon and goes round it clockwise. On the way it passes the coast's moments (COAST), each at its real time or place. */
 const PATH = (function () {
   const Ro = WORLD.ORBIT, P = PHASES, ts = [], xs = [], ys = [], ls = [], ks = [];
   const add = (t, x, y) => { const n = xs.length; ls.push(n ? ls[n - 1] + Math.hypot(x - xs[n - 1], y - ys[n - 1]) : 0); ts.push(t); xs.push(x); ys.push(y); ks.push((Math.hypot(x, y) - 1) * R_KM); };
@@ -54,17 +55,35 @@ const PATH = (function () {
   let E = 0, lo = 0;                                                                                                  // where the coast ends: the Moon one orbit radius to the right
   while (Math.hypot(moonAt(E).x, moonAt(E).y) < WORLD.DIST) { lo = E; E += 1e-4; }
   for (let i = 0; i < 40; i++) { const mid = (lo + E) / 2; if (Math.hypot(moonAt(mid).x, moonAt(mid).y) < WORLD.DIST) lo = mid; else E = mid; }
-  const M = moonAt(E), Eend = E, tauEnd = (Eend - e * Math.sin(Eend)) / n, D = MILESTONES.orbit - P.coast, RAMP = 90;
+  const M = moonAt(E), Eend = E, D = MILESTONES.orbit - P.coast, RAMP = 90;
+  /* real time along the coast, sample by sample: Kepler's until the Moon's pull takes over, then each step's length over the speed it has then */
+  const ce = [], cx = [], cy = [], ct = []; let soi = -1;
+  for (let i = 0, N = Math.ceil(Eend / 1e-4); i <= N; i++) { const E1 = Eend * i / N, q1 = kep(E1), dm = Math.hypot(q1.x - M.x, q1.y - M.y) * R_KM;
+    let tm = (E1 - e * Math.sin(E1)) / n;
+    if (dm <= SOI) { if (soi < 0) soi = i; else { const r = Math.hypot(q1.x, q1.y) * R_KM, v = Math.sqrt(MU * (2 / r - 1 / a) + 2 * MU_MOON * (1 / dm - 1 / SOI));
+      tm = ct[i - 1] + Math.hypot(q1.x - cx[i - 1], q1.y - cy[i - 1]) * R_KM / v; } }
+    ce.push(E1); cx.push(q1.x); cy.push(q1.y); ct.push(tm); }
+  const tauEnd = ct[ct.length - 1];
   /* coast time sped up: from real time at the end of the burn to K times over RAMP seconds, K chosen so the coast takes D seconds */
   const K = 1 + (tauEnd - D) / (D - RAMP / 2), tau = t => { const x = Math.min(1, t / RAMP); return t + (K - 1) * (t < RAMP ? RAMP * (x * x * x - x * x * x * x / 2) : t - RAMP / 2); };
-  const Eat = tm => { const Mn = n * tm; let E1 = Mn < Math.PI ? Mn + e / 2 : Mn; for (let i = 0; i < 40; i++) E1 -= (E1 - e * Math.sin(E1) - Mn) / (1 - e * Math.cos(E1)); return Math.min(E1, Eend); };
-  for (let t = P.coast; t <= MILESTONES.orbit + 1e-9; t += 0.1) { const q = kep(Eat(tau(t - P.coast))); add(t, q.x, q.y); }
+  const fpAt = tm => { let lo = P.coast, hi = MILESTONES.orbit; for (let i = 0; i < 50; i++) { const mid = (lo + hi) / 2; if (tau(mid - P.coast) < tm) lo = mid; else hi = mid; } return hi; };
+  const at = tm => { let lo = 0, hi = ct.length - 1; if (tm >= ct[hi]) return { x: cx[hi], y: cy[hi] };
+    while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (ct[mid] <= tm) lo = mid; else hi = mid; }
+    const u = (tm - ct[lo]) / (ct[hi] - ct[lo]); return { x: cx[lo] + (cx[hi] - cx[lo]) * u, y: cy[lo] + (cy[hi] - cy[lo]) * u }; };
+  for (let t = P.coast; t <= MILESTONES.orbit + 1e-9; t += 0.1) { const q = at(tau(t - P.coast)); add(t, q.x, q.y); }
+  /* the coast's moments, on the flight clock: passing the GPS satellites (20,200 km up) and the weather satellites (35,786 km), the slow roll
+     that warms every side (7 hours out), halfway to the Moon, Apollo 11's one course correction (24 hours out), and into the Moon's pull */
+  const first = f => { for (let i = 0; i < ct.length; i++) if (f(i)) return fpAt(ct[i]); return MILESTONES.orbit; };
+  const COASTAT = { gps: first(i => (Math.hypot(cx[i], cy[i]) - 1) * R_KM >= 20200), geo: first(i => (Math.hypot(cx[i], cy[i]) - 1) * R_KM >= 35786),
+    roll: fpAt(7 * 3600), halfway: first(i => Math.hypot(cx[i], cy[i]) >= WORLD.DIST / 2), correction: fpAt(24 * 3600), pull: fpAt(ct[soi]) };
   const q = kep(Eend); add(MILESTONES.orbit + 0.1, q.x, q.y);
   const end = xs.length - 1;
-  return { pt: Float64Array.from(ts), px: Float64Array.from(xs), py: Float64Array.from(ys), pl: Float64Array.from(ls), pk: Float64Array.from(ks), moon: M, K: K,
+  return { pt: Float64Array.from(ts), px: Float64Array.from(xs), py: Float64Array.from(ys), pl: Float64Array.from(ls), pk: Float64Array.from(ks), moon: M, K: K, coast: COASTAT,
     th0: Math.atan2(ys[end] - M.y, xs[end] - M.x) };                                               // where it joins the Moon's orbit, seen from the Moon
 })();
 WORLD.MOON.x = PATH.moon.x; WORLD.MOON.y = PATH.moon.y;
+/* the coast's moments in the order they come, each with its time on the flight clock */
+const COAST = Object.keys(PATH.coast).map(k => ({ id: k, at: Math.round(PATH.coast[k] * 10) / 10 })).sort((p, q) => p.at - q.at);
 const lerpAt = (xs, ys, x) => { let lo = 0, hi = xs.length - 1; if (x <= xs[0]) return ys[0]; if (x >= xs[hi]) return ys[hi];
   while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (xs[mid] <= x) lo = mid; else hi = mid; }
   return ys[lo] + (ys[hi] - ys[lo]) * (x - xs[lo]) / (xs[hi] - xs[lo]); };
@@ -83,9 +102,9 @@ class RocketSim {
     this.wOrbit = 2 * Math.PI / ORBIT_PERIOD;
     this.events = []; this.reset();
   }
-  reset() { this.mode = 'pad'; this.l = 0; this.v = 0; this.hold = 0; this.stage = 0; this.inSpace = false; this.cleared = false; this.parked = false; this.tli = false;
+  reset() { this.mode = 'pad'; this.l = 0; this.v = 0; this.hold = 0; this.stage = 0; this.inSpace = false; this.cleared = false; this.parked = false; this.tli = false; this.ci = 0;
     this.ignited = false; this.lit0 = false; this.fp = 0; this.power = 0; this.g = 0; this.prevT = 0; this.down = 0;
-    this.th = this.th0; this.tOrb = 0; this.spinUp = 0; this.spinA = 0; this.events.length = 0; }
+    this.th = this.th0; this.tOrb = 0; this.wIn = 2 * Math.PI / ORBIT_PERIOD; this.spinUp = 0; this.spinA = 0; this.events.length = 0; }
   /* how far along the flight plan the rocket is, from 0 on the pad to 1 in Moon orbit: four equal legs (to stage 1, the edge of space,
      stage 2 and the Moon), each filled by the playing it takes. Falling, it drops back with the rocket */
   plan() {
@@ -110,7 +129,7 @@ class RocketSim {
     if (!x || (x.mode !== 'orbit' && !(x.mode === 'ascent' && x.inSpace)) || !n(x.fp, HOLD, 1e6) || !n(x.l, 0, 1e3) || !n(x.stage, 0, 2) || !n(x.th, -4, 4) || !n(x.tOrb, 0, 1e6)) return false;
     const T = MILESTONES, fp = x.fp;   // where the rocket is, and what it has passed, follow the flight clock (a flight saved before the path was drawn to scale too)
     this.mode = x.mode; this.fp = fp; this.l = this.lenAt(fp); this.prevT = this.target(fp); this.stage = fp >= T.stage2 ? 2 : fp >= T.stage1 ? 1 : 0; this.lit0 = true;
-    this.inSpace = true; this.cleared = true; this.parked = fp >= PHASES.insert; this.tli = fp >= PHASES.tli;
+    this.inSpace = true; this.cleared = true; this.parked = fp >= PHASES.insert; this.tli = fp >= PHASES.tli; this.ci = COAST.filter(c => c.at <= fp).length;
     if (x.mode === 'orbit') { this.l = this.L; this.stage = 2; this.th = x.th; this.tOrb = x.tOrb; this.spinUp = smooth(SPIN_AT, SPIN_AT + SPIN_UP, x.tOrb); }
     return true;
   }
@@ -143,14 +162,15 @@ class RocketSim {
       if (!this.parked && fp >= PHASES.insert) { this.parked = true; this.events.push('earthOrbit'); }
       if (!this.tli && fp >= PHASES.tli) { this.tli = true; this.events.push('tli'); }
       if (this.stage < 2 && fp >= T.stage2 && this.l >= this.lStage2 * 0.97) { this.stage = 2; this.events.push('stage2'); }
-      if (fp >= T.orbit && this.l >= this.L - 0.03) { this.mode = 'orbit'; this.l = this.L; this.ignited = false; this.th = this.th0; this.tOrb = 0; this.events.push('orbit'); }
+      while (this.ci < COAST.length && fp >= COAST[this.ci].at) this.events.push(COAST[this.ci++].id);
+      if (fp >= T.orbit && this.l >= this.L - 0.03) { this.mode = 'orbit'; this.wIn = Math.min(0.6, Math.max(this.wOrbit, this.v / WORLD.ORBIT)); this.l = this.L; this.ignited = false; this.th = this.th0; this.tOrb = 0; this.events.push('orbit'); }
     } else if (this.mode === 'fall') {
       this.v -= this.g * dt; this.l += this.v * dt;
       if (this.l <= 0) { this.l = 0; this.v = 0; this.mode = 'pad'; this.hold = 0; this.stage = 0; this.inSpace = false; this.cleared = false;
         this.lit0 = false; this.fp = 0; this.down = WRECK; this.events.push('crash'); }
     } else if (this.mode === 'orbit') {
       this.ignited = false; this.tOrb += rdt;                                                       // circles the Moon for as long as the session runs
-      this.th -= (0.004 + (this.wOrbit - 0.004) * smooth(0, 12, this.tOrb)) * rdt;              // clockwise, the way it came round Earth
+      this.th -= (this.wIn + (this.wOrbit - this.wIn) * smooth(0, 8, this.tOrb)) * rdt;        // clockwise, the way it came round Earth, easing from the speed it arrived at
       if (this.th < -Math.PI) this.th += 2 * Math.PI;
       const was = this.spinUp;                                                                      // E6: the module is sent spinning about its length
       this.spinUp = smooth(SPIN_AT, SPIN_AT + SPIN_UP, this.tOrb);
@@ -190,4 +210,4 @@ function sampleFlights(records) {
   return records;
 }
 
-module.exports = { HOLD, LIFTOFF, MILESTONES, PHASES, WORLD, RocketSim, pchip, rocketAt, rocketCarry, sampleFlights, smooth };
+module.exports = { COAST, HOLD, LIFTOFF, MILESTONES, PHASES, WORLD, RocketSim, pchip, rocketAt, rocketCarry, sampleFlights, smooth };
