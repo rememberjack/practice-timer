@@ -68,12 +68,13 @@ list.push({ name: 'Rocket: a new flight while a session is still running', run: 
 list.push({ name: 'Rocket: the flight plan follows the flight', run: () => {
   const sim = new RocketSim(), at = {}, T = MILESTONES; let up = true, last = 0, fellTo = 1;
   for (let t = 0; t < 1830; t += 0.1) { sim.update(0.1, { running: true, playing: true, eff: 1 }); sim.events.length = 0; const p = sim.plan(); if (p < last - 1e-9) up = false; last = p;
-    for (const k of ['stage1', 'space', 'stage2']) if (at[k] == null && sim.fp >= T[k]) at[k] = p; }
+    for (const [k, t] of [['stage1', T.stage1], ['earthOrbit', PHASES.insert], ['stage2', T.stage2], ['half', T.orbit / 2]]) if (at[k] == null && sim.fp >= t) at[k] = p; }
   const orbit = sim.plan(), f = new RocketSim(); for (let t = 0; t < 120; t += 0.1) f.update(0.1, { running: true, playing: true, eff: 1 });
   const before = f.plan(); for (let t = 0; t < 60 && f.mode !== 'pad'; t += 0.1) { f.update(0.1, { running: true, playing: false, eff: 0.2 }); if (f.mode === 'fall') fellTo = Math.min(fellTo, f.plan()); }
-  const near = (a, b) => Math.abs(a - b) < 0.002, ok = up && near(at.stage1, 0.25) && near(at.space, 0.5) && near(at.stage2, 0.75) && orbit === 1 && fellTo < before * 0.2 && f.plan() === 0;
-  return { name: 'Rocket: the flight plan follows the flight', expect: 'only rises while flying: a quarter at stage 1, half at the edge of space, three quarters at stage 2, full in Moon orbit; drops back in a fall, empty on the pad',
-    got: 'stage 1 ' + (at.stage1 || 0).toFixed(3) + ', space ' + (at.space || 0).toFixed(3) + ', stage 2 ' + (at.stage2 || 0).toFixed(3) + ', orbit ' + orbit + (up ? '' : ', went down while flying') + ', falling ' + before.toFixed(2) + ' to ' + fellTo.toFixed(2) + ', then ' + f.plan(), pass: ok }; } });
+  const near = (a, b) => Math.abs(a - b) < 0.002, share = t => t / T.orbit;
+  const ok = up && near(at.stage1, share(T.stage1)) && near(at.earthOrbit, share(PHASES.insert)) && near(at.stage2, share(T.stage2)) && near(at.half, 0.5) && orbit === 1 && fellTo < before * 0.2 && f.plan() === 0;
+  return { name: 'Rocket: the flight plan follows the flight', expect: 'only rises while flying, at an even pace: ' + share(T.stage1).toFixed(3) + ' at stage 1, ' + share(PHASES.insert).toFixed(3) + ' in Earth orbit, ' + share(T.stage2).toFixed(3) + ' at stage 2, half at half the time, full in Moon orbit; drops back in a fall, empty on the pad',
+    got: 'stage 1 ' + (at.stage1 || 0).toFixed(3) + ', Earth orbit ' + (at.earthOrbit || 0).toFixed(3) + ', stage 2 ' + (at.stage2 || 0).toFixed(3) + ', half the time ' + (at.half || 0).toFixed(3) + ', orbit ' + orbit + (up ? '' : ', went down while flying') + ', falling ' + before.toFixed(2) + ' to ' + fellTo.toFixed(2) + ', then ' + f.plan(), pass: ok }; } });
 list.push({ name: 'Rocket: flies to scale, with a real launch\'s timing', run: () => {
   const sim = new RocketSim(), T = MILESTONES, P = PHASES, M = WORLD.MOON, R = 6371, deg = 180 / Math.PI, at = t => { sim.mode = 'ascent'; sim.l = sim.lenAt(t); return sim.pose(); };
   const tiltAt = q => ((q.ang - Math.atan2(q.x, q.y)) * deg + 540) % 360 - 180, km = q => (Math.hypot(q.x, q.y) - 1) * R;   // from upright, where the rocket is; height
