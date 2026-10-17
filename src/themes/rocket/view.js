@@ -170,8 +170,6 @@ function makeRocketView(cv, hud, sim, MT) {
     return c;
   }
   const DETAILS = []; for (let f = 0; f < ROLL_N; f++) DETAILS.push(detail(f));   // DETAILS[0] is the module not rolled
-  /* a satellite passing in the coast: a gold body between two blue solar panels */
-  const SAT = sprite(['PPP.Y.PPP', 'PPPYYYPPP', 'PPP.Y.PPP'], true, { P: '#3A6FD8', Y: '#FFD23F' });
   /* Earth and the Moon as small pictures for the view of the whole way (map), where they would be specks */
   function disc(N, tex) { const c = document.createElement('canvas'); c.width = N; c.height = N; const x = c.getContext('2d'), im = x.createImageData(N, N), d = new Uint32Array(im.data.buffer);
     for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) { const u = (i + 0.5) / N * 2 - 1, v = (j + 0.5) / N * 2 - 1; d[j * N + i] = u * u + v * v < 1 ? tex[j * N + i] : 0; }
@@ -251,10 +249,14 @@ function makeRocketView(cv, hud, sim, MT) {
      Each framing says how big the world is drawn and where the rocket sits on screen; blending those keeps the rocket in view throughout. */
   const KS = 0.5;                   // the rocket's size from the edge of space until the view closes in on it: one canvas pixel to a sprite pixel
   const CT = {}; for (const c of MT.COAST) CT[c.id] = c.at;    // the coast's moments on the flight clock
-  /* now and then in the coast the view pulls back for a few seconds to show the whole way: Earth, the path flown and still to fly, the rocket
-     and the Moon (one of them just after halfway); 3 s out, 8 s held, 3 s back */
+  /* now and then in the coast the view pulls back slowly to show the whole way: Earth, the path flown and still to fly, the rocket and the
+     Moon (one of them just after halfway); 8 s out, 10 s held, 8 s back */
   const MAPS = [CT.roll + 80, CT.halfway + 4, CT.correction + 100, CT.correction + 230];
-  const mapW = fp => { let w = 0; for (const a of MAPS) w = Math.max(w, smooth(a, a + 3, fp) * (1 - smooth(a + 11, a + 14, fp))); return w; };
+  const mapW = fp => { let w = 0; for (const a of MAPS) w = Math.max(w, smooth(a, a + 8, fp) * (1 - smooth(a + 18, a + 26, fp))); return w; };
+  /* the heights the satellites fly at: the GPS satellites (20,200 km) and the weather and TV satellites' ring (35,786 km). Each is a faint
+     dotted ring round Earth with its satellites as specks moving slowly along it, shown while the rocket climbs through them:
+     [moment, height in km, satellites, seconds of playing to go round, colour] */
+  const SHELLS = [['gps', 20200, 24, 150, '#7FB8F0'], ['geo', 35786, 30, 300, '#E8D08A']];
   function camera(pw) {
     const T = MT.MILESTONES, PH = MT.PHASES, fp = sim.fp, orbit = sim.mode === 'orbit', lvl = orbit ? 1 : smooth(T.orbit - 90, T.orbit - 5, fp);
     let rot = Math.atan2(pw.y, pw.x) - Math.PI / 2;
@@ -478,12 +480,16 @@ function makeRocketView(cv, hud, sim, MT) {
       g.save(); g.translate(Math.round(d.x), Math.round(d.y)); g.rotate(d.a); g.globalAlpha = Math.min(1, (6 - d.t) / 1.5);
       const im = kk < RES ? DROP_SMALL[d.i] : DROP[d.i]; g.drawImage(im, -5.5 * kk, 0, 11 * kk, im.height * kk / (im === DROP[d.i] ? RES : 1)); g.restore(); }
 
-    // the satellites the rocket passes in the coast drift by, from ahead of it to behind
-    for (const [id, n] of [['gps', 3], ['geo', 4]]) { const u = (sim.fp - CT[id] + 5) / 12; if (sim.mode !== 'ascent' || !(u > 0 && u < 1)) continue;
-      for (let i = 0; i < n; i++) { const w = (u - i * 0.12) / 0.6; if (!(w > 0 && w < 1)) continue;
-        const along = (1 - 2 * w) * 90 * RES, side = [-34, 24, -14, 42][i] * RES, z = Math.max(RES, k * 1.2);
-        g.save(); g.globalAlpha = Math.sin(Math.PI * w); g.translate(Math.round(sx + sn * along + cs * side), Math.round(sy - cs * along + sn * side)); g.rotate(i * 1.3 + sim.fp * 0.4);
-        g.drawImage(SAT, -4.5 * z, -1.5 * z, 9 * z, 3 * z); g.restore(); } }
+    // the satellites' heights as the rocket climbs through them: faint rings round Earth, their satellites specks moving along them
+    if (sim.mode === 'ascent') { const e0 = P(0, 0);
+      for (const [id, km, n, per, col] of SHELLS) { const a = smooth(CT[id] - 30, CT[id] - 18, sim.fp) * (1 - smooth(CT[id] + 25, CT[id] + 40, sim.fp)) * (1 - cam.wC); if (!(a > 0)) continue;
+        const rr = (1 + km * 10 * RH) * s, nd = Math.max(48, Math.min(400, Math.round(2 * Math.PI * rr / (4 * RES))));   // RH is 0.1 km
+        g.fillStyle = col; g.globalAlpha = 0.35 * a;
+        for (let i = 0; i < nd; i++) { const t = i * 2 * Math.PI / nd, x = e0[0] + rr * Math.cos(t), y = e0[1] + rr * Math.sin(t);
+          if (x > -RES && y > -RES && x < W && y < H) g.fillRect(Math.round(x), Math.round(y), RES, RES); }
+        g.fillStyle = '#F4F6FA'; g.globalAlpha = 0.9 * a;
+        for (let i = 0; i < n; i++) { const t = i * 2 * Math.PI / n + i * 0.37 - sim.fp * 2 * Math.PI / per; g.fillRect(Math.round(e0[0] + rr * Math.cos(t) - RES / 2), Math.round(e0[1] + rr * Math.sin(t) - RES / 2), RES, RES); } }
+      g.globalAlpha = 1; }
 
     // rocket, nose anchored so a separation never makes it jump; gone while the wreck is cleared, then a new one fades in
     const shown = wreck ? Math.max(0, 1 - sim.down / 0.6) : 1;
