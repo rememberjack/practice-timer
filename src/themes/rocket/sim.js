@@ -22,12 +22,12 @@ const smooth = (a, b, x) => { const t = clamp01((x - a) / (b - a)); return t * t
 const KM = 1 / 6371;
 const WORLD = { ROCKET_H: 0.1 * KM, SPACE: 4.0, MOON: { x: 6.2, y: 12.4, r: 0.62 }, ORBIT: 1.0 };
 /* Flight timeline, in seconds of playing since ignition (E0). Each step is measured from the one before:
-   E1 clear the tower +10 s, E2 stage 1 separation +3 min, E3 leave the atmosphere +3 min,
+   E1 clear the tower +8 s, E2 stage 1 separation +3 min, E3 leave the atmosphere +3 min,
    E4 stage 2 separation +4 min, E5 reach Moon orbit +20 min, E6 send the module spinning about its length and keep orbiting. */
-const STEPS = [['tower', 10], ['stage1', 180], ['space', 180], ['stage2', 240], ['orbit', 1200]];
+const STEPS = [['tower', 8], ['stage1', 180], ['space', 180], ['stage2', 240], ['orbit', 1200]];
 const MILESTONES = {}; (function () { let t = 0; for (const s of STEPS) { t += s[1]; MILESTONES[s[0]] = t; } })();
 const LIFTOFF = 0.5;   // engine power the rocket needs, held for HOLD seconds, to leave the pad
-const HOLD = 3, ORBIT_PERIOD = 60, WRECK = 2.6, SPIN_AT = 3, SPIN_UP = 4, SPIN = 2 * Math.PI * 0.6;   // E6: 3 s after arrival the module starts to roll about its long axis, reaching 0.6 turns a second
+const HOLD = 1, ORBIT_PERIOD = 60, WRECK = 2.6, SPIN_AT = 3, SPIN_UP = 4, SPIN = 2 * Math.PI * 0.6;   // E6: 3 s after arrival the module starts to roll about its long axis, reaching 0.6 turns a second
 
 /* The flight path, built once: arrays of points (x, y) with the distance along the path to each (l).
    Straight up past the tower, then a gravity turn: the rocket pitches over to the right, 20° from upright by stage 1 separation and 26° a little
@@ -59,7 +59,7 @@ const lerpAt = (xs, ys, x) => { let lo = 0, hi = xs.length - 1; if (x <= xs[0]) 
   while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (xs[mid] <= x) lo = mid; else hi = mid; }
   return ys[lo] + (ys[hi] - ys[lo]) * (x - xs[lo]) / (xs[hi] - xs[lo]); };
 /* Distance along the path at each point of the timeline.
-   Lift-off is a real one: off the pad at about half a g, past the top of the tower at 10 s (30 m/s), 1.4 km up at 30 s, 5.8 km at 60 s.
+   Lift-off is a real one, a second after ignition: off the pad at about half a g, past the top of the tower at 8 s (30 m/s), 1.4 km up at 30 s, 5.8 km at 60 s.
    From there the drawn distance grows at a steady rate (the view widens about 3% a second) up to the edge of space (SPACE up), then on at a
    steady pace, easing off as it nears the Moon. */
 const TIMING = (function () {
@@ -189,4 +189,4 @@ function sampleFlights(records) {
   return records;
 }
 
-module.exports = { LIFTOFF, MILESTONES, TILT, WORLD, RocketSim, pchip, rocketAt, rocketCarry, sampleFlights, smooth };
+module.exports = { HOLD, LIFTOFF, MILESTONES, TILT, WORLD, RocketSim, pchip, rocketAt, rocketCarry, sampleFlights, smooth };

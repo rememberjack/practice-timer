@@ -8,10 +8,10 @@ list.push({ name: 'Rocket: timeline from ignition to Moon orbit', run: () => {
   for (let t = 0; t < 1830; t += 0.1) { s.tick(0.1, true); sim.update(0.1, { running: true, playing: true, eff: s.efficiency });
     while (sim.events.length) { const e = sim.events.shift(); if (at[e] == null) at[e] = t + 0.1; } }
   const th1 = sim.th; for (let i = 0; i < 300; i++) { sim.update(0.1, { running: true, playing: false, eff: 0.2 }); while (sim.events.length) { const e = sim.events.shift(); if (at[e] == null) at[e] = 1830 + i * 0.1; } }
-  const want = { ignition: 0, liftoff: 3, tower: 10, stage1: 190, space: 370, stage2: 610, orbit: 1810, spin: 1813 };
+  const want = { ignition: 0, liftoff: 1, tower: 8, stage1: 188, space: 368, stage2: 608, orbit: 1808, spin: 1811 };
   let ok = sim.mode === 'orbit' && sim.th !== th1 && sim.spinUp === 1 && sim.spinA !== 0;
   for (const k in want) if (!(Math.abs(at[k] - want[k]) <= 2)) ok = false;
-  return { name: 'Rocket: timeline from ignition to Moon orbit', expect: 'lift-off 3 s, tower 10 s, stage 1 3:10, space 6:10, stage 2 10:10, orbit 30:10, module spinning 3 s later, then keeps orbiting',
+  return { name: 'Rocket: timeline from ignition to Moon orbit', expect: 'lift-off 1 s, tower 8 s, stage 1 3:08, space 6:08, stage 2 10:08, orbit 30:08, module spinning 3 s later, then keeps orbiting',
     got: Object.keys(want).map(k => k + ' ' + (at[k] == null ? 'never' : Math.round(at[k]) + ' s')).join(', ') + (sim.mode === 'orbit' && sim.th !== th1 ? ', orbiting' : ', not orbiting'), pass: ok }; } });
 list.push({ name: 'Rocket: carries on from earlier the same day', run: () => {
   const fly = (sim, secs, eff, playing) => { for (let t = 0; t < secs; t += 0.1) sim.update(0.1, { running: true, playing: playing !== false, eff: eff }); };
@@ -31,8 +31,8 @@ list.push({ name: 'Rocket: carries on from earlier the same day', run: () => {
     got: 'below space ' + (low === null && below ? 'back to the pad' : 'carried') + ', falling ' + (falling ? 'back to the pad' : 'carried') + '; in space ' + c.mode + '; orbit ' + d.mode + ' spin ' + d.spinUp + '; carry ' + carry.join(','), pass: ok }; } });
 list.push({ name: 'Rocket: lifts off at 50% engine power', run: () => {
   const fly = eff => { const sim = new RocketSim(); let at = -1; for (let t = 0; t < 30; t += 0.1) { sim.update(0.1, { running: true, playing: true, eff: eff }); if (at < 0 && sim.events.indexOf('liftoff') >= 0) at = t + 0.1; sim.events.length = 0; } return at; };
-  const a = fly(0.55), b = fly(0.45), ok = Math.abs(a - 3) <= 0.3 && b < 0;
-  return { name: 'Rocket: lifts off at 50% engine power', expect: 'at 55%: lift-off after 3 s; at 45%: stays on the pad',
+  const a = fly(0.55), b = fly(0.45), ok = Math.abs(a - 1) <= 0.3 && b < 0;
+  return { name: 'Rocket: lifts off at 50% engine power', expect: 'at 55%: lift-off after 1 s; at 45%: stays on the pad',
     got: 'at 55%: ' + (a < 0 ? 'no lift-off' : 'lift-off at ' + a.toFixed(1) + ' s') + '; at 45%: ' + (b < 0 ? 'stays on the pad' : 'lift-off at ' + b.toFixed(1) + ' s'), pass: ok }; } });
 list.push({ name: 'Rocket: falls and explodes when power drops in the atmosphere', run: () => {
   const sim = new RocketSim(), s = new Session(), ev = []; s.start();
