@@ -260,6 +260,18 @@ function makeRocketView(cv, hud, sim, MT) {
   const hPark = (function () { const q = sim.pathAt(sim.lenAt(MT.PHASES.insert)); return 1 + ISS.km * KMW - Math.hypot(q.x, q.y); })();   // the ISS's height above Earth orbit
   const ISS_SPR = sprite(['A.a.........a.A', 'A.a.........a.A', 'A.a....M....a.A', 'TTTTTTTMTTTTTTT', 'A.a...MMM...a.A', 'A.a....M....a.A', 'A.a.........a.A'], true,
     { A: '#D9A441', a: '#B07A2A', T: '#A3ACC2', M: '#E8ECF2' });
+  /* it crosses the scene slowly, often less than a canvas pixel a second, and a canvas pixel is large (up to 5 of the phone's): drawn into
+     the canvas it would step a whole one at a time. So the picture is its own small layer over the canvas (under the read-outs), placed to
+     the phone's own pixel, and it glides; each of its pixels a whole number of the phone's, so it stays sharp */
+  const issEl = ISS_SPR; let issOn = 0;
+  issEl.setAttribute('aria-hidden', 'true'); issEl.dataset.rk = 'iss';
+  issEl.style.cssText = 'position:absolute; left:0; top:0; opacity:0; pointer-events:none; image-rendering:pixelated; image-rendering:crisp-edges';
+  if (cv.parentNode) { const old = cv.parentNode.querySelector('[data-rk="iss"]'); if (old) old.remove(); cv.parentNode.insertBefore(issEl, cv.nextSibling); }   // one, should a view be made again
+  function issLayer(x, y, z) {                       // its middle at canvas (x, y), z canvas pixels to one of its own
+    const dpr = window.devicePixelRatio || 1, u = Math.max(1, Math.round(z * ps * dpr)) / dpr, w = 15 * u, h = 7 * u;
+    issEl.style.width = w + 'px'; issEl.style.height = h + 'px';
+    issEl.style.transform = 'translate(' + (Math.round((x * ps - w / 2) * dpr) / dpr) + 'px,' + (Math.round((y * ps - h / 2) * dpr) / dpr) + 'px)';
+  }
   /* the slow roll: a turn every 10 s of playing from its moment until the Moon's pull, easing in over 6 s as it starts and out as it stops.
      The frame of DETAILS it has reached at a time on the flight clock */
   const ease = t => { const x = Math.min(1, Math.max(0, t / 6)); return t >= 6 ? t - 3 : 6 * (x * x * x - x * x * x * x / 2); };
@@ -400,11 +412,31 @@ function makeRocketView(cv, hud, sim, MT) {
       for (let i = 0; i < 40; i++) addPart((Math.random() - 0.5) * RH * 0.5, 1 + Math.random() * RH * 0.3, (Math.random() - 0.5) * RH * 1.2, (0.2 + Math.random() * 0.9) * RH, 1.4 + Math.random() * 1.6, 4 * RES, 40 + Math.random() * 70);
     }
   }
-  function reset() { parts.length = 0; debris.length = 0; blast.length = 0; embers.length = 0; flash = 0; shake = 0; rcs.on = false; rcs.t = 0; rcs.wait = 1.5; }
+  function reset() { parts.length = 0; debris.length = 0; blast.length = 0; embers.length = 0; flash = 0; shake = 0; rcs.on = false; rcs.t = 0; rcs.wait = 1.5; tw.b = null; }
+
+  /* the flight moves on at the session's ticks (about 22 a second, or as a followed device's updates come) and the screen at its frame rate:
+     each frame draws it where it was between the last two ticks, a tick behind, so nothing that moves past the rocket (the ISS, the ground,
+     Earth) goes in steps. A jump (a new flight, a carried one, a fall back to the pad) is drawn at once */
+  const tw = { a: null, b: null, since: 0, gap: 0.046 };
+  function between(dt) {
+    const now = { l: sim.l, fp: sim.fp, th: sim.th, mode: sim.mode }, b = tw.b;
+    if (!b || now.l !== b.l || now.fp !== b.fp || now.th !== b.th || now.mode !== b.mode) {
+      tw.a = !b || now.mode !== b.mode || Math.abs(now.fp - b.fp) > 2 ? now : b; tw.b = now;
+      tw.gap = Math.min(0.4, Math.max(0.016, tw.since)); tw.since = 0;
+    }
+    tw.since += dt;
+    const u = Math.min(1, tw.since / tw.gap), a = tw.a;
+    sim.l = a.l + (now.l - a.l) * u; sim.fp = a.fp + (now.fp - a.fp) * u; sim.th = a.th + (now.th - a.th) * u;
+    return now;
+  }
 
   /* v: {running, playing, power}; dt in real seconds */
   function draw(v, dt) {
     if (!W && !resize()) return;
+    const now = between(dt);
+    try { scene(v, dt); } finally { sim.l = now.l; sim.fp = now.fp; sim.th = now.th; }   // the flight itself is left as the ticks have it
+  }
+  function scene(v, dt) {
     const p = sim.pose(), cam = camera(p), s = cam.s, hx = Math.sin(p.ang + cam.rot), hy = -Math.cos(p.ang + cam.rot);   // heading on screen
     rush += ((cam.wC > 0 && sim.mode === 'ascent' ? Math.max(0, Math.min(1.4, sim.v / vRef)) : 0) - rush) * Math.min(1, dt * 2);   // eases with the rocket's speed
     if (rush > 0.01) { const sp = 70 * RES * rush * cam.wC * dt; driftX += hx * sp; driftY += hy * sp; }
@@ -537,11 +569,13 @@ function makeRocketView(cv, hud, sim, MT) {
     // the ISS passing overhead, level, at the rocket's scale. It stays in the wide view through Earth orbit, a few hundred km ahead and
     // drifting back once the rocket, in its lower orbit, is the faster; after the burn for the Moon the rocket passes under it, and it goes on
     // round Earth, a speck once its height above the ground is too little on screen for the picture, until Earth slips out of view
+    let issShown = 0;
     if (cam.wI > 0.01 && sim.fp < MT.PHASES.coast + 160) { const q = sim.issAt(sim.fp), sq = P(q.x, q.y), z = Math.max(RES, k * 0.9), big = smooth(8 * z, 20 * z, ISS.km * KMW * s);
       const a = smooth(0.01, 0.6, cam.wI) * (1 - cam.wC);
-      if (big > 0) { g.globalAlpha = a * big; g.drawImage(ISS_SPR, Math.round(sq[0] - 7.5 * z), Math.round(sq[1] - 3.5 * z), Math.round(15 * z), Math.round(7 * z)); }
+      if (big > 0) { issShown = a * big; issLayer(sq[0], sq[1], z); }
       if (big < 1) { g.globalAlpha = a * (1 - big); g.fillStyle = '#F4E3B0'; g.fillRect(Math.round(sq[0] - RES), Math.round(sq[1] - RES / 2), 2 * RES, RES); }
       g.globalAlpha = 1; }
+    if (issShown !== issOn) { issOn = issShown; issEl.style.opacity = issShown; }
     // the satellites' heights as the rocket climbs through them: faint rings round Earth, their satellites specks moving along them
     if (sim.mode === 'ascent') { const e0 = P(0, 0);
       for (const [id, km, n, per, col] of SHELLS) { const a = smooth(CT[id] - 30, CT[id] - 18, sim.fp) * (1 - smooth(CT[id] + 25, CT[id] + 40, sim.fp)) * (1 - cam.wC); if (!(a > 0)) continue;
