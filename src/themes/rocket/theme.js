@@ -10,12 +10,9 @@ const { tr } = MT.translator(words);
 const W = MT.word;
 const EVENT_TEXT = { ignition: W('Engines lit'), liftoff: W('Lift-off!'), tower: W('Tower cleared'), stage1: W('Stage 1 separation'), space: W('You have left the atmosphere'),
   earthOrbit: W('Earth orbit reached'), tli: W('Off to the Moon!'),
-  gps: W('Passing the GPS satellites'), geo: W('Passing the weather satellites'), roll: W('Slow roll in the sunshine'), halfway: W('Halfway to the Moon!'),
-  correction: W('Course correction'), pull: W('Into the Moon’s pull'),
-  stage2: W('Stage 2 separation'), orbit: W('Moon orbit reached!'), spin: W('Module spinning'), fall: W('Engines out. Falling!'), crash: W('The rocket exploded!') };
+  halfway: W('Halfway to the Moon!'), stage2: W('Stage 2 separation'), orbit: W('Moon orbit reached!'), fall: W('Engines out. Falling!'), crash: W('The rocket exploded!') };
 const NEXT = [['tower', W('Clearing the tower in {t}')], ['stage1', W('Stage 1 separation in {t}')], ['space', W('Leaving the atmosphere in {t}')], ['earthOrbit', W('Earth orbit in {t}')],
-  ['tli', W('Off to the Moon in {t}')], ['stage2', W('Stage 2 separation in {t}')], ['gps', W('GPS satellites in {t}')], ['geo', W('Weather satellites in {t}')],
-  ['roll', W('Slow roll in {t}')], ['halfway', W('Halfway in {t}')], ['correction', W('Course correction in {t}')], ['pull', W('Moon’s pull in {t}')],
+  ['tli', W('Off to the Moon in {t}')], ['stage2', W('Stage 2 separation in {t}')], ['halfway', W('Halfway in {t}')],
   ['orbit', W('Moon orbit in {t}')]];
 const AT = Object.assign({ earthOrbit: PHASES.insert, tli: PHASES.tli }, MILESTONES);   // when each of NEXT comes, on the flight clock
 for (const c of COAST) AT[c.id] = c.at;
