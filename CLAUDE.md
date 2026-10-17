@@ -58,8 +58,9 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
   puffs) and into the Moon's pull (25:56); and four times the view pulls back slowly (8 s out, 10 s held, 8 s back) to show the whole way (`MAPS`:
   Earth, the path flown in gold and still to fly in grey, the rocket and the Moon). The Moon is where that orbit reaches its distance,
   met on a tangent, and the rocket goes round it clockwise. The camera (`camera` in its `view.js`) turns with the rocket so away from Earth is up the
-  screen at the rocket: the horizon stays level as it pitches over; nearing the Moon the view turns until it flies level, as it does in Moon orbit with the
-  Moon below, its icon lifted just clear of the ground and the dotted orbit drawn at that height; it never points down the screen. It frames the climb (the
+  screen at the rocket: the horizon stays level as it pitches over; nearing the Moon the view turns until it flies level over the Moon, and on the way it
+  never points down the screen. In Moon orbit the view holds still, the Moon in the middle, and the rocket goes round it, its icon lifted just clear of the
+  ground and the dotted orbit drawn at that height. It frames the climb (the
   rocket drawn smaller and smaller as it climbs, the ground a thinner and thinner strip), then, after the burn, Earth and the rocket until Earth slips out
   of view below, then (until 5 minutes before Moon orbit) the rocket alone, zoomed in on the capsule (drawn in finer detail close up: `DETAIL` in its `view.js`), with a few faint streaks of light rushing past (now and then one in front of it) and the still starfield
   giving way to one that drifts past in short trails, all following the rocket's speed (they slow and stop when the playing does), then the rocket and the Moon.
