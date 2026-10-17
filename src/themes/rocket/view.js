@@ -93,8 +93,10 @@ function makeRocketView(cv, hud, sim, MT) {
   /* rocket sprites */
   const PAL = { W: '#E8ECF2', w: '#C3CAD6', R: '#D23B2E', r: '#A82C22', B: '#5CC8FF', K: '#2A2F3A', G: '#8A93A3', D: '#3A3F4B' };
   const CAPSULE = ['.....W.....', '....WWw....', '...WWWWw...', '...WBBBw...', '..WWBBBWw..', '..WWWWWWw..', '..WRRRRRr..', '..WWWWWWw..', '..GGGGGGG..'];
-  const STAGE2 = ['..WWWWWWw..', '..WWWKWWw..', '..WWWKWWw..', '..WRRRRRr..', '..WWWWWWw..', '..WWWWWWw..', '..WWWWWWw..', '..GGGGGGG..', '...DDDDD...'];
-  const STAGE1 = ['.WWWWWWWWw.', '.WWWWKWWWw.', '.WRRRRRRRr.', '.WWWWWWWWw.', '.WWWWKWWWw.', '.WWWWWWWWw.', '.WKWKWKWKw.', '.WWWWWWWWw.', '.WWWWWWWWw.', 'RWWWWWWWWwr', 'RWWWWWWWWwr', 'RRWWWWWWwrr', 'RRGGGGGGGrr', 'R.DD.D.DD.r'];
+  // the three stages under the capsule, as on the Saturn V: the third (narrow, like the capsule), the second and the first (wide, with fins)
+  const STAGE3 = ['..WWWWWWw..', '..WWWKWWw..', '..WRRRRRr..', '..WWWWWWw..', '..GGGGGGG..', '...DDDDD...'];
+  const STAGE2 = ['.WWWWWWWWw.', '.WWWWKWWWw.', '.WRRRRRRRr.', '.WWWWWWWWw.', '.WWWWWWWWw.', '.GGGGGGGGG.', '..DDDDDDD..'];
+  const STAGE1 = ['.WWWWWWWWw.', '.WKWKWKWKw.', '.WWWWWWWWw.', '.WWWWKWWWw.', '.WWWWWWWWw.', 'RWWWWWWWWwr', 'RWWWWWWWWwr', 'RRWWWWWWwrr', 'RRGGGGGGGrr', 'R.DD.D.DD.r'];
   const ENGINE = ['...GGGGG...', '....DDD....'];
   /* Scale2x (EPX): each sprite pixel becomes RES x RES, and its corners follow the diagonals, so the slopes are smoother than plain blocks */
   function scale2x(rows) {
@@ -125,9 +127,9 @@ function makeRocketView(cv, hud, sim, MT) {
       return out; });
     ROLL.push(sprite(rows.concat(ENGINE)));
   }
-  const SPR = [sprite(CAPSULE.concat(STAGE2, STAGE1)), sprite(CAPSULE.concat(STAGE2)), ROLL[0]];
+  const SPR = [sprite(CAPSULE.concat(STAGE3, STAGE2, STAGE1)), sprite(CAPSULE.concat(STAGE3, STAGE2)), sprite(CAPSULE.concat(STAGE3)), ROLL[0]];
   /* drawn smaller than one canvas pixel to a Scale2x pixel (high in the climb), the plain sprites keep every row */
-  const SMALL = [sprite(CAPSULE.concat(STAGE2, STAGE1), true), sprite(CAPSULE.concat(STAGE2), true), sprite(CAPSULE.concat(ENGINE), true)];
+  const SMALL = [sprite(CAPSULE.concat(STAGE3, STAGE2, STAGE1), true), sprite(CAPSULE.concat(STAGE3, STAGE2), true), sprite(CAPSULE.concat(STAGE3), true), sprite(CAPSULE.concat(ENGINE), true)];
   /* the module close up (deep space): the same 11 x 11 footprint drawn at three times the pixels. A nose with an antenna tip, a round
      porthole in a metal frame with a glint on the glass, the hull shaded round from the light side, panel seams and rivets, the red band,
      control thrusters on either side, the base ring and a ribbed engine bell. Frame f has it rolled f sixteenths of a turn about its length
@@ -177,12 +179,12 @@ function makeRocketView(cv, hud, sim, MT) {
     for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) { const u = (i + 0.5) / N * 2 - 1, v = (j + 0.5) / N * 2 - 1; d[j * N + i] = u * u + v * v < 1 ? tex[j * N + i] : 0; }
     x.putImageData(im, 0, 0); return c; }
   const EARTH_DISC = disc(EN, EARTH), MOON_DISC = disc(32 * RES, moonTex(32 * RES));
-  const DROP = [null, sprite(STAGE1), sprite(STAGE2)], DROP_SMALL = [null, sprite(STAGE1, true), sprite(STAGE2, true)];
+  const DROP = [null, sprite(STAGE1), sprite(STAGE2), sprite(STAGE3)], DROP_SMALL = [null, sprite(STAGE1, true), sprite(STAGE2, true), sprite(STAGE3, true)];
   /* stage 1 glowing as it falls back through the air */
   const PAL_HOT = { W: '#FFE0A8', w: '#F4A85C', R: '#FF6A2E', r: '#C8381E', K: '#7E2C14', G: '#E8843E', D: '#5E2612' };
   const HOT = sprite(STAGE1, false, PAL_HOT), HOT_SMALL = sprite(STAGE1, true, PAL_HOT), EMBER = ['#FFF3B0', '#FFD23F', '#FFB629', '#E2502C', '#A82C22', '#5E2612'];
-  const CUT = [0, 14, 21];           // rows gone from the tail after each separation
-  const FLAME_W = [7, 5, 3];
+  const CUT = [0, 10, 17, 21];       // rows gone from the tail after each separation (32 rows in all, the module and its engine 11)
+  const FLAME_W = [7, 6, 5, 3];
 
   /* clouds fixed in the world: [x, altitude, width, height] */
   const CLOUDS = [[-0.62 * RH, 1.25 * RH, 0.55 * RH, 0.14 * RH], [0.7 * RH, 1.7 * RH, 0.6 * RH, 0.15 * RH]];
@@ -194,7 +196,7 @@ function makeRocketView(cv, hud, sim, MT) {
   let flick = 0, flickT = 0, flash = 0, shake = 0;
   const STAR_PAR = 5 * RES;         // stars drift this many pixels per Earth radius travelled
   /* deep space at speed: streaks of light rush past from ahead, faster the faster the rocket goes, and the starfield behind slides too */
-  const STREAKS = [], vRef = (sim.L - sim.lStage2) / (MT.MILESTONES.orbit - MT.MILESTONES.stage2);
+  const STREAKS = [], vRef = (sim.L - sim.lStage3) / (MT.MILESTONES.orbit - MT.MILESTONES.stage3);
   let rush = 0, driftX = 0, driftY = 0;
   for (let i = 0; i < 12; i++) STREAKS.push({ x: -1, y: -1, d: 0.45 + Math.random(), b: 0.3 + 0.5 * Math.random(), front: i % 6 === 0 });   // a few, now and then one in front
   /* close up in deep space the still starfield gives way to one that drifts past, nearer stars faster, stretching into short trails at speed */
@@ -390,7 +392,7 @@ function makeRocketView(cv, hud, sim, MT) {
   function addPart(x, y, vx, vy, life, sz, shade) { if (parts.length > 160) parts.shift(); parts.push({ x: x, y: y, vx: vx, vy: vy, t: 0, life: life, sz: sz, c: shade }); }
 
   function event(name) {
-    if (name === 'stage1' || name === 'stage2') debris.push({ i: name === 'stage1' ? 1 : 2, t: 0, a: 0, va: (Math.random() < 0.5 ? -1 : 1) * (0.6 + Math.random()) });
+    if (name === 'stage1' || name === 'stage2' || name === 'stage3') debris.push({ i: +name[5], t: 0, a: 0, va: (Math.random() < 0.5 ? -1 : 1) * (0.6 + Math.random()) });
     if (name === 'crash') {                       // blocky fireball, flying wreckage, then smoke
       flash = 1; shake = 0.7;
       const cols = ['#FFF3B0', '#FFD23F', '#FFB629', '#E2502C', '#A82C22', '#E8ECF2', '#8A93A3', '#3A3F4B'];
@@ -557,9 +559,9 @@ function makeRocketView(cv, hud, sim, MT) {
     const shown = wreck ? Math.max(0, 1 - sim.down / 0.6) : 1;
     const roll = sim.mode === 'ascent' ? rollAt(sim.fp) : 0;
     if (shown > 0) {
-      const spr = stage === 2 && sim.spinUp > 0 ? ROLL[Math.floor(sim.spinA / (2 * Math.PI) * ROLL_N) % ROLL_N] : stage === 2 && roll && k >= RES ? ROLL[Math.floor(roll * ROLL_N / ROLL_FINE)] : (k < RES ? SMALL : SPR)[stage], hh = spr.height * k / (spr === SMALL[stage] ? 1 : RES);   // in Moon orbit the module spins about its length (E6)
+      const spr = stage === 3 && sim.spinUp > 0 ? ROLL[Math.floor(sim.spinA / (2 * Math.PI) * ROLL_N) % ROLL_N] : stage === 3 && roll && k >= RES ? ROLL[Math.floor(roll * ROLL_N / ROLL_FINE)] : (k < RES ? SMALL : SPR)[stage], hh = spr.height * k / (spr === SMALL[stage] ? 1 : RES);   // in Moon orbit the module spins about its length (E6)
       g.save(); g.translate(Math.round(sx), Math.round(sy)); g.rotate(ang + tilt); g.globalAlpha = shown;
-      const fine = stage === 2 && sim.spinUp === 0 ? smooth(0.5, 0.95, cam.wC) : 0;               // close up, the detailed module fades in
+      const fine = stage === 3 && sim.spinUp === 0 ? smooth(0.5, 0.95, cam.wC) : 0;               // close up, the detailed module fades in
       if (fine < 1) { g.globalAlpha = shown * (1 - fine); g.drawImage(spr, -5.5 * k, -cut - hh, 11 * k, hh); }
       if (fine > 0) { g.globalAlpha = shown * fine; g.drawImage(DETAILS[roll], -5.5 * k, -cut - 11 * k, 11 * k, 11 * k); }
       g.globalAlpha = shown;
