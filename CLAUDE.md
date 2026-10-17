@@ -50,7 +50,12 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
   110 km up), so the altitude read-out is what is drawn. Up to Earth orbit it keeps Apollo 11's timing and heights (`CLIMB`): upright past the tower,
   pitched over to about 68° from upright by stage 1 separation (2:43, 67 km), the edge of space at 3:25, level in Earth orbit (191 km) at 11:50. Then a
   minute's coast and a minute's burn for the Moon (`PHASES`; banners "Earth orbit reached" and "Off to the Moon!"), stage 2 separation at 14:10, and a
-  Kepler orbit round Earth whose three days are sped up about 275 times, so Moon orbit comes at 30:00. The Moon is where that orbit reaches its distance,
+  Kepler orbit round Earth whose three days are sped up about 275 times, so Moon orbit comes at 30:00; once within the Moon's reach (`SOI`) its pull
+  speeds the rocket up again, and Moon orbit starts at the speed it arrives with and eases down. The coast has its moments, at their real times or
+  places, each with a banner and a countdown (`COAST`): the GPS satellites (14:47) and the weather satellites (15:04) drifting past, a slow roll in
+  the sunshine (16:08, the close-up capsule turning, `DETAILS`), halfway to the Moon (19:17), Apollo 11's one course correction (19:55, thruster
+  puffs) and into the Moon's pull (25:56); and four times the view pulls back for a few seconds to show the whole way (`MAPS` in its `view.js`:
+  Earth, the path flown in gold and still to fly in grey, the rocket and the Moon). The Moon is where that orbit reaches its distance,
   met on a tangent, and the rocket goes round it clockwise. The camera (`camera` in its `view.js`) turns with the rocket so away from Earth is up the
   screen at the rocket: the horizon stays level as it pitches over; nearing the Moon the view turns until it flies level, as it does in Moon orbit with the
   Moon below, its icon lifted just clear of the ground and the dotted orbit drawn at that height; it never points down the screen. It frames the climb (the
