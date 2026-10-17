@@ -51,8 +51,8 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
   pitched over to about 68° from upright by stage 1 separation (2:43, 67 km), the edge of space at 3:25, level in Earth orbit (191 km) at 11:50. At 7:00 the ISS passes overhead, 420 km up and faster than the climbing
   rocket, so it comes from behind and pulls ahead while the view widens to take it in, Earth's ground kept in view at the foot of
   the scene; the view stays that wide through Earth orbit, the ISS a few hundred km ahead and drifting back once the rocket is the
-  faster. Through the burn for the Moon the view follows the ISS as the rocket closes on it; just after (14:01) the rocket passes about 70 km
-  under it and leaves it behind, the view widening to keep both, and it goes on round Earth (on the coast's sped-up clock, `RocketSim.issAt`),
+  faster. Through the burn for the Moon the view holds still (the ISS keeping its height on screen) as the rocket climbs toward it; just after (14:01) the
+  rocket passes about 70 km under it and leaves it behind, the view widening to keep both, and it goes on round Earth (on the coast's sped-up clock, `RocketSim.issAt`),
   a speck once too small to draw, until Earth slips out of view (`ISS`; a banner and a countdown for the pass at 7:00). Stage 1 drops back
   into the air, glows and burns up before it reaches the ground (`HOT`, `embers` in its `view.js`). Then a minute's coast and a minute's burn for the Moon (`PHASES`; banners "Earth orbit reached" and "Off to the Moon!"), stage 2 separation at 14:10, and a
   Kepler orbit round Earth whose three days are sped up about 275 times, so Moon orbit comes at 30:00; once within the Moon's reach (`SOI`) its pull

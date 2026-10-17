@@ -257,6 +257,7 @@ function makeRocketView(cv, hud, sim, MT) {
   /* the ISS, drawn at the rocket's scale (it is about as wide as the rocket is tall): its long truss, a solar array at each end and its
      modules in the middle; a speck once the view is too wide for that. It goes round Earth at its own height and speed (sim.issAt) */
   const ISS = MT.ISS, KMW = 10 * RH;                                    // KMW: a kilometre in world units
+  const hPark = (function () { const q = sim.pathAt(sim.lenAt(MT.PHASES.insert)); return 1 + ISS.km * KMW - Math.hypot(q.x, q.y); })();   // the ISS's height above Earth orbit
   const ISS_SPR = sprite(['A.a.........a.A', 'A.a.........a.A', 'A.a....M....a.A', 'TTTTTTTMTTTTTTT', 'A.a...MMM...a.A', 'A.a....M....a.A', 'A.a.........a.A'], true,
     { A: '#D9A441', a: '#B07A2A', T: '#A3ACC2', M: '#E8ECF2' });
   /* the slow roll: a turn every 10 s of playing from its moment until the Moon's pull, easing in over 6 s as it starts and out as it stops.
@@ -291,8 +292,9 @@ function makeRocketView(cv, hud, sim, MT) {
     let rx = W / 2 + (p.x - (xMin + xMax) / 2) * s, ry = H - (p.y - yBot) * s;      // where the rocket's tail sits on screen
     /* fit the rocket and the bodies given ([x, y, radius]) into the scene, clear of the flight plan down the right, with room on screen
        for the rocket's body and for the flame trailing behind it */
-    const fw = W - 40 / ps, bx = -Math.sin(p.ang), by = -Math.cos(p.ang);
-    function frame(bodies) {
+    const fw = W - 40 / ps;
+    function frame(bodies, ang) {
+      const bx = -Math.sin(ang === undefined ? p.ang : ang), by = -Math.cos(ang === undefined ? p.ang : ang);
       const fit = (a0, a1, b0, b1) => Math.min(usable / (b1 - b0), fw * 0.94 / (a1 - a0));
       let x0 = p.x, x1 = p.x, y0 = p.y, y1 = p.y;
       for (const b of bodies) { x0 = Math.min(x0, b[0] - b[2]); x1 = Math.max(x1, b[0] + b[2]); y0 = Math.min(y0, b[1] - b[2]); y1 = Math.max(y1, b[1] + b[2]); }
@@ -307,14 +309,15 @@ function makeRocketView(cv, hud, sim, MT) {
     const kE = KS + (1 - KS) * Math.exp(-lalt / 1.6);
     // the ISS passing overhead: the view widens to take in its height above the rocket and the stretch of sky it crosses, and keeps Earth in
     // view throughout, its ground a strip at the foot of the scene (4%, as it is in the climb), any room left over going to the sky. It stays
-    // that wide after the pass, through Earth orbit. From the burn for the Moon it follows the ISS itself as the rocket closes on it, passes
-    // under it and leaves it behind, widening as they part, the lower of the ISS and the ground at the foot, until Earth's own framing takes over
+    // that wide after the pass and holds still from Earth orbit (framed as for the rocket flying level), so through the burn for the Moon the ISS
+    // keeps its height on screen while the rocket climbs toward it and passes under it. Once the ISS falls behind, the view widens to keep both, the lower of the ISS and the ground
+    // at the foot, until Earth's own framing takes over
     const wI = orbit ? 0 : smooth(ISS.at - 75, ISS.at - 55, fp);
-    if (wI > 0) { const h = 1 + ISS.km * KMW - Math.hypot(pw.x, pw.y), f = frame([[p.x, p.y + h, 0.6 * h], [p.x, 1 - 0.04 * (alt + 1.6 * h), 0]]);
-      f[2] = H - 0.04 * usable - (p.y - 1) * f[0];
-      const wT = smooth(PH.tli, PH.tli + 40, fp);
-      if (wT > 0) { const iw = sim.issAt(fp), q = turn(iw.x, iw.y), pad = 0.25 * Math.hypot(q.x - p.x, q.y - p.y) + 40 * KMW, gy = Math.min(1, q.y - pad);
+    if (wI > 0) { const h = Math.max(1 + ISS.km * KMW - Math.hypot(pw.x, pw.y), hPark), top = 1 + ISS.km * KMW;
+      const f = frame([[p.x, top, 0.6 * h], [p.x, 1 - 0.04 * (top - 1 + 0.6 * h), 0]], fp > PH.insert ? Math.PI / 2 : undefined); f[2] = H - 0.04 * usable - (p.y - 1) * f[0];
+      if (fp > PH.tli) { const iw = sim.issAt(fp), q = turn(iw.x, iw.y), pad = 0.25 * Math.hypot(q.x - p.x, q.y - p.y) + 40 * KMW, gy = Math.min(1, q.y - pad);
         const fI = frame([[q.x, q.y, pad], [p.x, gy - 0.04 * (p.y - gy), 0]]); fI[2] = H - 0.04 * usable - (p.y - gy) * fI[0];
+        const wT = q.x < p.x ? smooth(0.85, 1.15, f[0] / fI[0]) : 0;                   // only once the ISS is behind and the view must be wider to keep it
         f[0] = Math.exp(lerp(Math.log(f[0]), Math.log(fI[0]), wT)); f[1] = lerp(f[1], fI[1], wT); f[2] = lerp(f[2], fI[2], wT); }
       blend(f, wI); }
     // orbit framing: Earth and the rocket going round it
