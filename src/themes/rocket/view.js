@@ -301,9 +301,11 @@ function makeRocketView(cv, hud, sim, MT) {
     const blend = (f, w) => { s = Math.exp(lerp(Math.log(s), Math.log(f[0]), w)); rx = lerp(rx, f[1], w); ry = lerp(ry, f[2], w); };
     // the rocket's size, against the icon it was: past true size it keeps shrinking as it climbs, quickly at first, to half by the edge of space
     const kE = KS + (1 - KS) * Math.exp(-lalt / 1.6);
-    // the ISS passing overhead: the view widens to take in its height above the rocket, and the stretch of sky it crosses
+    // the ISS passing overhead: the view widens to take in its height above the rocket and the stretch of sky it crosses, and keeps Earth in
+    // view throughout, its ground a strip at the foot of the scene (4%, as it is in the climb), any room left over going to the sky
     const wI = orbit ? 0 : smooth(ISS.at - 75, ISS.at - 55, fp) * (1 - smooth(ISS.at + 55, ISS.at + 75, fp));
-    if (wI > 0) { const h = 1 + ISS.km * KMW - Math.hypot(pw.x, pw.y); blend(frame([[p.x, p.y + h, 0.6 * h]]), wI); }
+    if (wI > 0) { const h = 1 + ISS.km * KMW - Math.hypot(pw.x, pw.y), f = frame([[p.x, p.y + h, 0.6 * h], [p.x, 1 - 0.04 * (alt + 1.6 * h), 0]]);
+      f[2] = H - 0.04 * usable - (p.y - 1) * f[0]; blend(f, wI); }
     // orbit framing: Earth and the rocket going round it
     const wO = orbit ? 0 : smooth(PH.coast + 40, PH.coast + 60, fp);
     if (wO > 0) blend(frame([[0, 0, 1.3]]), wO);
