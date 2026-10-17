@@ -251,7 +251,14 @@ function makeRocketView(cv, hud, sim, MT) {
      Moon     - from 5 minutes before Moon orbit the view widens to take in the Moon, small and far, then tightens as the rocket nears it.
      Each framing says how big the world is drawn and where the rocket sits on screen; blending those keeps the rocket in view throughout. */
   const KS = 0.5;                   // the rocket's size from the edge of space until the view closes in on it: one canvas pixel to a sprite pixel
-  const CT = {}; for (const c of MT.COAST) CT[c.id] = c.at;    // the coast's moments on the flight clock
+  const CT = {}; for (const c of MT.COAST) CT[c.id] = c.at;    // the moments along the way on the flight clock
+  /* the ISS, drawn at the rocket's scale (it is about as wide as the rocket is tall): its long truss, a solar array at each end and its
+     modules in the middle. It goes round Earth at its own height and speed, right over the rocket at ISS.at */
+  const ISS = MT.ISS, KMW = 10 * RH;                                    // KMW: a kilometre in world units
+  const ISS_SPR = sprite(['A.a.........a.A', 'A.a.........a.A', 'A.a....M....a.A', 'TTTTTTTMTTTTTTT', 'A.a...MMM...a.A', 'A.a....M....a.A', 'A.a.........a.A'], true,
+    { A: '#D9A441', a: '#B07A2A', T: '#A3ACC2', M: '#E8ECF2' });
+  const issFrom = (function () { const q = sim.pathAt(sim.lenAt(ISS.at)); return Math.atan2(q.x, q.y); })();
+  const issAt = fp => { const a = issFrom + ISS.v / (6371 + ISS.km) * (fp - ISS.at), r = 1 + ISS.km * KMW; return [r * Math.sin(a), r * Math.cos(a)]; };
   /* now and then in the coast the view pulls back slowly to show the whole way: Earth, the path flown and still to fly, the rocket and the
      Moon (one of them just after halfway); 8 s out, 10 s held, 8 s back */
   const MAPS = [CT.roll + 80, CT.halfway + 4, CT.correction + 100, CT.correction + 230];
@@ -294,6 +301,9 @@ function makeRocketView(cv, hud, sim, MT) {
     const blend = (f, w) => { s = Math.exp(lerp(Math.log(s), Math.log(f[0]), w)); rx = lerp(rx, f[1], w); ry = lerp(ry, f[2], w); };
     // the rocket's size, against the icon it was: past true size it keeps shrinking as it climbs, quickly at first, to half by the edge of space
     const kE = KS + (1 - KS) * Math.exp(-lalt / 1.6);
+    // the ISS passing overhead: the view widens to take in its height above the rocket, and the stretch of sky it crosses
+    const wI = orbit ? 0 : smooth(ISS.at - 75, ISS.at - 55, fp) * (1 - smooth(ISS.at + 55, ISS.at + 75, fp));
+    if (wI > 0) { const h = 1 + ISS.km * KMW - Math.hypot(pw.x, pw.y); blend(frame([[p.x, p.y + h, 0.6 * h]]), wI); }
     // orbit framing: Earth and the rocket going round it
     const wO = orbit ? 0 : smooth(PH.coast + 40, PH.coast + 60, fp);
     if (wO > 0) blend(frame([[0, 0, 1.3]]), wO);
@@ -315,7 +325,7 @@ function makeRocketView(cv, hud, sim, MT) {
       if (still > 0) { f[0] = Math.exp(lerp(Math.log(f[0]), Math.log(sO), still)); f[1] = lerp(f[1], fw / 2 + (p.x - Mt.x) * sO, still); f[2] = lerp(f[2], r0 - (p.y - Mt.y) * sO, still); }
       blend(f, wM); }
     const ox = (rx - W / 2) / s, oy = -(ry - H / 2) / s;                                      // the rocket's offset from the middle of the screen, turned
-    return { s: s, rot: rot, rc: rc, rs: rs, cx: pw.x - (rc * ox - rs * oy), cy: pw.y - (rs * ox + rc * oy), wM: wM, wW: wW, wC: wC * (1 - wM) * (1 - wW), k: lerp(lerp(lerp(lerp(kE, KS, wO), 3.2, wC), KS, wW), lerp(0.9, 1.15, appr) + 0.3 * sim.spinUp, wM) };          // a little larger still once it is spinning in orbit
+    return { s: s, rot: rot, rc: rc, rs: rs, cx: pw.x - (rc * ox - rs * oy), cy: pw.y - (rs * ox + rc * oy), wM: wM, wW: wW, wI: wI, wC: wC * (1 - wM) * (1 - wW), k: lerp(lerp(lerp(lerp(kE, KS, wO), 3.2, wC), KS, wW), lerp(0.9, 1.15, appr) + 0.3 * sim.spinUp, wM) };          // a little larger still once it is spinning in orbit
   }
 
   function background(cam) {
@@ -508,6 +518,9 @@ function makeRocketView(cv, hud, sim, MT) {
     if (embers.length > 300) embers.splice(0, embers.length - 300);
     g.globalAlpha = 1;
 
+    // the ISS passing overhead, level, at the rocket's scale
+    if (cam.wI > 0.01) { const q = issAt(sim.fp), sq = P(q[0], q[1]), z = Math.max(RES, k * 0.9);
+      g.globalAlpha = smooth(0.01, 0.2, cam.wI); g.drawImage(ISS_SPR, Math.round(sq[0] - 7.5 * z), Math.round(sq[1] - 3.5 * z), Math.round(15 * z), Math.round(7 * z)); g.globalAlpha = 1; }
     // the satellites' heights as the rocket climbs through them: faint rings round Earth, their satellites specks moving along them
     if (sim.mode === 'ascent') { const e0 = P(0, 0);
       for (const [id, km, n, per, col] of SHELLS) { const a = smooth(CT[id] - 30, CT[id] - 18, sim.fp) * (1 - smooth(CT[id] + 25, CT[id] + 40, sim.fp)) * (1 - cam.wC); if (!(a > 0)) continue;

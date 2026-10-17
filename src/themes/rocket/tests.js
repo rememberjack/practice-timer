@@ -8,7 +8,7 @@ list.push({ name: 'Rocket: timeline from ignition to Moon orbit', run: () => {
   for (let t = 0; t < 1830; t += 0.1) { s.tick(0.1, true); sim.update(0.1, { running: true, playing: true, eff: s.efficiency });
     while (sim.events.length) { const e = sim.events.shift(); if (at[e] == null) at[e] = t + 0.1; } }
   const th1 = sim.th; for (let i = 0; i < 300; i++) { sim.update(0.1, { running: true, playing: false, eff: 0.2 }); while (sim.events.length) { const e = sim.events.shift(); if (at[e] == null) at[e] = 1830 + i * 0.1; } }
-  const want = { ignition: 0, liftoff: 1, tower: 8, stage1: 163, space: 205, earthOrbit: 710, tli: 770, stage2: 850, gps: 887, geo: 904, roll: 968, halfway: 1157, correction: 1195, pull: 1556,
+  const want = { ignition: 0, liftoff: 1, tower: 8, stage1: 163, space: 205, iss: 420, earthOrbit: 710, tli: 770, stage2: 850, gps: 887, geo: 904, roll: 968, halfway: 1157, correction: 1195, pull: 1556,
     orbit: 1800, spin: 1803 };
   let ok = sim.mode === 'orbit' && sim.th !== th1 && sim.spinUp === 1 && sim.spinA !== 0;
   for (const k in want) if (!(Math.abs(at[k] - want[k]) <= 2)) ok = false;

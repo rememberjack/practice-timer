@@ -3,15 +3,15 @@
    RocketSim (sim.js); view.js draws it; this wires both to the page (docs/theme-modules.md). */
 'use strict';
 const MT = require('../../core.js');
-const { COAST, HOLD, LIFTOFF, MILESTONES, PHASES, WORLD, RocketSim, rocketAt, rocketCarry, sampleFlights, smooth } = require('./sim.js');
+const { COAST, HOLD, ISS, LIFTOFF, MILESTONES, PHASES, WORLD, RocketSim, rocketAt, rocketCarry, sampleFlights, smooth } = require('./sim.js');
 const { makeRocketView } = require('./view.js');
 const words = require('./words.js');
 const { tr } = MT.translator(words);
 const W = MT.word;
 const EVENT_TEXT = { ignition: W('Engines lit'), liftoff: W('Lift-off!'), tower: W('Tower cleared'), stage1: W('Stage 1 separation'), space: W('You have left the atmosphere'),
   earthOrbit: W('Earth orbit reached'), tli: W('Off to the Moon!'),
-  halfway: W('Halfway to the Moon!'), stage2: W('Stage 2 separation'), orbit: W('Moon orbit reached!'), fall: W('Engines out. Falling!'), crash: W('The rocket exploded!') };
-const NEXT = [['tower', W('Clearing the tower in {t}')], ['stage1', W('Stage 1 separation in {t}')], ['space', W('Leaving the atmosphere in {t}')], ['earthOrbit', W('Earth orbit in {t}')],
+  iss: W('The ISS passes overhead'), halfway: W('Halfway to the Moon!'), stage2: W('Stage 2 separation'), orbit: W('Moon orbit reached!'), fall: W('Engines out. Falling!'), crash: W('The rocket exploded!') };
+const NEXT = [['tower', W('Clearing the tower in {t}')], ['stage1', W('Stage 1 separation in {t}')], ['space', W('Leaving the atmosphere in {t}')], ['iss', W('The ISS in {t}')], ['earthOrbit', W('Earth orbit in {t}')],
   ['tli', W('Off to the Moon in {t}')], ['stage2', W('Stage 2 separation in {t}')], ['halfway', W('Halfway in {t}')],
   ['orbit', W('Moon orbit in {t}')]];
 const AT = Object.assign({ earthOrbit: PHASES.insert, tli: PHASES.tli }, MILESTONES);   // when each of NEXT comes, on the flight clock
@@ -45,7 +45,7 @@ module.exports = {
   tests: require('./tests.js'),
   credits: ['Jayden Chen'],
   create: function (host) {
-    const $ = host.$, sim = new RocketSim(), view = makeRocketView($('rk'), $('hud'), sim, Object.assign(Object.create(MT), { tr: tr, MILESTONES: MILESTONES, PHASES: PHASES, COAST: COAST, WORLD: WORLD, smooth: smooth }));
+    const $ = host.$, sim = new RocketSim(), view = makeRocketView($('rk'), $('hud'), sim, Object.assign(Object.create(MT), { tr: tr, MILESTONES: MILESTONES, PHASES: PHASES, COAST: COAST, ISS: ISS, WORLD: WORLD, smooth: smooth }));
     let flightFrom = 0, flightAt = -1e9, bannerT = 0, forced = '', shared = null;   // forced: where the next session's rocket starts (debug tools)
     try { flightFrom = +localStorage.getItem(FLIGHT_KEY) || 0; } catch (e) {}
     host.drawPixelTrophy($('rTrophy'));

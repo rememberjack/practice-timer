@@ -82,8 +82,11 @@ const PATH = (function () {
     th0: Math.atan2(ys[end] - M.y, xs[end] - M.x) };                                               // where it joins the Moon's orbit, seen from the Moon
 })();
 WORLD.MOON.x = PATH.moon.x; WORLD.MOON.y = PATH.moon.y;
-/* the coast's moments in the order they come, each with its time on the flight clock */
-const COAST = Object.keys(PATH.coast).map(k => ({ id: k, at: Math.round(PATH.coast[k] * 10) / 10 })).sort((p, q) => p.at - q.at);
+/* the ISS passing overhead in the climb: 420 km up at 7.66 km/s, faster than the rocket still gathering speed, so it comes from behind,
+   is right overhead at 7:00 (at) and pulls ahead */
+const ISS = { at: 420, km: 420, v: 7.66 };
+/* the moments along the way in the order they come, each with its time on the flight clock: the ISS, then the coast's */
+const COAST = Object.keys(PATH.coast).map(k => ({ id: k, at: Math.round(PATH.coast[k] * 10) / 10 })).concat([{ id: 'iss', at: ISS.at }]).sort((p, q) => p.at - q.at);
 const lerpAt = (xs, ys, x) => { let lo = 0, hi = xs.length - 1; if (x <= xs[0]) return ys[0]; if (x >= xs[hi]) return ys[hi];
   while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (xs[mid] <= x) lo = mid; else hi = mid; }
   return ys[lo] + (ys[hi] - ys[lo]) * (x - xs[lo]) / (xs[hi] - xs[lo]); };
@@ -182,7 +185,11 @@ class RocketSim {
   pose() {
     if (this.mode === 'orbit') { const M = WORLD.MOON, c = Math.cos(this.th), s = Math.sin(this.th), x = M.x + WORLD.ORBIT * c, y = M.y + WORLD.ORBIT * s;
       return { x: x, y: y, ang: Math.atan2(s, -c), alt: Math.max(0, Math.hypot(x, y) - 1) }; }
-    const ls = this.pl, l = this.l; let lo = 0, hi = this.S;
+    return this.pathAt(this.l);
+  }
+  /* the point on the path l along it, with its heading */
+  pathAt(l) {
+    const ls = this.pl; let lo = 0, hi = this.S;
     while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (ls[mid] <= l) lo = mid; else hi = mid; }
     const seg = ls[hi] - ls[lo], t = seg > 0 ? (l - ls[lo]) / seg : 0;
     const dx = this.px[hi] - this.px[lo], dy = this.py[hi] - this.py[lo];
@@ -210,4 +217,4 @@ function sampleFlights(records) {
   return records;
 }
 
-module.exports = { COAST, HOLD, LIFTOFF, MILESTONES, PHASES, WORLD, RocketSim, pchip, rocketAt, rocketCarry, sampleFlights, smooth };
+module.exports = { COAST, HOLD, ISS, LIFTOFF, MILESTONES, PHASES, WORLD, RocketSim, pchip, rocketAt, rocketCarry, sampleFlights, smooth };
