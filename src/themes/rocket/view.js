@@ -106,10 +106,10 @@ function makeRocketView(cv, hud, sim, MT) {
       out.push(a, b); }
     return out;
   }
-  function sprite(rows, raw) {
+  function sprite(rows, raw, pal) {
     if (RES === 2 && !raw) rows = scale2x(rows);
-    const c = document.createElement('canvas'); c.width = rows[0].length; c.height = rows.length; const x = c.getContext('2d');
-    rows.forEach((row, j) => { for (let i = 0; i < row.length; i++) if (PAL[row[i]]) { x.fillStyle = PAL[row[i]]; x.fillRect(i, j, 1, 1); } });
+    const c = document.createElement('canvas'); c.width = rows[0].length; c.height = rows.length; const x = c.getContext('2d'), P = pal || PAL;
+    rows.forEach((row, j) => { for (let i = 0; i < row.length; i++) if (P[row[i]]) { x.fillStyle = P[row[i]]; x.fillRect(i, j, 1, 1); } });
     return c;
   }
   /* The module spinning about its long axis (E6): its markings are wrapped round the hull, 16 columns to a turn, and each frame shows
@@ -165,6 +165,9 @@ function makeRocketView(cv, hud, sim, MT) {
     return c;
   })();
   const DROP = [null, sprite(STAGE1), sprite(STAGE2)], DROP_SMALL = [null, sprite(STAGE1, true), sprite(STAGE2, true)];
+  /* stage 1 glowing as it falls back through the air */
+  const PAL_HOT = { W: '#FFE0A8', w: '#F4A85C', R: '#FF6A2E', r: '#C8381E', K: '#7E2C14', G: '#E8843E', D: '#5E2612' };
+  const HOT = sprite(STAGE1, false, PAL_HOT), HOT_SMALL = sprite(STAGE1, true, PAL_HOT), EMBER = ['#FFF3B0', '#FFD23F', '#FFB629', '#E2502C', '#A82C22', '#5E2612'];
   const CUT = [0, 14, 21];           // rows gone from the tail after each separation
   const FLAME_W = [7, 5, 3];
 
@@ -173,7 +176,7 @@ function makeRocketView(cv, hud, sim, MT) {
   (function () { let a = 4 * RH; for (let i = 0; i < 20; i++) { const side = i % 2 ? 1 : -1, r = (h2(i, 77) & 255) / 255;
     CLOUDS.push([side * a * (0.3 + 0.55 * r), a, a * (0.34 + 0.2 * r), a * 0.09]); a *= 1.2; } })();
 
-  const parts = [], debris = [], blast = [];
+  const parts = [], debris = [], blast = [], embers = [];
   const rcs = { wait: 1.5, t: 0, on: false, side: 1, a: 3, along: 0, x: 0, y: 0, jx: 0, jy: 0 };   // reaction-control thruster firings in Moon orbit: for show only
   let flick = 0, flickT = 0, flash = 0, shake = 0;
   const STAR_PAR = 5 * RES;         // stars drift this many pixels per Earth radius travelled
@@ -344,7 +347,7 @@ function makeRocketView(cv, hud, sim, MT) {
       for (let i = 0; i < 40; i++) addPart((Math.random() - 0.5) * RH * 0.5, 1 + Math.random() * RH * 0.3, (Math.random() - 0.5) * RH * 1.2, (0.2 + Math.random() * 0.9) * RH, 1.4 + Math.random() * 1.6, 4 * RES, 40 + Math.random() * 70);
     }
   }
-  function reset() { parts.length = 0; debris.length = 0; blast.length = 0; flash = 0; shake = 0; rcs.on = false; rcs.t = 0; rcs.wait = 1.5; }
+  function reset() { parts.length = 0; debris.length = 0; blast.length = 0; embers.length = 0; flash = 0; shake = 0; rcs.on = false; rcs.t = 0; rcs.wait = 1.5; }
 
   /* v: {running, playing, power}; dt in real seconds */
   function draw(v, dt) {
@@ -438,14 +441,34 @@ function makeRocketView(cv, hud, sim, MT) {
       const qp = P(q.x, q.y); g.fillRect(Math.round(qp[0] - z / 2), Math.round(qp[1] - z / 2), z, z); }
     g.globalAlpha = 1;
 
-    // dropped stages drift away behind the rocket
-    for (let i = debris.length - 1; i >= 0; i--) { const d = debris[i];
-      if (d.t === 0) { d.x = tailX; d.y = tailY; d.vx = (-sn * 9 + (Math.random() - 0.5) * 4) * RES; d.vy = cs * 9 * RES; d.a = ang; d.k = k; }
-      d.t += dt; if (d.t > 6) { debris.splice(i, 1); continue; }
-      d.x += d.vx * dt; d.y += d.vy * dt; d.vy += 5 * RES * dt; d.a += d.va * dt;
-      const kk = d.k * (1 - d.t / 7);
-      g.save(); g.translate(Math.round(d.x), Math.round(d.y)); g.rotate(d.a); g.globalAlpha = Math.min(1, (6 - d.t) / 1.5);
-      const im = kk < RES ? DROP_SMALL[d.i] : DROP[d.i]; g.drawImage(im, -5.5 * kk, 0, 11 * kk, im.height * kk / (im === DROP[d.i] ? RES : 1)); g.restore(); }
+    // dropped stages drift away behind the rocket. Stage 1 falls back into the air: it starts to glow, sheds sparks and flames behind it,
+    // then breaks up and burns away, always before it reaches the ground
+    const pr = Math.hypot(p.x, p.y), groundY = P(p.x / pr, p.y / pr)[1];
+    for (let i = debris.length - 1; i >= 0; i--) { const d = debris[i], burn = d.i === 1;
+      if (d.t === 0) { const v = burn ? 6 : 9; d.x = tailX; d.y = tailY; d.vx = (-sn * v + (Math.random() - 0.5) * 4) * RES; d.vy = cs * v * RES; d.a = ang; d.k = k; }
+      d.t += dt; if (d.t > (burn ? 5.2 : 6)) { debris.splice(i, 1); continue; }
+      d.x += d.vx * dt; d.y += d.vy * dt; d.vy += (burn ? 2.2 : 5) * RES * dt; d.a += d.va * dt;
+      const kk = d.k * (1 - d.t / 7), im = kk < RES ? DROP_SMALL[d.i] : DROP[d.i], hh = im.height * kk / (im === DROP[d.i] ? RES : 1);
+      if (burn && d.t < 3.8 && d.y > groundY - 16 * RES) d.t = 3.8;                                    // too near the ground: it burns away now
+      const heat = burn ? smooth(0.9, 2.8, d.t) : 0, gone = burn ? smooth(3.8, 4.9, d.t) : 0;
+      g.save(); g.translate(Math.round(d.x), Math.round(d.y)); g.rotate(d.a); g.globalAlpha = burn ? (1 - gone) * (1 - 0.85 * heat) : Math.min(1, (6 - d.t) / 1.5);
+      g.drawImage(im, -5.5 * kk, 0, 11 * kk, hh);
+      if (heat > 0 && gone < 1) { g.globalAlpha = heat * (1 - gone); g.drawImage(kk < RES ? HOT_SMALL : HOT, -5.5 * kk, 0, 11 * kk, hh); }
+      g.restore();
+      if (burn && heat > 0.1 && gone < 1 && dt > 0) {
+        const cx = d.x - Math.sin(d.a) * hh / 2, cy = d.y + Math.cos(d.a) * hh / 2, mv = Math.hypot(d.vx, d.vy) || 1, ux = d.vx / mv, uy = d.vy / mv;
+        for (let n = Math.round(heat * (1 - gone) * 5 * Math.min(2, dt * 60)); n > 0; n--) { const sp = (12 + Math.random() * 22) * RES;   // sparks streaming away behind it
+          embers.push({ x: cx + (Math.random() - 0.5) * 9 * kk, y: cy + (Math.random() - 0.5) * 9 * kk, vx: -ux * sp + (Math.random() - 0.5) * 8 * RES, vy: -uy * sp + (Math.random() - 0.5) * 8 * RES,
+            t: 0, life: 0.25 + Math.random() * 0.45, sz: Math.max(RES, kk * (0.5 + Math.random() * 0.7)) }); }
+        if (gone > 0 && !d.split) { d.split = true;                                                    // it breaks up: glowing pieces fly apart and fade
+          for (let n = 0; n < 16; n++) { const a = Math.random() * 2 * Math.PI, sp = (4 + Math.random() * 14) * RES;
+            embers.push({ x: cx + (Math.random() - 0.5) * 8 * kk, y: cy + (Math.random() - 0.5) * 14 * kk, vx: d.vx * 0.6 + Math.cos(a) * sp, vy: d.vy * 0.6 + Math.sin(a) * sp, t: 0, life: 0.7 + Math.random() * 0.7, sz: Math.max(RES, kk * (0.9 + Math.random())) }); } }
+      } }
+    for (let i = embers.length - 1; i >= 0; i--) { const q = embers[i]; q.t += dt; if (q.t >= q.life) { embers.splice(i, 1); continue; }
+      q.x += q.vx * dt; q.y += q.vy * dt; const u = q.t / q.life, z = Math.max(1, Math.round(q.sz * (1 - 0.5 * u)));
+      g.globalAlpha = 1 - u * u; g.fillStyle = EMBER[Math.min(EMBER.length - 1, Math.floor(u * EMBER.length))]; g.fillRect(Math.round(q.x - z / 2), Math.round(q.y - z / 2), z, z); }
+    if (embers.length > 300) embers.splice(0, embers.length - 300);
+    g.globalAlpha = 1;
 
     // rocket, nose anchored so a separation never makes it jump; gone while the wreck is cleared, then a new one fades in
     const shown = wreck ? Math.max(0, 1 - sim.down / 0.6) : 1;
