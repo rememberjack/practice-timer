@@ -39,4 +39,13 @@ list.push({ name: 'Invaders: the pictures and the best score', run: () => {
   const hi = hiScore([{ themes: { invaders: { score: 120 } } }, {}, { themes: { invaders: { score: 450 } } }, { themes: { rocket: {} } }]);
   return { name: 'Invaders: the pictures and the best score', expect: 'every picture square, each invader two frames of 8 rows within its cell; the best score of the log 450',
     got: (bad.length ? 'uneven: ' + bad.join(', ') : 'all square') + ', ' + (kinds ? 'invaders fit' : 'an invader does not fit') + ', best ' + hi, pass: !bad.length && kinds && hi === 450 }; } });
+list.push({ name: 'Invaders: the shields stop the cannon\'s shots too', run: () => {
+  const s = new InvaderSim(5), sh = s.shields[1], mid = sh.x + 11, before = sh.bits.reduce((a, b) => a + b, 0);
+  s.shot = { x: mid, y: INV.CANNON_Y - 4 }; let k = 0;
+  while (s.shot && k++ < 400) s.moveShot(1 / 120);
+  const worn = before - sh.bits.reduce((a, b) => a + b, 0), stopped = s.blocked === 1 && s.left === 55;
+  const r = play(0.8, 1 / 30, 10).s, share = r.blocked / r.shots;
+  return { name: 'Invaders: the shields stop the cannon\'s shots too', expect: 'a shot fired up under a shield stops there, hits no invader and wears a hole; in play the cannon mostly fires up clear lanes (under a third of its shots stopped)',
+    got: (stopped ? 'stopped' : 'not stopped (' + s.blocked + ' blocked, ' + s.left + ' left)') + ', ' + worn + ' pixels worn away; in play ' + Math.round(share * 100) + '% stopped',
+    pass: stopped && worn > 0 && share > 0 && share < 0.33 }; } });
 module.exports = list;

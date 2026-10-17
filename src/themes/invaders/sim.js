@@ -18,8 +18,9 @@ const INV = {
   SHIELD_Y: 150, SHIELD_X: 29, SHIELD_GAP: 48,
   CANNON_Y: 176, CANNON_V: 70, GROUND: 190,
   SHOT_V: 240, BOMB_V: 75, BOMB_EVERY: 1.4, BOMBS: 3,
-  RATE: 0.15, RATE_PW: 0.35,            // shots charged a second while playing: RATE + RATE_PW × the last minute of playing
+  RATE: 0.175, RATE_PW: 0.405,            // shots charged a second while playing: RATE + RATE_PW × the last minute of playing
   NOTE_WINDOW: 0.6, HELD: 1.5, CHARGE_MAX: 2,   // a note just started fires a charged shot at once; a held note fires once 1.5 are charged
+  LANE: 24,                             // how far out of its way the cannon goes to fire up a clear lane, past the shields
   NEXT_WAVE: 2,                         // seconds of playing between waves
   SUB: 1 / 120,                         // the longest step the sim takes, so a shot never jumps over an invader
 };
@@ -31,7 +32,7 @@ class InvaderSim {
   constructor(seed) { this.reset(seed); }
   reset(seed) {
     this.seed = seed || 1; this.rnd = seededRng(this.seed);
-    this.score = 0; this.wave = 0; this.kills = 0; this.shots = 0; this.hits = 0; this.ufos = 0;
+    this.score = 0; this.wave = 0; this.kills = 0; this.shots = 0; this.hits = 0; this.ufos = 0; this.blocked = 0;
     this.cx = INV.W / 2; this.aimX = this.cx; this.shot = null; this.bombs = []; this.ufo = null; this.ufoT = 0; this.ufoSide = 1; this.bombT = 0;
     this.charge = 0; this.noteT = 0; this.frame = 0; this.gap = 0; this.played = 0; this.lowest = 0; this.events = [];
     this.newWave(); this.events = [];
@@ -72,19 +73,27 @@ class InvaderSim {
     return x;
   }
   /* where the cannon aims: under the mystery ship if a shot can still reach it, else under the nearest invader at the foot of its column,
-     allowing for how far each moves while the shot climbs */
+     allowing for how far each moves while the shot climbs. The shields stop its shots too, so it would rather fire up a clear lane
+     (between the shields, or through a hole) and goes to one if it is not far out of its way */
   aim(marching) {
     const flight = y => (INV.CANNON_Y - y) / INV.SHOT_V;
     if (this.ufo) { const t = flight(INV.UFO_Y + UFO.h), x = this.ufo.x + this.ufo.v * t;
-      if (x > 10 && x < INV.W - 10 && Math.abs(x - this.cx) / INV.CANNON_V < Math.abs((INV.W - 10 - this.ufo.x) / this.ufo.v)) return x; }
+      if (x > 10 && x < INV.W - 10 && this.clear(x) && Math.abs(x - this.cx) / INV.CANNON_V < Math.abs((INV.W - 10 - this.ufo.x) / this.ufo.v)) return x; }
     let best = null, bestD = 1e9;
     for (let col = 0; col < INV.COLS; col++) {
       let i = -1; for (let row = INV.ROWS - 1; row >= 0; row--) if (this.alive[row * INV.COLS + col]) { i = row * INV.COLS + col; break; }
       if (i < 0) continue;
-      const b = this.box(i), t = flight(b.y + b.h), x = b.x + b.w / 2 + (marching ? this.fleetX(t) - this.fx : 0), d = Math.abs(x - this.cx);
+      const b = this.box(i), t = flight(b.y + b.h), x = b.x + b.w / 2 + (marching ? this.fleetX(t) - this.fx : 0), d = Math.abs(x - this.cx) + (this.clear(x) ? 0 : INV.LANE);
       if (d < bestD) { bestD = d; best = x; }
     }
     return best == null ? this.cx : best;
+  }
+  /* true when a shot fired at x would pass the shields */
+  clear(x) {
+    x = Math.round(x);
+    for (const sh of this.shields) { const lx = x - sh.x; if (lx < 0 || lx >= SHIELD.w) continue;
+      for (let y = 0; y < SHIELD.h; y++) if (sh.bits[y * SHIELD.w + lx]) return false; }
+    return true;
   }
   /* o: { running, music, pw (the last minute of playing, 0..1), notes (note starts since the last update) } */
   update(dt, o) {
@@ -126,6 +135,13 @@ class InvaderSim {
     }
     for (const b of this.bombs) if (Math.abs(b.x - s.x) <= 2 && s.y < b.y + BOMB.h && s.y + 4 > b.y) {   // a shot and a bomb meet: both go
       this.bombs.splice(this.bombs.indexOf(b), 1); this.shot = null; ev.push({ e: 'clash', x: s.x, y: s.y }); return; }
+    for (const sh of this.shields) {   // a shield stops the shot, which wears a hole up into it
+      const lx = Math.round(s.x) - sh.x; if (lx < 0 || lx >= SHIELD.w) continue;
+      for (let y = Math.floor(s.y) - INV.SHIELD_Y; y < Math.floor(s.y) - INV.SHIELD_Y + 4; y++) {
+        if (y < 0 || y >= SHIELD.h || !sh.bits[y * SHIELD.w + lx]) continue;
+        this.erode(sh, lx, y, true); this.blocked++; this.shot = null; ev.push({ e: 'shield', x: s.x, y: INV.SHIELD_Y + y }); return;
+      }
+    }
     const col = Math.floor((s.x - this.fx) / INV.CELL), row = Math.floor((s.y - this.fy) / INV.CELL);
     for (const r of [row, row - 1]) {
       if (col < 0 || col >= INV.COLS || r < 0 || r >= INV.ROWS) continue;
@@ -160,10 +176,10 @@ class InvaderSim {
     if (foot >= INV.GROUND - 1) { ev.push({ e: 'ground', x: b.x, y: INV.GROUND - 2 }); return true; }
     return false;
   }
-  erode(sh, lx, ly) {
-    for (let dy = -1; dy <= 3; dy++) for (let dx = -2; dx <= 2; dx++) {
+  erode(sh, lx, ly, up) {   // a bomb wears it down from above, a shot (up) from below
+    for (let dy = up ? -3 : -1; dy <= (up ? 1 : 3); dy++) for (let dx = -2; dx <= 2; dx++) {
       const x = lx + dx, y = ly + dy; if (x < 0 || x >= SHIELD.w || y < 0 || y >= SHIELD.h) continue;
-      if ((!dx && dy <= 1) || this.rnd() < 0.55 - Math.abs(dx) * 0.08) sh.bits[y * SHIELD.w + x] = 0;
+      if ((!dx && (up ? dy >= -1 : dy <= 1)) || this.rnd() < 0.55 - Math.abs(dx) * 0.08) sh.bits[y * SHIELD.w + x] = 0;
     }
     this.shieldVer++;
   }
