@@ -381,11 +381,11 @@ function makeRocketView(cv, hud, sim, MT) {
     const hp = s * RH, k = Math.max(cam.k * RES, Math.min(2.5 * RES, hp / 32)), pk = k / RES;
     const sp0 = P(p.x, p.y), mp = P(MOON.x, MOON.y), md = Math.hypot(sp0[0] - mp[0], sp0[1] - mp[1]), wreck = sim.mode === 'pad' && sim.down > 0;
     // in Moon orbit, 110 km up, the rocket's icon would sink into the Moon: it rides on top of the orbit, just clear of the ground
-    const lift = md > 0 ? 6.5 * k * smooth(3 * RO * s, 1.3 * RO * s, md) / md : 0, sx = sp0[0] + (sp0[0] - mp[0]) * lift, sy = sp0[1] + (sp0[1] - mp[1]) * lift;
+    const up = 6.5 * k * smooth(3 * RO * s, 1.3 * RO * s, md), sx = md > 0 ? sp0[0] + (sp0[0] - mp[0]) * up / md : sp0[0], sy = md > 0 ? sp0[1] + (sp0[1] - mp[1]) * up / md : sp0[1];
 
-    // the orbit around the Moon, as a dotted ring
-    if (cam.wM > 0.3 && (RO - MOON.r) * s > 4 * RES) { g.fillStyle = '#A3ACC2'; g.globalAlpha = 0.5 * smooth(0.3, 1, cam.wM);
-      for (let i = 0; i < 48; i++) { const a = i * Math.PI / 24; const q = P(MOON.x + RO * Math.cos(a), MOON.y + RO * Math.sin(a)); g.fillRect(Math.round(q[0]), Math.round(q[1]), RES, RES); }
+    // the orbit around the Moon, as a dotted ring, at the height the rocket rides
+    if (cam.wM > 0.3) { g.fillStyle = '#A3ACC2'; g.globalAlpha = 0.5 * smooth(0.3, 1, cam.wM); const rr = RO * s + up;
+      for (let i = 0; i < 48; i++) { const a = i * Math.PI / 24; g.fillRect(Math.round(mp[0] + rr * Math.cos(a)), Math.round(mp[1] + rr * Math.sin(a)), RES, RES); }
       g.globalAlpha = 1; }
 
     // launch pad and tower, at true scale

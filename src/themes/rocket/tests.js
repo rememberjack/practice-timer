@@ -1,17 +1,17 @@
 /* Rocket's tests: run by npm test and by the debug tools' Sound tests, with the page's own */
 'use strict';
 const { Session, practiceStats, sampleLog } = require('../../core.js');
-const { MILESTONES, TILT, WORLD, RocketSim, rocketAt, rocketCarry, sampleFlights } = require('./sim.js');
+const { MILESTONES, PHASES, WORLD, RocketSim, rocketAt, rocketCarry, sampleFlights } = require('./sim.js');
 const list = [];
 list.push({ name: 'Rocket: timeline from ignition to Moon orbit', run: () => {
   const sim = new RocketSim(), s = new Session(), at = {}; s.start();
   for (let t = 0; t < 1830; t += 0.1) { s.tick(0.1, true); sim.update(0.1, { running: true, playing: true, eff: s.efficiency });
     while (sim.events.length) { const e = sim.events.shift(); if (at[e] == null) at[e] = t + 0.1; } }
   const th1 = sim.th; for (let i = 0; i < 300; i++) { sim.update(0.1, { running: true, playing: false, eff: 0.2 }); while (sim.events.length) { const e = sim.events.shift(); if (at[e] == null) at[e] = 1830 + i * 0.1; } }
-  const want = { ignition: 0, liftoff: 1, tower: 8, stage1: 188, space: 368, stage2: 608, orbit: 1808, spin: 1811 };
+  const want = { ignition: 0, liftoff: 1, tower: 8, stage1: 163, space: 205, earthOrbit: 710, tli: 770, stage2: 850, orbit: 1800, spin: 1803 };
   let ok = sim.mode === 'orbit' && sim.th !== th1 && sim.spinUp === 1 && sim.spinA !== 0;
   for (const k in want) if (!(Math.abs(at[k] - want[k]) <= 2)) ok = false;
-  return { name: 'Rocket: timeline from ignition to Moon orbit', expect: 'lift-off 1 s, tower 8 s, stage 1 3:08, space 6:08, stage 2 10:08, orbit 30:08, module spinning 3 s later, then keeps orbiting',
+  return { name: 'Rocket: timeline from ignition to Moon orbit', expect: 'lift-off 1 s, tower 8 s, stage 1 2:43, space 3:25, Earth orbit 11:50, off to the Moon 12:50, stage 2 14:10, Moon orbit 30:00, module spinning 3 s later, then keeps orbiting',
     got: Object.keys(want).map(k => k + ' ' + (at[k] == null ? 'never' : Math.round(at[k]) + ' s')).join(', ') + (sim.mode === 'orbit' && sim.th !== th1 ? ', orbiting' : ', not orbiting'), pass: ok }; } });
 list.push({ name: 'Rocket: carries on from earlier the same day', run: () => {
   const fly = (sim, secs, eff, playing) => { for (let t = 0; t < secs; t += 0.1) sim.update(0.1, { running: true, playing: playing !== false, eff: eff }); };
@@ -73,20 +73,23 @@ list.push({ name: 'Rocket: the flight plan follows the flight', run: () => {
   const near = (a, b) => Math.abs(a - b) < 0.002, ok = up && near(at.stage1, 0.25) && near(at.space, 0.5) && near(at.stage2, 0.75) && orbit === 1 && fellTo < before * 0.2 && f.plan() === 0;
   return { name: 'Rocket: the flight plan follows the flight', expect: 'only rises while flying: a quarter at stage 1, half at the edge of space, three quarters at stage 2, full in Moon orbit; drops back in a fall, empty on the pad',
     got: 'stage 1 ' + (at.stage1 || 0).toFixed(3) + ', space ' + (at.space || 0).toFixed(3) + ', stage 2 ' + (at.stage2 || 0).toFixed(3) + ', orbit ' + orbit + (up ? '' : ', went down while flying') + ', falling ' + before.toFixed(2) + ' to ' + fellTo.toFixed(2) + ', then ' + f.plan(), pass: ok }; } });
-list.push({ name: 'Rocket: flies a curved path to the Moon, as real flights do', run: () => {
-  const sim = new RocketSim(), T = MILESTONES, M = WORLD.MOON, deg = 180 / Math.PI, at = t => { sim.mode = 'ascent'; sim.l = sim.lenAt(t); return sim.pose(); };
-  const tiltAt = q => ((q.ang - Math.atan2(q.x, q.y)) * deg + 540) % 360 - 180;               // from upright, where the rocket is
-  const tower = at(T.tower), st1 = tiltAt(at(T.stage1));
-  let hold = 0; for (let t = 280; t < T.orbit; t += 10) hold = Math.max(hold, Math.abs(tiltAt(at(t)) - TILT * deg));
+list.push({ name: 'Rocket: flies to scale, with a real launch\'s timing', run: () => {
+  const sim = new RocketSim(), T = MILESTONES, P = PHASES, M = WORLD.MOON, R = 6371, deg = 180 / Math.PI, at = t => { sim.mode = 'ascent'; sim.l = sim.lenAt(t); return sim.pose(); };
+  const tiltAt = q => ((q.ang - Math.atan2(q.x, q.y)) * deg + 540) % 360 - 180, km = q => (Math.hypot(q.x, q.y) - 1) * R;   // from upright, where the rocket is; height
+  const tower = tiltAt(at(T.tower)), st1 = at(T.stage1), sp = at(T.space), st1Tilt = tiltAt(st1);
+  let level = 0, low = 1e9, high = 0, readout = 0;
+  for (let t = P.insert; t <= P.tli; t += 5) { const q = at(t); level = Math.max(level, Math.abs(tiltAt(q) - 90)); low = Math.min(low, km(q)); high = Math.max(high, km(q)); }
+  for (let t = 5; t < T.orbit; t += 7) { const q = at(t); readout = Math.max(readout, Math.abs(sim.kmAt(sim.l) - km(q)) / Math.max(1, km(q))); }   // the read-out is what is drawn
   let down = 0, nearMoon = 1e9, kink = 0;
   for (let i = 1; i < sim.px.length; i++) { const dx = sim.px[i] - sim.px[i - 1], dy = sim.py[i] - sim.py[i - 1], r = Math.hypot(sim.px[i], sim.py[i]), d = Math.hypot(dx, dy);
     if (d > 0) down = Math.max(down, -(dx * sim.px[i] + dy * sim.py[i]) / (r * d)); if (i < sim.px.length - 1) nearMoon = Math.min(nearMoon, Math.hypot(sim.px[i] - M.x, sim.py[i] - M.y));
-    if (i > 1) { const a0 = Math.atan2(sim.px[i - 1] - sim.px[i - 2], sim.py[i - 1] - sim.py[i - 2]), a1 = Math.atan2(dx, dy); let dd = Math.abs(a1 - a0) * deg; if (dd > 180) dd = 360 - dd; kink = Math.max(kink, dd); } }
+    if (i > 1 && d > 0) { const a0 = Math.atan2(sim.px[i - 1] - sim.px[i - 2], sim.py[i - 1] - sim.py[i - 2]), a1 = Math.atan2(dx, dy); let dd = Math.abs(a1 - a0) * deg; if (dd > 180) dd = 360 - dd; kink = Math.max(kink, dd); } }
   const e = sim.px.length - 1, endGap = Math.abs(Math.hypot(sim.px[e] - M.x, sim.py[e] - M.y) - WORLD.ORBIT), endAng = Math.atan2(sim.px[e] - sim.px[e - 1], sim.py[e] - sim.py[e - 1]);
-  const joinAng = Math.atan2(Math.sin(sim.th0), -Math.cos(sim.th0)), joinErr = Math.abs(endAng - joinAng) * deg, dist = Math.hypot(M.x, M.y);
-  const ok = Math.abs(tower.ang) < 0.01 && st1 > 15 && st1 < 25 && hold < 1 && kink < 1.5 && endGap < 1e-3 && joinErr < 1.5 && down < 1e-3 && nearMoon > M.r * 1.3 && Math.abs(dist - 13.86) < 0.05;
-  return { name: 'Rocket: flies a curved path to the Moon, as real flights do', expect: 'upright past the tower, leaning over by stage 1, then keeping a 26° lean all the way out on a smooth curve, never heading back down, clear of the Moon, meeting its orbit on a tangent',
-    got: 'tower ' + (tower.ang * deg).toFixed(1) + '°, stage 1 ' + st1.toFixed(0) + '° from upright, then within ' + hold.toFixed(2) + '° of ' + Math.round(TILT * deg) + '°, sharpest bend ' + kink.toFixed(2) + '°, '
-      + endGap.toExponential(1) + ' from the Moon\'s orbit, ' + joinErr.toFixed(2) + '° off its tangent, heading down ' + down.toFixed(4) + ', closest to the Moon ' + nearMoon.toFixed(2) + ', Moon ' + dist.toFixed(2) + ' away', pass: ok }; } });
+  const joinErr = Math.abs(endAng - Math.atan2(Math.sin(sim.th0), -Math.cos(sim.th0))) * deg, dist = Math.hypot(M.x, M.y) * R;
+  const ok = Math.abs(tower) < 1 && Math.abs(km(st1) - 67) < 2 && st1Tilt > 60 && st1Tilt < 75 && Math.abs(km(sp) - 100) < 2 && level < 2 && low > 189 && high < 193 && readout < 1e-3
+    && down < 1e-3 && kink < 1.5 && endGap < 1e-3 && joinErr < 1.5 && nearMoon > WORLD.ORBIT * 0.999 && Math.abs(dist - 384400) < 1 && Math.abs(M.r * R - 1737.4) < 0.1 && Math.abs((WORLD.ORBIT - M.r) * R - 110) < 0.1;
+  return { name: 'Rocket: flies to scale, with a real launch\'s timing', expect: 'upright past the tower; at stage 1 67 km up and pitched 60-75° over; 100 km at the edge of space; level at 191 km in Earth orbit; the read-out matching the picture; never heading back down, on a smooth path; the Moon 384,400 km away, its orbit 110 km up, met on a tangent',
+    got: 'tower ' + tower.toFixed(1) + '°, stage 1 ' + km(st1).toFixed(0) + ' km and ' + st1Tilt.toFixed(0) + '°, space ' + km(sp).toFixed(1) + ' km, Earth orbit ' + low.toFixed(0) + '-' + high.toFixed(0) + ' km within ' + level.toFixed(1) + '° of level, read-out off by ' + (readout * 100).toFixed(3) + '%, heading down '
+      + down.toFixed(4) + ', sharpest bend ' + kink.toFixed(2) + '°, ' + endGap.toExponential(1) + ' from the Moon\'s orbit, ' + joinErr.toFixed(2) + '° off its tangent, closest to the Moon ' + (nearMoon / WORLD.ORBIT).toFixed(3) + ' orbit radii, Moon ' + Math.round(dist) + ' km away', pass: ok }; } });
 
 module.exports = list;
