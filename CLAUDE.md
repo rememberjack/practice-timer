@@ -48,8 +48,8 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
   to save never move the carried flight; demo sound sessions are saved like any other.
 - The rocket's path (`PATH` and `TIMING` in `src/themes/rocket/sim.js`) is drawn to scale (a 100 m rocket, the Moon 384,400 km away, Moon orbit
   110 km up), so the altitude read-out is what is drawn. Up to Earth orbit it keeps Apollo 11's timing and heights (`CLIMB`): upright past the tower,
-  pitched over to about 68° from upright by stage 1 separation (2:43, 67 km), the edge of space at 3:25, level in Earth orbit (191 km) at 11:50. Then a
-  minute's coast and a minute's burn for the Moon (`PHASES`; banners "Earth orbit reached" and "Off to the Moon!"), stage 2 separation at 14:10, and a
+  pitched over to about 68° from upright by stage 1 separation (2:43, 67 km), the edge of space at 3:25, level in Earth orbit (191 km) at 11:50. Stage 1 drops back
+  into the air, glows and burns up before it reaches the ground (`HOT`, `embers` in its `view.js`). Then a minute's coast and a minute's burn for the Moon (`PHASES`; banners "Earth orbit reached" and "Off to the Moon!"), stage 2 separation at 14:10, and a
   Kepler orbit round Earth whose three days are sped up about 275 times, so Moon orbit comes at 30:00. The Moon is where that orbit reaches its distance,
   met on a tangent, and the rocket goes round it clockwise. The camera (`camera` in its `view.js`) turns with the rocket so away from Earth is up the
   screen at the rocket: the horizon stays level as it pitches over; nearing the Moon the view turns until it flies level, as it does in Moon orbit with the
