@@ -1,7 +1,7 @@
 /* Rocket's tests: run by npm test and by the debug tools' Sound tests, with the page's own */
 'use strict';
 const { Session, practiceStats, sampleLog } = require('../../core.js');
-const { MILESTONES, PHASES, WORLD, RocketSim, rocketAt, rocketCarry, sampleFlights } = require('./sim.js');
+const { ISS, MILESTONES, PHASES, WORLD, RocketSim, rocketAt, rocketCarry, sampleFlights } = require('./sim.js');
 const list = [];
 list.push({ name: 'Rocket: timeline from ignition to Moon orbit', run: () => {
   const sim = new RocketSim(), s = new Session(), at = {}; s.start();
@@ -92,5 +92,16 @@ list.push({ name: 'Rocket: flies to scale, with a real launch\'s timing', run: (
   return { name: 'Rocket: flies to scale, with a real launch\'s timing', expect: 'upright past the tower; at stage 1 67 km up and pitched 60-75° over; 100 km at the edge of space; level at 191 km in Earth orbit; the read-out matching the picture; never heading back down, on a smooth path; the Moon 384,400 km away, its orbit 110 km up, met on a tangent',
     got: 'tower ' + tower.toFixed(1) + '°, stage 1 ' + km(st1).toFixed(0) + ' km and ' + st1Tilt.toFixed(0) + '°, space ' + km(sp).toFixed(1) + ' km, Earth orbit ' + low.toFixed(0) + '-' + high.toFixed(0) + ' km within ' + level.toFixed(1) + '° of level, read-out off by ' + (readout * 100).toFixed(3) + '%, heading down '
       + down.toFixed(4) + ', sharpest bend ' + kink.toFixed(2) + '°, ' + endGap.toExponential(1) + ' from the Moon\'s orbit, ' + joinErr.toFixed(2) + '° off its tangent, closest to the Moon ' + (nearMoon / WORLD.ORBIT).toFixed(3) + ' orbit radii, Moon ' + Math.round(dist) + ' km away', pass: ok }; } });
+
+list.push({ name: 'Rocket: passes under the ISS, then overtakes it after the burn for the Moon', run: () => {
+  const sim = new RocketSim(), R = 6371, at = t => { sim.l = sim.lenAt(t); return sim.pose(); };
+  const ahead = t => { const q = at(t), i = sim.issAt(t); let d = Math.atan2(i.x, i.y) - Math.atan2(q.x, q.y); d -= Math.round(d / (2 * Math.PI)) * 2 * Math.PI; return d * R; };
+  const over = Math.abs(ahead(ISS.at)), up = (Math.hypot(sim.issAt(ISS.at).x, sim.issAt(ISS.at).y) - 1) * R;
+  let behind = 0, pass = 0, under = 0;
+  for (let t = ISS.at + 10; t <= PHASES.coast; t += 5) if (ahead(t) <= 0) behind++;
+  for (let t = PHASES.coast; t < PHASES.coast + 30; t += 0.1) if (ahead(t) > 0 && ahead(t + 0.1) <= 0) { pass = t; const q = at(t), i = sim.issAt(t); under = (Math.hypot(i.x, i.y) - Math.hypot(q.x, q.y)) * R; break; }
+  const ok = over < 1 && Math.abs(up - 420) < 1 && behind === 0 && pass > PHASES.coast && under > 20 && under < 150;
+  return { name: 'Rocket: passes under the ISS, then overtakes it after the burn for the Moon', expect: 'the ISS right overhead at 7:00, 420 km up, and ahead from then to the end of the burn; the rocket passing 20-150 km under it once the burn is over',
+    got: (over < 1 ? 'overhead' : over.toFixed(0) + ' km off overhead') + ' at 7:00, ' + up.toFixed(0) + ' km up, behind it ' + behind + ' times before the end of the burn, ' + (pass ? 'passes ' + under.toFixed(0) + ' km under it at ' + Math.floor(pass / 60) + ':' + String(Math.round(pass % 60)).padStart(2, '0') : 'never passes it'), pass: ok }; } });
 
 module.exports = list;
