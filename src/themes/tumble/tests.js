@@ -13,7 +13,7 @@ function note(s, midi, secs, gap) { const ev = [];
   for (let t = 0; t < secs - 1e-9; t += DT) { s.update(DT, { state: 'running', music: true, midi: midi, notes: t === 0 ? 1 : 0, play: s.play }); while (s.events.length) ev.push(s.events.shift()); }
   for (let t = 0; t < (gap || DT) - 1e-9; t += DT) { s.update(DT, { state: 'running', music: false, midi: null, notes: 0, play: s.play }); while (s.events.length) ev.push(s.events.shift()); }
   return ev; }
-const blocks = ev => ev.filter(e => e.k === 'block').map(e => e.b);
+const blocks = ev => ev.filter(e => e.k === 'block' && e.b.kind === 'note').map(e => e.b);   // the notes' blocks (not a plank they were glued into)
 const settle = (p, secs) => { for (let t = 0; t < (secs || 3); t += DT) p.step(DT); };
 
 list.push({ name: 'Tumble: only playing drops blocks', run: () => {
@@ -35,22 +35,29 @@ list.push({ name: 'Tumble: the twelve notes are twelve colours round the circle 
   const ok = cols.size === 12 && fifth === 1 && fourth === 11 && tuColour(60) === tuColour(72) && names === 'C C♯ E♭ F♯ B';
   return { name: 'Tumble: the twelve notes are twelve colours round the circle of fifths', expect: '12 colours; G is the colour after C and F the one before; C4 and C5 the same; names C C♯ E♭ F♯ B',
     got: cols.size + ' colours, G at +' + fifth + ', F at ' + fourth + ', names ' + names, pass: ok }; } });
-list.push({ name: 'Tumble: low notes land on the left, high notes on the right', run: () => {
-  const s = new TumbleSim(); s.reset(1800, 7); const x1 = s.pitchX(48), x2 = s.pitchX(60), x3 = s.pitchX(84), lo = s.lo, x4 = s.pitchX(36), x5 = s.pitchX(48);
-  const inside = [x1, x2, x3, x4, x5].every(x => x >= 1.5 && x <= TU.COLS - 1.5);
-  return { name: 'Tumble: low notes land on the left, high notes on the right', expect: 'C3 left of C4 left of C6, all inside the crate; a C2 widens the range and lands at the left edge',
-    got: [x1, x2, x3].map(x => x.toFixed(1)).join(' < ') + '; C2 at ' + x4.toFixed(1) + ' (range from ' + lo + ' to ' + s.lo + '), C3 now ' + x5.toFixed(1), pass: x1 < x2 && x2 < x3 && inside && s.lo < lo && x4 < x5 && x5 < x2 }; } });
+list.push({ name: 'Tumble: low notes land on the left, high notes on the right, the crate centred on what is played', run: () => {
+  const s = new TumbleSim(); s.reset(1800, 7); const first = s.pitchX(69), x2 = s.pitchX(72), x1 = s.pitchX(60), x3 = s.pitchX(84), edge = s.pitchX(20), top = s.pitchX(120);
+  const inside = [first, x1, x2, x3, edge, top].every(x => x >= 1.5 && x <= TU.COLS - 1.5), mid = Math.abs(first - TU.COLS / 2) < 1e-6;
+  const c = new TumbleSim(); c.reset(1800, 7); for (const m of [48, 50, 52, 53, 55, 57, 59, 60, 62, 64, 65, 67, 69, 71, 72]) c.pitchX(m);   // a cello: its wall stands in the middle too
+  const cello = c.pitchX(c.mid), held = c.mid, after = (c.pitchX(90), c.mid);
+  const ok = mid && x1 < x2 && x2 < x3 && inside && edge === 1.5 && top === TU.COLS - 1.5 && Math.abs(cello - TU.COLS / 2) < 1e-6 && held >= 55 && held <= 62 && after === held;
+  return { name: 'Tumble: low notes land on the left, high notes on the right, the crate centred on what is played', expect: 'the first note (A4) lands in the middle; C4 left of C5 left of C6; a note far outside lands at the edge; a cello\'s notes centre the crate low (middle 55 to 62), and the 13th note moves it no more',
+    got: 'A4 at ' + first.toFixed(1) + ', C4 ' + x1.toFixed(1) + ', C5 ' + x2.toFixed(1) + ', C6 ' + x3.toFixed(1) + ', edges ' + edge + ' and ' + top + '; cello middle ' + held + ' at ' + cello.toFixed(1) + ', then ' + after, pass: ok }; } });
 list.push({ name: 'Tumble: three or four notes of one chord in a row are a chord outline', run: () => {
   const play = seq => { const s = new TumbleSim(); s.reset(1800, 11); const ev = []; for (const [m, held, gap] of seq) ev.push(...note(s, m, held, gap)); return { ch: ev.filter(e => e.k === 'chord'), bl: blocks(ev), s: s }; };
   const c = play([[60, 0.3, 0.1], [64, 0.3, 0.1], [67, 0.3, 0.1]]), am = play([[57, 0.3, 0.1], [60, 0.3, 0.1], [64, 0.3, 0.1]]), g7 = play([[55, 0.3, 0.1], [59, 0.3, 0.1], [62, 0.3, 0.1], [65, 0.3, 0.1]]);
   const scale = play([[60, 0.3, 0.1], [62, 0.3, 0.1], [64, 0.3, 0.1], [65, 0.3, 0.1], [67, 0.3, 0.1]]), slow = play([[60, 0.3, 1.0], [64, 0.3, 1.0], [67, 0.3, 1.0]]), held = play([[60, 1.5, 0.1], [64, 1.5, 0.1], [67, 1.5, 0.1]]);
   const name = r => r.ch.map(e => tuName(e.root) + e.suffix).join(' ');
   const twice = play([[60, 0.3, 0.1], [64, 0.3, 0.1], [67, 0.3, 0.1], [60, 0.3, 0.1], [64, 0.3, 0.1], [67, 0.3, 0.1]]);
-  const ok = name(c) === 'C' && name(am) === 'Am' && name(g7) === 'G G7' && g7.ch[1].ids.length === 4 && g7.s.chords === 1 && g7.bl.every(b => b.chord === 'G7') && c.bl.every(b => b.chord === 'C') && !scale.ch.length && !slow.ch.length && !held.ch.length && c.s.chords === 1
+  const planks = r => r.s.pile.live.filter(k => k.b.kind === 'chord'), plank = planks(g7)[0], lone = planks(c)[0]; settle(c.s.pile, 2);
+  const glued = planks(c).length === 1 && lone.w === 3 && lone.b.parts.map(p => tuName(p.pc)).join(' ') === 'C E G' && c.s.pile.live.length === 1 && c.s.blocks === 3 && c.s.pile.live.every(k => k.rest)
+    && planks(g7).length === 1 && plank.w === 4 && plank.b.chord === 'G7' && plank.b.parts.map(p => tuName(p.pc)).join(' ') === 'G B D F' && g7.s.pile.live.length === 1 && g7.ch[1].ids[0] === plank.b.id
+    && planks(twice).length === 2 && planks(scale).length === 0 && scale.s.pile.live.length === 5;
+  const ok = glued && name(c) === 'C' && name(am) === 'Am' && name(g7) === 'G G7' && g7.ch[1].ids.length === 1 && g7.s.chords === 1 && g7.bl.every(b => b.chord === 'G7') && c.bl.every(b => b.chord === 'C') && !scale.ch.length && !slow.ch.length && !held.ch.length && c.s.chords === 1
     && name(twice) === 'C C' && twice.s.chords === 2
     && chordOf([60, 63, 67]).suffix === 'm' && chordOf([60, 64, 68]).suffix === '+' && chordOf([62, 65, 69, 72]) && chordOf([62, 65, 69, 72]).suffix === 'm7' && chordOf([60, 62]) === null && chordOf([60, 61, 62]) === null;
-  return { name: 'Tumble: three or four notes of one chord in a row are a chord outline', expect: 'C E G → C; A C E → Am; G B D, then F → G, then G7 (one chord, 4 blocks renamed); the blocks marked; the arpeggio twice → C twice; a scale, notes a second apart, or long notes name nothing',
-    got: 'C E G → ' + (name(c) || 'none') + ', A C E → ' + (name(am) || 'none') + ', G B D F → ' + (name(g7) || 'none') + ' (' + g7.s.chords + ' counted, marked ' + g7.bl.map(b => b.chord || '-').join(' ') + '), twice → ' + (name(twice) || 'none') + '; scale ' + scale.ch.length + ', slow ' + slow.ch.length + ', held ' + held.ch.length + '; marked ' + c.bl.map(b => b.chord || '-').join(' '), pass: ok }; } });
+  return { name: 'Tumble: three or four notes of one chord in a row are a chord outline', expect: 'C E G → C, the three blocks glued into one resting plank of 3 (still 3 blocks); A C E → Am; G B D, then F → G, then G7 (one chord, the plank of 3 and the F into one plank of 4); the arpeggio twice → C twice, two planks; a scale (5 blocks apart), notes a second apart, or long notes name nothing',
+    got: 'C E G → ' + (name(c) || 'none') + ' (' + planks(c).length + ' plank of ' + (lone ? lone.w + ': ' + lone.b.parts.map(p => tuName(p.pc)).join(' ') : '-') + ', ' + c.s.pile.live.length + ' in the pile, ' + c.s.blocks + ' blocks), A C E → ' + (name(am) || 'none') + ', G B D F → ' + (name(g7) || 'none') + ' (' + g7.s.chords + ' counted, ' + planks(g7).length + ' plank of ' + (plank ? plank.w + ' ' + plank.b.chord : '-') + ', ' + g7.s.pile.live.length + ' in the pile), twice → ' + (name(twice) || 'none') + ' (' + planks(twice).length + ' planks); scale ' + scale.ch.length + ' (' + scale.s.pile.live.length + ' blocks), slow ' + slow.ch.length + ', held ' + held.ch.length, pass: ok }; } });
 list.push({ name: 'Tumble: the plain pile stacks into a heap, inside the crate', run: () => {
   const p = new StackPile(), cube = (i, x) => ({ id: i, kind: 'note', pc: i % 12, oct: 4, units: 1, h: 1, x: x, chord: '' }); p.spawnY = 30;
   for (let i = 0; i < 24; i++) { p.add(cube(i, 10 + (i % 3) * 0.5)); settle(p, 0.4); }
@@ -66,14 +73,14 @@ list.push({ name: 'Tumble: the plain pile stacks into a heap, inside the crate',
 list.push({ name: 'Tumble: the goal line rises with the wall, and past walls are marked on the crate', run: () => {
   const s = new TumbleSim(); s.reset(1800, 13); s.pile.spawnY = 30; let play = 0, owed = 0;
   for (let t = 0; t < 150; t += DT) { play += DT; owed += 1.5 * DT; const n = Math.floor(owed + 1e-9); owed -= n; s.update(DT, { state: 'running', music: true, notes: n, midi: 55 + Math.floor(t * 3) % 24, play: play }); s.pile.step(DT); s.events.length = 0; }
-  const rate = s.perMin(), rateOk = rate > 0.3 && Math.abs(rate - s.surface / 2.5) < s.surface / 2.5 * 0.5;
+  const rate = s.perMin(), rateOk = rate > 0.3 && Math.abs(rate - s.surface / 2.5) < s.surface / 2.5 * 0.5, bpm = s.rate(), bpmOk = bpm >= 80 && bpm <= 100;   // 1.5 notes a second: about 90 blocks a minute
   const rec = h => ({ themes: { tumble: { blocks: 9, chords: 0, notes: [], height: h } } });
   const none = wallMarks([]), old = wallMarks([{ themes: { tumble: { blocks: 9 } } }, { themes: { rocket: {} } }, {}]), empty = wallMarks([rec(0)]);
   const two = wallMarks([rec(12), rec(30.5), rec(0), rec(18)]), one = wallMarks([rec(12), rec(18), rec(30.5)]), lone = wallMarks([rec(7)]);
   const str = m => m.map(x => x.k + '@' + x.y).join(' ');
-  const ok = rateOk && !none.length && !old.length && !empty.length && str(two) === 'last@18 best@30.5' && str(one) === 'best@30.5' && str(lone) === 'best@7';
-  return { name: 'Tumble: the goal line rises with the wall, and past walls are marked on the crate', expect: 'after 2½ minutes of playing the rise a minute is near the pile\'s own; marks from the log: none without a wall; walls of 12, 30.5, (none) and 18 → last 18 and tallest 30.5, lowest first; the last wall the tallest → one mark; a first wall → one',
-    got: 'rising ' + rate.toFixed(1) + ' a minute, the pile ' + s.surface.toFixed(1) + '; marks: ' + [none, old, empty].map(m => m.length).join('/') + ' with no wall, ' + str(two) + '; ' + str(one) + '; ' + str(lone), pass: ok }; } });
+  const ok = rateOk && bpmOk && !none.length && !old.length && !empty.length && str(two) === 'last@18 best@30.5' && str(one) === 'best@30.5' && str(lone) === 'best@7';
+  return { name: 'Tumble: the goal line rises with the wall, and past walls are marked on the crate', expect: 'after 2½ minutes of playing the rise a minute is near the pile\'s own and 80 to 100 blocks a minute; marks from the log: none without a wall; walls of 12, 30.5, (none) and 18 → last 18 and tallest 30.5, lowest first; the last wall the tallest → one mark; a first wall → one',
+    got: 'rising ' + rate.toFixed(1) + ' a minute, ' + bpm.toFixed(0) + ' blocks a minute, the pile ' + s.surface.toFixed(1) + '; marks: ' + [none, old, empty].map(m => m.length).join('/') + ' with no wall, ' + str(two) + '; ' + str(one) + '; ' + str(lone), pass: ok }; } });
 list.push({ name: 'Tumble: reaching the goal drops one trophy block', run: () => {
   const s = new TumbleSim(); s.reset(30, 17); const ev = []; let play = 0;
   for (let t = 0; t < 40; t += DT) { play += DT; s.update(DT, { state: 'running', music: true, notes: t % 0.5 < DT / 2 ? 1 : 0, midi: 64, play: play }); while (s.events.length) ev.push(s.events.shift()); }
@@ -87,10 +94,12 @@ list.push({ name: 'Tumble: a following device drops the blocks it is told about,
   for (const m of [60, 64, 67, 72]) note(a, m, 0.3, 0.1);
   const d1 = a.share(); b.follow(d1); b.follow(d1); const once = b.blocks; note(a, 74, 0.5, 0.1); const d2 = a.share(); b.follow(d2);
   b.update(DT, { state: 'running', music: true, notes: 1, midi: 60, play: 1, follow: true }); b.update(DT, { state: 'running', music: false, notes: 0, midi: null, play: 1, follow: true });
-  const same = b.pile.count === a.pile.count && b.pile.live.map(k => k.b.units + '@' + k.b.pc).join() === a.pile.live.map(k => k.b.units + '@' + k.b.pc).join();
-  const ok = once === 4 && b.blocks === 5 && same && b.chords === a.chords && a.chords === 1 && JSON.stringify(d2).length < 400 && b.pile.live.filter(k => k.b.chord).length === 3;
-  return { name: 'Tumble: a following device drops the blocks it is told about, each once', expect: 'the same 5 blocks (sizes, notes and the chord\'s gold) once each, however often it is told; the sound it hears drops nothing; under 400 bytes a share',
-    got: once + ' after twice the same share, ' + b.blocks + ' blocks, ' + b.chords + ' chords, ' + (same ? 'the same pile' : 'a different pile') + ', ' + JSON.stringify(d2).length + ' bytes', pass: ok }; } });
+  const shape = s => s.pile.live.map(k => k.b.units + '@' + (k.b.parts ? k.b.parts.map(p => p.pc).join('+') : k.b.pc)).sort().join(), same = shape(b) === shape(a);
+  const late = new TumbleSim(); late.reset(1800, 19); late.follow(d2);   // joins after the chord: told the plank, it never drops the three
+  const ok = once === 4 && b.blocks === 5 && same && b.chords === a.chords && a.chords === 1 && JSON.stringify(d2).length < 400 && b.pile.live.filter(k => k.b.kind === 'chord').length === 1 && b.pile.live.length === 3
+    && shape(late) === shape(a);
+  return { name: 'Tumble: a following device drops the blocks it is told about, each once', expect: 'the same 5 blocks (sizes, notes, and the chord\'s three glued into one plank) once each, however often it is told; a device joining after the chord builds the same pile; the sound it hears drops nothing; under 400 bytes a share',
+    got: once + ' after twice the same share, ' + b.blocks + ' blocks, ' + b.chords + ' chords, ' + (same ? 'the same pile' : 'a different pile: ' + shape(b) + ' vs ' + shape(a)) + (shape(late) === shape(a) ? ', the same joining late' : ', joining late: ' + shape(late)) + ', ' + JSON.stringify(d2).length + ' bytes', pass: ok }; } });
 list.push({ name: 'Tumble: what a session keeps', run: () => {
   const s = new TumbleSim(); s.reset(1800, 23); for (const m of [60, 64, 67]) note(s, m, 0.3, 0.1); const k = s.save();
   for (let i = 0; i < 60; i++) note(s, 48 + (i * 7) % 37, 0.3, 0.1);   // across the whole crate, so the wall has a height

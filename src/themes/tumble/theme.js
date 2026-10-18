@@ -1,5 +1,5 @@
 /* Tumble theme: every note played falls into a wooden crate as a toy block with its name on its face and piles up into a wall, the colour
-   of each note round the circle of fifths, the width how long it was held. Three notes of one chord in a row light up gold. The practice goal
+   of each note round the circle of fifths, the width how long it was held. Three notes of one chord in a row are glued into one plank. The practice goal
    is a gold line and reaching it drops a trophy block; past sessions' walls are marked on the crate like heights on a doorframe. The logic is
    TumbleSim (sim.js); the blocks tumble under a physics engine (pile.js, loaded when the theme is shown) or stack plainly until it loads;
    view.js draws it; this wires them to the page (docs/theme-modules.md). */
@@ -55,7 +55,7 @@ module.exports = {
       if (!v.music) return tr('The wall waits. Play a note');
       if (sim.goalDone) return tr('Goal reached. Every block from here is a bonus');
       if (v.pw < 0.3) return tr('Keep playing: every note is another block');
-      const tips = [tr('Low notes land on the left, high notes on the right'), tr('Hold a note for a longer plank'), tr('Three notes of one chord in a row light up gold')];
+      const tips = [tr('Low notes land on the left, high notes on the right'), tr('Hold a note for a longer plank'), tr('Three notes of one chord in a row join into one plank')];
       return tips[Math.floor(v.play / 20) % tips.length];
     }
     return {
@@ -78,13 +78,13 @@ module.exports = {
         if (f.shown) view.draw(dt, { st: v.st, music: v.music, goalText: tr('Goal') + ' ' + host.fmt(v.goal) });
         if (awardIn > 0) { awardIn -= dt; if (awardIn <= 0) host.award(); }
       },
-      /* the bar is the wall rising toward the goal; Blocks and Chords count the session's, Power the last minute of playing */
+      /* the bar is the wall rising toward the goal; Blocks and Chords count the session's, Blocks/min the last minute of playing */
       paint(v) {
         const text = host.text, fmt = host.fmt, p = v.goal > 0 ? v.play / v.goal : 0, playTxt = fmt(v.play), el = $('tuPlay'), cls = playTxt.length > 5 ? 'big long' : 'big';
         text(el, playTxt); if (el.className !== cls) el.className = cls;
         host.width($('tuBar'), p); text($('tuPct'), Math.min(100, Math.floor(p * 100)) + '%');
         text($('tuGoal'), fmt(v.goal)); host.showGoalLeft($('tuGoalLeft'), v); text($('tuPauses'), String(v.pauses));
-        text($('tuBlocks'), String(sim.blocks)); text($('tuChords'), String(sim.chords)); text($('tuPw'), Math.round(v.pw * 100) + '%'); text($('tuEff'), Math.round(v.eff * 100) + '%');
+        text($('tuBlocks'), String(sim.blocks)); text($('tuChords'), String(sim.chords)); text($('tuRate'), String(Math.round(sim.rate()))); text($('tuEff'), Math.round(v.eff * 100) + '%');
         text($('tuHeard'), host.heardLine(v));
         text($('tuHint'), hint(v));
       },

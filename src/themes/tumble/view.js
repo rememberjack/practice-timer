@@ -62,17 +62,24 @@ function makeTumbleView(cv, hud, sim, MT) {
     if (f.sub) { c.font = '600 ' + f.fs + 'px ' + FONT; c.textAlign = 'left'; c.fillText(f.name, -f.sw / 2, 0.6); c.font = '500 ' + (f.fs * 0.6) + 'px ' + FONT; c.fillText(f.sub, -f.sw / 2 + f.lw + 1, f.fs * 0.22); }
     else { c.font = '600 ' + f.fs + 'px ' + FONT; c.textAlign = 'center'; c.fillText(f.name, 0, 0.6); }
   }
-  /* a block at x, y (canvas px) turned by a (radians): painted wood, a light edge above and left, a dark one below and right, the name on the face;
-     gold for the trophy, a gold frame for a block in a chord outline, a little darker once settled deep in the wall */
+  /* a block at x, y (canvas px) turned by a (radians); a chord's plank is its blocks' faces side by side in one gold frame */
   function drawBlock(c, x, y, a, b, w, h, aged) {
-    c.save(); c.translate(x, y); if (a) c.rotate(a); const r = Math.min(4, h / 4);
-    rr(c, -w / 2, -h / 2, w, h, r); c.fillStyle = b.kind === 'trophy' ? GOLD : colour(b); c.fill();
-    c.fillStyle = 'rgba(255,255,255,.32)'; c.fillRect(-w / 2 + 1, -h / 2 + 1, w - 2, 1.5); c.fillRect(-w / 2 + 1, -h / 2 + 1, 1.5, h - 2);
-    c.fillStyle = 'rgba(0,0,0,.26)'; c.fillRect(-w / 2 + 1, h / 2 - 2.5, w - 2, 1.5); c.fillRect(w / 2 - 2.5, -h / 2 + 1, 1.5, h - 2);
-    if (b.chord) { c.strokeStyle = GOLD; c.lineWidth = 2; rr(c, -w / 2 + 2.5, -h / 2 + 2.5, w - 5, h - 5, Math.max(1, r - 1)); c.stroke(); }
-    face(c, b, w, h);
-    if (aged) { c.fillStyle = 'rgba(50,35,20,.16)'; rr(c, -w / 2, -h / 2, w, h, r); c.fill(); }
+    c.save(); c.translate(x, y); if (a) c.rotate(a);
+    if (b.parts) { let px = -w / 2; for (const p of b.parts) { const pw = p.units * ppu; paint(c, p, px + pw / 2, pw, h, aged, true); px += pw; }
+      c.strokeStyle = GOLD; c.lineWidth = 2; rr(c, -w / 2 + 1.5, -h / 2 + 1.5, w - 3, h - 3, 3); c.stroke(); }
+    else paint(c, b, 0, w, h, aged, false);
     c.restore();
+  }
+  /* one face, its middle dx from the block's: painted wood, a light edge above and left, a dark one below and right, the name on the face; gold for
+     the trophy, a gold frame for a block in a chord outline (a part of a plank shares the plank's), a little darker once settled deep in the wall */
+  function paint(c, b, dx, w, h, aged, part) {
+    const r = Math.min(4, h / 4), x0 = dx - w / 2, y0 = -h / 2;
+    rr(c, x0, y0, w, h, r); c.fillStyle = b.kind === 'trophy' ? GOLD : colour(b); c.fill();
+    c.fillStyle = 'rgba(255,255,255,.32)'; c.fillRect(x0 + 1, y0 + 1, w - 2, 1.5); c.fillRect(x0 + 1, y0 + 1, 1.5, h - 2);
+    c.fillStyle = 'rgba(0,0,0,.26)'; c.fillRect(x0 + 1, y0 + h - 2.5, w - 2, 1.5); c.fillRect(x0 + w - 2.5, y0 + 1, 1.5, h - 2);
+    if (b.chord && !part) { c.strokeStyle = GOLD; c.lineWidth = 2; rr(c, x0 + 2.5, y0 + 2.5, w - 5, h - 5, Math.max(1, r - 1)); c.stroke(); }
+    c.save(); c.translate(dx, 0); face(c, b, w, h); c.restore();
+    if (aged) { c.fillStyle = 'rgba(50,35,20,.16)'; rr(c, x0, y0, w, h, r); c.fill(); }
   }
 
   /* ---------- the settled wall: strips of canvas, CHU units tall, drawn once and kept ---------- */

@@ -141,10 +141,14 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
   blocks pile up into a wall. A block is one note: its colour is the note (twelve colours round the circle of fifths, `tuColour`, so the notes of
   one key are a family of colours and a wrong note stands out), its name is on its face (in the page's language: do, ré, mi in French), its width is
   how long the note was held (`TU.QUANT`: a unit a quarter second, up to `TU.MAXU` 8; a longer note drops planks in a row) and it falls in where the
-  pitch is, low notes on the left and high on the right (`pitchX`; the range widens for notes outside it). Only playing drops blocks: nothing while
+  pitch is, low notes on the left and high on the right (`pitchX`: the crate is three octaves wide, `TU.SPAN`, centred on the middle of the first
+  `TU.CENTRE_N` notes played, so a violin's wall and a cello's both stand in the middle; a note outside lands at the edge). Only playing drops blocks: nothing while
   quiet, paused or stopped. The microphone hears one note at a time, so chords are chord outlines: three or four notes of one chord played in a
-  row (`TU.CHORD_GAP`, `TU.CHORD_NOTE`; `chordOf`) light their blocks up gold, name the chord on a banner (G, Em, D7; a fourth note can grow a
-  named triad into a seventh) and count as Chords; the blocks themselves are never held back for it. The pile is the record of the session: the
+  row (`TU.CHORD_GAP`, `TU.CHORD_NOTE`; `chordOf`) are glued into one plank (`glue`: the blocks leave the pile and a plank of their faces, in the order
+  played and in one gold frame, drops in just over where they were; a following device is told the plank's parts), name the chord on a banner (G, Em, D7; a
+  fourth note can grow a named triad into a seventh, regluing the plank) and count as Chords; the blocks themselves are never held back for it. The
+  read-outs show Blocks, Chords, Blocks/min (the blocks dropped over the last minute of playing, `rate`; there is no Power figure, as nothing in the
+  scene follows it) and Efficiency. The pile is the record of the session: the
   practice goal is a gold line the wall reaches at the goal (placed by `perMin`, from the blocks' area); reaching it drops a trophy block, and the
   trophy card waits for it to land (`holdAward`, then `host.award()`). Past walls are pencilled on the crate like heights on a doorframe
   (`wallMarks`, from the heights each session keeps, set by the `restore` hook): "Last time" and "Tallest", a dashed line across the crate with a
