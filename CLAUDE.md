@@ -160,6 +160,8 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
 - The Home Screen (`#home`) shows when the app opens and after a finished session's summary is closed; its words come
   from `homeCopy` in `src/core.js`. No theme scene is drawn while it covers them. Its greeting, headline and line are picked from
   playful words for young players (`HOME_HELLO`, `HOME_WORDS`), new each time it shows; they must fit an iPhone SE without wrapping more.
+  Its theme chips (`#homeThemes`, `.hm-chips`) keep to one row that fits the screen: 44 px each while there is room, all narrowed alike when
+  there is not, so a new theme never pushes the last chip off the edge.
 - Debug tools (for the developer only) are their own sheet (`#dlgDebug`), opened by holding any Settings button for half a
   second, or by opening the page with `?debug` (`?debug=0` turns them off). Once opened, Settings shows a way back to them; that is
   kept in `musicTimer.debug`. The demo sound and the sound tests live there, not in Settings. Their sample data

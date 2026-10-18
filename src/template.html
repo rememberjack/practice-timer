@@ -549,8 +549,9 @@ input[type="text"]{width:100%; padding:11px 12px; border:1px solid var(--rule); 
 .hm-first li b{color:var(--ink); font-weight:600}
 .hm-with{display:flex; align-items:center; flex-wrap:wrap; gap:10px; color:var(--mute); font-size:14px}
 .hm-with b{color:var(--ink); font-weight:600}
-.hm-chips{display:flex; gap:6px}
-.hm-chips button{width:44px; height:44px; border-radius:12px; display:grid; place-items:center; color:var(--mute-2); background:none; border:0; box-shadow:inset 0 0 0 1px var(--rule)}
+/* one chip a theme, in one row that fits the screen: 44 px each while there is room, all narrowed alike when there is not (eight on an iPhone SE) */
+.hm-chips{display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0, 44px); gap:4px; max-width:100%; min-width:0}
+.hm-chips button{width:auto; min-width:0; height:44px; border-radius:12px; display:grid; place-items:center; color:var(--mute-2); background:none; border:0; box-shadow:inset 0 0 0 1px var(--rule)}
 .hm-chips svg{width:20px; height:20px}
 .hm-chips button[aria-pressed="true"]{color:var(--on-accent); background:var(--accent); box-shadow:none}
 .hm-foot{flex:none; padding:10px 0 16px}
