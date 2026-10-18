@@ -1,16 +1,19 @@
 /* Tumble's drawing: a wooden crate seen from the front, the blocks falling in from under the read-outs and piling up, the practice goal as a
    gold line, and the walls of past sessions marked on the crate like heights pencilled on a doorframe. What falls, and where, comes from TumbleSim
-   and its pile (sim.js, pile.js); this only draws them. The view follows the top of the pile up as the wall grows; a finger dragged up or down
-   the crate looks back through the layers, and the view goes back to following a moment later. Blocks deep in the wall are drawn once into
-   strips of canvas (the record of the session), so drawing stays cheap however long the session.
+   and its pile (sim.js, pile.js); this only draws them. The view follows the top of the pile up as the wall grows, in steps: it holds still
+   until the wall has grown a good step (BAND) and then eases up, never down by itself, so it does not bob with every block that lands; a
+   finger dragged up or down the crate looks back through the layers, and the view goes back to following a moment later. A block is a
+   twentieth of the crate's width, but never so big that fewer than MIN_VU rows show between the read-outs and the foot of the screen: on a
+   phone held sideways the blocks are smaller and the crate stands in the middle. Blocks deep in the wall are drawn once into strips of canvas
+   (the record of the session), so drawing stays cheap however long the session.
    MT: { TU, tuColour, label(b) (a block's face, in the page's language), markText(k) (a past wall's name: 'last', 'best'), unitsFor, reduceMotion } */
 'use strict';
 function makeTumbleView(cv, hud, sim, MT) {
   const g = cv.getContext('2d'), TU = MT.TU, RM = MT.reduceMotion;
   const INK = '#2A1F18', WOOD = '#D1A265', WOOD_DK = '#A3733C', WOOD_LT = '#ECC993', GOLD = '#F0C04A', BOX = '#1F2C33', PENCIL = 'rgba(243,238,230,.55)';
-  const WL = 12, WR = 22, CHU = 32, FONT = '"Fredoka", "Trebuchet MS", "Helvetica Neue", Arial, sans-serif';   // the walls, the strips of settled wall (units)
-  let W = 0, H = 0, dpr = 1, top = 0, IL = WL, IR = 0, IW = 0, ppu = 16, VU = 20;   // ppu: pixels to a block unit; VU: units from the floor line to the read-outs
-  let cam = -0.8, userCamUntil = 0, drag = null, chunks = {}, labels = 0;         // cam: the unit at the foot of the view (the floor sits 0.8 under it at first)
+  const WL = 12, WR = 22, CHU = 32, MIN_VU = 16, BAND = 1.5, FONT = '"Fredoka", "Trebuchet MS", "Helvetica Neue", Arial, sans-serif';   // the walls, the strips of settled wall (units), the rows that always fit, the step the wall grows before the view follows
+  let W = 0, H = 0, dpr = 1, top = 0, IL = WL, IR = 0, IW = 0, ppu = 16, VU = 20;   // ppu: pixels to a block unit; VU: units from the floor line to the read-outs; IL..IR: the inside of the crate
+  let cam = -0.8, camTo = null, returning = false, userCamUntil = 0, drag = null, chunks = {}, labels = 0;   // cam: the unit at the foot of the view (the floor sits 0.8 under it at first); camTo: where it is easing to
   const confetti = [], sparks = [];
   const sy = y => H - (y - cam) * ppu, sx = x => IL + x * ppu;
 
@@ -18,18 +21,20 @@ function makeTumbleView(cv, hud, sim, MT) {
     const host = cv.parentElement, w = host.clientWidth, h = host.clientHeight; if (w < 10 || h < 10) return false;
     dpr = Math.min(2, window.devicePixelRatio || 1); W = w; H = h; top = Math.min(h * 0.55, hud.offsetTop + hud.offsetHeight) + 6;
     const cw = Math.round(w * dpr), ch = Math.round(h * dpr); if (cv.width !== cw || cv.height !== ch) { cv.width = cw; cv.height = ch; }
-    IL = WL; IR = W - WR; IW = IR - IL; const was = ppu; ppu = IW / TU.COLS; VU = (H - top) / ppu;
+    const was = ppu; ppu = Math.min((W - WL - WR) / TU.COLS, (H - top) / MIN_VU); IW = ppu * TU.COLS; IL = Math.round((W - IW) / 2); IR = IL + IW; VU = (H - top) / ppu;
     if (Math.abs(was - ppu) > 0.01) chunks = {};   // the settled wall is drawn again at the new size
     return true;
   }
-  function reset() { cam = -0.8; userCamUntil = 0; drag = null; chunks = {}; confetti.length = 0; sparks.length = 0; }
+  function reset() { cam = -0.8; camTo = null; returning = false; userCamUntil = 0; drag = null; chunks = {}; confetti.length = 0; sparks.length = 0; }
   function relabel() { chunks = {}; labels++; }   // the language changed: the faces are written again
 
-  /* ---------- the view's place ---------- */
+  /* ---------- the view's place: it follows the wall up in steps, and comes back to it after the player has looked about ---------- */
   const floorCam = () => -0.8, follow = () => Math.max(floorCam(), sim.surface - 0.4 * VU);
   function camera(dt) {
     if ((drag && drag.on) || performance.now() < userCamUntil) return;
-    const t = follow(); cam += (t - cam) * Math.min(1, dt * 3); if (Math.abs(t - cam) < 0.002) cam = t;
+    const t = follow();
+    if (returning) { returning = false; camTo = t; } else if (camTo == null) { if (t < cam + BAND) return; camTo = t; } else if (t > camTo) camTo = t;
+    cam += (camTo - cam) * Math.min(1, dt * 3); if (Math.abs(camTo - cam) < 0.002) { cam = camTo; camTo = null; }
   }
   const clampCam = y => Math.max(floorCam(), Math.min(sim.surface + 0.5 * VU, y));
   /* a finger (or mouse) dragged up or down the crate looks back through the wall; a sideways drag is the page's swipe to another theme, which
@@ -40,9 +45,9 @@ function makeTumbleView(cv, hud, sim, MT) {
     if (!drag.on) { if (Math.abs(dy) > 14 && Math.abs(dy) > Math.abs(dx) * 1.3) drag.on = true; else if (Math.abs(dx) > 10) { drag = null; return; } else return; }
     cam = clampCam(drag.cam + dy / ppu);
   });
-  const lift = e => { if (!drag || e.pointerId !== drag.id) return; if (drag.on) userCamUntil = performance.now() + 2500; drag = null; };
+  const lift = e => { if (!drag || e.pointerId !== drag.id) return; if (drag.on) { userCamUntil = performance.now() + 2500; returning = true; } drag = null; };
   window.addEventListener('pointerup', lift); window.addEventListener('pointercancel', lift);
-  cv.addEventListener('wheel', e => { if (Math.abs(e.deltaY) < Math.abs(e.deltaX)) return; e.preventDefault(); cam = clampCam(cam + e.deltaY / ppu); userCamUntil = performance.now() + 2500; }, { passive: false });
+  cv.addEventListener('wheel', e => { if (Math.abs(e.deltaY) < Math.abs(e.deltaX)) return; e.preventDefault(); cam = clampCam(cam + e.deltaY / ppu); userCamUntil = performance.now() + 2500; returning = true; }, { passive: false });
 
   /* ---------- the blocks ---------- */
   function hexRgb(h) { return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]; }
@@ -105,7 +110,7 @@ function makeTumbleView(cv, hud, sim, MT) {
   function tick(dt) {
     if (!W && !resize()) return;
     camera(dt);
-    sim.pile.spawnY = follow() + VU - 1;   // blocks fall in from just under the read-outs
+    sim.pile.spawnY = Math.max(cam, follow()) + VU - 1;   // blocks fall in from just under the read-outs (or over the wall, while the player looks lower down)
     sim.pile.step(dt);
     const out = sim.pile.settleBelow(Math.min(cam, follow()) - 1); if (out.length) settled(out);
   }
@@ -133,10 +138,10 @@ function makeTumbleView(cv, hud, sim, MT) {
     g.fillStyle = PENCIL; g.textAlign = 'right';
     marks.forEach((m, i) => { const under = i + 1 < marks.length && marks[i + 1].y - m.y < 1.6; g.textBaseline = under ? 'top' : 'bottom'; g.fillText(MT.markText(m.k), IR - 6, sy(m.y) + (under ? 3 : -3)); });
     /* the walls and the floor, over the blocks' edges, with the grain and the ruler's figures */
-    g.fillStyle = WOOD; g.fillRect(0, 0, WL, H); g.fillRect(IR, 0, WR, H);
-    g.fillStyle = WOOD_LT; g.fillRect(WL - 2, 0, 2, H); g.fillRect(IR, 0, 2, H);
-    g.strokeStyle = 'rgba(120,80,30,.22)'; for (let i = 0; i < 3; i++) { line(3 + i * 3, 0, 3 + i * 3, H); line(IR + 7 + i * 4, 0, IR + 7 + i * 4, H); }
-    if (bot < 0) { const fy = sy(0); g.fillStyle = WOOD_DK; g.fillRect(0, fy, W, H - fy + 2); g.fillStyle = WOOD_LT; g.fillRect(0, fy, W, 2); }
+    g.fillStyle = WOOD; g.fillRect(IL - WL, 0, WL, H); g.fillRect(IR, 0, WR, H);
+    g.fillStyle = WOOD_LT; g.fillRect(IL - 2, 0, 2, H); g.fillRect(IR, 0, 2, H);
+    g.strokeStyle = 'rgba(120,80,30,.22)'; for (let i = 0; i < 3; i++) { line(IL - WL + 3 + i * 3, 0, IL - WL + 3 + i * 3, H); line(IR + 7 + i * 4, 0, IR + 7 + i * 4, H); }
+    if (bot < 0) { const fy = sy(0); g.fillStyle = WOOD_DK; g.fillRect(IL - WL, fy, IW + WL + WR, H - fy + 2); g.fillStyle = WOOD_LT; g.fillRect(IL - WL, fy, IW + WL + WR, 2); }
     g.fillStyle = 'rgba(42,31,24,.8)'; for (const m of marks) g.fillRect(IR + 2, sy(m.y) - 0.75, 10, 1.5);   // a pencil mark on the wall at each past wall's height
     if (gOn) { const y = sy(gy); g.fillStyle = GOLD; g.beginPath(); g.moveTo(IR + 4, y); g.lineTo(IR + 11, y - 5); g.lineTo(IR + 18, y); g.lineTo(IR + 11, y + 5); g.closePath(); g.fill(); }
     /* confetti at the goal, sparks on a chord outline (in units; they fall with the view) */
@@ -146,7 +151,7 @@ function makeTumbleView(cv, hud, sim, MT) {
       if (p.life <= 0) { sparks.splice(i, 1); continue; } g.globalAlpha = Math.max(0, p.life / 0.7); g.fillStyle = GOLD; g.fillRect(sx(p.x) - 1.5, sy(p.y) - 1.5, 3, 3); }
     g.globalAlpha = 1;
     /* the hopper under the read-outs: a shadow, and the note being held, growing wider for as long as it sounds, where it will fall */
-    const hy = sy(sim.pile.spawnY), grad = g.createLinearGradient(0, top - 6, 0, top + 2 * ppu); grad.addColorStop(0, 'rgba(0,0,0,.3)'); grad.addColorStop(1, 'rgba(0,0,0,0)');
+    const hy = top + ppu, grad = g.createLinearGradient(0, top - 6, 0, top + 2 * ppu); grad.addColorStop(0, 'rgba(0,0,0,.3)'); grad.addColorStop(1, 'rgba(0,0,0,0)');
     g.fillStyle = grad; g.fillRect(IL, top - 6, IW, 2 * ppu + 6);
     const cur = sim.cur;
     if (cur && o.st === 'running' && o.music) { const units = MT.unitsFor(sim.t - cur.start), w = units * ppu, x = Math.max(IL + w / 2 + 1, Math.min(IR - w / 2 - 1, sx(cur.x)));
