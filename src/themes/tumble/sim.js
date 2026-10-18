@@ -35,8 +35,9 @@ const COLOUR = []; FIFTHS.forEach((pc, i) => { COLOUR[pc] = PALETTE[i]; });
 const pcOf = m => ((Math.round(m) % 12) + 12) % 12;
 function tuColour(pc) { return COLOUR[pcOf(pc)]; }
 function tuName(pc) { return NOTE_NAMES[pcOf(pc)]; }
-/* chords by their intervals from the root; the lead-sheet symbol after the root's name */
-const CHORDS = [['', [0, 4, 7]], ['m', [0, 3, 7]], ['°', [0, 3, 6]], ['+', [0, 4, 8]], ['sus2', [0, 2, 7]], ['sus4', [0, 5, 7]],
+/* chords by their intervals from the root; the lead-sheet symbol after the root's name. No suspended chords: a melody stepping through A, B, E
+   (or A, D, E) is a tune, not an Asus2, and naming it one puzzled the player */
+const CHORDS = [['', [0, 4, 7]], ['m', [0, 3, 7]], ['°', [0, 3, 6]], ['+', [0, 4, 8]],
   ['7', [0, 4, 7, 10]], ['maj7', [0, 4, 7, 11]], ['m7', [0, 3, 7, 10]], ['°7', [0, 3, 6, 9]], ['ø7', [0, 3, 6, 10]], ['6', [0, 4, 7, 9]], ['m6', [0, 3, 7, 9]]];
 /* the chord the notes (key numbers) spell, { root (0..11), suffix }, or null; the lowest note is tried as the root first */
 function chordOf(midis) {
