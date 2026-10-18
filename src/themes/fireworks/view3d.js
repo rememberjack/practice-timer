@@ -224,20 +224,33 @@ function makeFirework3D(cv, hud, MT) {
 
   /* a shell from the core: {x, h, size, hue, hue2, kind, finale}. It bursts where the flat drawing would put it on the screen, at a depth of its own */
   const ray = new V(), cam = new V(), fwd = new V();
+  /* the size of a burst on the screen, in the world at the shell's depth (per: world units a pixel there) */
+  const SYM = (Hf, size) => Math.min(0.14 * Hf, 0.27 * W) * (0.85 + 0.25 * Math.min(1, size));   // a symbol's size on the screen
+  const sizeR = (e, per) => (e.kind === 'trophy' ? Math.min(0.25 * (H - top), 0.48 * W) : e.kind === 'symbol' ? SYM(H - top, e.size) : (0.065 + 0.11 * e.size) * Math.min(W, (H - top) * 1.1)) * per;   // kept small beside the town's houses
+  /* {k:'shell'} goes up and bursts by itself (the finale, and the shows before the start); {k:'launch'} goes up and waits for a note to set it off
+     ({k:'burst'}), or fades and falls ({k:'fizzle'}) */
   function launch(e) {
     if (!W && !resize()) return;
     placeCamera();
-    const trophy = e.kind === 'trophy', symbol = e.kind === 'symbol', Hf = H - top, Spx = symbol ? Math.min(0.2 * Hf, 0.38 * W) * (0.85 + 0.25 * Math.min(1, e.size)) : 0;
+    const wait = e.k === 'launch', trophy = e.kind === 'trophy', symbol = e.kind === 'symbol', Hf = H - top, Spx = symbol ? SYM(Hf, e.size) : 0;
     let py = trophy ? top + Hf * 0.36 : top + (1 - e.h) * Hf * 0.64, nx = trophy ? 0 : (e.x * 2 - 1) * 0.86, d = trophy ? 130 : rnd(85, 165);   // the trophy goes up in the middle of the sky
     if (symbol) { py = Math.max(top + Spx * 0.95, Math.min(top + Hf * 0.69 - Spx * 0.85, py)); const lim = Math.max(0, 1 - 1.8 * Spx / W); nx = Math.max(-lim, Math.min(lim, nx)); }   // a symbol stays whole in the sky
     ray.set(nx, 1 - 2 * py / H, 0.5).unproject(camera); cam.copy(camera.position); ray.sub(cam).normalize();
     const at = cam.clone().addScaledVector(ray, d), depth = d * ray.dot(camera.getWorldDirection(fwd));   // d away along the ray; its depth in front of the camera
     at.y = Math.max(14, at.y);
-    const per = 2 * depth * TANF / ((H - top) * SHIFT), R = (trophy ? Math.min(0.29 * (H - top), 0.55 * W) : symbol ? Spx : (0.12 + 0.2 * e.size) * Math.min(W, (H - top) * 1.1)) * per;   // the burst's size on the screen, in the world at that depth
+    const per = 2 * depth * TANF / ((H - top) * SHIFT), R = sizeR(wait ? { size: 0.8 } : e, per) * (wait ? 1.6 : 1);   // the burst's size on the screen, in the world at that depth
     const sx = trophy || symbol ? 0 : rnd(-4, 4);
-    rockets.push({ p: new V(at.x + sx, 0.6, at.z), from: new V(at.x + sx, 0.6, at.z), to: at, t: 0, dur: 0.8 + 0.55 * e.h + Math.random() * 0.15, e: e, R: R });
+    rockets.push({ p: new V(at.x + sx, 0.6, at.z), from: new V(at.x + sx, 0.6, at.z), to: at, t: 0, dur: 0.8 + 0.55 * e.h + Math.random() * 0.15, e: e, R: R, per: per, id: wait ? e.id : 0, wait: wait });
   }
-  function event(e) { if (e.k === 'shell') launch(e); else if (e.k === 'finale' && !RM) flash.setRGB(0.12, 0.1, 0.08); }
+  function event(e) {
+    if (e.k === 'shell' || e.k === 'launch') launch(e);
+    else if (e.k === 'burst') {                                         // a note sets a shell off where it is, rising or waiting
+      let i = rockets.findIndex(r => r.id === e.id);
+      if (i < 0) { const n = rockets.length; launch(Object.assign({}, e, { k: 'launch' })); if (rockets.length === n) return; i = rockets.length - 1; rockets[i].p.copy(rockets[i].to); }   // one sent up before the theme was on screen bursts where it would be
+      const r = rockets.splice(i, 1)[0]; r.e = e; r.R = sizeR(e, r.per); r.to = r.p.clone(); burst(r);
+    } else if (e.k === 'fizzle') { const r = rockets.find(q => q.id === e.id); if (r) { r.fz = 0; r.vy = 0; } }
+    else if (e.k === 'finale' && !RM) flash.setRGB(0.12, 0.1, 0.08);
+  }
   function spark(p) { if (sparks.length < MAX) sparks.push(p); }
   const unit = () => { const z = Math.random() * 2 - 1, a = Math.random() * TAU, r = Math.sqrt(1 - z * z); return new V(Math.cos(a) * r, z, Math.sin(a) * r); };
   const hsl = (h, s, l) => tmp.setHSL(h / 360, s / 100, l / 100).clone();
@@ -246,7 +259,7 @@ function makeFirework3D(cv, hud, MT) {
     const e = r.e, o = r.to, R = r.R, n = (RM ? 0.45 : 1) * (0.6 + 0.5 * Math.min(1.2, e.size)), two = e.hue2 >= 0, ca = hsl(e.hue, 100, 58), cb = two ? hsl(e.hue2, 100, 58) : ca;
     const gold = hsl(40, 92, 52), add = (dir, sp, q) => spark(Object.assign({ x: o.x, y: o.y, z: o.z, vx: dir.x * sp, vy: dir.y * sp, vz: dir.z * sp, t: 0 }, q));
     const ball = (N, k, g, life, s, tr, c, extra) => { for (let i = 0; i < N; i++) add(unit(), R * k * (0.93 + Math.random() * 0.1), Object.assign({ k: k, g: g, life: life * (0.85 + Math.random() * 0.3), s: s, tr: tr, c: c === 'two' ? (i % 2 ? cb : ca) : c }, extra)); };
-    const s0 = R * 0.035;   // a star's size, in the world
+    const s0 = (e.kind === 'trophy' ? R * 0.035 : R * 0.05);   // a star's size, in the world
     if (e.kind === 'trophy' || e.kind === 'symbol') {   // a shape facing the viewer: the finale's gold trophy, or a musical symbol in the note's colour; it opens, holds a moment, then falls
       const right = new V().setFromMatrixColumn(camera.matrixWorld, 0), up = new V().setFromMatrixColumn(camera.matrixWorld, 1), k = 2.4, trophy = e.kind === 'trophy', pale = hsl(48, 100, 80), c = trophy ? hsl(44, 95, 58) : hsl(e.hue, 100, 62);
       const at = (px, py, q) => { const d = right.clone().multiplyScalar(px * R).addScaledVector(up, py * R); sparks.push(Object.assign({ x: o.x, y: o.y, z: o.z, vx: d.x * k, vy: d.y * k, vz: d.z * k, k: k, g: R * 0.35, hold: trophy ? 1.8 : 1.4, t: 0, life: trophy ? 3.6 : 3, s: s0 * 1.5, tr: 0.05, c: c, glit: true }, q)); };
@@ -285,10 +298,19 @@ function makeFirework3D(cv, hud, MT) {
     if ((v.st === 'idle' || v.st === 'stopped') && !rockets.length) { idleT -= dt; if (idleT <= 0) { idleT = 2.6 + Math.random() * 1.6;   // a small shell now and then before the start and after the end
       launch({ x: 0.2 + Math.random() * 0.6, h: 0.45 + Math.random() * 0.3, size: 0.35, hue: Math.floor(Math.random() * 12) * 30, hue2: -1, kind: Math.random() < 0.5 ? 'peony' : 'ring' }); } }
     for (let i = rockets.length - 1; i >= 0; i--) { const r = rockets[i]; r.t += dt; const p = Math.min(1, r.t / r.dur), q = 1 - (1 - p) * (1 - p);
-      r.p.lerpVectors(r.from, r.to, q);
-      if (!RM || Math.random() < 0.3) spark({ x: r.p.x + rnd(-0.3, 0.3), y: r.p.y - 0.5, z: r.p.z + rnd(-0.3, 0.3), vx: rnd(-1, 1), vy: rnd(-4, -1), vz: rnd(-1, 1), k: 2, g: -3, t: 0, life: rnd(0.35, 0.6), s: r.R * 0.025, tr: 0, c: hsl(34, 100, 62) });
-      spark({ x: r.p.x, y: r.p.y, z: r.p.z, vx: 0, vy: 0, vz: 0, k: 0, g: 0, t: 0, life: dt * 0.5, s: r.R * 0.05, tr: 0, c: hsl(40, 100, 80) });   // the shell itself, for one frame
-      if (p >= 1) { rockets.splice(i, 1); burst(r); } }
+      if (r.fz != null) {                                               // no note set it off: it fades as it falls
+        r.fz += dt; r.vy += r.R * 0.4 * dt; r.p.y -= r.vy * dt; const a = 1 - r.fz / 1.5; if (a <= 0 || r.p.y < 0.5) { rockets.splice(i, 1); continue; }
+        if (!RM && Math.random() < dt * 8) spark({ x: r.p.x, y: r.p.y, z: r.p.z, vx: rnd(-0.5, 0.5), vy: -1, vz: rnd(-0.5, 0.5), k: 2, g: r.R * 0.2, t: 0, life: 0.4, s: r.R * 0.02, tr: 0, c: hsl(30, 80, 40) });
+        spark({ x: r.p.x, y: r.p.y, z: r.p.z, vx: 0, vy: 0, vz: 0, k: 0, g: 0, t: 0, life: dt * 1.5, s: r.R * 0.04, tr: 0, c: hsl(36, 90, 70 * a) }); continue;
+      }
+      if (p < 1) { r.p.lerpVectors(r.from, r.to, q);
+        if (!RM || Math.random() < 0.3) spark({ x: r.p.x + rnd(-0.3, 0.3), y: r.p.y - 0.5, z: r.p.z + rnd(-0.3, 0.3), vx: rnd(-1, 1), vy: rnd(-4, -1), vz: rnd(-1, 1), k: 2, g: -3, t: 0, life: rnd(0.35, 0.6), s: r.R * 0.025, tr: 0, c: hsl(34, 100, 62) }); }
+      else if (r.wait) { r.p.copy(r.to); if (!RM) r.p.y += Math.sin(clock * 1.7 + r.id) * r.R * 0.03;   // waiting for a note: an ember that hovers and flickers
+        if (!RM && Math.random() < dt * 14) spark({ x: r.p.x + rnd(-0.4, 0.4), y: r.p.y - 0.3, z: r.p.z, vx: rnd(-0.6, 0.6), vy: rnd(-3, -1), vz: rnd(-0.6, 0.6), k: 2, g: r.R * 0.15, t: 0, life: 0.7, s: r.R * 0.03, tr: 0.04, c: hsl(36, 100, 60), glit: true });
+        const pulse = RM ? 0.8 : 0.65 + 0.35 * Math.sin(clock * 6 + r.id * 2);
+        spark({ x: r.p.x, y: r.p.y, z: r.p.z, vx: 0, vy: 0, vz: 0, k: 0, g: 0, t: 0, life: dt * 1.5, s: r.R * 0.3, tr: 0, c: hsl(34, 100, 58 * pulse) }); }   // its glow
+      spark({ x: r.p.x, y: r.p.y, z: r.p.z, vx: 0, vy: 0, vz: 0, k: 0, g: 0, t: 0, life: dt * 1.5, s: r.R * (r.wait && p >= 1 ? 0.09 : 0.05), tr: 0, c: hsl(42, 100, 82) });   // the shell itself, for one frame
+      if (p >= 1 && !r.wait) { rockets.splice(i, 1); burst(r); } }
     // move and fill the buffers
     let nh = 0, nl = 0; const kf = {};
     for (let i = sparks.length - 1; i >= 0; i--) { const p = sparks[i]; p.t += dt;

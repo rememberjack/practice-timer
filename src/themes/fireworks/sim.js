@@ -1,18 +1,20 @@
 'use strict';
 const { seededRng } = require('../../core.js');
-/* Fireworks: every note played sends a shell up into the night. Pure logic, no DOM: view.js and view3d.js draw it, tests.js checks it.
-   A note starting launches a shell. Its colour is the note (the twelve notes are twelve colours, a fifth apart round the colour wheel, so the
-   notes of a scale all look different) and its height is how high the note is. The last minute of playing (Session.recentEfficiency) sets how
-   intense the show is, shown as Intensity: how many shells are in the sky at once, how big they are, and which kinds go up (small round ones at
-   first, rings and chrysanthemums, then willows, palms and crossettes). While the music plays the show keeps a pace of PACE shells a second at
-   full intensity: every note sends one up, and when the notes come slower than the pace, more go up in the colour of the note sounding (so a
-   held note keeps the sky busy too). Only playing sends shells up: nothing goes up while quiet, paused or stopped. Fast runs cannot flood the
-   sky: shells go up at most RATE + PER x intensity a second, and the notes over that make the next shell bigger. Reaching the practice goal sets
-   off a grand finale once: FINALE shells over FINALE_T seconds, the last one bursting into the shape of a trophy (fwTrophyShape), then a
-   'finaleEnd' event TROPHY_T seconds later, when the trophy card can show. The finale only plays while the theme is on screen (shown), so it waits
-   for the player to come to it, and it holds through a pause like the clock. Now and then (SYMBOL) a shell bursts into a musical symbol
-   (fwSymbolShape) in the colour of its note. The views only draw what this decides. */
-const FW = { PACE: 3, RATE: 1, PER: 4, BURST: 2, BURSTPER: 3, AIR: 3.5, CHARGE: 0.15, FINALE: 28, FINALE_T: 7, LULL: 1.4, TROPHY_T: 3.6, SYMBOL: 0.13, SYMBOL_GAP: 6,   // SYMBOL: the chance a shell bursts into a musical symbol, at most one every SYMBOL_GAP s   // LULL: the quiet before the trophy goes up   // AIR: about how long a shell is in the sky, rising and burning
+/* Fireworks: shells rise while you play, and every note sets one off. Pure logic, no DOM: view.js and view3d.js draw it, tests.js checks it.
+   While the music plays, shells go up and wait in the sky as glowing embers: a pace of PACE shells a second at full intensity (FLOOR at the
+   least), up to AIRMAX + AIRPER x intensity waiting at once. The last minute of playing (Session.recentEfficiency) is that intensity, shown as
+   Intensity. Each note starting sets off the shell in the sky (waiting, or READY of the way up) whose height is nearest the note's (low notes the low ones,
+   high notes the high ones), and it bursts in the note's colour (the twelve notes are twelve colours, a fifth apart round the colour wheel,
+   so the notes of a scale all look different), its size and kind from the intensity (small round ones at first, rings and chrysanthemums, then
+   willows, palms and crossettes). A note with no shell ready makes the next burst bigger. A shell no note sets off for WAIT seconds fades
+   and falls. When the music starts a shell goes up at once, so the first note has something to set off. Nothing goes up while quiet; a pause
+   holds everything where it is; stopping lets every waiting shell fall. Now and then (SYMBOL) a burst takes the shape of a musical symbol
+   (fwSymbolShape). Reaching the practice goal sets off a grand finale once: FINALE shells over FINALE_T seconds that burst by themselves, the
+   last into the shape of a trophy (fwTrophyShape), then a 'finaleEnd' event TROPHY_T seconds later, when the trophy card can show. The finale
+   only plays while the theme is on screen (shown), so it waits for the player to come to it, and it holds through a pause like the clock.
+   Events: {k:'launch', id, x, h}, {k:'burst', id, x, h, size, hue, hue2, kind, pc, symbol}, {k:'fizzle', id}, and for the finale {k:'finale'},
+   {k:'shell', ...} (goes up and bursts by itself) and {k:'finaleEnd'}. The views only draw what this decides. */
+const FW = { PACE: 3, FLOOR: 0.5, AIRMAX: 3, AIRPER: 7, WAIT: 5, READY: 0.8, AIR: 3.5, CHARGE: 0.15, FINALE: 28, FINALE_T: 7, LULL: 1.4, TROPHY_T: 3.6, SYMBOL: 0.13, SYMBOL_GAP: 6,
   KINDS: [[0, 'peony'], [0.3, 'ring'], [0.3, 'chrysanthemum'], [0.6, 'willow'], [0.6, 'palm'], [0.6, 'crossette']] };   // [intensity needed, kind]
 function fwHue(pc) { return ((pc * 7) % 12) * 30; }                            // C red, G orange, D yellow, A lime, E green... round the circle of fifths
 /* the finale's last burst: points along the outline of a trophy (the cup, its two handles, the stem and the base), about step apart, in units where
@@ -70,26 +72,33 @@ class FireworkSim {
   constructor() { this.reset(0, 1); }
   reset(goal, seed) {
     this.goal = goal || 0; this.seed = seed || 1; this.rnd = seededRng(this.seed);
-    this.shells = 0; this.notes = 0; this.tokens = FW.BURST; this.charge = 0; this.due = 0; this.lastHue = -1; this.t = 0; this.up = []; this.symbolAt = -1e9; this.symbol = '';
+    this.shells = 0; this.notes = 0; this.charge = 0; this.due = 0; this.lastHue = -1; this.t = 0; this.up = []; this.symbolAt = -1e9; this.symbol = '';
+    this.air = []; this.nid = 0; this.clock = 0; this.was = false; this.intensity = 0;                // the shells in the sky, each {id, x, h, at (clock when sent), rise (s)}
     this.finaleDone = false; this.finaleLeft = 0; this.finaleT = 0; this.finaleOn = false; this.events = [];
   }
   get colours() { let n = 0; for (let b = this.notes; b; b &= b - 1) n++; return n; }   // how many of the twelve notes have gone up
   get inFinale() { return this.finaleOn; }
-  get aloft() { return this.up.length; }                                   // the player's shells sent up in the last AIR seconds: about how many are in the sky now
+  get aloft() { return this.air.length + this.up.length; }                    // about how many are in the sky now: waiting, and set off in the last AIR seconds
+  get cap() { return FW.AIRMAX + FW.AIRPER * this.intensity; }
   /* i: {state, music, notes (note starts since the last update), midi (the pitch heard, fractional key number, or null), recent (last minute, 0..1), play (s),
      shown (the theme is on screen)} */
   update(dt, i) {
-    const recent = Math.max(0, Math.min(1, i.recent || 0)), running = i.state === 'running';
+    const recent = this.intensity = Math.max(0, Math.min(1, i.recent || 0)), running = i.state === 'running';
     this.t += dt; while (this.up.length && this.t - this.up[0] > FW.AIR) this.up.shift();
-    this.tokens = Math.min(FW.BURST + FW.BURSTPER * recent, this.tokens + dt * (FW.RATE + FW.PER * recent));
-    if (running && i.music) {
-      let n = i.notes || 0;
-      this.due += dt * FW.PACE * recent;                                        // the pace the intensity asks for; the notes played count toward it
-      while (n > 0 && this.tokens >= 1) { this.launch(i.midi, recent); this.due = Math.max(-2, this.due - 1); n--; }   // notes ahead of the pace hold the extra shells back a little
-      if (n > 0) this.charge = Math.min(1, this.charge + n * FW.CHARGE);         // too many notes for the sky: the next shell goes up bigger
-      while (this.due >= 1 && this.tokens >= 1) { this.launch(i.midi, recent); this.due -= 1; }
-      this.due = Math.min(this.due, 2);
-    } else this.due = 0;
+    if (running) {
+      this.clock += dt;
+      if (i.music) {
+        this.due += dt * Math.max(FW.FLOOR, FW.PACE * recent);
+        if (!this.was && !this.air.length) this.due = Math.max(this.due, 1);   // the music starts: a shell goes up at once
+        while (this.due >= 1 && this.air.length < this.cap) { this.send(); this.due -= 1; }
+        this.due = Math.min(this.due, 1);
+        let n = i.notes || 0;
+        while (n > 0 && this.air.some(a => this.ready(a))) { this.burst(i.midi, recent); n--; }
+        if (n > 0) this.charge = Math.min(1, this.charge + n * FW.CHARGE);         // notes with nothing ready in the sky: the next burst is bigger
+      }
+      for (let k = this.air.length - 1; k >= 0; k--) { const a = this.air[k]; if (this.clock - a.at > a.rise + FW.WAIT) { this.air.splice(k, 1); this.events.push({ k: 'fizzle', id: a.id }); } }
+    } else if (i.state !== 'paused') { for (const a of this.air) this.events.push({ k: 'fizzle', id: a.id }); this.air.length = 0; }   // a pause holds them; stopping lets them fall
+    this.was = running && !!i.music;
     if (running && !this.finaleDone && this.goal > 0 && i.play >= this.goal) { this.finaleDone = true; this.finaleOn = true; this.finaleLeft = FW.FINALE; this.finaleT = 0; }
     if (running && i.shown && this.finaleOn) {                                   // the finale waits for the theme to be on screen, and holds through a pause
       if (this.finaleT === 0) this.events.push({ k: 'finale' });
@@ -104,16 +113,25 @@ class FireworkSim {
       if (this.finaleLeft === 0 && this.finaleT >= FW.FINALE_T + FW.TROPHY_T) { this.finaleOn = false; this.events.push({ k: 'finaleEnd' }); }
     }
   }
-  launch(midi, recent) {
+  /* a shell goes up to wait; rise is about how long it takes to get there, as the renderers draw it */
+  send() {
+    const r = this.rnd, h = 0.4 + r() * 0.45, a = { id: ++this.nid, x: 0.15 + r() * 0.7, h: h, at: this.clock, rise: 0.8 + 0.55 * h };
+    this.air.push(a); this.events.push({ k: 'launch', id: a.id, x: a.x, h: a.h });
+  }
+  /* a shell a note can set off: nearly at the top of its climb (READY of the way), so a burst never happens down among the roofs */
+  ready(a) { return this.clock - a.at >= a.rise * FW.READY; }
+  /* a note sets off the ready shell nearest its height, in its colour */
+  burst(midi, recent) {
     const r = this.rnd, known = midi != null && isFinite(midi), pc = known ? ((Math.round(midi) % 12) + 12) % 12 : Math.floor(r() * 12), hue = fwHue(pc);
-    const kinds = FW.KINDS.filter(k => recent >= k[0]).map(k => k[1]), kind = kinds[Math.floor(r() * kinds.length)];
-    const h = known ? 0.45 + Math.max(0, Math.min(1, (midi - 40) / 50)) * 0.45 + (r() - 0.5) * 0.08 : 0.55 + r() * 0.25;   // low notes burst low, high notes high
-    const size = Math.min(1.25, 0.3 + 0.7 * recent + this.charge * 0.4), e = { k: 'shell', x: 0.12 + r() * 0.76, h: Math.max(0.35, Math.min(0.95, h)), size: size, hue: hue, hue2: recent >= 0.6 && this.lastHue !== hue ? this.lastHue : -1, kind: kind, pc: pc };
-    if (this.t - this.symbolAt >= FW.SYMBOL_GAP && r() < FW.SYMBOL) {   // now and then the shell bursts into a musical symbol, in the note's colour; never the same one twice running
+    const want = known ? 0.45 + Math.max(0, Math.min(1, (midi - 40) / 50)) * 0.45 : 0.4 + r() * 0.45;   // low notes the low shells, high notes the high ones
+    let best = -1; for (let k = 0; k < this.air.length; k++) if (this.ready(this.air[k]) && (best < 0 || Math.abs(this.air[k].h - want) < Math.abs(this.air[best].h - want))) best = k;
+    const a = this.air.splice(best, 1)[0], kinds = FW.KINDS.filter(k => recent >= k[0]).map(k => k[1]), kind = kinds[Math.floor(r() * kinds.length)];
+    const e = { k: 'burst', id: a.id, x: a.x, h: a.h, size: Math.min(1.25, 0.3 + 0.7 * recent + this.charge * 0.4), hue: hue, hue2: recent >= 0.6 && this.lastHue !== hue ? this.lastHue : -1, kind: kind, pc: pc };
+    if (this.t - this.symbolAt >= FW.SYMBOL_GAP && r() < FW.SYMBOL) {   // now and then the burst takes the shape of a musical symbol, in the note's colour; never the same one twice running
       const pick = FW_SYMBOLS.filter(n => n !== this.symbol); e.kind = 'symbol'; e.symbol = this.symbol = pick[Math.floor(r() * pick.length)]; e.hue2 = -1; this.symbolAt = this.t;
     }
     this.events.push(e);
-    this.tokens -= 1; this.charge = 0; this.lastHue = hue; this.shells++; this.notes |= 1 << pc; this.up.push(this.t);
+    this.charge = 0; this.lastHue = hue; this.shells++; this.notes |= 1 << pc; this.up.push(this.t);
   }
 }
 

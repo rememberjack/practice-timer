@@ -1,4 +1,4 @@
-/* Fireworks theme: every note played sends a shell up over a harbour town at night, in the note's colour; the goal sets off a grand finale
+/* Fireworks theme: shells rise over a harbour town at night while you play, and every note sets one off in its colour; the goal sets off a grand finale
    that ends in a gold trophy, and the trophy card waits for it. The show is FireworkSim (sim.js); view.js draws it (in 3D by view3d.js once
    three.js has loaded); this wires them to the page (docs/theme-modules.md). */
 'use strict';
@@ -12,7 +12,7 @@ module.exports = {
   api: 1,
   id: 'fireworks',
   name: 'Fireworks',
-  line: 'Every note sends up a firework in its own colour.',
+  line: 'Every note sets off a firework in its own colour.',
   goalHint: 'The total play time to reach. Reaching it sets off a grand finale.',
   langs: ['en', 'zh', 'fr'],
   words: words,
@@ -23,13 +23,13 @@ module.exports = {
   create: function (host) {
     const $ = host.$, fw = new FireworkSim();
     const view = makeFireworkView(host.panel, $('fireHud'), fw, Object.assign(Object.create(MT), { tr: tr, trn: trn, FW: FW, fwHue: fwHue, fwSymbolShape: fwSymbolShape, fwTrophyShape: fwTrophyShape }));
-    let notes = 0, bannerT = 0;                      // note starts waiting to send shells up
+    let notes = 0, bannerT = 0;                      // note starts waiting to set shells off
     function banner(msg) { const b = $('fBanner'); b.textContent = msg; b.classList.add('on'); clearTimeout(bannerT); bannerT = setTimeout(() => b.classList.remove('on'), 3200); }
     function hideBanner() { clearTimeout(bannerT); $('fBanner').classList.remove('on'); }
     /* the hint under the read-outs: Intensity is the last minute of playing (what the other themes call Power): how many shells are in the sky at once, and how big */
     function hint(v) {
       const st = v.st, shells = fw.shells;
-      if (st === 'idle') return tr('Every note you play sends up a firework');
+      if (st === 'idle') return tr('Every note you play sets off a firework');
       if (st === 'stopped') return shells ? trn(shells, '{n} firework lit up the sky', '{n} fireworks lit up the sky') : tr('Press Start for a new show');
       if (st === 'paused') return tr(fw.inFinale ? 'Paused. The finale waits for you' : 'Paused. The sky waits for you');
       if (fw.inFinale) return tr('Grand finale!');
@@ -46,7 +46,7 @@ module.exports = {
       /* the goal is reached: on screen, the grand finale goes first and the trophy card follows it (host.award on 'finaleEnd'). The finale plays
          once a session: if it has already ended (the goal was raised during it, then reached again), the card shows at once */
       holdAward() { return host.shown() && (!fw.finaleDone || fw.inFinale); },
-      awardLine() { return fw.shells ? trn(fw.shells, 'You sent up {n} firework.', 'You sent up {n} fireworks.') : ''; },
+      awardLine() { return fw.shells ? trn(fw.shells, 'You set off {n} firework.', 'You set off {n} fireworks.') : ''; },
       frame(dt, f) {
         const v = f.v;
         fw.update(dt, { state: v.st, music: v.music, notes: notes, midi: v.midi, recent: v.pw, play: v.play, shown: f.shown }); notes = 0;   // shells go up only while playing; the finale waits to be seen
