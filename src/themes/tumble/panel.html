@@ -1,0 +1,23 @@
+<section class="panel" id="pTumble" aria-label="Tumble theme">
+  <canvas id="tuCv" aria-hidden="true"></canvas>
+  <div class="tu-hud hud-card" id="tuHud">
+    <div class="tu-top hc-top">
+      <div class="tu-play hc-play"><span class="k">Play time</span><span class="big" id="tuPlay">00:00</span></div>
+      <div class="tu-side hc-side">
+        <div><svg class="trophy badge" viewBox="0 0 64 64" aria-hidden="true"><use href="#ico-trophy"/></svg>Goal <b id="tuGoal">30:00</b></div>
+        <div id="tuGoalLeft" translate="no">30:00</div>
+        <div>Pauses <b id="tuPauses">0</b></div>
+      </div>
+    </div>
+    <div class="tu-prog hc-bar"><span class="k">Wall</span><div class="tu-bar"><i id="tuBar"></i></div><b id="tuPct">0%</b></div>
+    <div class="tu-stats hc-stats">
+      <div><span>Blocks</span><b id="tuBlocks">0</b></div>
+      <div><span>Chords</span><b id="tuChords">0</b></div>
+      <div><span>Power</span><b id="tuPw">0%</b></div>
+      <div><span>Efficiency</span><b id="tuEff">0%</b></div>
+    </div>
+    <div class="tu-line hc-heard" id="tuHeard">Press Start, then play</div>
+    <div class="tu-line dim hc-next" id="tuHint">Every note you play falls in as a block</div>
+  </div>
+  <div id="tuBanner" role="status"></div>
+</section>

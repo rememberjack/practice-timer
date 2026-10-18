@@ -16,11 +16,13 @@ Last reviewed: 2026-10-13, against `main` at commit 1c4b0bd; icon and City origi
 | What | Version | License | How it reaches the player | Notice we must keep |
 | --- | --- | --- | --- | --- |
 | [three.js](#threejs) | r128 (0.128.0) | MIT | Loaded at run time from cdnjs by City and Fireworks; not in our files | None while loaded from cdnjs (its own copy carries the notice); add one if it is ever bundled |
+| [Matter.js](#matterjs) | 0.19.0 | MIT | Loaded at run time from cdnjs by Tumble; not in our files | None while loaded from cdnjs (its own copy carries the notice); add one if it is ever bundled |
 | [wheel-gestures test data](#wheel-gestures-trackpad-traces) | fixtures as of 2026-10 | MIT | Inlined in `src/core.js`, so it ships in `dist/index.html` | Yes: the MIT notice above `WHEEL_TRACES` in `src/core.js` |
 | [Inter](#fonts) | Google Fonts | SIL OFL 1.1 | Loaded at run time from Google Fonts | None (Google serves the fonts with their license) |
 | [Silkscreen](#fonts) | Google Fonts | SIL OFL 1.1 | Loaded at run time from Google Fonts | None |
 | [Barlow Condensed](#fonts) | Google Fonts | SIL OFL 1.1 | Loaded at run time from Google Fonts | None |
 | [Fraunces](#fonts) | Google Fonts | SIL OFL 1.1 | Loaded at run time from Google Fonts | None |
+| [Fredoka](#fonts) | Google Fonts | SIL OFL 1.1 | Loaded at run time from Google Fonts | None |
 | [ESLint and its dependencies](#development-dependencies) | see below | MIT, Apache-2.0, BSD, ISC, BlueOak | Development only; never shipped | None (not distributed) |
 | [Build, test and deploy tools](#build-test-and-deploy-tools) | see below | various | Development and CI only; never shipped | None (not distributed) |
 
@@ -59,11 +61,24 @@ notice goes in if one is ever bundled or self-hosted.
 - Tests serve the same version from `npm pack three@0.128.0` because cdnjs is not reachable from cloud sessions (CLAUDE.md,
   Testing).
 
+### Matter.js
+
+- Used by: Tumble (`src/themes/tumble/theme.js` loads it the first time the theme is shown; `pile.js` drives it), to tumble the blocks.
+  Until it has loaded, or when it cannot, the theme stacks its blocks plainly (`StackPile` in its `sim.js`).
+- URL: `https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js`.
+- Upstream: [liabru/matter-js](https://github.com/liabru/matter-js), npm package `matter-js@0.19.0`.
+- License: MIT. "Copyright (c) Liam Brummitt and contributors" (`LICENSE`); the minified file starts with
+  `matter-js 0.19.0 by @liabru`, `Licensed under the MIT license`.
+- If it is ever bundled into the page or served from this site, add the Matter.js copyright and MIT notice to the page and to
+  this file.
+- `npm run ci` does not need it: in the browser check the theme runs on its plain pile when cdnjs is out of reach. Screenshots
+  during development serve it from `npm pack matter-js@0.19.0`.
+
 ### Fonts
 
 Loaded from Google Fonts by the one stylesheet link in `src/template.html` (`fonts.googleapis.com`, files from
 `fonts.gstatic.com`). The build writes the families into it: Inter and Silkscreen for the page, and those each installed theme
-names in its `fonts` (Barlow Condensed for Grand Prix, Fraunces for Fireworks, Press Start 2P for Invaders), so a font goes when its theme does. All five are under the SIL Open Font License 1.1, which allows use in any page; the license only adds
+names in its `fonts` (Barlow Condensed for Grand Prix, Fraunces for Fireworks, Press Start 2P for Invaders, Fredoka for Tumble), so a font goes when its theme does. All six are under the SIL Open Font License 1.1, which allows use in any page; the license only adds
 conditions when the font files themselves are redistributed or changed.
 
 | Font | Used for | Copyright | Upstream |
@@ -73,6 +88,7 @@ conditions when the font files themselves are redistributed or changed.
 | Barlow Condensed | Grand Prix (`--cond`) | Copyright 2017 The Barlow Project Authors | https://github.com/jpt/barlow |
 | Fraunces | Fireworks (`--serif`) | Copyright 2018 The Fraunces Project Authors | https://github.com/undercasetype/Fraunces |
 | Press Start 2P | Invaders, its read-outs, buttons and scene lettering (`--arcade`) | Copyright 2012 The Press Start 2P Project Authors (cody@zone38.net), with Reserved Font Name "Press Start 2P" | https://github.com/google/fonts/tree/main/ofl/pressstart2p |
+| Fredoka | Tumble, its read-outs, buttons and the names on the blocks (`--toy`) | Copyright 2020 The Fredoka Project Authors | https://github.com/hafontia-zz/Fredoka |
 
 If the fonts are ever self-hosted (for example to work offline), copy each font's `OFL.txt` alongside the files and keep the
 font names unchanged, or rename them if the files are modified (OFL Reserved Font Name rules).
@@ -197,15 +213,16 @@ Not in `package.json`, never shipped, listed so the toolchain is known.
 | Chromium / Google Chrome | whatever the machine has | BSD-3-Clause and others / Google terms | `test/browser.js` drives it over the DevTools protocol; nothing is installed |
 | Playwright | preinstalled in cloud sessions | Apache-2.0 | Screenshots during development; not used by `npm run ci` |
 | three (npm) | 0.128.0 | MIT | `npm pack` for testing City and Fireworks offline; not committed (`package/` is in `.gitignore`) |
+| matter-js (npm) | 0.19.0 | MIT | `npm pack` for screenshots of Tumble offline; not committed |
 
 ## Provenance of the project's own non-code assets
 
 | Asset | Where | Origin | Status |
 | --- | --- | --- | --- |
 | Music Timer icon (stopwatch and note): `app-icon.png` (84 px, inlined in the page), `favicon.ico`, `favicon.png`, `apple-touch-icon.png`, `icon.png` (512 px) | `src/assets/` | Generated by ChatGPT (OpenAI) from the repository owner's prompt, then committed in 704ced9 (2026-10-09, "Add the Music Timer icon"). The files carry no metadata naming an author or tool. | Ours to use: OpenAI's [Terms of Use](https://openai.com/policies/terms-of-use/) assign to the user whatever rights OpenAI has in the output. An image made by AI may have little or no copyright protection in some countries (the US among them), so others could copy it; that does not limit our own use. |
-| Theme and interface icons (`#ico-classic`, `#ico-rocket`, `#ico-city`, `#ico-dash`, `#ico-race`, `#ico-fireworks`, `#ico-invaders`, `#ico-next`, `#ico-back`, `#ico-trophy`, `#ico-lock`) | `<symbol>`s: each theme's in its `src/themes/<id>/icon.svg`, the rest in `src/template.html` | Hand-written SVG paths, made in this repository by Claude (from 1d5fe67, 2026-10-08, and the commits that added each theme). Not taken from an icon set. | Original, MIT with the project |
+| Theme and interface icons (`#ico-classic`, `#ico-rocket`, `#ico-city`, `#ico-dash`, `#ico-race`, `#ico-fireworks`, `#ico-invaders`, `#ico-tumble`, `#ico-next`, `#ico-back`, `#ico-trophy`, `#ico-lock`) | `<symbol>`s: each theme's in its `src/themes/<id>/icon.svg`, the rest in `src/template.html` | Hand-written SVG paths, made in this repository by Claude (from 1d5fe67, 2026-10-08, and the commits that added each theme). Not taken from an icon set. | Original, MIT with the project |
 | Sunburst before Claude's name in the credits (`#ico-claude`) | `src/template.html` | Drawn in this repository after Claude's mark, not copied from the official logo (19d500b, 2026-10-12). | Original drawing, but it evokes Anthropic's Claude mark: see Trademarks |
-| Theme scenes (Rocket, City, Dash, Grand Prix, Fireworks, Invaders, Classic) | `src/*.js` | Drawn in code at run time (canvas, three.js geometry and canvas textures); no image, texture or model files. | Original |
+| Theme scenes (Rocket, City, Dash, Grand Prix, Fireworks, Invaders, Tumble, Classic) | `src/*.js` | Drawn in code at run time (canvas, three.js geometry and canvas textures, Matter.js bodies); no image, texture or model files. | Original |
 | Invaders' pixel sprites (invaders, mystery ship, cannon, shield, bombs) | `src/themes/invaders/sprites.js` | One-bit pixel grids drawn for the project by Claude (2026-10-16) in the manner of 1978 arcade games; not copied from any game. `#ico-invaders` is made from one of them. | Original, MIT with the project |
 | Sounds | `src/core.js` | The demo sound and the test sounds are synthesised in code (instrument models "checked against recordings", but no recording is included). The page plays no sound files. | Original |
 | Words and translations | `src/core.js`, `src/app.js`, `src/lang.js` | Written for the project (English, with Chinese and French translations). | Original |
@@ -223,20 +240,21 @@ These shaped a theme's idea; no code or art was taken from them.
   film): the genre's look and rules, with its own sprites and no code or art taken from any game.
 - Grand Prix draws its road segment by segment "the way the old arcade racers did it" (`src/themes/race/view.js`): a technique, not copied
   code.
+- Tumble is a crate of children's wooden alphabet blocks (a toy, not a product): its blocks, crate and colours are drawn in code.
 
 ### Trademarks
 
 - "Claude" and the Claude mark belong to Anthropic. The credits name Claude for its work on the app, and `#ico-claude` is an
   original drawing that resembles the mark; keep it as an attribution next to Claude's name, not as the app's own branding.
-- "Grand Prix", "Rocket", "City", "Dash", "Fireworks" and "Invaders" are used as plain descriptive words. "Space Invaders" is a trademark
+- "Grand Prix", "Rocket", "City", "Dash", "Fireworks", "Invaders" and "Tumble" are used as plain descriptive words. "Space Invaders" is a trademark
   of Taito; the theme does not use that name.
 
 ## Open items
 
-- three.js is loaded from cdnjs without a Subresource Integrity hash (`integrity` attribute), so the page trusts whatever that
-  URL serves. Consider adding one (the r128 file never changes).
+- three.js and Matter.js are loaded from cdnjs without a Subresource Integrity hash (`integrity` attribute), so the page trusts whatever
+  those URLs serve. Consider adding one (the r128 and 0.19.0 files never change).
 - `npm run serve` runs the latest `serve` from npm each time (`npx --yes serve`); consider pinning a version.
-- Loading three.js from cdnjs and the fonts from Google Fonts sends the player's IP address to those services. Not a license
+- Loading three.js and Matter.js from cdnjs and the fonts from Google Fonts sends the player's IP address to those services. Not a license
   matter, but worth knowing for any privacy statement.
 
 ## Keeping this file up to date

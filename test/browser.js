@@ -104,10 +104,13 @@ async function run(wsUrl) {
   await touch(right, y, left, y); check(await skin() === 'fireworks', 'one more swipe left reaches Fireworks (got ' + await skin() + ')');
   await sleep(1500);   // let the fireworks draw for a while
   check(await js('(() => { const c = document.querySelector("#pFire canvas:not([hidden])"); return !!c && c.width > 0 && c.height > 0; })()'), 'the Fireworks scene has a canvas to draw on (3D, or flat when three.js cannot load)');
-  await touch(right, y, left, y); check(await skin() === 'invaders', 'one more swipe left reaches Invaders, the last theme (got ' + await skin() + ')');
-  await touch(right, y, left, y); check(await skin() === 'invaders', 'a swipe past the last theme stays on it (got ' + await skin() + ')');
+  await touch(right, y, left, y); check(await skin() === 'invaders', 'one more swipe left reaches Invaders (got ' + await skin() + ')');
   await sleep(500);
   check(await js('(() => { const c = document.getElementById("ivCv"); return c.width > 0 && c.height > 0; })()'), 'the Invaders scene has a canvas to draw on');
+  await touch(right, y, left, y); check(await skin() === 'tumble', 'one more swipe left reaches Tumble, the last theme (got ' + await skin() + ')');
+  await touch(right, y, left, y); check(await skin() === 'tumble', 'a swipe past the last theme stays on it (got ' + await skin() + ')');
+  await sleep(500);
+  check(await js('(() => { const c = document.getElementById("tuCv"); return c.width > 0 && c.height > 0; })()'), 'the Tumble scene has a canvas to draw on (the physics pile, or the plain one when Matter.js cannot load)');
   // Settings, Language: the words change at once, during a session too, and back again
   const words = () => js('[document.getElementById("btnPause").textContent, document.getElementById("btnResume").textContent, document.querySelector("#setMain .lab").textContent, document.getElementById("fHint").textContent, document.documentElement.lang].join(" | ")');
   const pickLang = async i => { await js('document.querySelectorAll("#langList .lrow")[' + i + '].click()'); await sleep(300); };
