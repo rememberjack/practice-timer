@@ -173,8 +173,10 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
   trophy card waits for it to land (`holdAward`, then `host.award()`). Past walls are pencilled on the crate like heights on a doorframe
   (`wallMarks`, from the heights each session keeps, set by the `restore` hook): "Last time" and "Tallest", a dashed line across the crate with a
   mark on the right-hand wall, so today's wall is seen growing past them. Nothing is ever lost: a shorter wall leaves the marks as they were. The view follows the top of the pile
-  as the wall grows; a finger dragged up or down the crate (its canvas has `touch-action:none`; sideways swipes still reach the page) looks
-  back through the layers, and the view follows again a moment later. Blocks tumble under Matter.js 0.19.0 (`pile.js`, `makePhysicsPile`),
+  as the wall grows, in steps (`BAND` in its `view.js`: it holds still until the wall has grown 1.5 units, then eases up, never down by itself, so
+  it does not bob as blocks land); a finger dragged up or down the crate (its canvas has `touch-action:none`; sideways swipes still reach the page) looks
+  back through the layers, and the view follows again a moment later. A block is a twentieth of the crate's width, but never so big that fewer
+  than `MIN_VU` (16) rows show under the read-outs: on a phone held sideways the blocks are smaller and the crate stands in the middle of the screen. Blocks tumble under Matter.js 0.19.0 (`pile.js`, `makePhysicsPile`),
   loaded from cdnjs when the theme is first shown and taking over at the next session; until then, or when it cannot load, `StackPile` in
   `sim.js` stacks them plainly (and is what the tests run against): both have the same shape (live blocks in block units, y up from the
   floor, and settled ones). Resting blocks deep under the surface are frozen and, once below what is on screen, settled: out of the engine
