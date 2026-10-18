@@ -14,7 +14,7 @@ const { seededRng } = require('../../core.js');
    only plays while the theme is on screen (shown), so it waits for the player to come to it, and it holds through a pause like the clock.
    Events: {k:'launch', id, x, h}, {k:'burst', id, x, h, size, hue, hue2, kind, pc, symbol}, {k:'fizzle', id}, and for the finale {k:'finale'},
    {k:'shell', ...} (goes up and bursts by itself) and {k:'finaleEnd'}. The views only draw what this decides. */
-const FW = { PACE: 3, FLOOR: 0.5, AIRMAX: 3, AIRPER: 7, WAIT: 5, READY: 0.8, AIR: 3.5, CHARGE: 0.15, FINALE: 28, FINALE_T: 7, LULL: 1.4, TROPHY_T: 3.6, SYMBOL: 0.13, SYMBOL_GAP: 6,
+const FW = { PACE: 3, FLOOR: 0.5, AIRMAX: 3, AIRPER: 7, WAIT: 2.5, READY: 0.8, AIR: 3.5, CHARGE: 0.15, FINALE: 28, FINALE_T: 7, LULL: 1.4, TROPHY_T: 3.6, SYMBOL: 0.13, SYMBOL_GAP: 6,
   KINDS: [[0, 'peony'], [0.3, 'ring'], [0.3, 'chrysanthemum'], [0.6, 'willow'], [0.6, 'palm'], [0.6, 'crossette']] };   // [intensity needed, kind]
 function fwHue(pc) { return ((pc * 7) % 12) * 30; }                            // C red, G orange, D yellow, A lime, E green... round the circle of fifths
 /* the finale's last burst: points along the outline of a trophy (the cup, its two handles, the stem and the base), about step apart, in units where
