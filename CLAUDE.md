@@ -137,6 +137,26 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
   Rocket's: Press Start 2P (`--arcade`), and on phones the read-outs are the cabinet's score line (SCORE, the play time, HI-SCORE), with the wave
   and the invaders left drawn under the ground line. Each session keeps its score
   (`keep`), and the Hi-score is the best in the practice log (`hiScore`).
+- Tumble (`TumbleSim` in `src/themes/tumble/sim.js`, drawn by its `view.js`) drops every note played into a wooden crate as a toy block, and the
+  blocks pile up into a wall. A block is one note: its colour is the note (twelve colours round the circle of fifths, `tuColour`, so the notes of
+  one key are a family of colours and a wrong note stands out), its name is on its face (in the page's language: do, ré, mi in French), its width is
+  how long the note was held (`TU.QUANT`: a unit a quarter second, up to `TU.MAXU` 8; a longer note drops planks in a row) and it falls in where the
+  pitch is, low notes on the left and high on the right (`pitchX`; the range widens for notes outside it). Only playing drops blocks: nothing while
+  quiet, paused or stopped. The microphone hears one note at a time, so chords are chord outlines: three or four notes of one chord played in a
+  row (`TU.CHORD_GAP`, `TU.CHORD_NOTE`; `chordOf`) light their blocks up gold, name the chord on a banner (G, Em, D7; a fourth note can grow a
+  named triad into a seventh) and count as Chords; the blocks themselves are never held back for it. The pile is the record of the session: a
+  mark is written on the crate's right-hand wall at the pile's height as each minute of play time passes (`stamps`), dotted lines show where
+  the coming minutes should land (`perMin`, from the blocks' area), and the practice goal is a gold line the wall reaches at the goal; reaching
+  it drops a trophy block, and the trophy card waits for it to land (`holdAward`, then `host.award()`). The view follows the top of the pile
+  as the wall grows; a finger dragged up or down the crate (its canvas has `touch-action:none`; sideways swipes still reach the page) looks
+  back through the layers, and the view follows again a moment later. Blocks tumble under Matter.js 0.19.0 (`pile.js`, `makePhysicsPile`),
+  loaded from cdnjs when the theme is first shown and taking over at the next session; until then, or when it cannot load, `StackPile` in
+  `sim.js` stacks them plainly (and is what the tests run against): both have the same shape (live blocks in block units, y up from the
+  floor, and settled ones). Resting blocks deep under the surface are frozen and, once below what is on screen, settled: out of the engine
+  (a plate under the live blocks) and drawn once into strips of canvas (`CHU` in its `view.js`), so a long session stays cheap. A following
+  device gets the blocks lately dropped by id (`share`, `follow`) and tumbles them itself. Each session keeps its blocks, chords and how
+  often each note was played (`keep`). Its look is a crate of toy blocks on a slate table: Fredoka (`--toy`) on the read-outs, buttons and
+  the blocks' faces, amber wood for the buttons, each with a bevel under it.
 - The Home Screen (`#home`) shows when the app opens and after a finished session's summary is closed; its words come
   from `homeCopy` in `src/core.js`. No theme scene is drawn while it covers them. Its greeting, headline and line are picked from
   playful words for young players (`HOME_HELLO`, `HOME_WORDS`), new each time it shows; they must fit an iPhone SE without wrapping more.
@@ -154,7 +174,7 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
   (`langChanged`), during a session too. French speaks to the player as "tu" and names notes do, ré, mi (`noteText`); Chinese has no space between
   sentences (`MT.both`) and lists with 、. Each language has its own playful Home Screen words, of the same shape as `HOME_EN`.
 - A theme's `view.js` only draws; its `theme.js` wires its logic and drawing to the page through the hooks. City and Fireworks load
-  three.js r128 from cdnjs.
+  three.js r128 from cdnjs, and Tumble Matter.js 0.19.0.
 - `window.claude` and the "framed" checks support running inside a Claude artifact view; on GitHub Pages everything
   falls back to plain browser APIs.
 - The version shown in Settings is a plain number: the count of changes merged into `main` (`scripts/build.js`; the deploy checks
@@ -208,7 +228,8 @@ The app is mainly used on an iPhone. `test/browser.js` swipes the built page by 
 protocol (no dependencies), and drives pages built with other sets of themes (only the base theme; the English-only test theme in
 `test/fixtures/themes/sample`); it finds Chromium in cloud sessions and Chrome on GitHub's runner, is skipped locally without one (or set
 `CHROME_PATH`) and fails under CI. Playwright with Chromium is installed globally in cloud sessions. cdnjs is not
-reachable from the sandbox, so for themes that use three.js serve it from `npm pack three@0.128.0` via `page.route`.
+reachable from the sandbox, so for themes that use three.js serve it from `npm pack three@0.128.0` via `page.route` (and Matter.js for Tumble
+from `npm pack matter-js@0.19.0`; without it the theme runs on its plain pile).
 
 ## Workflow
 
