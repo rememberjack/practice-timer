@@ -1,6 +1,6 @@
 /* Tumble's tests: run by npm test and by the debug tools' Sound tests, with the page's own */
 'use strict';
-const { TU, TumbleSim, StackPile, chordOf, unitsFor, tuColour, tuName, PALETTE } = require('./sim.js');
+const { TU, TumbleSim, StackPile, chordOf, unitsFor, tuColour, tuName, PALETTE, wallMarks } = require('./sim.js');
 const list = [];
 const DT = 0.05;
 /* secs of sound at notesPerSec note starts a second, all on the same pitch; returns the events */
@@ -63,12 +63,17 @@ list.push({ name: 'Tumble: the plain pile stacks into a heap, inside the crate',
   const ok = rest && inside && spread >= 5 && tallest <= 8 && tallest >= 3 && plank.rest && under >= 1 && one > 1 && gone > 0 && p.settled.length === gone && Math.abs(after - one) < 1e-6;
   return { name: 'Tumble: the plain pile stacks into a heap, inside the crate', expect: '24 cubes dropped near the middle spread into a heap (3 to 8 high, never out of the crate); a plank of 8 rests across it; cubes across the crate raise the surface; settling the deep ones leaves the height as it was',
     got: p.live.length + gone + ' blocks; heap ' + spread + ' columns, ' + tallest.toFixed(1) + ' high' + (rest ? '' : ', some still falling') + (inside ? '' : ', one outside') + '; plank ' + (plank.rest ? 'rests on ' + under : 'falling') + '; surface ' + one.toFixed(1) + ', ' + gone + ' settled, surface ' + after.toFixed(1), pass: ok }; } });
-list.push({ name: 'Tumble: each minute is written on the wall at the pile\'s height', run: () => {
+list.push({ name: 'Tumble: the goal line rises with the wall, and past walls are marked on the crate', run: () => {
   const s = new TumbleSim(); s.reset(1800, 13); s.pile.spawnY = 30; let play = 0, owed = 0;
   for (let t = 0; t < 150; t += DT) { play += DT; owed += 1.5 * DT; const n = Math.floor(owed + 1e-9); owed -= n; s.update(DT, { state: 'running', music: true, notes: n, midi: 55 + Math.floor(t * 3) % 24, play: play }); s.pile.step(DT); s.events.length = 0; }
-  const m = s.stamps.map(x => x.m).join(','), ys = s.stamps.map(x => x.y), rising = ys.every((y, i) => !i || y >= ys[i - 1]), rate = s.perMin(), ok = m === '1,2' && rising && ys[0] > 0 && ys[1] <= s.surface + 1e-6 && rate > 0.3 && Math.abs(rate - s.surface / 2.5) < s.surface / 2.5 * 0.5;
-  return { name: 'Tumble: each minute is written on the wall at the pile\'s height', expect: 'after 2½ minutes of playing: marks for minutes 1 and 2, each at the height the pile had then, the second higher; the rise a minute near the pile\'s own',
-    got: 'marks ' + m + ' at ' + ys.map(y => y.toFixed(1)).join(', ') + '; the pile now ' + s.surface.toFixed(1) + ', rising ' + rate.toFixed(1) + ' a minute', pass: ok }; } });
+  const rate = s.perMin(), rateOk = rate > 0.3 && Math.abs(rate - s.surface / 2.5) < s.surface / 2.5 * 0.5;
+  const rec = h => ({ themes: { tumble: { blocks: 9, chords: 0, notes: [], height: h } } });
+  const none = wallMarks([]), old = wallMarks([{ themes: { tumble: { blocks: 9 } } }, { themes: { rocket: {} } }, {}]), empty = wallMarks([rec(0)]);
+  const two = wallMarks([rec(12), rec(30.5), rec(0), rec(18)]), one = wallMarks([rec(12), rec(18), rec(30.5)]), lone = wallMarks([rec(7)]);
+  const str = m => m.map(x => x.k + '@' + x.y).join(' ');
+  const ok = rateOk && !none.length && !old.length && !empty.length && str(two) === 'last@18 best@30.5' && str(one) === 'best@30.5' && str(lone) === 'best@7';
+  return { name: 'Tumble: the goal line rises with the wall, and past walls are marked on the crate', expect: 'after 2½ minutes of playing the rise a minute is near the pile\'s own; marks from the log: none without a wall; walls of 12, 30.5, (none) and 18 → last 18 and tallest 30.5, lowest first; the last wall the tallest → one mark; a first wall → one',
+    got: 'rising ' + rate.toFixed(1) + ' a minute, the pile ' + s.surface.toFixed(1) + '; marks: ' + [none, old, empty].map(m => m.length).join('/') + ' with no wall, ' + str(two) + '; ' + str(one) + '; ' + str(lone), pass: ok }; } });
 list.push({ name: 'Tumble: reaching the goal drops one trophy block', run: () => {
   const s = new TumbleSim(); s.reset(30, 17); const ev = []; let play = 0;
   for (let t = 0; t < 40; t += DT) { play += DT; s.update(DT, { state: 'running', music: true, notes: t % 0.5 < DT / 2 ? 1 : 0, midi: 64, play: play }); while (s.events.length) ev.push(s.events.shift()); }
@@ -88,6 +93,9 @@ list.push({ name: 'Tumble: a following device drops the blocks it is told about,
     got: once + ' after twice the same share, ' + b.blocks + ' blocks, ' + b.chords + ' chords, ' + (same ? 'the same pile' : 'a different pile') + ', ' + JSON.stringify(d2).length + ' bytes', pass: ok }; } });
 list.push({ name: 'Tumble: what a session keeps', run: () => {
   const s = new TumbleSim(); s.reset(1800, 23); for (const m of [60, 64, 67]) note(s, m, 0.3, 0.1); const k = s.save();
-  const ok = k.blocks === 3 && k.chords === 1 && Array.isArray(k.notes) && k.notes.length === 12 && k.notes[0] === 1 && k.notes[4] === 1 && k.notes[7] === 1 && JSON.stringify(k) === JSON.stringify(JSON.parse(JSON.stringify(k)));
-  return { name: 'Tumble: what a session keeps', expect: 'the blocks, the chords and how often each of the twelve notes was played, as a plain object', got: JSON.stringify(k), pass: ok }; } });
+  for (let i = 0; i < 60; i++) note(s, 48 + (i * 7) % 37, 0.3, 0.1);   // across the whole crate, so the wall has a height
+  settle(s.pile, 4); const k2 = s.save();
+  const ok = k.blocks === 3 && k.chords === 1 && Array.isArray(k.notes) && k.notes.length === 12 && k.notes[0] === 1 && k.notes[4] === 1 && k.notes[7] === 1 && JSON.stringify(k) === JSON.stringify(JSON.parse(JSON.stringify(k)))
+    && typeof k.height === 'number' && k2.height > 0 && Math.abs(k2.height - s.surface) < 0.1;
+  return { name: 'Tumble: what a session keeps', expect: 'the blocks, the chords, how often each of the twelve notes was played and the wall\'s height once the blocks have landed, as a plain object', got: JSON.stringify(k2), pass: ok }; } });
 module.exports = list;

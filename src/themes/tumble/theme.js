@@ -1,11 +1,11 @@
 /* Tumble theme: every note played falls into a wooden crate as a toy block with its name on its face and piles up into a wall, the colour
-   of each note round the circle of fifths, the width how long it was held. Three notes of one chord in a row light up gold. Minutes are
-   written on the crate's wall as the pile reaches them, the practice goal is a gold line, and reaching it drops a trophy block. The logic is
+   of each note round the circle of fifths, the width how long it was held. Three notes of one chord in a row light up gold. The practice goal
+   is a gold line and reaching it drops a trophy block; past sessions' walls are marked on the crate like heights on a doorframe. The logic is
    TumbleSim (sim.js); the blocks tumble under a physics engine (pile.js, loaded when the theme is shown) or stack plainly until it loads;
    view.js draws it; this wires them to the page (docs/theme-modules.md). */
 'use strict';
 const MT = require('../../core.js');
-const { TU, TumbleSim, StackPile, tuColour, tuName, unitsFor } = require('./sim.js');
+const { TU, TumbleSim, StackPile, tuColour, tuName, unitsFor, wallMarks } = require('./sim.js');
 const { makePhysicsPile } = require('./pile.js');
 const { makeTumbleView } = require('./view.js');
 const words = require('./words.js');
@@ -27,7 +27,8 @@ module.exports = {
   create: function (host) {
     const $ = host.$, sim = new TumbleSim(new StackPile());
     const noteLabel = b => host.noteText(tuName(b.pc)), chordLabel = e => host.noteText(tuName(e.root)) + e.suffix;
-    const view = makeTumbleView($('tuCv'), $('tuHud'), sim, { TU: TU, tuColour: tuColour, label: noteLabel, unitsFor: unitsFor, reduceMotion: host.reduceMotion });
+    const markText = k => k === 'best' ? tr('Tallest') : tr('Last time');   // the past walls marked on the crate
+    const view = makeTumbleView($('tuCv'), $('tuHud'), sim, { TU: TU, tuColour: tuColour, label: noteLabel, markText: markText, unitsFor: unitsFor, reduceMotion: host.reduceMotion });
     let notes = 0, awardIn = 0, bannerT = 0, physics = null, loading = null, failedAt = 0;
     if (document.fonts && document.fonts.load) document.fonts.load('600 14px Fredoka').catch(() => {});   // the names on the blocks' faces
     /* the physics engine is loaded when the theme is first shown, and takes over at the next session (a pile already standing keeps its own) */
@@ -60,6 +61,8 @@ module.exports = {
     return {
       show() { ensure(); },
       reset(s) { if (physics && sim.pile !== physics) sim.pile = physics; sim.reset(s.goal, s.seed); view.reset(); notes = 0; awardIn = 0; hideBanner(); },
+      /* between sessions: the last wall and the tallest in the practice log are marked on the crate */
+      restore(log) { sim.marks = wallMarks(log); },
       notes(n) { notes += n; },
       goalChanged(goal, play) { sim.goalChanged(goal, play); },
       /* the goal is reached: on screen, the trophy block falls first and the trophy card follows it */

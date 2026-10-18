@@ -5,8 +5,9 @@
    QUANT seconds, up to MAXU; a longer note drops planks in a row) and it falls in where the pitch is, low notes on the left and high notes on
    the right (the crate's width is a pitch range that widens to take in what is played). Only playing drops blocks: nothing falls while quiet,
    paused or stopped. Three or four notes of one chord played in a row (an arpeggio, a broken chord) are a chord outline: the blocks light up
-   gold and the chord is named. The pile's height is the record of the session: a mark is written on the crate's wall at the pile's height as
-   each minute of play time passes, and the practice goal is a gold line the wall reaches at the goal; reaching it drops a trophy block.
+   gold and the chord is named. The pile's height is the record of the session: the practice goal is a gold line the wall reaches at the goal
+   (reaching it drops a trophy block), and the walls of past sessions are marked on the crate like heights on a doorframe (wallMarks: the last
+   session's and the tallest), so today's wall can be seen growing past them.
    The pile itself (where blocks land) is a Pile: StackPile here, a plain stack that settles without a physics engine (and what the tests
    use), or the physics pile in pile.js. Both keep the same shape: live blocks (falling or resting, with x, y, w, h in block units, y up from
    the crate's floor) and settled ones (deep in the wall, kept only as a record to draw). */
@@ -82,11 +83,11 @@ class StackPile {
 }
 
 class TumbleSim {
-  constructor(pile) { this.pile = pile || new StackPile(); this.reset(0, 1); }
+  constructor(pile) { this.pile = pile || new StackPile(); this.marks = []; this.reset(0, 1); }   // marks: past walls' heights (wallMarks), kept across sessions
   reset(goal, seed) {
     this.goal = goal || 0; this.seed = seed || 1; this.rnd = seededRng(this.seed); this.t = 0; this.play = 0;
     this.blocks = 0; this.chords = 0; this.area = 0; this.tally = new Array(12).fill(0); this.cur = null; this.quiet = 0; this.seq = []; this.recent = []; this.seen = 0; this.next = 1;
-    this.lo = TU.LO; this.hi = TU.HI; this.stamps = []; this.goalDone = false; this.goalY = 0; this.events = []; this.pile.reset();
+    this.lo = TU.LO; this.hi = TU.HI; this.goalDone = false; this.goalY = 0; this.events = []; this.pile.reset();
   }
   get surface() { return this.pile.surface(); }
   /* where a pitch lands across the crate (units): low notes on the left, high on the right; the range widens to take in a note outside it */
@@ -103,7 +104,6 @@ class TumbleSim {
         else if (this.t - this.cur.start >= TU.MAXU * TU.QUANT - 1e-6) { this.drop(this.cur, TU.MAXU, true); this.cur.start = this.t; this.cur.id = this.next++; }   // a long note: a plank, and on
       } else if (this.cur) { this.quiet += dt; if (!running || !i.music || this.quiet >= TU.MISS) { this.release(this.cur); this.cur = null; } }
     }
-    while (this.stamps.length < Math.floor(this.play / 60)) this.stamps.push({ m: this.stamps.length + 1, y: this.pile.surface() });   // a minute mark on the wall, at the pile's height
     if (running && !this.goalDone && this.goal > 0 && this.play >= this.goal) this.trophy();
   }
   start(k) { this.cur = { id: this.next++, key: k, pc: pcOf(k), oct: Math.floor(k / 12) - 1, start: this.t, x: this.pitchX(k), cont: false }; }
@@ -115,7 +115,7 @@ class TumbleSim {
     if (!cont) { this.tally[c.pc]++; this.seq.push({ b: b, key: c.key, start: c.start, end: this.t, used: false }); if (this.seq.length > 4) this.seq.shift(); this.outline(); }
   }
   /* how many units the wall rises in a minute of playing, from what has fallen so far: the blocks' area over the crate's width, loosened by the gaps
-     between tumbled blocks (the pile's own surface is too lumpy to measure early on). The ruler's coming minutes and the goal line are placed by it */
+     between tumbled blocks (the pile's own surface is too lumpy to measure early on). The goal line is placed by it */
   perMin() { return this.play > 15 ? Math.max(0.3, this.area / TU.COLS / (this.play / 60) * TU.LOOSE) : TU.RISE; }
   emit(b) { this.blocks++; this.area += b.units * (b.h || 1); this.pile.add(b); this.events.push({ k: 'block', b: b }); this.recent.push(b); if (this.recent.length > TU.SHARE) this.recent.shift(); }
   /* a chord outline: the last 4 or 3 notes, played close together and none held long, spell a chord. The blocks are marked and the notes
@@ -147,7 +147,16 @@ class TumbleSim {
     if (typeof d.n === 'number' && d.n > this.blocks) this.blocks = d.n;   // blocks that fell before the follower joined
     if (typeof d.c === 'number' && d.c > this.chords) this.chords = d.c;
   }
-  save() { return { blocks: this.blocks, chords: this.chords, notes: this.tally.slice() }; }
+  /* kept with the session: the blocks, the chords, how often each note was played, and the wall's height (units) for the marks on the crate */
+  save() { return { blocks: this.blocks, chords: this.chords, notes: this.tally.slice(), height: Math.round(this.pile.surface() * 10) / 10 }; }
+}
+/* the marks on the crate from the practice log (oldest first): the last session's wall and the tallest, [{ k: 'last' | 'best', y (units) }],
+   lowest first; one mark, the tallest, when the last wall is the tallest. Sessions with no wall, and older records with no height, leave none */
+function wallMarks(log) {
+  let last = 0, best = 0;
+  for (const r of log || []) { const t = r && r.themes && r.themes.tumble, h = t && typeof t.height === 'number' && t.height > 0 ? t.height : 0; if (!h) continue; last = h; if (h > best) best = h; }
+  if (!best) return [];
+  return last < best ? [{ k: 'last', y: last }, { k: 'best', y: best }] : [{ k: 'best', y: best }];
 }
 
-module.exports = { TU, NOTE_NAMES, FIFTHS, PALETTE, TumbleSim, StackPile, chordOf, unitsFor, tuColour, tuName, pcOf };
+module.exports = { TU, NOTE_NAMES, FIFTHS, PALETTE, TumbleSim, StackPile, chordOf, unitsFor, tuColour, tuName, pcOf, wallMarks };
