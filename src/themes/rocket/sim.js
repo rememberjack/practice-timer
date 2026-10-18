@@ -154,23 +154,29 @@ class RocketSim {
     const l0 = this.lenAt(fp); return l0 > 0 ? p * clamp01(this.l / l0) : 0;
   }
   /* where the flight has got to, to carry on in the day's next session. Only a rocket in space, in Moon orbit, landing or landed carries on:
-     anywhere below the edge of space (on the pad, climbing or falling) is null, and the next session starts on the pad */
+     anywhere below the edge of space (on the pad, climbing or falling) is null, and the next session starts on the pad.
+     The flight's progress is its playing time, fp: everything else here is where it was for the picture (its angle round the Moon, the
+     descent clock) and is used only where it agrees with the flight plan of the day it is read, so a change to the plan never loses a flight */
   save() {
     if (!AT_MOON[this.mode] && !(this.mode === 'ascent' && this.inSpace)) return null;
     const r = (v, k) => Math.round(v * k) / k;
     return { mode: this.mode, fp: r(this.fp, 1e3), l: r(this.l, 1e7), stage: this.stage, inSpace: this.inSpace, cleared: this.cleared, th: r(this.th, 1e4), tOrb: r(Math.min(this.tOrb, 60), 1e3), tD: r(this.tD, 1e3) };
   }
-  /* carry on from save(). False, and on the pad, for anything that is not a saved flight in space, in orbit or at the Moon */
+  /* carry on from save(). False, and on the pad, for anything that is not a saved flight in space, in orbit or at the Moon. Where the flight is,
+     what it has passed and which phase it is in all follow its playing time and the flight plan of today (a flight saved under an earlier
+     plan, before the path was drawn to scale or before the landing, carries on at the same playing time) */
   restore(x) {
     this.reset();
     const n = (v, lo, hi) => typeof v === 'number' && isFinite(v) && v >= lo && v <= hi;
-    if (!x || (!AT_MOON[x.mode] && !(x.mode === 'ascent' && x.inSpace)) || !n(x.fp, HOLD, 1e6) || !n(x.l, 0, 1e3) || !n(x.stage, 0, 3) || !n(x.th, -4, 4) || !n(x.tOrb, 0, 1e6)) return false;
-    if (x.mode === 'descent' && !n(x.tD, 0, LAND.len)) return false;
-    const fp = x.fp;   // where the rocket is, and what it has passed, follow the flight clock (a flight saved before the path was drawn to scale too)
-    this.mode = x.mode; this.fp = fp; this.l = this.lenAt(fp); this.prevT = this.target(fp); this.stage = stageAt(fp); this.lit0 = true;
+    if (!x || typeof x !== 'object' || !n(x.fp, MILESTONES.space, 1e6)) return false;
+    const fp = x.fp, mode = phaseAt(fp);
+    this.mode = mode; this.fp = fp; this.l = mode === 'ascent' ? this.lenAt(fp) : this.L; this.prevT = this.target(fp); this.stage = stageAt(fp); this.lit0 = true;
     this.inSpace = true; this.cleared = true; this.parked = fp >= PHASES.insert; this.tli = fp >= PHASES.tli; this.ci = COAST.filter(c => c.at <= fp).length;
-    if (AT_MOON[x.mode]) { this.l = this.L; this.stage = 3; this.th = x.th; this.tOrb = x.tOrb; this.tD = x.mode === 'landed' ? LAND.len : x.mode === 'descent' ? x.tD : 0;
-      this.spinUp = x.mode === 'orbit' ? smooth(SPIN_AT, SPIN_AT + SPIN_UP, x.tOrb) * (1 - smooth(LAND.undock - 12, LAND.undock - 4, fp)) : 0; }
+    if (mode !== 'ascent') { this.th = n(x.th, -4, 4) ? x.th : this.th0; this.tOrb = n(x.tOrb, 0, 1e6) ? x.tOrb : 60;
+      // the descent clock as saved, where it fits (the undocking waits for the far side, so it can run a little behind the playing time); else from the playing time
+      const since = Math.min(LAND.len, fp - LAND.undock);
+      this.tD = mode === 'landed' ? LAND.len : mode === 'descent' ? (n(x.tD, 0, since) ? x.tD : since) : 0;
+      this.spinUp = mode === 'orbit' ? smooth(SPIN_AT, SPIN_AT + SPIN_UP, this.tOrb) * (1 - smooth(LAND.undock - 12, LAND.undock - 4, fp)) : 0; }
     return true;
   }
   target(fp) { return this.lenAt(Math.min(MILESTONES.orbit, fp)); }
@@ -253,6 +259,8 @@ class RocketSim {
   }
 }
 const AT_MOON = { orbit: true, descent: true, landed: true };
+/* the phase of the flight fp seconds of playing in: climbing, in Moon orbit, coming down to the Moon or landed */
+const phaseAt = fp => fp >= LAND.land ? 'landed' : fp >= LAND.undock ? 'descent' : fp >= MILESTONES.orbit ? 'orbit' : 'ascent';
 /* a clockwise crossing of the angle at, going from angle a to b (both round the Moon, in (-pi, pi]) */
 function crossed(a, b, at) { const w = d => { d -= Math.round(d / (2 * Math.PI)) * 2 * Math.PI; return d; }, d0 = w(a - at), d1 = w(b - at); return d0 > 0 && d1 <= 0 && d0 - d1 < 1; }
 /* the rocket flight to carry on today: where the day's latest saved session left it (null to start on the pad, as on a new day).
@@ -266,8 +274,8 @@ function rocketCarry(records, now, from) {
 function rocketAt(fp) {
   if (!(fp >= MILESTONES.space)) return null;
   const sim = new RocketSim();
-  if (fp < MILESTONES.orbit) return { mode: 'ascent', fp: fp, l: Math.round(sim.lenAt(fp) * 1e7) / 1e7, stage: stageAt(fp), inSpace: true, cleared: true, th: Math.round(sim.th0 * 1e4) / 1e4, tOrb: 0 };
-  const mode = fp >= LAND.land ? 'landed' : fp >= LAND.undock ? 'descent' : 'orbit';
+  const mode = phaseAt(fp);
+  if (mode === 'ascent') return { mode: mode, fp: fp, l: Math.round(sim.lenAt(fp) * 1e7) / 1e7, stage: stageAt(fp), inSpace: true, cleared: true, th: Math.round(sim.th0 * 1e4) / 1e4, tOrb: 0 };
   return { mode: mode, fp: fp, l: sim.L, stage: 3, inSpace: true, cleared: true, th: Math.round(sim.th0 * 1e4) / 1e4, tOrb: 60, tD: mode === 'landed' ? LAND.len : mode === 'descent' ? fp - LAND.undock : 0 };
 }
 /* a sample practice log (the debug tools): the rocket of each day's sessions, as if every session that day carried the flight on (records oldest first) */

@@ -129,4 +129,24 @@ list.push({ name: 'Rocket: lands on the Moon after five minutes in orbit', run: 
   return { name: 'Rocket: lands on the Moon after five minutes in orbit', expect: 'the lunar module undocks within an orbit of 35:00, starts the powered descent at 15.2 km a minute later, pitches over at high gate 90 s on and touches down 4:30 after undocking, 23.5° past the point under Earth, coming down all the way; it comes down only while music is heard, and a flight on the way down or landed carries on',
     got: ['undock', 'pdi', 'highgate', 'landed'].map(k => k + ' ' + (at[k] == null ? 'never' : fmt(at[k]))).join(', ') + ', PDI at ' + altPdi.toFixed(1) + ' km, ' + (down ? 'down all the way' : 'climbed on the way') + ', now ' + sim.mode + ' ' + sim.altKm() + ' km up at ' + site.toFixed(1) + '°' + (held ? ', holds while quiet' : ', moved while quiet') + (back ? ', carries on' : ', not carried on'), pass: ok }; } });
 
+list.push({ name: 'Rocket: a saved flight is its playing time, whatever the flight plan becomes', run: () => {
+  const fly = (sim, secs, playing) => { for (let t = 0; t < secs; t += 0.1) sim.update(0.1, { running: true, playing: playing !== false, eff: 1 }); sim.events.length = 0; };
+  const near = (a, b, tol) => Math.abs(a - b) <= tol, out = [];
+  // a flight saved in each phase comes back where it was: the same phase, playing time, height and place (a pause before the save lets the drawn rocket catch its clock up)
+  const sim = new RocketSim(); let ok = true;
+  for (const secs of [300, 700, 1200, 1900, 2200, 2500]) { fly(sim, secs - sim.fp); fly(sim, 10, false); const sv = sim.save(), r = new RocketSim(), back = r.restore(sv), p = sim.pose(), q = r.pose();
+    const same = back && r.mode === sim.mode && near(r.fp, sim.fp, 1e-3) && near(r.altKm(), sim.altKm(), 0.05) && near(Math.hypot(p.x - q.x, p.y - q.y), 0, 1e-3) && near(r.plan(), sim.plan(), 1e-3) && near(r.tD, sim.tD, 1e-3);
+    out.push(Math.floor(secs / 60) + ':' + String(secs % 60).padStart(2, '0') + ' ' + sim.mode + (same ? ' ok' : ' LOST')); if (!same) ok = false; }
+  // only the playing time decides the phase: records from other flight plans (orbit reached later or earlier, the landing moved) land in today's
+  const rec = (mode, fp, more) => Object.assign({ mode: mode, fp: fp, l: 1, stage: 3, inSpace: true, cleared: true, th: 0.5, tOrb: 60 }, more);
+  const at = x => { const r = new RocketSim(); return r.restore(x) ? r : null; };
+  const a = at(rec('ascent', MILESTONES.orbit + 100)), b = at(rec('orbit', LAND.undock + 200)), c = at(rec('descent', LAND.land + 300, { tD: 50 })), d = at(rec('landed', LAND.undock + 100, { tD: LAND.len }));
+  const plans = a && a.mode === 'orbit' && b && b.mode === 'descent' && b.tD === 200 && c && c.mode === 'landed' && c.altKm() === 0 && d && d.mode === 'descent' && d.tD === 100;
+  const e = at(rec('descent', LAND.undock + 100, { tD: 60 })), f = at({ mode: 'orbit', fp: MILESTONES.orbit + 50 }), g = at(rec('orbit', MILESTONES.orbit + 50, { extra: 'later' }));
+  const kept = e && e.tD === 60 && f && f.mode === 'orbit' && f.th === f.th0 && g && g.mode === 'orbit' && g.th === 0.5;   // the descent clock kept where it fits; an old record without the Moon fields; an unknown field
+  const below = !at(rec('ascent', 100)) && !at({ mode: 'orbit' }) && !at(null) && !at('orbit') && !at(rec('orbit', NaN));
+  ok = ok && plans && kept && below;
+  return { name: 'Rocket: a saved flight is its playing time, whatever the flight plan becomes', expect: 'saved in space, in orbit, on the way down and landed, it comes back where it was; a record from another plan (ascent after orbit time, orbit after the undocking, descent after the landing, landed before it) takes the phase its playing time has today; the descent clock is kept where it fits; records without the Moon fields or with unknown ones work; below the edge of space, and broken records, start on the pad',
+    got: out.join(', ') + '; other plans ' + (plans ? 'ok' : 'wrong') + ', kept ' + (kept ? 'ok' : 'wrong') + ', broken ' + (below ? 'on the pad' : 'carried'), pass: ok }; } });
+
 module.exports = list;
