@@ -111,13 +111,11 @@ class RocketSim {
   reset() { this.mode = 'pad'; this.l = 0; this.v = 0; this.hold = 0; this.stage = 0; this.inSpace = false; this.cleared = false; this.parked = false; this.tli = false; this.ci = 0;
     this.ignited = false; this.lit0 = false; this.fp = 0; this.power = 0; this.g = 0; this.prevT = 0; this.down = 0;
     this.th = this.th0; this.tOrb = 0; this.wIn = 2 * Math.PI / ORBIT_PERIOD; this.spinUp = 0; this.spinA = 0; this.events.length = 0; }
-  /* how far along the flight plan the rocket is, from 0 on the pad to 1 in Moon orbit: four equal legs (to stage 1, the edge of space,
-     stage 2 and the Moon), each filled by the playing it takes. Falling, it drops back with the rocket */
+  /* how far along the flight plan the rocket is, from 0 on the pad to 1 in Moon orbit: the share of the flight's playing time flown, so it
+     fills at an even pace. Falling, it drops back with the rocket */
   plan() {
     if (this.mode === 'orbit') return 1;
-    const T = MILESTONES, at = [0, T.stage1, T.space, T.stage2, T.orbit], fp = this.fp;
-    let i = 0; while (i < 3 && fp >= at[i + 1]) i++;
-    const p = Math.min(1, (i + clamp01((fp - at[i]) / (at[i + 1] - at[i]))) / 4);
+    const fp = this.fp, p = clamp01(fp / MILESTONES.orbit);
     if (this.mode !== 'fall') return p;
     const l0 = this.lenAt(fp); return l0 > 0 ? p * clamp01(this.l / l0) : 0;
   }

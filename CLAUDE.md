@@ -73,8 +73,8 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
 - "Start a new flight" puts the rocket back on the pad: the New flight button at the end of the Rocket read-outs while it is
   off the pad, or the link after "Playing with Rocket" on the Home Screen. Both ask first. The time is kept in
   `musicTimer.newFlight`, and `rocketCarry` skips sessions that had ended by then. Play time, the goal and the trophy stay.
-- The Rocket flight plan (`#rPlan`) is a pixel rail down the right of the scene: Earth at the foot, the Moon at the top, stage 1, the edge of space
-  and stage 2 evenly spaced between (`RocketSim.plan`, four equal legs). It fills in gold as the rocket climbs and drops back in a fall. It is a
+- The Rocket flight plan (`#rPlan`) is a pixel rail down the right of the scene: Earth at the foot, the Moon at the top, and stage 1, Earth orbit (a ring
+  round the rail) and stage 2 between, each at its share of the flight's time (`RocketSim.plan`, `PLAN_STOPS`). It fills in gold at an even pace as the rocket climbs and drops back in a fall. It is a
   picture only (`aria-hidden`, no words): the line under the read-outs says what comes next.
 - Questions asked over a theme (End, and a theme's own through `host.ask`: a new flight) take its look (`themeSheet`, `.ask[data-skin]`, `#dlgAsk`); Settings keeps the Classic look.
 - Opening Settings pauses a running session (`pauseForSheet` in `src/app.js`); closing it resumes, unless the session had been
