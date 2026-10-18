@@ -42,10 +42,13 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
   A session cut short (`musicTimer.live`) comes back without one.
 - A day can hold several sessions. The calendar, week bars and Home Screen add up the whole day; `dayRecap` and `dayLine` give the
   summary's "Today" block (each session of the day). The practice goal is for one session, so the block does not measure the day against it.
-- Each saved session keeps where the rocket got to if it is in space or Moon orbit (`RocketSim.save` in `src/themes/rocket/sim.js`, kept as
-  `record.themes.rocket` through the theme's `keep` hook; older records' `record.rocket` is moved there by `upgradeRecord`); the next session
+- Each saved session keeps where the rocket got to if it is in space, in Moon orbit, landing or landed (`RocketSim.save` in `src/themes/rocket/sim.js`,
+  kept as `record.themes.rocket` through the theme's `keep` hook; older records' `record.rocket` is moved there by `upgradeRecord`); the next session
   that day carries on from it (`rocketCarry`, the theme's `restore` hook). Below space, and on a new day, it starts on the pad. Sessions too short
-  to save never move the carried flight; demo sound sessions are saved like any other.
+  to save never move the carried flight; demo sound sessions are saved like any other. A flight's progress is its playing time (`fp`) alone:
+  `restore` takes the phase (`phaseAt`), the stage, the place and what has been passed from it under the flight plan of the day, and the rest of
+  the record (the angle round the Moon, the descent clock) only where it agrees, so a change to the flight plan moves a saved flight to the right
+  place in the new plan and never loses it; a test (`tests.js`) saves a flight in every phase and reads records from other plans.
 - The rocket's path (`PATH` and `TIMING` in `src/themes/rocket/sim.js`) is drawn to scale (a 100 m rocket, the Moon 384,400 km away, Moon orbit
   110 km up), so the altitude read-out is what is drawn. It has three stages under the capsule, like the Saturn V, each dropped at Apollo 11's time
   (`STEPS`, `stageAt`; `STAGE1`-`STAGE3` in its `view.js`, 32 sprite rows in all as before). Up to Earth orbit it keeps Apollo 11's timing and heights (`CLIMB`): upright past the tower,
