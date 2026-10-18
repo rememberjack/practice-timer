@@ -264,6 +264,26 @@ function makeRocketView(cv, hud, sim, MT) {
   const LAND = MT.LAND, LM_H = 0.07 * RH, LM_PAL = { W: '#E8ECF2', w: '#C3CAD6', B: '#5CC8FF', K: '#3A3F4B', D: '#2A2F3A', A: '#D9A441', a: '#B07A2A', T: '#A3ACC2' };
   const LM_ROWS = ['.....WWW.....', '....WWWWw....', '...WWBBBWw...', '...WWWWWWw...', '....WWWWw....', '..AAAAAAAAAa.', '..AaAaAaAaAa.', '..AAAAAAAAAa.', '.K..AAAAA..K.', 'K....TDT....K', 'K....DDD....K', 'KK.........KK'];
   const LM = sprite(LM_ROWS, false, LM_PAL), LM_SMALL = sprite(LM_ROWS, true, LM_PAL), S_LAND = 2.5 * RES * LM_ROWS.length / LM_H;   // S_LAND: the close-up, the module at 2.5 pixels to a sprite pixel
+  /* the lunar module close up (deep space, docked to the capsule's nose): the same 13 x 12 footprint at three times the pixels, like DETAILS.
+     A rounded cabin lit from the left with its two windows facing forward, the eight-sided descent stage in gold foil, the engine bell and
+     four legs a quarter turn apart. Frame f has it rolled f sixty-fourths of a turn about its length, with the capsule: the windows, the
+     box's edges and the legs come round, those behind drawn first and darker */
+  function detailLM(f) {
+    const N = 39, M = 36, c = document.createElement('canvas'); c.width = N; c.height = M; const x = c.getContext('2d'), phi = -2 * Math.PI * f / ROLL_FINE, cx = 19.5;
+    const px = (col, row, w, h, colr) => { x.fillStyle = colr; x.fillRect(col, row, w, h); };
+    for (let r = 0; r < 15; r++) { const hw = r < 2 ? 6 : r < 4 ? 9 : 10.5;
+      for (let i = Math.round(cx - hw); i < Math.round(cx + hw); i++) { const u = (i - cx) / hw; px(i, r, 1, 1, u < -0.5 ? '#F4F6FA' : u < 0.5 ? '#E8ECF2' : '#C3CAD6'); } }
+    for (const w of [-0.5, 0.5]) { const a = phi + w; if (Math.cos(a) > 0.15) { const wx = Math.round(cx + 8 * Math.sin(a) - 2); px(wx - 1, 5, 6, 6, '#8A93A3'); px(wx, 6, 4, 4, '#5CC8FF'); px(wx, 6, 1, 1, '#E8ECF2'); } }
+    for (let r = 15; r < 27; r++) for (let i = 6; i < 33; i++) px(i, r, 1, 1, r >= 25 ? '#B07A2A' : '#D9A441');
+    for (let e = 0; e < 8; e++) { const a = phi + e * Math.PI / 4; if (Math.cos(a) > -0.1) px(Math.round(cx + 13 * Math.sin(a)), 15, 1, 10, Math.cos(a) > 0.7 ? '#F0C86A' : '#B07A2A'); }
+    for (let r = 27; r < 34; r++) { const hw = 3 + (r - 27) * 0.6; px(Math.round(cx - hw), r, Math.round(2 * hw), 1, r === 33 ? '#8A93A3' : '#2A2F3A'); px(Math.round(cx - 1), r, 1, 1, '#3A3F4B'); }
+    const legs = [0, 1, 2, 3].map(i => { const a = phi + Math.PI / 4 + i * Math.PI / 2; return { s: Math.sin(a), c: Math.cos(a) }; }).sort((p, q) => p.c - q.c);
+    for (const L of legs) { const col = L.c < 0 ? '#2A2F3A' : '#4A5060', x0 = cx + 12 * L.s, x1 = cx + 18 * L.s;
+      for (let r = 24; r < 35; r++) px(Math.round(x0 + (x1 - x0) * (r - 24) / 10 - 1), r, 2, 1, col);
+      px(Math.round(x1 - 2.5), 34, 5, 2, col); }
+    return c;
+  }
+  const LM_DETAILS = []; for (let f = 0; f < ROLL_FINE; f++) LM_DETAILS.push(detailLM(f));
   /* the Moon's ground close up, a cross-section like Earth's near the pad: pale regolith on grey rock, in blocks that regroup as the view closes
      in, under a surface dented by craters at every size from 4 m to 2 km (relief: those that show at the zoom), each with a raised rim. The
      landing site is flat */
@@ -651,6 +671,16 @@ function makeRocketView(cv, hud, sim, MT) {
       const spr = stage === 3 && sim.spinUp > 0 ? ROLL[Math.floor(sim.spinA / (2 * Math.PI) * ROLL_N) % ROLL_N] : stage === 3 && roll && k >= RES ? ROLL[Math.floor(roll * ROLL_N / ROLL_FINE)] : (k < RES ? SMALL : SPR)[stage], hh = spr.height * k / (spr === SMALL[stage] ? 1 : RES);   // in Moon orbit the module spins about its length (E6)
       g.save(); g.translate(Math.round(sx), Math.round(sy)); g.rotate(ang + tilt); g.globalAlpha = shown;
       const fine = stage === 3 && sim.spinUp === 0 ? smooth(0.5, 0.95, cam.wC) : 0;               // close up, the detailed module fades in
+      /* E7: the lunar module rode inside stage 3, behind the capsule. As the stage falls away it is left there (td: seconds since); the capsule
+         turns round (flip), backs onto it until docked nose to top (gap), and the stack turns again (turn) to fly on module first, the capsule
+         upright and the module upside down ahead of it. The module's top always faces the capsule */
+      const td = stage === 3 && sim.mode !== 'fall' ? sim.fp - MT.MILESTONES.stage3 : -1, cyC = -cut - hh / 2;   // cyC: the capsule's middle, on its axis
+      if (td >= 0) { const flip = Math.PI * smooth(1, 4, td), turn = Math.PI * smooth(7, 10, td), d = hh / 2 + 6 * k + 3 * k * (1 - smooth(4, 7, td)), aL = shown * Math.min(1, td);
+        g.translate(0, cyC); g.rotate(turn);
+        g.save(); g.translate(0, d);
+        if (fine < 1) { g.globalAlpha = aL * (1 - fine); g.drawImage(k < RES ? LM_SMALL : LM, -6.5 * k, -6 * k, 13 * k, 12 * k); }
+        if (fine > 0) { g.globalAlpha = aL * fine; g.drawImage(LM_DETAILS[roll], -6.5 * k, -6 * k, 13 * k, 12 * k); }
+        g.restore(); g.rotate(flip); g.translate(0, -cyC); g.globalAlpha = shown; }
       if (fine < 1) { g.globalAlpha = shown * (1 - fine); g.drawImage(spr, -5.5 * k, -cut - hh, 11 * k, hh); }
       if (fine > 0) { g.globalAlpha = shown * fine; g.drawImage(DETAILS[roll], -5.5 * k, -cut - 11 * k, 11 * k, 11 * k); }
       g.globalAlpha = shown;
@@ -683,7 +713,9 @@ function makeRocketView(cv, hud, sim, MT) {
         g.save(); g.translate(Math.round(cq[0] + (cq[0] - mp[0]) * cu / cmd), Math.round(cq[1] + (cq[1] - mp[1]) * cu / cmd)); g.rotate(cm.ang + cam.rot);
         g.drawImage(ROLL[0], -5.5 * kc, -ROLL[0].height * kc / RES / 2, 11 * kc, ROLL[0].height * kc / RES); g.restore(); }
       const kL = Math.max(cam.k * RES, Math.min(2.5 * RES, s * LM_H / LM_ROWS.length)), angL = p.ang + cam.rot, litL = sim.ignited && v.running, alt = sim.altKm();
-      g.save(); g.translate(Math.round(sx), Math.round(sy)); g.rotate(angL);
+      // just undocked, it is still a stack's length ahead of the command module's nose, and drifts a little further ahead as the view closes in on it
+      const aC = cm.ang + cam.rot, dU = (ROLL[0].height * kc / RES / 2 + 6 * kL) * (1 + 0.6 * smooth(0, 12, sim.tD)) * (1 - wD);
+      g.save(); g.translate(Math.round(sx + Math.sin(aC) * dU), Math.round(sy - Math.cos(aC) * dU)); g.rotate(angL);
       const im = kL < RES ? LM_SMALL : LM; g.drawImage(im, -6.5 * kL, -6 * kL, 13 * kL, 12 * kL);
       if (litL) { const blk = Math.max(1, Math.round(kL / RES)), len = kL * (2 + 7 * v.power) * (0.8 + 0.4 * flick);
         for (let j = 0; j < len; j += blk) { const u = j / len, half = Math.max(blk / 2, 1.5 * kL * (1 - 0.7 * u));

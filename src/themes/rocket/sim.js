@@ -35,7 +35,8 @@ const HOLD = 1, ORBIT_PERIOD = 60, WRECK = 2.6, SPIN_AT = 3, SPIN_UP = 4, SPIN =
    LAND.coast seconds, its pace easing from the orbit's to the descent's), then the powered descent (12.5 minutes on Apollo 11, played in
    braking + approach + final seconds): braking almost on its back, pitching over at high gate (2.3 km) to see the landing site, slowing to a
    hover at low gate (150 m) and touching down 480 km past the start of the burn, 23.5° past the point under Earth, where Tranquility Base is.
-   It rests there, and the command module keeps circling. The descent only moves on while music is heard, like the climb */
+   It rests there, and the command module keeps circling. The descent only moves on while music is heard, like the climb. The lunar module rides
+   inside stage 3 until that separates (its view.js shows the capsule turning round to dock with it, as Apollo did) */
 const LAND = { wait: 300, coast: 60, braking: 90, approach: 60, final: 60, periKm: 15.2, downKm: 480, siteDeg: 23.5, LM_CM: 0.0035 };   // LM_CM: the module's middle is 3.5 m above its pads
 LAND.powered = LAND.braking + LAND.approach + LAND.final; LAND.len = LAND.coast + LAND.powered;
 LAND.undock = MILESTONES.orbit + LAND.wait; LAND.land = LAND.undock + LAND.len;
@@ -104,8 +105,8 @@ const DESCENT = (function () {
   // the coast's half turn: a cubic in time from the orbit's pace to the pace the braking starts at
   const h = LAND.coast, m0 = 2 * h / ORBIT_PERIOD, m1 = LAND.downKm / LAND.braking / RKM * h / Math.PI;
   const turn = t => { const u = clamp01(t / h), u2 = u * u, u3 = u2 * u; return Math.PI * ((3 * u2 - 2 * u3) + (u3 - 2 * u2 + u) * m0 + (u3 - u2) * m1); };
-  const tP = [0, LAND.braking, LAND.braking + LAND.approach, LAND.powered - 30, LAND.powered];     // PDI, high gate, low gate, the last 30 m, touchdown
-  const altAt = pchip(tP, [LAND.periKm, 2.3, 0.15, 0.03, 0].map(k => k + LAND.LM_CM)), downAt = pchip(tP, [0, 471, 478.6, 479.8, LAND.downKm]);
+  const tP = [0, LAND.braking, LAND.braking + LAND.approach, LAND.powered - 30, LAND.powered - 15, LAND.powered];   // PDI, high gate, low gate (600 m short), 30 m up, 10 m up, touchdown
+  const altAt = pchip(tP, [LAND.periKm, 2.3, 0.15, 0.03, 0.01, 0].map(k => k + LAND.LM_CM)), downAt = pchip(tP, [0, 471, 479.4, 479.93, 479.985, LAND.downKm], undefined, 0);   // the last metres straight down
   const leanAt = pchip([0, LAND.coast, tP[1] + LAND.coast, tP[2] + LAND.coast, LAND.len], [85, 85, 45, 8, 0].map(d => d * Math.PI / 180));
   return { site: site, doi: doi, sub: sub, at: function (tD) {
     let r, th;
@@ -223,7 +224,7 @@ class RocketSim {
       if (inp.playing) this.fp += dt;
       if (this.mode === 'landed') { this.ignited = false; return; }
       const was = this.tD; if (inp.playing) this.tD += dt; const tD = this.tD;
-      this.ignited = inp.playing && eff > 0 && (tD < 3 || tD >= LAND.coast);                          // the burn at the DOI point, then the powered descent
+      this.ignited = inp.playing && eff > 0 && ((tD >= 5 && tD < 8) || tD >= LAND.coast);             // the burn at the DOI point, once clear of the command module, then the powered descent
       if (was < LAND.coast && tD >= LAND.coast) this.events.push('pdi');
       if (was < LAND.coast + LAND.braking && tD >= LAND.coast + LAND.braking) this.events.push('highgate');
       if (tD >= LAND.len) { this.tD = LAND.len; this.mode = 'landed'; this.ignited = false; this.events.push('landed'); }

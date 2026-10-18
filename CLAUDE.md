@@ -83,7 +83,11 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
   its height above the ground as drawn stays half the picture, to a close-up of it touching down (`S_LAND`); the Moon's ground is drawn in cross-section
   close up (`relief`: craters at every size that shows, fading in and out with the zoom, flat round the site; `REG`, `MROCK`), the pale flame of the
   descent engine follows the playing, the blast raises dust below 30 m, and Earth hangs small in the black sky toward where it really is. Flights on
-  the way down or landed carry on (`save`, `rocketAt`; the debug tools can start one on the Moon), and a following device lands too.
+  the way down or landed carry on (`save`, `rocketAt`; the debug tools can start one on the Moon), and a following device lands too. The lunar
+  module rides inside stage 3: as the stage falls away at 14:29 it is left behind the capsule, which turns round, docks nose to top and turns again
+  to fly on module first (`td`, `flip`, `turn` in its `view.js`), so it shows docked through the coast (in the close-up too, rolling with the capsule:
+  `LM_DETAILS`, `detailLM`) and in Moon orbit, and at the undocking it simply lets go. The last 30 m of the descent are nearly straight down
+  (about 0.7 m/s down and under 1 m/s sideways at touchdown, as Apollo 11's), so the ground is still when it lands.
 - "Start a new flight" puts the rocket back on the pad: the New flight button at the end of the Rocket read-outs while it is
   off the pad, or the link after "Playing with Rocket" on the Home Screen. Both ask first. The time is kept in
   `musicTimer.newFlight`, and `rocketCarry` skips sessions that had ended by then. Play time, the goal and the trophy stay.
