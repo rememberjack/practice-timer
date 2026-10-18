@@ -44,7 +44,7 @@ body:has(> #app[data-skin="tumble"]){background:#1F2C33}
 .tu-bar{flex:1; min-width:0; height:8px; border-radius:4px; background:rgba(243,238,230,.14); overflow:hidden}
 .tu-bar i{display:block; height:100%; width:0; border-radius:4px; background:linear-gradient(90deg, #A3733C, #E0A648); transition:width .2s linear}
 #tuPct{flex:none; min-width:4ch; text-align:right; font-family:var(--toy); font-weight:600; font-size:14px; font-variant-numeric:tabular-nums lining-nums}
-.tu-stats{display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); margin-top:8px; text-align:center}
+.tu-stats{display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); margin-top:8px; text-align:center}
 .tu-stats > div + div{border-left:1px solid rgba(243,238,230,.14)}
 .tu-stats span{display:block; font-size:10px; color:#AEB9BF; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .tu-stats b{display:block; font-family:var(--toy); font-size:19px; line-height:1.25; font-weight:600; font-variant-numeric:tabular-nums lining-nums; white-space:nowrap}

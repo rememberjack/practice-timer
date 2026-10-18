@@ -78,13 +78,13 @@ module.exports = {
         if (f.shown) view.draw(dt, { st: v.st, music: v.music, goalText: tr('Goal') + ' ' + host.fmt(v.goal) });
         if (awardIn > 0) { awardIn -= dt; if (awardIn <= 0) host.award(); }
       },
-      /* the bar is the wall rising toward the goal; Blocks and Chords count the session's, Blocks/min the last minute of playing */
+      /* the bar is the wall rising toward the goal; Blocks counts the session's, Blocks/min the last minute of playing */
       paint(v) {
         const text = host.text, fmt = host.fmt, p = v.goal > 0 ? v.play / v.goal : 0, playTxt = fmt(v.play), el = $('tuPlay'), cls = playTxt.length > 5 ? 'big long' : 'big';
         text(el, playTxt); if (el.className !== cls) el.className = cls;
         host.width($('tuBar'), p); text($('tuPct'), Math.min(100, Math.floor(p * 100)) + '%');
         text($('tuGoal'), fmt(v.goal)); host.showGoalLeft($('tuGoalLeft'), v); text($('tuPauses'), String(v.pauses));
-        text($('tuBlocks'), String(sim.blocks)); text($('tuChords'), String(sim.chords)); text($('tuRate'), String(Math.round(sim.rate()))); text($('tuEff'), Math.round(v.eff * 100) + '%');
+        text($('tuBlocks'), String(sim.blocks)); text($('tuRate'), String(Math.round(sim.rate()))); text($('tuEff'), Math.round(v.eff * 100) + '%');
         text($('tuHeard'), host.heardLine(v));
         text($('tuHint'), hint(v));
       },
@@ -93,7 +93,7 @@ module.exports = {
       keep() { return sim.save(); },
       resize() { view.resize(); },
       langChanged() { view.relabel(); },
-      debugLine() { return 'tumble ' + sim.blocks + ' blocks, ' + sim.chords + ' chords, ' + sim.pile.live.length + ' live, ' + sim.pile.settled.length + ' settled, ' + sim.pile.kind + (loading ? ' (loading)' : ''); },
+      debugLine() { return 'tumble ' + sim.blocks + ' blocks, ' + sim.pile.live.length + ' live, ' + sim.pile.settled.length + ' settled, ' + sim.pile.kind + (loading ? ' (loading)' : ''); },
     };
   },
 };

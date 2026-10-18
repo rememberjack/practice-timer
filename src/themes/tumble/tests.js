@@ -53,12 +53,12 @@ list.push({ name: 'Tumble: three or four notes of one chord in a row are a chord
   const glued = planks(c).length === 1 && lone.w === 3 && lone.b.parts.map(p => tuName(p.pc)).join(' ') === 'C E G' && c.s.pile.live.length === 1 && c.s.blocks === 3 && c.s.pile.live.every(k => k.rest)
     && planks(g7).length === 1 && plank.w === 4 && plank.b.chord === 'G7' && plank.b.parts.map(p => tuName(p.pc)).join(' ') === 'G B D F' && g7.s.pile.live.length === 1 && g7.ch[1].ids[0] === plank.b.id
     && planks(twice).length === 2 && planks(scale).length === 0 && scale.s.pile.live.length === 5;
-  const ok = glued && name(c) === 'C' && name(am) === 'Am' && name(g7) === 'G G7' && g7.ch[1].ids.length === 1 && g7.s.chords === 1 && g7.bl.every(b => b.chord === 'G7') && c.bl.every(b => b.chord === 'C') && !scale.ch.length && !slow.ch.length && !held.ch.length && c.s.chords === 1
-    && name(twice) === 'C C' && twice.s.chords === 2
+  const ok = glued && name(c) === 'C' && name(am) === 'Am' && name(g7) === 'G G7' && g7.ch[1].ids.length === 1 && g7.bl.every(b => b.chord === 'G7') && c.bl.every(b => b.chord === 'C') && !scale.ch.length && !slow.ch.length && !held.ch.length
+    && name(twice) === 'C C'
     && chordOf([60, 63, 67]).suffix === 'm' && chordOf([60, 64, 68]).suffix === '+' && chordOf([62, 65, 69, 72]) && chordOf([62, 65, 69, 72]).suffix === 'm7' && chordOf([60, 62]) === null && chordOf([60, 61, 62]) === null
     && chordOf([69, 71, 76]) === null && chordOf([69, 74, 76]) === null;   // no suspended chords: A B E and A D E are tunes, not Asus2 and Asus4
-  return { name: 'Tumble: three or four notes of one chord in a row are a chord outline', expect: 'C E G → C, the three blocks glued into one resting plank of 3 (still 3 blocks); A C E → Am; G B D, then F → G, then G7 (one chord, the plank of 3 and the F into one plank of 4); the arpeggio twice → C twice, two planks; a scale (5 blocks apart), notes a second apart, long notes, or A B E (no suspended chords) name nothing',
-    got: 'C E G → ' + (name(c) || 'none') + ' (' + planks(c).length + ' plank of ' + (lone ? lone.w + ': ' + lone.b.parts.map(p => tuName(p.pc)).join(' ') : '-') + ', ' + c.s.pile.live.length + ' in the pile, ' + c.s.blocks + ' blocks), A C E → ' + (name(am) || 'none') + ', G B D F → ' + (name(g7) || 'none') + ' (' + g7.s.chords + ' counted, ' + planks(g7).length + ' plank of ' + (plank ? plank.w + ' ' + plank.b.chord : '-') + ', ' + g7.s.pile.live.length + ' in the pile), twice → ' + (name(twice) || 'none') + ' (' + planks(twice).length + ' planks); scale ' + scale.ch.length + ' (' + scale.s.pile.live.length + ' blocks), slow ' + slow.ch.length + ', held ' + held.ch.length, pass: ok }; } });
+  return { name: 'Tumble: three or four notes of one chord in a row are a chord outline', expect: 'C E G → C, the three blocks glued into one resting plank of 3 (still 3 blocks); A C E → Am; G B D, then F → G, then G7 (the plank of 3 and the F into one plank of 4); the arpeggio twice → C twice, two planks; a scale (5 blocks apart), notes a second apart, long notes, or A B E (no suspended chords) name nothing',
+    got: 'C E G → ' + (name(c) || 'none') + ' (' + planks(c).length + ' plank of ' + (lone ? lone.w + ': ' + lone.b.parts.map(p => tuName(p.pc)).join(' ') : '-') + ', ' + c.s.pile.live.length + ' in the pile, ' + c.s.blocks + ' blocks), A C E → ' + (name(am) || 'none') + ', G B D F → ' + (name(g7) || 'none') + ' (' + planks(g7).length + ' plank of ' + (plank ? plank.w + ' ' + plank.b.chord : '-') + ', ' + g7.s.pile.live.length + ' in the pile), twice → ' + (name(twice) || 'none') + ' (' + planks(twice).length + ' planks); scale ' + scale.ch.length + ' (' + scale.s.pile.live.length + ' blocks), slow ' + slow.ch.length + ', held ' + held.ch.length, pass: ok }; } });
 list.push({ name: 'Tumble: the plain pile stacks into a heap, inside the crate', run: () => {
   const p = new StackPile(), cube = (i, x) => ({ id: i, kind: 'note', pc: i % 12, oct: 4, units: 1, h: 1, x: x, chord: '' }); p.spawnY = 30;
   for (let i = 0; i < 24; i++) { p.add(cube(i, 10 + (i % 3) * 0.5)); settle(p, 0.4); }
@@ -75,7 +75,7 @@ list.push({ name: 'Tumble: the goal line rises with the wall, and past walls are
   const s = new TumbleSim(); s.reset(1800, 13); s.pile.spawnY = 30; let play = 0, owed = 0;
   for (let t = 0; t < 150; t += DT) { play += DT; owed += 1.5 * DT; const n = Math.floor(owed + 1e-9); owed -= n; s.update(DT, { state: 'running', music: true, notes: n, midi: 55 + Math.floor(t * 3) % 24, play: play }); s.pile.step(DT); s.events.length = 0; }
   const rate = s.perMin(), rateOk = rate > 0.3 && Math.abs(rate - s.surface / 2.5) < s.surface / 2.5 * 0.5, bpm = s.rate(), bpmOk = bpm >= 80 && bpm <= 100;   // 1.5 notes a second: about 90 blocks a minute
-  const rec = h => ({ themes: { tumble: { blocks: 9, chords: 0, notes: [], height: h } } });
+  const rec = h => ({ themes: { tumble: { blocks: 9, notes: [], height: h } } });
   const none = wallMarks([]), old = wallMarks([{ themes: { tumble: { blocks: 9 } } }, { themes: { rocket: {} } }, {}]), empty = wallMarks([rec(0)]);
   const two = wallMarks([rec(12), rec(30.5), rec(0), rec(18)]), one = wallMarks([rec(12), rec(18), rec(30.5)]), lone = wallMarks([rec(7)]);
   const str = m => m.map(x => x.k + '@' + x.y).join(' ');
@@ -97,15 +97,15 @@ list.push({ name: 'Tumble: a following device drops the blocks it is told about,
   b.update(DT, { state: 'running', music: true, notes: 1, midi: 60, play: 1, follow: true }); b.update(DT, { state: 'running', music: false, notes: 0, midi: null, play: 1, follow: true });
   const shape = s => s.pile.live.map(k => k.b.units + '@' + (k.b.parts ? k.b.parts.map(p => p.pc).join('+') : k.b.pc)).sort().join(), same = shape(b) === shape(a);
   const late = new TumbleSim(); late.reset(1800, 19); late.follow(d2);   // joins after the chord: told the plank, it never drops the three
-  const ok = once === 4 && b.blocks === 5 && same && b.chords === a.chords && a.chords === 1 && JSON.stringify(d2).length < 400 && b.pile.live.filter(k => k.b.kind === 'chord').length === 1 && b.pile.live.length === 3
+  const ok = once === 4 && b.blocks === 5 && same && JSON.stringify(d2).length < 400 && b.pile.live.filter(k => k.b.kind === 'chord').length === 1 && b.pile.live.length === 3
     && shape(late) === shape(a);
   return { name: 'Tumble: a following device drops the blocks it is told about, each once', expect: 'the same 5 blocks (sizes, notes, and the chord\'s three glued into one plank) once each, however often it is told; a device joining after the chord builds the same pile; the sound it hears drops nothing; under 400 bytes a share',
-    got: once + ' after twice the same share, ' + b.blocks + ' blocks, ' + b.chords + ' chords, ' + (same ? 'the same pile' : 'a different pile: ' + shape(b) + ' vs ' + shape(a)) + (shape(late) === shape(a) ? ', the same joining late' : ', joining late: ' + shape(late)) + ', ' + JSON.stringify(d2).length + ' bytes', pass: ok }; } });
+    got: once + ' after twice the same share, ' + b.blocks + ' blocks, ' + (same ? 'the same pile' : 'a different pile: ' + shape(b) + ' vs ' + shape(a)) + (shape(late) === shape(a) ? ', the same joining late' : ', joining late: ' + shape(late)) + ', ' + JSON.stringify(d2).length + ' bytes', pass: ok }; } });
 list.push({ name: 'Tumble: what a session keeps', run: () => {
   const s = new TumbleSim(); s.reset(1800, 23); for (const m of [60, 64, 67]) note(s, m, 0.3, 0.1); const k = s.save();
   for (let i = 0; i < 60; i++) note(s, 48 + (i * 7) % 37, 0.3, 0.1);   // across the whole crate, so the wall has a height
   settle(s.pile, 4); const k2 = s.save();
-  const ok = k.blocks === 3 && k.chords === 1 && Array.isArray(k.notes) && k.notes.length === 12 && k.notes[0] === 1 && k.notes[4] === 1 && k.notes[7] === 1 && JSON.stringify(k) === JSON.stringify(JSON.parse(JSON.stringify(k)))
+  const ok = k.blocks === 3 && !('chords' in k) && Array.isArray(k.notes) && k.notes.length === 12 && k.notes[0] === 1 && k.notes[4] === 1 && k.notes[7] === 1 && JSON.stringify(k) === JSON.stringify(JSON.parse(JSON.stringify(k)))
     && typeof k.height === 'number' && k2.height > 0 && Math.abs(k2.height - s.surface) < 0.1;
-  return { name: 'Tumble: what a session keeps', expect: 'the blocks, the chords, how often each of the twelve notes was played and the wall\'s height once the blocks have landed, as a plain object', got: JSON.stringify(k2), pass: ok }; } });
+  return { name: 'Tumble: what a session keeps', expect: 'the blocks, how often each of the twelve notes was played and the wall\'s height once the blocks have landed, as a plain object', got: JSON.stringify(k2), pass: ok }; } });
 module.exports = list;

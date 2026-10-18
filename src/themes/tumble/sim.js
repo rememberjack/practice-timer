@@ -95,7 +95,7 @@ class TumbleSim {
   constructor(pile) { this.pile = pile || new StackPile(); this.marks = []; this.reset(0, 1); }   // marks: past walls' heights (wallMarks), kept across sessions
   reset(goal, seed) {
     this.goal = goal || 0; this.seed = seed || 1; this.rnd = seededRng(this.seed); this.t = 0; this.play = 0;
-    this.blocks = 0; this.chords = 0; this.area = 0; this.tally = new Array(12).fill(0); this.cur = null; this.quiet = 0; this.seq = []; this.recent = []; this.seen = 0; this.next = 1;
+    this.blocks = 0; this.area = 0; this.tally = new Array(12).fill(0); this.cur = null; this.quiet = 0; this.seq = []; this.recent = []; this.seen = 0; this.next = 1;
     this.heard = []; this.mid = TU.MID; this.lo = TU.MID - TU.SPAN / 2; this.hi = TU.MID + TU.SPAN / 2; this.drops = []; this.goalDone = false; this.goalY = 0; this.events = []; this.pile.reset();
   }
   get surface() { return this.pile.surface(); }
@@ -137,7 +137,8 @@ class TumbleSim {
   place(b) { this.pile.add(b); this.events.push({ k: 'block', b: b }); this.recent.push(b); if (this.recent.length > TU.SHARE) this.recent.shift(); }   // into the pile, not counted (a plank)
   /* a chord outline: the last 4 or 3 notes, played close together and none held long, spell a chord. The blocks are marked and the notes
      used, so one run of notes names one chord; a fourth note after a named triad can still grow it into a seventh (G B D, then F: G, then G7),
-     which renames the blocks and is not counted again. The blocks are glued into one plank */
+     which renames the blocks. The blocks are glued into one plank. Nothing is counted: the microphone hears one note at a time, so these are
+     outlines, not chords */
   outline() {
     for (const n of [4, 3]) {
       if (this.seq.length < n) continue;
@@ -147,7 +148,6 @@ class TumbleSim {
       const ch = chordOf(w.map(e => e.key)); if (!ch) continue;
       const name = tuName(ch.root) + ch.suffix;
       for (const e of w) { e.b.chord = name; e.used = true; }
-      if (fresh >= 3) this.chords++;
       const plank = this.glue(w.map(e => e.b), name);
       this.events.push({ k: 'chord', root: ch.root, suffix: ch.suffix, ids: plank ? [plank.id] : w.map(e => e.b.id) }); return;
     }
@@ -167,7 +167,7 @@ class TumbleSim {
   goalChanged(goal, play) { this.goal = goal; if (play < goal) this.goalDone = false; }
   /* what a following device needs: the blocks lately dropped (the id tells it which it has; a plank names its parts, so it glues the same blocks)
      and whether the trophy fell */
-  share() { return { n: this.blocks, c: this.chords, g: this.goalDone ? 1 : 0, r: this.recent.map(b => { const r = [b.id, b.pc, b.oct, b.units, Math.round(b.x * 10) / 10, b.chord]; if (b.parts) r.push(b.parts.map(p => [p.id, p.pc, p.oct, p.units])); return r; }) }; }
+  share() { return { n: this.blocks, g: this.goalDone ? 1 : 0, r: this.recent.map(b => { const r = [b.id, b.pc, b.oct, b.units, Math.round(b.x * 10) / 10, b.chord]; if (b.parts) r.push(b.parts.map(p => [p.id, p.pc, p.oct, p.units])); return r; }) }; }
   follow(d) {
     if (!d || !Array.isArray(d.r)) return;
     for (const r of d.r) { if (!Array.isArray(r) || !(r[0] > this.seen)) continue; this.seen = r[0]; const chord = typeof r[5] === 'string' ? r[5] : '';
@@ -182,10 +182,9 @@ class TumbleSim {
       this.emit(b); this.tally[b.pc]++; }
     if (d.g && !this.goalDone) this.trophy();
     if (typeof d.n === 'number' && d.n > this.blocks) this.blocks = d.n;   // blocks that fell before the follower joined
-    if (typeof d.c === 'number' && d.c > this.chords) this.chords = d.c;
   }
-  /* kept with the session: the blocks, the chords, how often each note was played, and the wall's height (units) for the marks on the crate */
-  save() { return { blocks: this.blocks, chords: this.chords, notes: this.tally.slice(), height: Math.round(this.pile.surface() * 10) / 10 }; }
+  /* kept with the session: the blocks, how often each note was played, and the wall's height (units) for the marks on the crate */
+  save() { return { blocks: this.blocks, notes: this.tally.slice(), height: Math.round(this.pile.surface() * 10) / 10 }; }
 }
 /* the marks on the crate from the practice log (oldest first): the last session's wall and the tallest, [{ k: 'last' | 'best', y (units) }],
    lowest first; one mark, the tallest, when the last wall is the tallest. Sessions with no wall, and older records with no height, leave none */

@@ -146,8 +146,9 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
   quiet, paused or stopped. The microphone hears one note at a time, so chords are chord outlines: three or four notes of one chord played in a
   row (`TU.CHORD_GAP`, `TU.CHORD_NOTE`; `chordOf`) are glued into one plank (`glue`: the blocks leave the pile and a plank of their faces, in the order
   played and in one gold frame, drops in just over where they were; a following device is told the plank's parts), name the chord on a banner (G, Em, D7, never a suspended chord: A, B, E in
-  a tune is not an Asus2; a fourth note can grow a named triad into a seventh, regluing the plank) and count as Chords; the blocks themselves are never held back for it. The
-  read-outs show Blocks, Chords, Blocks/min (the blocks dropped over the last minute of playing, `rate`; there is no Power figure, as nothing in the
+  a tune is not an Asus2; a fourth note can grow a named triad into a seventh, regluing the plank); they are not counted, as the microphone cannot hear a chord struck
+  together; the blocks themselves are never held back for it. The
+  read-outs show Blocks, Blocks/min (the blocks dropped over the last minute of playing, `rate`; there is no Power figure, as nothing in the
   scene follows it) and Efficiency. The pile is the record of the session: the
   practice goal is a gold line the wall reaches at the goal (placed by `perMin`, from the blocks' area); reaching it drops a trophy block, and the
   trophy card waits for it to land (`holdAward`, then `host.award()`). Past walls are pencilled on the crate like heights on a doorframe
@@ -159,7 +160,7 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
   `sim.js` stacks them plainly (and is what the tests run against): both have the same shape (live blocks in block units, y up from the
   floor, and settled ones). Resting blocks deep under the surface are frozen and, once below what is on screen, settled: out of the engine
   (a plate under the live blocks) and drawn once into strips of canvas (`CHU` in its `view.js`), so a long session stays cheap. A following
-  device gets the blocks lately dropped by id (`share`, `follow`) and tumbles them itself. Each session keeps its blocks, chords, how
+  device gets the blocks lately dropped by id (`share`, `follow`) and tumbles them itself. Each session keeps its blocks, how
   often each note was played and the wall's height (`keep`). Its look is a crate of toy blocks on a slate table: Fredoka (`--toy`) on the read-outs, buttons and
   the blocks' faces, amber wood for the buttons, each with a bevel under it.
 - The Home Screen (`#home`) shows when the app opens and after a finished session's summary is closed; its words come
