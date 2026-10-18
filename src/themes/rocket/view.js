@@ -553,9 +553,9 @@ function makeRocketView(cv, hud, sim, MT) {
       g.globalAlpha = 1; }
 
     // E7: from the lunar module's descent Earth hangs in the black sky, small, toward where it really is (far beyond the picture's edge); it rises
-    // over the horizon as the module comes round to the near side
-    if (wD > 0.5) { const e0 = P(0, 0), ex = e0[0] - sx, ey = e0[1] - sy, dd = Math.hypot(ex, ey), upE = dd > 0 ? -ey / dd : 0, a = smooth(0.5, 0.9, wD) * smooth(0.12, 0.3, upE);
-      if (a > 0) { const rE = 5 * RES, cx = sx + ex / dd * 0.45 * (H - topInset), cy = sy + ey / dd * 0.45 * (H - topInset);
+    // over the horizon as the module comes round to the near side. It is pinned to the sky (the picture), not to the module: from the Moon it stays put
+    if (wD > 0.5) { const ax = W / 2, ay = topInset + (H - topInset) / 2, e0 = P(0, 0), ex = e0[0] - ax, ey = e0[1] - ay, dd = Math.hypot(ex, ey), upE = dd > 0 ? -ey / dd : 0, a = smooth(0.5, 0.9, wD) * smooth(0.12, 0.3, upE);
+      if (a > 0) { const rE = 5 * RES, cx = ax + ex / dd * 0.45 * (H - topInset), cy = ay + ey / dd * 0.45 * (H - topInset);
         g.globalAlpha = a; g.drawImage(EARTH_DISC, Math.round(cx - rE), Math.round(cy - rE), 2 * rE, 2 * rE); g.globalAlpha = 1; } }
 
     // the view of the whole way: the path flown in gold and still to fly in grey, Earth and the Moon as small pictures
