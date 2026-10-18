@@ -73,6 +73,17 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
   rocket drawn smaller and smaller as it climbs, the ground a thinner and thinner strip), then, after the burn, Earth and the rocket until Earth slips out
   of view below, then (until 5 minutes before Moon orbit) the rocket alone, zoomed in on the capsule (drawn in finer detail close up: `DETAIL` in its `view.js`), with a few faint streaks of light rushing past (now and then one in front of it) and the still starfield
   giving way to one that drifts past in short trails, all following the rocket's speed (they slow and stop when the playing does), then the rocket and the Moon.
+- The Moon landing (`LAND`, `DESCENT` in `src/themes/rocket/sim.js`), Apollo 11's sped up: after 5 minutes of playing in Moon orbit the lunar module
+  undocks as the module crosses the DOI point on the far side (its spin steadied first; banner "Lunar module away"), burns, and coasts half an orbit down to
+  15 km over the near side (60 s, its pace easing from the orbit's to the descent's), then the powered descent, Apollo 11's 12.5 minutes in 3.5 (`braking`,
+  `approach`, `final`): "Powered descent" at 15.2 km, braking almost on its back, pitching over at high gate (2.3 km, "Looking for a landing spot"), a hover
+  below low gate (150 m) and touchdown 480 km on, 23.5° past the point under Earth as Tranquility Base is ("Touchdown on the Moon!", at about 39:40).
+  The descent moves on only while music is heard ("Keep playing to land"); the command module keeps circling. From Moon orbit on the height read-out is
+  above the Moon (110 km; the pads' height in the descent, `altKm`). The view (`wR`, `wD` in its `view.js`) turns to the module's own up and closes in so that
+  its height above the ground as drawn stays half the picture, to a close-up of it touching down (`S_LAND`); the Moon's ground is drawn in cross-section
+  close up (`relief`: craters at every size that shows, fading in and out with the zoom, flat round the site; `REG`, `MROCK`), the pale flame of the
+  descent engine follows the playing, the blast raises dust below 30 m, and Earth hangs small in the black sky toward where it really is. Flights on
+  the way down or landed carry on (`save`, `rocketAt`; the debug tools can start one on the Moon), and a following device lands too.
 - "Start a new flight" puts the rocket back on the pad: the New flight button at the end of the Rocket read-outs while it is
   off the pad, or the link after "Playing with Rocket" on the Home Screen. Both ask first. The time is kept in
   `musicTimer.newFlight`, and `rocketCarry` skips sessions that had ended by then. Play time, the goal and the trophy stay.

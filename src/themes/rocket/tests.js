@@ -1,7 +1,7 @@
 /* Rocket's tests: run by npm test and by the debug tools' Sound tests, with the page's own */
 'use strict';
 const { Session, practiceStats, sampleLog } = require('../../core.js');
-const { ISS, MILESTONES, PHASES, WORLD, RocketSim, rocketAt, rocketCarry, sampleFlights } = require('./sim.js');
+const { ISS, LAND, MILESTONES, PHASES, WORLD, RocketSim, rocketAt, rocketCarry, sampleFlights } = require('./sim.js');
 const list = [];
 list.push({ name: 'Rocket: timeline from ignition to Moon orbit', run: () => {
   const sim = new RocketSim(), s = new Session(), at = {}; s.start();
@@ -112,5 +112,21 @@ list.push({ name: 'Rocket: drops its three stages at Apollo 11\'s times', run: (
   const ok = Math.abs(at.stage1 - 162.3) < 2 && Math.abs(at.stage2 - 549) < 2 && Math.abs(at.stage3 - T.stage3) < 2 && Math.abs(after - 1622) < 60 && sim.stage === 3 && km.stage2 > 180 && km.stage2 < 190;
   return { name: 'Rocket: drops its three stages at Apollo 11\'s times', expect: 'stage 1 at 2:42, stage 2 at 9:09 (about 186 km up), stage 3 27 minutes after the burn for the Moon on the coast\'s clock',
     got: ['stage1', 'stage2', 'stage3'].map(k => k + ' ' + (at[k] == null ? 'never' : fmt(at[k]) + ' (' + Math.round(km[k]) + ' km)')).join(', ') + ', stage 3 ' + (after / 60).toFixed(1) + ' min after the burn', pass: ok }; } });
+
+list.push({ name: 'Rocket: lands on the Moon after five minutes in orbit', run: () => {
+  const sim = new RocketSim(), at = {}, M = WORLD.MOON, deg = 180 / Math.PI, fmt = t => Math.floor(t / 60) + ':' + String(Math.round(t % 60)).padStart(2, '0');
+  let altPdi = -1, down = true, lastAlt = 1e9;
+  for (let t = 0; t < 2500; t += 0.1) { sim.update(0.1, { running: true, playing: true, eff: 1 });
+    for (const e of sim.events) { if (at[e] == null) at[e] = Math.round(sim.fp); if (e === 'pdi') altPdi = sim.altKm(); } sim.events.length = 0;
+    if (sim.mode === 'descent' && sim.tD >= LAND.coast) { const a = sim.altKm(); if (a > lastAlt + 1e-9) down = false; lastAlt = a; } }
+  const p = sim.pose(), site = ((Math.atan2(p.y - M.y, p.x - M.x) - Math.atan2(-M.y, -M.x)) * deg + 540) % 360 - 180;   // where it landed, from the point under Earth
+  const q = new RocketSim(); q.restore(rocketAt(LAND.undock + 100)); const tD0 = q.tD;                                      // the descent only moves on while music is heard
+  for (let i = 0; i < 50; i++) q.update(0.1, { running: true, playing: false, eff: 0.2 }); const held = q.mode === 'descent' && q.tD === tD0 && q.altKm() > 0;
+  const sv = sim.save(), r = new RocketSim(), back = r.restore(sv) && r.mode === 'landed' && r.altKm() === 0 && r.save().mode === 'landed';   // a landed flight carries on
+  const ok = at.undock >= LAND.undock && at.undock < LAND.undock + 61 && at.pdi === at.undock + LAND.coast && at.highgate === at.pdi + LAND.braking && at.landed === at.undock + LAND.len
+    && sim.mode === 'landed' && Math.abs(altPdi - 15.2) < 0.1 && down && sim.altKm() === 0 && Math.abs(site + 23.5) < 0.2 && held && back
+    && rocketAt(LAND.land + 500).mode === 'landed' && rocketAt(LAND.undock - 10).mode === 'orbit' && rocketAt(LAND.undock + 100).mode === 'descent';
+  return { name: 'Rocket: lands on the Moon after five minutes in orbit', expect: 'the lunar module undocks within an orbit of 35:00, starts the powered descent at 15.2 km a minute later, pitches over at high gate 90 s on and touches down 4:30 after undocking, 23.5° past the point under Earth, coming down all the way; it comes down only while music is heard, and a flight on the way down or landed carries on',
+    got: ['undock', 'pdi', 'highgate', 'landed'].map(k => k + ' ' + (at[k] == null ? 'never' : fmt(at[k]))).join(', ') + ', PDI at ' + altPdi.toFixed(1) + ' km, ' + (down ? 'down all the way' : 'climbed on the way') + ', now ' + sim.mode + ' ' + sim.altKm() + ' km up at ' + site.toFixed(1) + '°' + (held ? ', holds while quiet' : ', moved while quiet') + (back ? ', carries on' : ', not carried on'), pass: ok }; } });
 
 module.exports = list;
