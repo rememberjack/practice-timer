@@ -20,11 +20,13 @@ const smooth = (a, b, x) => { const t = clamp01((x - a) / (b - a)); return t * t
 const KM = 1 / 6371, R_KM = 6371, MU = 398600.4418, MU_MOON = 4904.87, SOI = 66100;   // Earth's radius and gravitational parameter (km, km³/s²); the Moon's, and how near its pull takes over (km)
 const WORLD = { ROCKET_H: 0.1 * KM, SPACE: 100 * KM, MOON: { x: 0, y: 0, r: 1737.4 * KM }, ORBIT: (1737.4 + 110) * KM, DIST: 384400 * KM };
 /* Flight timeline, in seconds of playing since ignition (E0). Up to Earth orbit it keeps a real flight's time (Apollo 11's Saturn V):
-   E1 clear the tower 8 s, E2 stage 1 separation 2:43 (67 km up), E3 the edge of space 3:25 (100 km); Earth orbit (191 km) at 11:50, a minute's
-   coast and a minute's burn for the Moon (PHASES), E4 stage 2 separation 14:10; then the three-day coast to the Moon, sped up about 275 times,
+   E1 clear the tower 8 s, E2 stage 1 separation 2:43 (67 km up), E3 the edge of space 3:25 (100 km), stage 2 separation 9:09 (186 km); the third
+   stage puts it in Earth orbit (191 km) at 11:50, then a minute's coast and a minute's burn for the Moon (PHASES), and E4 stage 3 separation at
+   14:29, 27 minutes after the burn as on Apollo 11 (on the coast's sped-up clock); then the three-day coast to the Moon, sped up about 275 times,
    so that E5, Moon orbit, comes at 30:00; E6 send the module spinning about its length and keep orbiting. Each step is from the one before. */
-const STEPS = [['tower', 8], ['stage1', 155], ['space', 42], ['stage2', 645], ['orbit', 950]];
+const STEPS = [['tower', 8], ['stage1', 155], ['space', 42], ['stage2', 344], ['stage3', 320], ['orbit', 931]];
 const MILESTONES = {}; (function () { let t = 0; for (const s of STEPS) { t += s[1]; MILESTONES[s[0]] = t; } })();
+const stageAt = fp => fp >= MILESTONES.stage3 ? 3 : fp >= MILESTONES.stage2 ? 2 : fp >= MILESTONES.stage1 ? 1 : 0;   // stages dropped by then
 const PHASES = { insert: 710, tli: 770, coast: 830 };   // Earth orbit, the burn for the Moon (TLI) and the coast after it
 const LIFTOFF = 0.5;   // engine power the rocket needs, held for HOLD seconds, to leave the pad
 const HOLD = 1, ORBIT_PERIOD = 60, WRECK = 2.6, SPIN_AT = 3, SPIN_UP = 4, SPIN = 2 * Math.PI * 0.6;   // E6: 3 s after arrival the module starts to roll about its long axis, reaching 0.6 turns a second
@@ -95,7 +97,7 @@ const lerpAt = (xs, ys, x) => { let lo = 0, hi = xs.length - 1; if (x <= xs[0]) 
 /* distance along the path at each point of the timeline, and the height read-out (km above Earth) at each distance along it */
 const TIMING = (function () {
   const T = MILESTONES, L = PATH.pl[PATH.pl.length - 1], lenAt = t => lerpAt(PATH.pt, PATH.pl, Math.min(t, T.orbit));
-  return { lenAt, kmAt: l => lerpAt(PATH.pl, PATH.pk, l), kmAtAlt: a => a * R_KM, S1: lenAt(T.stage1), SP: lenAt(T.space), S2: lenAt(T.stage2), L, realAt: PATH.real };
+  return { lenAt, kmAt: l => lerpAt(PATH.pl, PATH.pk, l), kmAtAlt: a => a * R_KM, S1: lenAt(T.stage1), SP: lenAt(T.space), S2: lenAt(T.stage2), S3: lenAt(T.stage3), L, realAt: PATH.real };
 })();
 
 class RocketSim {
@@ -104,20 +106,18 @@ class RocketSim {
     this.px = PATH.px; this.py = PATH.py; this.pl = PATH.pl; this.S = PATH.pl.length - 1; this.L = TIMING.L; this.th0 = PATH.th0;
     this.lenAt = TIMING.lenAt; this.kmAt = TIMING.kmAt; this.kmAtAlt = TIMING.kmAtAlt; this.realAt = TIMING.realAt;
     const q = this.pathAt(this.lenAt(ISS.at)); this.issFrom = Math.atan2(q.x, q.y);
-    this.lTower = 0.95 * RH; this.lStage1 = TIMING.S1; this.lSpace = TIMING.SP; this.lStage2 = TIMING.S2;
+    this.lTower = 0.95 * RH; this.lStage1 = TIMING.S1; this.lSpace = TIMING.SP; this.lStage2 = TIMING.S2; this.lStage3 = TIMING.S3;
     this.wOrbit = 2 * Math.PI / ORBIT_PERIOD;
     this.events = []; this.reset();
   }
   reset() { this.mode = 'pad'; this.l = 0; this.v = 0; this.hold = 0; this.stage = 0; this.inSpace = false; this.cleared = false; this.parked = false; this.tli = false; this.ci = 0;
     this.ignited = false; this.lit0 = false; this.fp = 0; this.power = 0; this.g = 0; this.prevT = 0; this.down = 0;
     this.th = this.th0; this.tOrb = 0; this.wIn = 2 * Math.PI / ORBIT_PERIOD; this.spinUp = 0; this.spinA = 0; this.events.length = 0; }
-  /* how far along the flight plan the rocket is, from 0 on the pad to 1 in Moon orbit: four equal legs (to stage 1, the edge of space,
-     stage 2 and the Moon), each filled by the playing it takes. Falling, it drops back with the rocket */
+  /* how far along the flight plan the rocket is, from 0 on the pad to 1 in Moon orbit: the share of the flight's playing time flown, so it
+     fills at an even pace. Falling, it drops back with the rocket */
   plan() {
     if (this.mode === 'orbit') return 1;
-    const T = MILESTONES, at = [0, T.stage1, T.space, T.stage2, T.orbit], fp = this.fp;
-    let i = 0; while (i < 3 && fp >= at[i + 1]) i++;
-    const p = Math.min(1, (i + clamp01((fp - at[i]) / (at[i + 1] - at[i]))) / 4);
+    const fp = this.fp, p = clamp01(fp / MILESTONES.orbit);
     if (this.mode !== 'fall') return p;
     const l0 = this.lenAt(fp); return l0 > 0 ? p * clamp01(this.l / l0) : 0;
   }
@@ -132,11 +132,11 @@ class RocketSim {
   restore(x) {
     this.reset();
     const n = (v, lo, hi) => typeof v === 'number' && isFinite(v) && v >= lo && v <= hi;
-    if (!x || (x.mode !== 'orbit' && !(x.mode === 'ascent' && x.inSpace)) || !n(x.fp, HOLD, 1e6) || !n(x.l, 0, 1e3) || !n(x.stage, 0, 2) || !n(x.th, -4, 4) || !n(x.tOrb, 0, 1e6)) return false;
-    const T = MILESTONES, fp = x.fp;   // where the rocket is, and what it has passed, follow the flight clock (a flight saved before the path was drawn to scale too)
-    this.mode = x.mode; this.fp = fp; this.l = this.lenAt(fp); this.prevT = this.target(fp); this.stage = fp >= T.stage2 ? 2 : fp >= T.stage1 ? 1 : 0; this.lit0 = true;
+    if (!x || (x.mode !== 'orbit' && !(x.mode === 'ascent' && x.inSpace)) || !n(x.fp, HOLD, 1e6) || !n(x.l, 0, 1e3) || !n(x.stage, 0, 3) || !n(x.th, -4, 4) || !n(x.tOrb, 0, 1e6)) return false;
+    const fp = x.fp;   // where the rocket is, and what it has passed, follow the flight clock (a flight saved before the path was drawn to scale too)
+    this.mode = x.mode; this.fp = fp; this.l = this.lenAt(fp); this.prevT = this.target(fp); this.stage = stageAt(fp); this.lit0 = true;
     this.inSpace = true; this.cleared = true; this.parked = fp >= PHASES.insert; this.tli = fp >= PHASES.tli; this.ci = COAST.filter(c => c.at <= fp).length;
-    if (x.mode === 'orbit') { this.l = this.L; this.stage = 2; this.th = x.th; this.tOrb = x.tOrb; this.spinUp = smooth(SPIN_AT, SPIN_AT + SPIN_UP, x.tOrb); }
+    if (x.mode === 'orbit') { this.l = this.L; this.stage = 3; this.th = x.th; this.tOrb = x.tOrb; this.spinUp = smooth(SPIN_AT, SPIN_AT + SPIN_UP, x.tOrb); }
     return true;
   }
   target(fp) { return this.lenAt(Math.min(MILESTONES.orbit, fp)); }
@@ -165,9 +165,10 @@ class RocketSim {
       if (!this.cleared && fp >= T.tower && this.l >= this.lTower) { this.cleared = true; this.events.push('tower'); }
       if (this.stage < 1 && fp >= T.stage1 && this.l >= this.lStage1 * 0.97) { this.stage = 1; this.events.push('stage1'); }
       if (!this.inSpace && fp >= T.space && this.l >= this.lSpace * 0.99) { this.inSpace = true; this.events.push('space'); }
+      if (this.stage < 2 && fp >= T.stage2 && this.l >= this.lStage2 * 0.97) { this.stage = 2; this.events.push('stage2'); }
       if (!this.parked && fp >= PHASES.insert) { this.parked = true; this.events.push('earthOrbit'); }
       if (!this.tli && fp >= PHASES.tli) { this.tli = true; this.events.push('tli'); }
-      if (this.stage < 2 && fp >= T.stage2 && this.l >= this.lStage2 * 0.97) { this.stage = 2; this.events.push('stage2'); }
+      if (this.stage < 3 && fp >= T.stage3 && this.l >= this.lStage3 * 0.97) { this.stage = 3; this.events.push('stage3'); }
       while (this.ci < COAST.length && fp >= COAST[this.ci].at) this.events.push(COAST[this.ci++].id);
       if (fp >= T.orbit && this.l >= this.L - 0.03) { this.mode = 'orbit'; this.wIn = Math.min(0.6, Math.max(this.wOrbit, this.v / WORLD.ORBIT)); this.l = this.L; this.ignited = false; this.th = this.th0; this.tOrb = 0; this.events.push('orbit'); }
     } else if (this.mode === 'fall') {
@@ -213,8 +214,8 @@ function rocketCarry(records, now, from) {
 function rocketAt(fp) {
   if (!(fp >= MILESTONES.space)) return null;
   const sim = new RocketSim();
-  if (fp < MILESTONES.orbit) return { mode: 'ascent', fp: fp, l: Math.round(sim.lenAt(fp) * 1e7) / 1e7, stage: fp >= MILESTONES.stage2 ? 2 : 1, inSpace: true, cleared: true, th: Math.round(sim.th0 * 1e4) / 1e4, tOrb: 0 };
-  return { mode: 'orbit', fp: fp, l: sim.L, stage: 2, inSpace: true, cleared: true, th: Math.round(sim.th0 * 1e4) / 1e4, tOrb: 60 };
+  if (fp < MILESTONES.orbit) return { mode: 'ascent', fp: fp, l: Math.round(sim.lenAt(fp) * 1e7) / 1e7, stage: stageAt(fp), inSpace: true, cleared: true, th: Math.round(sim.th0 * 1e4) / 1e4, tOrb: 0 };
+  return { mode: 'orbit', fp: fp, l: sim.L, stage: 3, inSpace: true, cleared: true, th: Math.round(sim.th0 * 1e4) / 1e4, tOrb: 60 };
 }
 /* a sample practice log (the debug tools): the rocket of each day's sessions, as if every session that day carried the flight on (records oldest first) */
 function sampleFlights(records) {

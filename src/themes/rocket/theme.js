@@ -10,14 +10,14 @@ const { tr } = MT.translator(words);
 const W = MT.word;
 const EVENT_TEXT = { ignition: W('Engines lit'), liftoff: W('Lift-off!'), tower: W('Tower cleared'), stage1: W('Stage 1 separation'), space: W('You have left the atmosphere'),
   earthOrbit: W('Earth orbit reached'), tli: W('Off to the Moon!'),
-  iss: W('The ISS passes overhead'), halfway: W('Halfway to the Moon!'), stage2: W('Stage 2 separation'), orbit: W('Moon orbit reached!'), fall: W('Engines out. Falling!'), crash: W('The rocket exploded!') };
-const NEXT = [['tower', W('Clearing the tower in {t}')], ['stage1', W('Stage 1 separation in {t}')], ['space', W('Leaving the atmosphere in {t}')], ['iss', W('The ISS in {t}')], ['earthOrbit', W('Earth orbit in {t}')],
-  ['tli', W('Off to the Moon in {t}')], ['stage2', W('Stage 2 separation in {t}')], ['halfway', W('Halfway in {t}')],
+  iss: W('The ISS passes overhead'), halfway: W('Halfway to the Moon!'), stage2: W('Stage 2 separation'), stage3: W('Stage 3 separation'), orbit: W('Moon orbit reached!'), fall: W('Engines out. Falling!'), crash: W('The rocket exploded!') };
+const NEXT = [['tower', W('Clearing the tower in {t}')], ['stage1', W('Stage 1 separation in {t}')], ['space', W('Leaving the atmosphere in {t}')], ['iss', W('The ISS in {t}')], ['stage2', W('Stage 2 separation in {t}')],
+  ['earthOrbit', W('Earth orbit in {t}')], ['tli', W('Off to the Moon in {t}')], ['stage3', W('Stage 3 separation in {t}')], ['halfway', W('Halfway in {t}')],
   ['orbit', W('Moon orbit in {t}')]];
 const AT = Object.assign({ earthOrbit: PHASES.insert, tli: PHASES.tli }, MILESTONES);   // when each of NEXT comes, on the flight clock
 for (const c of COAST) AT[c.id] = c.at;
-/* the flight plan beside the scene: Earth at the foot, the Moon at the top, and between them stage 1, the edge of space and stage 2,
-   evenly spaced (RocketSim.plan). Small pixel pictures, drawn as SVG so they stay sharp */
+/* the flight plan beside the scene: Earth at the foot, the Moon at the top, and between them stage 1, stage 2, Earth orbit and stage 3, each at its
+   share of the flight's time (RocketSim.plan). Small pixel pictures, drawn as SVG so they stay sharp */
 const PLAN_PAL = { E: '#2F6FD0', G: '#5DA831', M: '#D8DCE4', m: '#9AA2B2', W: '#F4F6FA', w: '#B8C0CE', R: '#D23B2E', B: '#5CC8FF' };
 const PLAN_PIX = {
   earth: ['..EEE..', '.EGGEE.', 'EGGGEEE', 'EEGEEGE', 'EEEEGGE', '.EEEEE.', '..EEE..'],
@@ -29,7 +29,7 @@ function pix(rows) {
   rows.forEach((row, y) => { for (let x = 0; x < row.length; x++) if (PLAN_PAL[row[x]]) r += '<rect x="' + x + '" y="' + y + '" width="1" height="1" fill="' + PLAN_PAL[row[x]] + '"/>'; });
   return '<svg viewBox="0 0 ' + rows[0].length + ' ' + rows.length + '" shape-rendering="crispEdges">' + r + '</svg>';
 }
-const PLAN_STOPS = [['stage', 0.25], ['space', 0.5], ['stage', 0.75]];
+const PLAN_STOPS = [['stage', MILESTONES.stage1], ['stage', MILESTONES.stage2], ['orbit', PHASES.insert], ['stage', MILESTONES.stage3]].map(s => [s[0], s[1] / MILESTONES.orbit]);
 const FLIGHT_KEY = 'musicTimer.newFlight';   // when a new flight was last started: sessions that had ended by then no longer carry their flight on (rocketCarry)
 
 module.exports = {
@@ -144,7 +144,7 @@ module.exports = {
           if (prev.mode === 'fall' && m.mode === 'pad') { fire('crash'); sim.down = 2.6; sim.l = 0; }
           if (prev.mode !== 'orbit' && m.mode === 'orbit') { fire('orbit'); sim.th = m.th; }
           if (prev.spin === 0 && m.spin > 0) fire('spin');
-          if (m.stage > prev.stage) fire(m.stage === 1 ? 'stage1' : 'stage2');
+          if (m.stage > prev.stage) fire('stage' + m.stage);
         }
         sim.mode = m.mode; sim.stage = m.stage; sim.ignited = m.ignited && from.state === 'running'; sim.power = from.recent; sim.fp = m.fp; sim.spinUp = m.mode === 'orbit' ? m.spin : 0;
         sim.inSpace = m.mode === 'orbit' || (m.mode === 'ascent' && m.fp >= MILESTONES.space);
