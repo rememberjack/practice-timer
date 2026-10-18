@@ -8,11 +8,11 @@ list.push({ name: 'Rocket: timeline from ignition to Moon orbit', run: () => {
   for (let t = 0; t < 1830; t += 0.1) { s.tick(0.1, true); sim.update(0.1, { running: true, playing: true, eff: s.efficiency });
     while (sim.events.length) { const e = sim.events.shift(); if (at[e] == null) at[e] = t + 0.1; } }
   const th1 = sim.th; for (let i = 0; i < 300; i++) { sim.update(0.1, { running: true, playing: false, eff: 0.2 }); while (sim.events.length) { const e = sim.events.shift(); if (at[e] == null) at[e] = 1830 + i * 0.1; } }
-  const want = { ignition: 0, liftoff: 1, tower: 8, stage1: 163, space: 205, iss: 420, earthOrbit: 710, tli: 770, stage2: 850, gps: 887, geo: 904, roll: 968, halfway: 1157, correction: 1195, pull: 1556,
+  const want = { ignition: 0, liftoff: 1, tower: 8, stage1: 163, space: 205, iss: 420, stage2: 549, earthOrbit: 710, tli: 770, stage3: 869, gps: 887, geo: 904, roll: 968, halfway: 1157, correction: 1195, pull: 1556,
     orbit: 1800, spin: 1803 };
   let ok = sim.mode === 'orbit' && sim.th !== th1 && sim.spinUp === 1 && sim.spinA !== 0;
   for (const k in want) if (!(Math.abs(at[k] - want[k]) <= 2)) ok = false;
-  return { name: 'Rocket: timeline from ignition to Moon orbit', expect: 'lift-off 1 s, tower 8 s, stage 1 2:43, space 3:25, Earth orbit 11:50, off to the Moon 12:50, stage 2 14:10; in the coast GPS satellites 14:47, weather satellites 15:04, slow roll 16:08, halfway 19:17, course correction 19:55, the Moon\'s pull 25:56; Moon orbit 30:00, module spinning 3 s later, then keeps orbiting',
+  return { name: 'Rocket: timeline from ignition to Moon orbit', expect: 'lift-off 1 s, tower 8 s, stage 1 2:43, space 3:25, the ISS 7:00, stage 2 9:09, Earth orbit 11:50, off to the Moon 12:50, stage 3 14:29; in the coast GPS satellites 14:47, weather satellites 15:04, slow roll 16:08, halfway 19:17, course correction 19:55, the Moon\'s pull 25:56; Moon orbit 30:00, module spinning 3 s later, then keeps orbiting',
     got: Object.keys(want).map(k => k + ' ' + (at[k] == null ? 'never' : Math.round(at[k]) + ' s')).join(', ') + (sim.mode === 'orbit' && sim.th !== th1 ? ', orbiting' : ', not orbiting'), pass: ok }; } });
 list.push({ name: 'Rocket: carries on from earlier the same day', run: () => {
   const fly = (sim, secs, eff, playing) => { for (let t = 0; t < secs; t += 0.1) sim.update(0.1, { running: true, playing: playing !== false, eff: eff }); };
@@ -68,13 +68,13 @@ list.push({ name: 'Rocket: a new flight while a session is still running', run: 
 list.push({ name: 'Rocket: the flight plan follows the flight', run: () => {
   const sim = new RocketSim(), at = {}, T = MILESTONES; let up = true, last = 0, fellTo = 1;
   for (let t = 0; t < 1830; t += 0.1) { sim.update(0.1, { running: true, playing: true, eff: 1 }); sim.events.length = 0; const p = sim.plan(); if (p < last - 1e-9) up = false; last = p;
-    for (const [k, t] of [['stage1', T.stage1], ['earthOrbit', PHASES.insert], ['stage2', T.stage2], ['half', T.orbit / 2]]) if (at[k] == null && sim.fp >= t) at[k] = p; }
+    for (const [k, t] of [['stage1', T.stage1], ['stage2', T.stage2], ['earthOrbit', PHASES.insert], ['stage3', T.stage3], ['half', T.orbit / 2]]) if (at[k] == null && sim.fp >= t) at[k] = p; }
   const orbit = sim.plan(), f = new RocketSim(); for (let t = 0; t < 120; t += 0.1) f.update(0.1, { running: true, playing: true, eff: 1 });
   const before = f.plan(); for (let t = 0; t < 60 && f.mode !== 'pad'; t += 0.1) { f.update(0.1, { running: true, playing: false, eff: 0.2 }); if (f.mode === 'fall') fellTo = Math.min(fellTo, f.plan()); }
   const near = (a, b) => Math.abs(a - b) < 0.002, share = t => t / T.orbit;
-  const ok = up && near(at.stage1, share(T.stage1)) && near(at.earthOrbit, share(PHASES.insert)) && near(at.stage2, share(T.stage2)) && near(at.half, 0.5) && orbit === 1 && fellTo < before * 0.2 && f.plan() === 0;
-  return { name: 'Rocket: the flight plan follows the flight', expect: 'only rises while flying, at an even pace: ' + share(T.stage1).toFixed(3) + ' at stage 1, ' + share(PHASES.insert).toFixed(3) + ' in Earth orbit, ' + share(T.stage2).toFixed(3) + ' at stage 2, half at half the time, full in Moon orbit; drops back in a fall, empty on the pad',
-    got: 'stage 1 ' + (at.stage1 || 0).toFixed(3) + ', Earth orbit ' + (at.earthOrbit || 0).toFixed(3) + ', stage 2 ' + (at.stage2 || 0).toFixed(3) + ', half the time ' + (at.half || 0).toFixed(3) + ', orbit ' + orbit + (up ? '' : ', went down while flying') + ', falling ' + before.toFixed(2) + ' to ' + fellTo.toFixed(2) + ', then ' + f.plan(), pass: ok }; } });
+  const ok = up && near(at.stage1, share(T.stage1)) && near(at.stage2, share(T.stage2)) && near(at.earthOrbit, share(PHASES.insert)) && near(at.stage3, share(T.stage3)) && near(at.half, 0.5) && orbit === 1 && fellTo < before * 0.2 && f.plan() === 0;
+  return { name: 'Rocket: the flight plan follows the flight', expect: 'only rises while flying, at an even pace: ' + share(T.stage1).toFixed(3) + ' at stage 1, ' + share(T.stage2).toFixed(3) + ' at stage 2, ' + share(PHASES.insert).toFixed(3) + ' in Earth orbit, ' + share(T.stage3).toFixed(3) + ' at stage 3, half at half the time, full in Moon orbit; drops back in a fall, empty on the pad',
+    got: 'stage 1 ' + (at.stage1 || 0).toFixed(3) + ', stage 2 ' + (at.stage2 || 0).toFixed(3) + ', Earth orbit ' + (at.earthOrbit || 0).toFixed(3) + ', stage 3 ' + (at.stage3 || 0).toFixed(3) + ', half the time ' + (at.half || 0).toFixed(3) + ', orbit ' + orbit + (up ? '' : ', went down while flying') + ', falling ' + before.toFixed(2) + ' to ' + fellTo.toFixed(2) + ', then ' + f.plan(), pass: ok }; } });
 list.push({ name: 'Rocket: flies to scale, with a real launch\'s timing', run: () => {
   const sim = new RocketSim(), T = MILESTONES, P = PHASES, M = WORLD.MOON, R = 6371, deg = 180 / Math.PI, at = t => { sim.mode = 'ascent'; sim.l = sim.lenAt(t); return sim.pose(); };
   const tiltAt = q => ((q.ang - Math.atan2(q.x, q.y)) * deg + 540) % 360 - 180, km = q => (Math.hypot(q.x, q.y) - 1) * R;   // from upright, where the rocket is; height
@@ -104,5 +104,13 @@ list.push({ name: 'Rocket: passes under the ISS, then overtakes it after the bur
   const ok = over < 1 && Math.abs(up - 420) < 1 && behind === 0 && pass > PHASES.coast && under > 20 && under < 150;
   return { name: 'Rocket: passes under the ISS, then overtakes it after the burn for the Moon', expect: 'the ISS right overhead at 7:00, 420 km up, and ahead from then to the end of the burn; the rocket passing 20-150 km under it once the burn is over',
     got: (over < 1 ? 'overhead' : over.toFixed(0) + ' km off overhead') + ' at 7:00, ' + up.toFixed(0) + ' km up, behind it ' + behind + ' times before the end of the burn, ' + (pass ? 'passes ' + under.toFixed(0) + ' km under it at ' + Math.floor(pass / 60) + ':' + String(Math.round(pass % 60)).padStart(2, '0') : 'never passes it'), pass: ok }; } });
+
+list.push({ name: 'Rocket: drops its three stages at Apollo 11\'s times', run: () => {
+  const sim = new RocketSim(), T = MILESTONES, at = {}, km = {}, fmt = t => Math.floor(t / 60) + ':' + String(Math.round(t % 60)).padStart(2, '0');
+  for (let t = 0; t < 1000; t += 0.1) { sim.update(0.1, { running: true, playing: true, eff: 1 }); for (const e of sim.events) if (/^stage/.test(e)) { at[e] = sim.fp; km[e] = sim.kmAt(sim.l); } sim.events.length = 0; }
+  const after = sim.realAt(T.stage3) - sim.realAt(PHASES.coast);                 // Apollo 11 let its third stage go 27 minutes after the burn for the Moon
+  const ok = Math.abs(at.stage1 - 162.3) < 2 && Math.abs(at.stage2 - 549) < 2 && Math.abs(at.stage3 - T.stage3) < 2 && Math.abs(after - 1622) < 60 && sim.stage === 3 && km.stage2 > 180 && km.stage2 < 190;
+  return { name: 'Rocket: drops its three stages at Apollo 11\'s times', expect: 'stage 1 at 2:42, stage 2 at 9:09 (about 186 km up), stage 3 27 minutes after the burn for the Moon on the coast\'s clock',
+    got: ['stage1', 'stage2', 'stage3'].map(k => k + ' ' + (at[k] == null ? 'never' : fmt(at[k]) + ' (' + Math.round(km[k]) + ' km)')).join(', ') + ', stage 3 ' + (after / 60).toFixed(1) + ' min after the burn', pass: ok }; } });
 
 module.exports = list;

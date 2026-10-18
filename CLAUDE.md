@@ -47,14 +47,16 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
   that day carries on from it (`rocketCarry`, the theme's `restore` hook). Below space, and on a new day, it starts on the pad. Sessions too short
   to save never move the carried flight; demo sound sessions are saved like any other.
 - The rocket's path (`PATH` and `TIMING` in `src/themes/rocket/sim.js`) is drawn to scale (a 100 m rocket, the Moon 384,400 km away, Moon orbit
-  110 km up), so the altitude read-out is what is drawn. Up to Earth orbit it keeps Apollo 11's timing and heights (`CLIMB`): upright past the tower,
-  pitched over to about 68° from upright by stage 1 separation (2:43, 67 km), the edge of space at 3:25, level in Earth orbit (191 km) at 11:50. At 7:00 the ISS passes overhead, 420 km up and faster than the climbing
+  110 km up), so the altitude read-out is what is drawn. It has three stages under the capsule, like the Saturn V, each dropped at Apollo 11's time
+  (`STEPS`, `stageAt`; `STAGE1`-`STAGE3` in its `view.js`, 32 sprite rows in all as before). Up to Earth orbit it keeps Apollo 11's timing and heights (`CLIMB`): upright past the tower,
+  pitched over to about 68° from upright by stage 1 separation (2:43, 67 km), the edge of space at 3:25, stage 2 separation at 9:09 (186 km), level in Earth orbit (191 km) at 11:50. At 7:00 the ISS passes overhead, 420 km up and faster than the climbing
   rocket, so it comes from behind and pulls ahead while the view widens to take it in, Earth's ground kept in view at the foot of
   the scene; the view stays that wide through Earth orbit, the ISS a few hundred km ahead and drifting back once the rocket is the
   faster. Through the burn for the Moon the view holds still (the ISS keeping its height on screen) as the rocket climbs toward it; just after (14:01) the
   rocket passes about 70 km under it and leaves it behind, the view widening to keep both, and it goes on round Earth (on the coast's sped-up clock, `RocketSim.issAt`),
   a speck once too small to draw, until Earth slips out of view (`ISS`; a banner and a countdown for the pass at 7:00). Stage 1 drops back
-  into the air, glows and burns up before it reaches the ground (`HOT`, `embers` in its `view.js`). Then a minute's coast and a minute's burn for the Moon (`PHASES`; banners "Earth orbit reached" and "Off to the Moon!"), stage 2 separation at 14:10, and a
+  into the air, glows and burns up before it reaches the ground (`HOT`, `embers` in its `view.js`). Then a minute's coast and a minute's burn for the Moon (`PHASES`; banners "Earth orbit reached" and "Off to the Moon!"), stage 3 separation at 14:29 (27 minutes
+  after the burn on the coast's sped-up clock, as on Apollo 11), and a
   Kepler orbit round Earth whose three days are sped up about 275 times, so Moon orbit comes at 30:00; once within the Moon's reach (`SOI`) its pull
   speeds the rocket up again, and Moon orbit starts at the speed it arrives with and eases down. The coast has its moments, at their real times or
   places (`COAST`), shown in the scene with no words except halfway, which has a banner and a countdown: passing the GPS satellites' height (14:47) and the weather and TV satellites' ring (15:04),
@@ -73,8 +75,8 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
 - "Start a new flight" puts the rocket back on the pad: the New flight button at the end of the Rocket read-outs while it is
   off the pad, or the link after "Playing with Rocket" on the Home Screen. Both ask first. The time is kept in
   `musicTimer.newFlight`, and `rocketCarry` skips sessions that had ended by then. Play time, the goal and the trophy stay.
-- The Rocket flight plan (`#rPlan`) is a pixel rail down the right of the scene: Earth at the foot, the Moon at the top, and stage 1, Earth orbit (a ring
-  round the rail) and stage 2 between, each at its share of the flight's time (`RocketSim.plan`, `PLAN_STOPS`). It fills in gold at an even pace as the rocket climbs and drops back in a fall. It is a
+- The Rocket flight plan (`#rPlan`) is a pixel rail down the right of the scene: Earth at the foot, the Moon at the top, and stage 1, stage 2, Earth orbit (a ring
+  round the rail) and stage 3 between, each at its share of the flight's time (`RocketSim.plan`, `PLAN_STOPS`). It fills in gold at an even pace as the rocket climbs and drops back in a fall. It is a
   picture only (`aria-hidden`, no words): the line under the read-outs says what comes next.
 - Questions asked over a theme (End, and a theme's own through `host.ask`: a new flight) take its look (`themeSheet`, `.ask[data-skin]`, `#dlgAsk`); Settings keeps the Classic look.
 - Opening Settings pauses a running session (`pauseForSheet` in `src/app.js`); closing it resumes, unless the session had been
