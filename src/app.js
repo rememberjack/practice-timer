@@ -110,7 +110,7 @@ function hideAward() { clearTimeout(awardT); $('award').hidden = true; }
 $('awardCard').onclick = hideAward;
 
 /* ---------- audio ---------- */
-const A = { kind: '', ctx: null, stream: null, an: null, det: null, buf: null, bytes: null, clip: null, pos: 0, demoKey: 'violin', warp: 1, band: null };
+const A = { kind: '', ctx: null, stream: null, src: null, an: null, det: null, buf: null, bytes: null, clip: null, pos: 0, demoKey: 'violin', warp: 1, band: null };
 const DEMO = [['violin', 'Violin'], ['piano', 'Piano'], ['clarinet', 'Clarinet'], ['flute', 'Flute'], ['talk', 'Talking'], ['pink', 'Noise'], ['quiet', 'Quiet']];
 const demoCache = {};
 function setDetector(sr) {
@@ -127,19 +127,48 @@ function makeContext() { try { const AC = window.AudioContext || window.webkitAu
 async function openMic(ctx) {
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { const er = new Error('unsupported'); er.name = window.isSecureContext === false ? 'Insecure' : 'Unsupported'; throw er; }
   if (!ctx) { const er = new Error('no audio engine'); er.name = 'Unsupported'; throw er; }
-  let stream;
-  try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } }); }
-  catch (e) { if (e && e.name === 'OverconstrainedError') stream = await navigator.mediaDevices.getUserMedia({ audio: true }); else throw e; }
+  const stream = await micStream();
   try {
     if (ctx.state === 'suspended') await Promise.race([ctx.resume().catch(() => {}), new Promise(r => setTimeout(r, 1200))]);
-    const track = stream.getAudioTracks()[0];
-    if (track) track.onended = () => { if (session.state === 'running' || session.state === 'paused') showNotice('mic', tr('The microphone stopped. End the session and start again to reconnect it.'), '', null); };
     setDetector(ctx.sampleRate);
-    const src = ctx.createMediaStreamSource(stream), an = ctx.createAnalyser();
-    an.fftSize = A.det.N; an.smoothingTimeConstant = 0; src.connect(an);
+    const an = ctx.createAnalyser();
+    an.fftSize = A.det.N; an.smoothingTimeConstant = 0;
     const z = ctx.createGain(); z.gain.value = 0; an.connect(z); z.connect(ctx.destination);   // keeps the graph pulling on every browser, silently
-    A.kind = 'mic'; A.ctx = ctx; A.stream = stream; A.an = an;
+    A.kind = 'mic'; A.ctx = ctx; A.an = an; wireMic(stream);
   } catch (e) { stream.getTracks().forEach(t => t.stop()); throw e; }
+}
+async function micStream() {
+  try { return await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } }); }
+  catch (e) { if (e && e.name === 'OverconstrainedError') return navigator.mediaDevices.getUserMedia({ audio: true }); throw e; }
+}
+/* Feeds a microphone stream into the analyser, in place of the one before (if any). The phone can mute or end the track while the
+   app is in the background (another app took the microphone, a call came in), so the track's events ask for a revival. */
+function wireMic(stream) {
+  if (A.src) { try { A.src.disconnect(); } catch (e) {} }
+  if (A.stream && A.stream !== stream) A.stream.getTracks().forEach(t => t.stop());
+  A.stream = stream; A.src = A.ctx.createMediaStreamSource(stream); A.src.connect(A.an);
+  const track = stream.getAudioTracks()[0];
+  if (track) { track.onended = () => reviveMic('ended'); track.onmute = () => reviveMic('mute'); track.onunmute = () => { if (micHealthy()) hideNotice('mic'); }; }
+}
+function micTrack() { return A.stream ? A.stream.getAudioTracks()[0] : null; }
+function micHealthy() { const t = micTrack(); return !!(A.kind === 'mic' && A.ctx && A.ctx.state === 'running' && t && t.readyState === 'live' && !t.muted); }
+/* Brings the microphone back after the app was away: wakes the audio engine (iOS leaves it 'interrupted', not 'suspended'),
+   then, if the track is still muted or has ended, opens the microphone again and swaps the stream in. Only during a session. */
+let reviving = null;
+function reviveMic(why) {
+  if (A.kind !== 'mic' || (session.state !== 'running' && session.state !== 'paused') || document.visibilityState !== 'visible') return;
+  if (reviving) return; reviving = (async () => {
+    try {
+      if (A.ctx.state !== 'running') await Promise.race([A.ctx.resume().catch(() => {}), new Promise(r => setTimeout(r, 1200))]);
+      if (micHealthy()) { hideNotice('mic'); return; }
+      if (why !== 'ended') { await new Promise(r => setTimeout(r, 1500)); if (micHealthy()) { hideNotice('mic'); return; } }   // a muted track often comes back by itself
+      if (A.kind !== 'mic' || (session.state !== 'running' && session.state !== 'paused')) return;
+      const t = micTrack(); if (A.ctx.state !== 'running' || !t || t.readyState !== 'live' || t.muted) { wireMic(await micStream()); if (A.ctx.state !== 'running') await A.ctx.resume().catch(() => {}); }
+      if (micHealthy()) hideNotice('mic');
+      else showNotice('mic', tr('The microphone stopped. End the session and start again to reconnect it.'), '', null);
+    } catch (e) { showNotice('mic', tr('The microphone stopped. End the session and start again to reconnect it.'), '', null); }
+    finally { reviving = null; }
+  })();
 }
 function openDemo() { setDetector(44100); A.kind = 'demo'; setDemoClip(A.demoKey); }
 function setDemoClip(key) {
@@ -149,7 +178,7 @@ function setDemoClip(key) {
 function closeAudio() {
   if (A.stream) A.stream.getTracks().forEach(t => t.stop());
   if (A.ctx) { try { A.ctx.close(); } catch (e) {} }
-  A.kind = ''; A.ctx = A.stream = A.an = null;
+  A.kind = ''; A.ctx = A.stream = A.an = A.src = null;
 }
 function getFrame(dt) {
   const b = A.buf;
@@ -271,7 +300,7 @@ function pause() { if (!session.pause()) return; music = false; recCall('pause')
 let sheetPaused = false;
 function pauseForSheet() { if (mode === 'local' && session.state === 'running') { pause(); sheetPaused = true; } }
 function resumeAfterSheet() { if (!sheetPaused || $('dlgSettings').open || $('dlgLog').open || $('dlgDebug').open) return; sheetPaused = false; if (session.state === 'paused') resume(); }
-function resume() { sheetPaused = false; if (!session.resume()) return; if (A.ctx && A.ctx.state !== 'running') A.ctx.resume().catch(() => {}); if (A.det) { A.det.score = 0; A.det.isMusic = false; } recCall('resume'); lastT = performance.now(); paintControls(); push(); }
+function resume() { sheetPaused = false; if (!session.resume()) return; if (A.kind === 'mic') reviveMic('resume'); else if (A.ctx && A.ctx.state !== 'running') A.ctx.resume().catch(() => {}); if (A.det) { A.det.score = 0; A.det.isMusic = false; } recCall('resume'); lastT = performance.now(); paintControls(); push(); }
 function stop() {
   if (!session.stop()) return;
   clearLive();                                   // ended here, so nothing was cut short
@@ -559,7 +588,7 @@ window.addEventListener('resize', layoutChanged);
 window.addEventListener('pagehide', writeLive);   // the app is being closed: keep the session so far
 document.addEventListener('visibilitychange', () => { if (document.visibilityState !== 'visible') { writeLive(); return; }
   if (session.state === 'running' || session.state === 'paused') keepAwake();
-  if (A.ctx && A.ctx.state === 'suspended') A.ctx.resume().catch(() => {});
+  if (A.kind === 'mic') reviveMic('visible'); else if (A.ctx && A.ctx.state === 'suspended') A.ctx.resume().catch(() => {});   // back on screen: wake the microphone
   if (homeOn && mode === 'local' && session.state !== 'running' && session.state !== 'paused') { each('restore', log); renderHome(); }   // a new day since: fresh words, and the rocket on the pad
   checkVersion(); });
 window.addEventListener('pageshow', e => { if (e.persisted) checkVersion(); });   // back from the browser's page cache
