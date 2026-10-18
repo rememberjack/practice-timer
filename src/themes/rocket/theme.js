@@ -3,14 +3,15 @@
    RocketSim (sim.js); view.js draws it; this wires both to the page (docs/theme-modules.md). */
 'use strict';
 const MT = require('../../core.js');
-const { COAST, HOLD, ISS, LIFTOFF, MILESTONES, PHASES, WORLD, RocketSim, rocketAt, rocketCarry, sampleFlights, smooth } = require('./sim.js');
+const { COAST, HOLD, ISS, LAND, LIFTOFF, MILESTONES, PHASES, WORLD, RocketSim, rocketAt, rocketCarry, sampleFlights, smooth } = require('./sim.js');
 const { makeRocketView } = require('./view.js');
 const words = require('./words.js');
 const { tr } = MT.translator(words);
 const W = MT.word;
 const EVENT_TEXT = { ignition: W('Engines lit'), liftoff: W('Lift-off!'), tower: W('Tower cleared'), stage1: W('Stage 1 separation'), space: W('You have left the atmosphere'),
   earthOrbit: W('Earth orbit reached'), tli: W('Off to the Moon!'),
-  iss: W('The ISS passes overhead'), halfway: W('Halfway to the Moon!'), stage2: W('Stage 2 separation'), stage3: W('Stage 3 separation'), orbit: W('Moon orbit reached!'), fall: W('Engines out. Falling!'), crash: W('The rocket exploded!') };
+  iss: W('The ISS passes overhead'), halfway: W('Halfway to the Moon!'), stage2: W('Stage 2 separation'), stage3: W('Stage 3 separation'), orbit: W('Moon orbit reached!'), fall: W('Engines out. Falling!'), crash: W('The rocket exploded!'),
+  undock: W('Lunar module away'), pdi: W('Powered descent'), highgate: W('Looking for a landing spot'), landed: W('Touchdown on the Moon!') };
 const NEXT = [['tower', W('Clearing the tower in {t}')], ['stage1', W('Stage 1 separation in {t}')], ['space', W('Leaving the atmosphere in {t}')], ['iss', W('The ISS in {t}')], ['stage2', W('Stage 2 separation in {t}')],
   ['earthOrbit', W('Earth orbit in {t}')], ['tli', W('Off to the Moon in {t}')], ['stage3', W('Stage 3 separation in {t}')], ['halfway', W('Halfway in {t}')],
   ['orbit', W('Moon orbit in {t}')]];
@@ -37,7 +38,7 @@ module.exports = {
   id: 'rocket',
   name: 'Rocket',
   line: 'Playing flies a rocket up to Moon orbit.',
-  goalHint: 'The total play time to reach. The rocket gets to Moon orbit after about 30 minutes of playing. If your last session today left the rocket in space, the next one carries on from there.',
+  goalHint: 'The total play time to reach. The rocket gets to Moon orbit after about 30 minutes of playing and lands on the Moon after about 40. If your last session today left the rocket in space, the next one carries on from there.',
   langs: ['en', 'zh', 'fr'],
   words: words,
   panel: 'pRocket',
@@ -45,7 +46,7 @@ module.exports = {
   tests: require('./tests.js'),
   credits: ['Jayden Chen'],
   create: function (host) {
-    const $ = host.$, sim = new RocketSim(), view = makeRocketView($('rk'), $('hud'), sim, Object.assign(Object.create(MT), { tr: tr, MILESTONES: MILESTONES, PHASES: PHASES, COAST: COAST, ISS: ISS, WORLD: WORLD, smooth: smooth }));
+    const $ = host.$, sim = new RocketSim(), view = makeRocketView($('rk'), $('hud'), sim, Object.assign(Object.create(MT), { tr: tr, MILESTONES: MILESTONES, PHASES: PHASES, COAST: COAST, ISS: ISS, LAND: LAND, WORLD: WORLD, smooth: smooth }));
     let flightFrom = 0, flightAt = -1e9, bannerT = 0, forced = '', shared = null;   // forced: where the next session's rocket starts (debug tools)
     try { flightFrom = +localStorage.getItem(FLIGHT_KEY) || 0; } catch (e) {}
     host.drawPixelTrophy($('rTrophy'));
@@ -66,8 +67,8 @@ module.exports = {
        so effects from another theme would all play at once on coming back to Rocket. A new flight's banner is not replaced at once by "Engines lit" */
     function fire(e) { if (EVENT_TEXT[e] && !(e === 'ignition' && performance.now() - flightAt < 3000)) banner(tr(EVENT_TEXT[e])); if (host.shown()) view.event(e); }
     /* where the rocket starts: forced from the debug tools, or where the day's latest saved session left it (true if it carries on) */
-    function carry() { if (forced) return sim.restore(forced === 'pad' ? null : rocketAt(MILESTONES[forced])); return sim.restore(rocketCarry(host.log(), Date.now(), flightFrom)); }
-    const flying = () => !host.following() && (sim.mode === 'ascent' || sim.mode === 'orbit');
+    function carry() { if (forced) return sim.restore(forced === 'pad' ? null : rocketAt(forced === 'landed' ? LAND.land : MILESTONES[forced])); return sim.restore(rocketCarry(host.log(), Date.now(), flightFrom)); }
+    const flying = () => !host.following() && ['ascent', 'orbit', 'descent', 'landed'].indexOf(sim.mode) >= 0;
     /* Start a new flight: the rocket goes back to the launch pad. Play time, the goal and the trophy are not touched */
     function askFlight(home) {
       host.ask({ home: home, title: tr('Start a new flight?'), yes: tr('Start a new flight'), no: tr('Keep flying'),
@@ -81,7 +82,7 @@ module.exports = {
       el.textContent = '';
       const lab = document.createElement('span'); lab.className = 'lab'; lab.textContent = 'The next session’s rocket starts'; el.append(lab);
       const chips = document.createElement('div'); chips.className = 'chips dbg-chips'; chips.setAttribute('role', 'group'); chips.setAttribute('aria-label', 'Where the next session\'s rocket starts'); el.append(chips);
-      for (const [k, label] of [['', 'As usual'], ['pad', 'On the pad'], ['space', 'In space'], ['orbit', 'In Moon orbit']]) {
+      for (const [k, label] of [['', 'As usual'], ['pad', 'On the pad'], ['space', 'In space'], ['orbit', 'In Moon orbit'], ['landed', 'On the Moon']]) {
         const b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.setAttribute('aria-pressed', String(forced === k));
         b.onclick = () => { forced = k; if (host.between()) { carry(); view.reset(); } tools(el); };   // shown at once while no session is on
         chips.append(b);
@@ -100,21 +101,23 @@ module.exports = {
         if (!shared) return;                                            // following: glide to where the other device's rocket is
         sim.l += (shared.l - sim.l) * Math.min(1, s.rdt * 4);
         if (sim.down > 0) sim.down -= s.rdt;
-        if (sim.mode === 'orbit' && s.state === 'running') { sim.th -= sim.wOrbit * s.rdt; sim.spin(s.rdt); }
+        if (s.state === 'running' && ['orbit', 'descent', 'landed'].indexOf(sim.mode) >= 0) { sim.th -= sim.wOrbit * s.rdt; sim.spin(s.rdt); if (sim.mode === 'descent') sim.tD += (shared.d - sim.tD) * Math.min(1, s.rdt * 4); }
       },
       frame(dt, f) { while (sim.events.length) fire(sim.events.shift()); if (f.shown) view.draw({ running: f.v.st === 'running', playing: f.v.music, power: f.v.pw }, dt); },
       paint(v) {
         const st = v.st, text = host.text, fmt = host.fmt, fol = v.follow, play = fmt(v.play);
         const rp = $('rPlay'), rpc = play.length > 5 ? 'big long' : 'big'; text(rp, play); if (rp.className !== rpc) rp.className = rpc;
         text($('rActive'), fmt(v.active)); text($('rGoal'), fmt(v.goal)); host.showGoalLeft($('rGoalLeft'), v); text($('rTotal'), fmt(v.total)); text($('rPauses'), String(v.pauses));
-        const km = sim.kmAt(sim.l); text($('rAltK'), tr(km < 1 ? 'Alt m' : 'Alt km')); text($('rAlt'), km < 1 ? String(Math.round(km * 1000)) : km < 100 ? km.toFixed(1) : Math.round(km).toLocaleString(host.locale()));
+        const km = sim.altKm(); text($('rAltK'), tr(km < 1 ? 'Alt m' : 'Alt km')); text($('rAlt'), km < 1 ? String(Math.round(km * 1000)) : km < 100 ? km.toFixed(1) : Math.round(km).toLocaleString(host.locale()));
         host.powerBar({ fill: $('rPw'), tick: $('rAvg'), power: $('rPwN'), eff: $('rEff') }, v, v.pw >= LIFTOFF ? 'go' : '');
         text($('rHeard'), host.heardLine(v));
         let next = '';
         if (st === 'idle') next = tr(sim.mode !== 'pad' ? 'Carrying on from earlier today' : 'Power follows your last minute');
         else if (sim.mode === 'pad') next = sim.down > 0 ? tr('Rolling out a new rocket') : !fol && sim.ignited && sim.hold > 0 ? tr('Lift-off in {n}', { n: Math.max(1, Math.ceil(HOLD - sim.hold)) }) : tr('Lift-off at {n}% engine power', { n: Math.round(LIFTOFF * 100) });
         else if (sim.mode === 'fall') next = tr('Falling back to Earth');
-        else if (sim.mode === 'orbit') next = tr(sim.spinUp > 0 ? 'In Moon orbit, module spinning' : 'In orbit around the Moon');
+        else if (sim.mode === 'orbit') next = sim.fp < LAND.undock ? tr('Lunar module away in {t}', { t: fmt(Math.ceil(LAND.undock - sim.fp)) }) : tr('Undocking on the far side');
+        else if (sim.mode === 'landed') next = tr('Landed on the Moon');
+        else if (sim.mode === 'descent') next = st === 'running' && !v.music ? tr('Keep playing to land') : tr('Landing in {t}', { t: fmt(Math.ceil(LAND.len - sim.tD)) });
         else if (v.pw < 0.5) next = tr('Power below 50%: drifting');
         else if (st === 'running' && !v.music && !sim.inSpace) next = tr('Losing power: falls below 50%');
         else if (st === 'running' && !v.music) next = tr('Losing power. Keep playing');
@@ -126,11 +129,11 @@ module.exports = {
       keep() { return sim.save(); },                                    // where the rocket got to, if in space or Moon orbit
       sampleLog(records) { sampleFlights(records); },
       /* following another device: its rocket, as small as it can be said */
-      share() { return { m: sim.mode, l: Math.round(sim.l * 1e5) / 1e5, s: sim.stage, i: sim.ignited ? 1 : 0, f: Math.round(sim.fp * 10) / 10, a: Math.round(sim.th * 100) / 100, c: Math.round(sim.spinUp * 100) / 100 }; },
+      share() { return { m: sim.mode, l: Math.round(sim.l * 1e5) / 1e5, s: sim.stage, i: sim.ignited ? 1 : 0, f: Math.round(sim.fp * 10) / 10, a: Math.round(sim.th * 100) / 100, c: Math.round(sim.spinUp * 100) / 100, d: Math.round(sim.tD * 10) / 10 }; },
       follow(x, from) {
         const n = (v, max) => typeof v === 'number' && isFinite(v) ? Math.max(0, Math.min(max, v)) : 0;
-        const m = { mode: ['pad', 'ascent', 'fall', 'orbit'].indexOf(x.m) >= 0 ? x.m : 'pad', l: n(x.l, sim.L), stage: Math.min(2, Math.round(n(x.s, 2))), ignited: x.i === 1, fp: n(x.f, 1e6),
-          th: typeof x.a === 'number' && isFinite(x.a) ? Math.max(-4, Math.min(4, x.a)) : 0, spin: n(x.c, 1) };
+        const m = { mode: ['pad', 'ascent', 'fall', 'orbit', 'descent', 'landed'].indexOf(x.m) >= 0 ? x.m : 'pad', l: n(x.l, sim.L), stage: Math.round(n(x.s, 3)), ignited: x.i === 1, fp: n(x.f, 1e6),
+          th: typeof x.a === 'number' && isFinite(x.a) ? Math.max(-4, Math.min(4, x.a)) : 0, spin: n(x.c, 1), d: n(x.d, LAND.len) };
         const prev = shared; shared = m;
         if (from.first || !prev) { sim.reset(); view.reset(); sim.l = m.l; sim.th = m.th; }
         else {
@@ -145,15 +148,20 @@ module.exports = {
           if (prev.mode !== 'orbit' && m.mode === 'orbit') { fire('orbit'); sim.th = m.th; }
           if (prev.spin === 0 && m.spin > 0) fire('spin');
           if (m.stage > prev.stage) fire('stage' + m.stage);
+          if (prev.mode === 'orbit' && m.mode === 'descent') fire('undock');
+          if (m.mode === 'descent' && prev.d < LAND.coast && m.d >= LAND.coast) fire('pdi');
+          if (m.mode === 'descent' && prev.d < LAND.coast + LAND.braking && m.d >= LAND.coast + LAND.braking) fire('highgate');
+          if (prev.mode === 'descent' && m.mode === 'landed') fire('landed');
         }
         sim.mode = m.mode; sim.stage = m.stage; sim.ignited = m.ignited && from.state === 'running'; sim.power = from.recent; sim.fp = m.fp; sim.spinUp = m.mode === 'orbit' ? m.spin : 0;
-        sim.inSpace = m.mode === 'orbit' || (m.mode === 'ascent' && m.fp >= MILESTONES.space);
-        if (m.mode === 'orbit') { let d = m.th - sim.th; d -= Math.round(d / (2 * Math.PI)) * 2 * Math.PI; if (Math.abs(d) > 0.5) sim.th = m.th; }
+        sim.inSpace = m.mode !== 'pad' && m.mode !== 'fall' && (m.mode !== 'ascent' || m.fp >= MILESTONES.space);
+        if (m.mode === 'landed') sim.tD = LAND.len; else if (m.mode === 'descent') { if (from.first || !prev || Math.abs(m.d - sim.tD) > 5) sim.tD = m.d; } else sim.tD = 0;
+        if (m.mode !== 'pad' && m.mode !== 'ascent' && m.mode !== 'fall') { let d = m.th - sim.th; d -= Math.round(d / (2 * Math.PI)) * 2 * Math.PI; if (Math.abs(d) > 0.5) sim.th = m.th; }
       },
       /* with Rocket chosen and today's flight carrying on, the next session can start a new one instead */
       homeLink() { return !host.following() && rocketCarry(host.log(), Date.now(), flightFrom) ? { text: tr('Start a new flight'), run: () => askFlight(true) } : null; },
       resize() { view.resize(); },
-      debugLine() { return 'rocket ' + sim.mode + ', ' + Math.round(sim.fp) + ' s flown, power ' + Math.round(sim.power * 100) + '%'; },
+      debugLine() { return 'rocket ' + sim.mode + ', ' + Math.round(sim.fp) + ' s flown' + (sim.mode === 'descent' ? ', ' + Math.round(sim.tD) + ' s down' : '') + ', power ' + Math.round(sim.power * 100) + '%'; },
       debugTools: tools,
     };
   },

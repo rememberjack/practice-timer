@@ -30,6 +30,16 @@ const stageAt = fp => fp >= MILESTONES.stage3 ? 3 : fp >= MILESTONES.stage2 ? 2 
 const PHASES = { insert: 710, tli: 770, coast: 830 };   // Earth orbit, the burn for the Moon (TLI) and the coast after it
 const LIFTOFF = 0.5;   // engine power the rocket needs, held for HOLD seconds, to leave the pad
 const HOLD = 1, ORBIT_PERIOD = 60, WRECK = 2.6, SPIN_AT = 3, SPIN_UP = 4, SPIN = 2 * Math.PI * 0.6;   // E6: 3 s after arrival the module starts to roll about its long axis, reaching 0.6 turns a second
+/* E7, the Moon landing, Apollo 11's sped up. After LAND.wait seconds of playing in orbit the lunar module undocks as the module crosses the
+   DOI point on the far side, and a burn there lowers the low point of its orbit to 15 km; it coasts half an orbit down to it (an hour, played in
+   LAND.coast seconds, its pace easing from the orbit's to the descent's), then the powered descent (12.5 minutes on Apollo 11, played in
+   braking + approach + final seconds): braking almost on its back, pitching over at high gate (2.3 km) to see the landing site, slowing to a
+   hover at low gate (150 m) and touching down 480 km past the start of the burn, 23.5° past the point under Earth, where Tranquility Base is.
+   It rests there, and the command module keeps circling. The descent only moves on while music is heard, like the climb. The lunar module rides
+   inside stage 3 until that separates (its view.js shows the capsule turning round to dock with it, as Apollo did) */
+const LAND = { wait: 300, coast: 60, braking: 90, approach: 60, final: 60, periKm: 15.2, downKm: 480, siteDeg: 23.5, LM_CM: 0.0035 };   // LM_CM: the module's middle is 3.5 m above its pads
+LAND.powered = LAND.braking + LAND.approach + LAND.final; LAND.len = LAND.coast + LAND.powered;
+LAND.undock = MILESTONES.orbit + LAND.wait; LAND.land = LAND.undock + LAND.len;
 /* the climb to Earth orbit: seconds since ignition, height (km) and distance downrange (km). Off the pad at about half a g and past the tower at
    8 s; then Apollo 11's: stage 1 separation at 67 km and 94 km downrange, 96 km up at 3:18, stage 2 cut-off at 186 km, orbit at 191 km */
 const CLIMB = [[0, 0, 0], [HOLD, 0, 0], [8, 0.115, 0], [30, 1.44, 0.1], [60, 5.77, 1.5], [84, 13.5, 6], [106, 24, 18], [136, 44.4, 50], [163, 67, 94],
@@ -85,6 +95,26 @@ const PATH = (function () {
     th0: Math.atan2(ys[end] - M.y, xs[end] - M.x) };                                               // where it joins the Moon's orbit, seen from the Moon
 })();
 WORLD.MOON.x = PATH.moon.x; WORLD.MOON.y = PATH.moon.y;
+/* the lunar module's descent, tD seconds of playing after undocking: its distance from the Moon's centre, its angle round the Moon (clockwise,
+   the way the orbit goes), its lean back from upright (engine forward to brake, then pitching over to upright for the landing) and the height of
+   its pads above the ground in km */
+const DESCENT = (function () {
+  const M = WORLD.MOON, R = M.r, RKM = R / KM, sub = Math.atan2(-M.y, -M.x);                       // the angle of the point under Earth, seen from the Moon
+  const site = sub - LAND.siteDeg * Math.PI / 180, doi = site + Math.PI + LAND.downKm / RKM;      // the landing site; the DOI point is half an orbit and the descent's ground track before it
+  const ra = WORLD.ORBIT, rp = R + LAND.periKm * KM, a = (ra + rp) / 2, e = (ra - rp) / (ra + rp), p = a * (1 - e * e);   // the descent orbit, 110 km by 15 km
+  // the coast's half turn: a cubic in time from the orbit's pace to the pace the braking starts at
+  const h = LAND.coast, m0 = 2 * h / ORBIT_PERIOD, m1 = LAND.downKm / LAND.braking / RKM * h / Math.PI;
+  const turn = t => { const u = clamp01(t / h), u2 = u * u, u3 = u2 * u; return Math.PI * ((3 * u2 - 2 * u3) + (u3 - 2 * u2 + u) * m0 + (u3 - u2) * m1); };
+  const tP = [0, LAND.braking, LAND.braking + LAND.approach, LAND.powered - 30, LAND.powered - 15, LAND.powered];   // PDI, high gate, low gate (600 m short), 30 m up, 10 m up, touchdown
+  const altAt = pchip(tP, [LAND.periKm, 2.3, 0.15, 0.03, 0.01, 0].map(k => k + LAND.LM_CM)), downAt = pchip(tP, [0, 471, 479.4, 479.93, 479.985, LAND.downKm], undefined, 0);   // the last metres straight down
+  const leanAt = pchip([0, LAND.coast, tP[1] + LAND.coast, tP[2] + LAND.coast, LAND.len], [85, 85, 45, 8, 0].map(d => d * Math.PI / 180));
+  return { site: site, doi: doi, sub: sub, at: function (tD) {
+    let r, th;
+    if (tD < LAND.coast) { const f = turn(tD); r = p / (1 - e * Math.cos(f)); th = doi - f; }
+    else { const t = Math.min(LAND.powered, tD - LAND.coast); r = R + altAt(t) * KM; th = doi - Math.PI - downAt(t) / RKM; }
+    return { r: r, th: th, lean: leanAt(Math.min(tD, LAND.len)), alt: Math.max(0, (r - R) / KM - LAND.LM_CM) }; } };
+})();
+LAND.site = DESCENT.site;
 /* the ISS passing overhead in the climb: 420 km up at 7.66 km/s, faster than the rocket still gathering speed, so it comes from behind,
    is right overhead at 7:00 (at) and pulls ahead. Once the rocket is in its lower orbit it is the faster, and after the burn for the Moon
    it overtakes the ISS, passing under it, and leaves it going on round Earth (on the coast's clock, sped up like the rest) */
@@ -112,31 +142,35 @@ class RocketSim {
   }
   reset() { this.mode = 'pad'; this.l = 0; this.v = 0; this.hold = 0; this.stage = 0; this.inSpace = false; this.cleared = false; this.parked = false; this.tli = false; this.ci = 0;
     this.ignited = false; this.lit0 = false; this.fp = 0; this.power = 0; this.g = 0; this.prevT = 0; this.down = 0;
-    this.th = this.th0; this.tOrb = 0; this.wIn = 2 * Math.PI / ORBIT_PERIOD; this.spinUp = 0; this.spinA = 0; this.events.length = 0; }
+    this.th = this.th0; this.tOrb = 0; this.tD = 0; this.wIn = 2 * Math.PI / ORBIT_PERIOD; this.spinUp = 0; this.spinA = 0; this.events.length = 0; }
+  /* the height read-out: above Earth's ground on the way up, and above the Moon's from Moon orbit on (the lunar module's pads, in the descent) */
+  altKm() { return this.mode === 'orbit' ? (WORLD.ORBIT - WORLD.MOON.r) / KM : this.mode === 'descent' || this.mode === 'landed' ? DESCENT.at(this.tD).alt : this.kmAt(this.l); }
   /* how far along the flight plan the rocket is, from 0 on the pad to 1 in Moon orbit: the share of the flight's playing time flown, so it
      fills at an even pace. Falling, it drops back with the rocket */
   plan() {
-    if (this.mode === 'orbit') return 1;
+    if (this.mode === 'orbit' || this.mode === 'descent' || this.mode === 'landed') return 1;
     const fp = this.fp, p = clamp01(fp / MILESTONES.orbit);
     if (this.mode !== 'fall') return p;
     const l0 = this.lenAt(fp); return l0 > 0 ? p * clamp01(this.l / l0) : 0;
   }
-  /* where the flight has got to, to carry on in the day's next session. Only a rocket in space or in Moon orbit carries on:
+  /* where the flight has got to, to carry on in the day's next session. Only a rocket in space, in Moon orbit, landing or landed carries on:
      anywhere below the edge of space (on the pad, climbing or falling) is null, and the next session starts on the pad */
   save() {
-    if (this.mode !== 'orbit' && !(this.mode === 'ascent' && this.inSpace)) return null;
+    if (!AT_MOON[this.mode] && !(this.mode === 'ascent' && this.inSpace)) return null;
     const r = (v, k) => Math.round(v * k) / k;
-    return { mode: this.mode, fp: r(this.fp, 1e3), l: r(this.l, 1e7), stage: this.stage, inSpace: this.inSpace, cleared: this.cleared, th: r(this.th, 1e4), tOrb: r(Math.min(this.tOrb, 60), 1e3) };
+    return { mode: this.mode, fp: r(this.fp, 1e3), l: r(this.l, 1e7), stage: this.stage, inSpace: this.inSpace, cleared: this.cleared, th: r(this.th, 1e4), tOrb: r(Math.min(this.tOrb, 60), 1e3), tD: r(this.tD, 1e3) };
   }
-  /* carry on from save(). False, and on the pad, for anything that is not a saved flight in space or in orbit */
+  /* carry on from save(). False, and on the pad, for anything that is not a saved flight in space, in orbit or at the Moon */
   restore(x) {
     this.reset();
     const n = (v, lo, hi) => typeof v === 'number' && isFinite(v) && v >= lo && v <= hi;
-    if (!x || (x.mode !== 'orbit' && !(x.mode === 'ascent' && x.inSpace)) || !n(x.fp, HOLD, 1e6) || !n(x.l, 0, 1e3) || !n(x.stage, 0, 3) || !n(x.th, -4, 4) || !n(x.tOrb, 0, 1e6)) return false;
+    if (!x || (!AT_MOON[x.mode] && !(x.mode === 'ascent' && x.inSpace)) || !n(x.fp, HOLD, 1e6) || !n(x.l, 0, 1e3) || !n(x.stage, 0, 3) || !n(x.th, -4, 4) || !n(x.tOrb, 0, 1e6)) return false;
+    if (x.mode === 'descent' && !n(x.tD, 0, LAND.len)) return false;
     const fp = x.fp;   // where the rocket is, and what it has passed, follow the flight clock (a flight saved before the path was drawn to scale too)
     this.mode = x.mode; this.fp = fp; this.l = this.lenAt(fp); this.prevT = this.target(fp); this.stage = stageAt(fp); this.lit0 = true;
     this.inSpace = true; this.cleared = true; this.parked = fp >= PHASES.insert; this.tli = fp >= PHASES.tli; this.ci = COAST.filter(c => c.at <= fp).length;
-    if (x.mode === 'orbit') { this.l = this.L; this.stage = 3; this.th = x.th; this.tOrb = x.tOrb; this.spinUp = smooth(SPIN_AT, SPIN_AT + SPIN_UP, x.tOrb); }
+    if (AT_MOON[x.mode]) { this.l = this.L; this.stage = 3; this.th = x.th; this.tOrb = x.tOrb; this.tD = x.mode === 'landed' ? LAND.len : x.mode === 'descent' ? x.tD : 0;
+      this.spinUp = x.mode === 'orbit' ? smooth(SPIN_AT, SPIN_AT + SPIN_UP, x.tOrb) * (1 - smooth(LAND.undock - 12, LAND.undock - 4, fp)) : 0; }
     return true;
   }
   target(fp) { return this.lenAt(Math.min(MILESTONES.orbit, fp)); }
@@ -176,21 +210,36 @@ class RocketSim {
       if (this.l <= 0) { this.l = 0; this.v = 0; this.mode = 'pad'; this.hold = 0; this.stage = 0; this.inSpace = false; this.cleared = false;
         this.lit0 = false; this.fp = 0; this.down = WRECK; this.events.push('crash'); }
     } else if (this.mode === 'orbit') {
-      this.ignited = false; this.tOrb += rdt;                                                       // circles the Moon for as long as the session runs
+      this.ignited = false; this.tOrb += rdt; if (inp.playing) this.fp += dt;                      // circles the Moon for as long as the session runs
+      const from = this.th;
       this.th -= (this.wIn + (this.wOrbit - this.wIn) * smooth(0, 8, this.tOrb)) * rdt;        // clockwise, the way it came round Earth, easing from the speed it arrived at
       if (this.th < -Math.PI) this.th += 2 * Math.PI;
-      const was = this.spinUp;                                                                      // E6: the module is sent spinning about its length
-      this.spinUp = smooth(SPIN_AT, SPIN_AT + SPIN_UP, this.tOrb);
+      const was = this.spinUp;                                                                      // E6: the module is sent spinning about its length, and is steadied again before the undocking
+      this.spinUp = smooth(SPIN_AT, SPIN_AT + SPIN_UP, this.tOrb) * (1 - smooth(LAND.undock - 12, LAND.undock - 4, this.fp));
       if (was === 0 && this.spinUp > 0) this.events.push('spin');
       this.spin(rdt);
+      if (this.fp >= LAND.undock && crossed(from, this.th, DESCENT.doi)) { this.mode = 'descent'; this.tD = 0; this.spinUp = 0; this.events.push('undock'); }   // E7
+    } else if (this.mode === 'descent' || this.mode === 'landed') {
+      this.tOrb += rdt; this.th -= this.wOrbit * rdt; if (this.th < -Math.PI) this.th += 2 * Math.PI;   // the command module keeps circling
+      if (inp.playing) this.fp += dt;
+      if (this.mode === 'landed') { this.ignited = false; return; }
+      const was = this.tD; if (inp.playing) this.tD += dt; const tD = this.tD;
+      this.ignited = inp.playing && eff > 0 && ((tD >= 5 && tD < 8) || tD >= LAND.coast);             // the burn at the DOI point, once clear of the command module, then the powered descent
+      if (was < LAND.coast && tD >= LAND.coast) this.events.push('pdi');
+      if (was < LAND.coast + LAND.braking && tD >= LAND.coast + LAND.braking) this.events.push('highgate');
+      if (tD >= LAND.len) { this.tD = LAND.len; this.mode = 'landed'; this.ignited = false; this.events.push('landed'); }
     }
   }
   spin(dt) { this.spinA = (this.spinA + SPIN * this.spinUp * dt) % (2 * Math.PI); }
   pose() {
-    if (this.mode === 'orbit') { const M = WORLD.MOON, c = Math.cos(this.th), s = Math.sin(this.th), x = M.x + WORLD.ORBIT * c, y = M.y + WORLD.ORBIT * s;
-      return { x: x, y: y, ang: Math.atan2(s, -c), alt: Math.max(0, Math.hypot(x, y) - 1) }; }
+    if (this.mode === 'orbit') return this.cmPose();
+    if (this.mode === 'descent' || this.mode === 'landed') { const d = DESCENT.at(this.tD), M = WORLD.MOON, c = Math.cos(d.th), s = Math.sin(d.th), x = M.x + d.r * c, y = M.y + d.r * s;
+      return { x: x, y: y, ang: Math.atan2(c, s) - d.lean, alt: Math.max(0, Math.hypot(x, y) - 1), lean: d.lean }; }       // upright away from the Moon, leaned back from the way it is going
     return this.pathAt(this.l);
   }
+  /* the module in Moon orbit (the command module, once the lunar module has left it) */
+  cmPose() { const M = WORLD.MOON, c = Math.cos(this.th), s = Math.sin(this.th), x = M.x + WORLD.ORBIT * c, y = M.y + WORLD.ORBIT * s;
+    return { x: x, y: y, ang: Math.atan2(s, -c), alt: Math.max(0, Math.hypot(x, y) - 1) }; }
   /* where the ISS is at a time on the flight clock: going round Earth at its height and speed, right over the rocket at ISS.at */
   issAt(fp) { const a = this.issFrom + ISS.v / (6371 + ISS.km) * (this.realAt(fp) - ISS.at), r = 1 + ISS.km / R_KM; return { x: r * Math.sin(a), y: r * Math.cos(a) }; }
   /* the point on the path l along it, with its heading */
@@ -203,6 +252,9 @@ class RocketSim {
     return { x: x, y: y, ang: Math.atan2(dx, dy), alt: Math.max(0, Math.hypot(x, y) - 1) };
   }
 }
+const AT_MOON = { orbit: true, descent: true, landed: true };
+/* a clockwise crossing of the angle at, going from angle a to b (both round the Moon, in (-pi, pi]) */
+function crossed(a, b, at) { const w = d => { d -= Math.round(d / (2 * Math.PI)) * 2 * Math.PI; return d; }, d0 = w(a - at), d1 = w(b - at); return d0 > 0 && d1 <= 0 && d0 - d1 < 1; }
 /* the rocket flight to carry on today: where the day's latest saved session left it (null to start on the pad, as on a new day).
    from: when a new flight was last started; sessions that had ended by then no longer carry on, while one still running then does */
 function rocketCarry(records, now, from) {
@@ -215,7 +267,8 @@ function rocketAt(fp) {
   if (!(fp >= MILESTONES.space)) return null;
   const sim = new RocketSim();
   if (fp < MILESTONES.orbit) return { mode: 'ascent', fp: fp, l: Math.round(sim.lenAt(fp) * 1e7) / 1e7, stage: stageAt(fp), inSpace: true, cleared: true, th: Math.round(sim.th0 * 1e4) / 1e4, tOrb: 0 };
-  return { mode: 'orbit', fp: fp, l: sim.L, stage: 3, inSpace: true, cleared: true, th: Math.round(sim.th0 * 1e4) / 1e4, tOrb: 60 };
+  const mode = fp >= LAND.land ? 'landed' : fp >= LAND.undock ? 'descent' : 'orbit';
+  return { mode: mode, fp: fp, l: sim.L, stage: 3, inSpace: true, cleared: true, th: Math.round(sim.th0 * 1e4) / 1e4, tOrb: 60, tD: mode === 'landed' ? LAND.len : mode === 'descent' ? fp - LAND.undock : 0 };
 }
 /* a sample practice log (the debug tools): the rocket of each day's sessions, as if every session that day carried the flight on (records oldest first) */
 function sampleFlights(records) {
@@ -223,4 +276,4 @@ function sampleFlights(records) {
   return records;
 }
 
-module.exports = { COAST, HOLD, ISS, LIFTOFF, MILESTONES, PHASES, WORLD, RocketSim, pchip, rocketAt, rocketCarry, sampleFlights, smooth };
+module.exports = { COAST, HOLD, ISS, LAND, LIFTOFF, MILESTONES, PHASES, WORLD, RocketSim, pchip, rocketAt, rocketCarry, sampleFlights, smooth };
