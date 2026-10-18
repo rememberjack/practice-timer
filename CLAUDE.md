@@ -2,7 +2,9 @@
 
 Music Timer: a practice timer that only counts time while an instrument is heard through the microphone, with several
 swipeable visual themes. It ships as one self-contained HTML page on GitHub Pages:
-https://rememberjack.github.io/practice-timer/.
+https://rememberjack.github.io/practice-timer/, and the same page on Cloudflare, as the static assets of the Worker
+`practice-timer` (`wrangler.jsonc`, no Worker script; `cloudflare` job in `.github/workflows/deploy.yml`, which skips the
+deploy until the `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` repository secrets are set).
 
 ## Purpose
 
@@ -263,7 +265,8 @@ from `npm pack matter-js@0.19.0`; without it the theme runs on its plain pile).
 ## Workflow
 
 - Several sessions work in parallel: start each branch from a fresh `origin/main`.
-- One pull request per requested change; run `npm run ci` before pushing. Pushes to `main` deploy to the live site.
+- One pull request per requested change; run `npm run ci` before pushing. Pushes to `main` deploy to the live site (GitHub Pages and
+  Cloudflare, from the one tested build).
 - User-facing text is plain, complete sentences; on iOS, point microphone problems to the Settings app.
 - Every UI change (new or changed words, a new control, a layout or style change) must work in every language and fit the screen. Give
   new words their Chinese and French in `src/lang.js` (`npm test` fails without them), then look at each screen it touches in English,

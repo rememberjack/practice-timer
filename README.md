@@ -26,9 +26,18 @@ code was never written or edited by hand.
 
 ## How it is built and deployed
 
-Each push to `main` runs the tests, builds `dist/index.html`, and publishes it to GitHub Pages
+Each push to `main` runs the tests, builds `dist/index.html`, and publishes it to GitHub Pages and to Cloudflare
 (`.github/workflows/deploy.yml`). If the tests fail nothing is published. Pull requests run the tests without
 publishing.
+
+On Cloudflare the page is the static assets of a Worker named `practice-timer` (`wrangler.jsonc`; there is no Worker
+script), at `https://practice-timer.<your subdomain>.workers.dev`. The workflow deploys it with Wrangler, and needs two
+repository secrets (Settings > Secrets and variables > Actions): `CLOUDFLARE_ACCOUNT_ID` (Workers & Pages > Overview, in
+the right-hand column) and `CLOUDFLARE_API_TOKEN` (My Profile > API Tokens > Create Token, from the "Edit Cloudflare
+Workers" template, scoped to that account). Until both are set, the Cloudflare job notes that and skips the deploy, and
+GitHub Pages is published as before. To deploy by hand, `npm run build` and then `npx wrangler deploy` (Wrangler asks you
+to log in the first time). A custom domain is added to the Worker under Settings > Domains & Routes in the Cloudflare
+dashboard.
 
 The page keeps its scripts and header icon embedded in one HTML file; the build also exports browser and
 home-screen icons. The City theme fetches three.js from cdnjs the first time it is shown.
@@ -44,7 +53,7 @@ Needs Node 20 or later; there are no dependencies to install.
     npm run check     checks the built page
     npm run serve     builds and serves it locally; the mic works on localhost
 
-For a custom domain, build with `CNAME=timer.example.com npm run build` and set the domain under Settings > Pages.
+For a custom domain on GitHub Pages, build with `CNAME=timer.example.com npm run build` and set the domain under Settings > Pages.
 
 ## Layout
 
@@ -57,6 +66,7 @@ For a custom domain, build with `CNAME=timer.example.com npm run build` and set 
                         style, icon, words, logic, drawing and tests; themes.json lists the installed ones, in swipe order.
                         docs/theme-modules.md describes the interface, and how to add or remove a theme
     scripts/build.js    joins them into one file
+    wrangler.jsonc      the Cloudflare Worker that serves dist/ as static assets
     test/run.js         unit tests (the core's and each theme's)
     test/themes.js      the theme modules keep to their interface, and can be taken out or added
     test/smoke.js       checks the built page

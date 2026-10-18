@@ -35,6 +35,10 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
+      - uses: actions/upload-artifact@v4     # the same build, for the Cloudflare deploy
+        with:
+          name: page
+          path: dist
 
   deploy:
     if: github.ref == 'refs/heads/main'
@@ -46,3 +50,33 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  # The same page on Cloudflare, as the static assets of the Worker named in wrangler.jsonc. It needs two repository secrets
+  # (Settings > Secrets and variables > Actions): CLOUDFLARE_API_TOKEN (a token made from the "Edit Cloudflare Workers" template)
+  # and CLOUDFLARE_ACCOUNT_ID. Until they are set, the job says so and skips the deploy, so GitHub Pages is never held up.
+  cloudflare:
+    if: github.ref == 'refs/heads/main'
+    needs: test
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4            # for wrangler.jsonc
+      - uses: actions/download-artifact@v4
+        with:
+          name: page
+          path: dist
+      - if: env.CLOUDFLARE_API_TOKEN == '' || env.CLOUDFLARE_ACCOUNT_ID == ''
+        run: >-
+          echo "::notice::Not deployed to Cloudflare: set the CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID
+          repository secrets (README, How it is built and deployed)."
+      - if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
+        id: deploy
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4.151.1"
+      - if: steps.deploy.outputs.deployment-url != ''
+        run: echo "Deployed to ${{ steps.deploy.outputs.deployment-url }}" >> "$GITHUB_STEP_SUMMARY"

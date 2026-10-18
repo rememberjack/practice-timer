@@ -209,6 +209,10 @@ Not in `package.json`, never shipped, listed so the toolchain is known.
 | actions/setup-node | v4 | MIT | `.github/workflows/deploy.yml` |
 | actions/upload-pages-artifact | v3 | MIT | `.github/workflows/deploy.yml` |
 | actions/deploy-pages | v4 | MIT | `.github/workflows/deploy.yml` |
+| actions/upload-artifact | v4 | MIT | `.github/workflows/deploy.yml`: hands the tested build to the Cloudflare job |
+| actions/download-artifact | v4 | MIT | `.github/workflows/deploy.yml` |
+| cloudflare/wrangler-action | v4 | MIT OR Apache-2.0 | `.github/workflows/deploy.yml`: deploys `dist/` to Cloudflare |
+| Wrangler (Cloudflare's CLI) | 4.151.1 (pinned in the workflow; `npx wrangler` by hand) | MIT OR Apache-2.0 | Installed by wrangler-action in CI; reads `wrangler.jsonc`; not in `package.json` |
 | serve (Vercel) | latest, via `npx --yes serve` | MIT | `npm run serve` only |
 | Chromium / Google Chrome | whatever the machine has | BSD-3-Clause and others / Google terms | `test/browser.js` drives it over the DevTools protocol; nothing is installed |
 | Playwright | preinstalled in cloud sessions | Apache-2.0 | Screenshots during development; not used by `npm run ci` |

@@ -1,0 +1,9 @@
+// Cloudflare: the built page is served as the static assets of a Worker named practice-timer, with no Worker script.
+// `npx wrangler deploy` (after `npm run build`) uploads dist/; the GitHub Actions workflow does this on each push to main.
+{
+  "name": "practice-timer",
+  "compatibility_date": "2026-10-18",
+  "assets": {
+    "directory": "./dist"
+  }
+}
