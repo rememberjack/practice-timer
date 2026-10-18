@@ -54,7 +54,8 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
   the scene; the view stays that wide through Earth orbit, the ISS a few hundred km ahead and drifting back once the rocket is the
   faster. Through the burn for the Moon the view holds still (the ISS keeping its height on screen) as the rocket climbs toward it; just after (14:01) the
   rocket passes about 70 km under it and leaves it behind, the view widening to keep both, and it goes on round Earth (on the coast's sped-up clock, `RocketSim.issAt`),
-  a speck once too small to draw, until Earth slips out of view (`ISS`; a banner and a countdown for the pass at 7:00). Stage 1 drops back
+  a speck once too small to draw, until Earth slips out of view (`ISS`; a banner and a countdown for the pass at 7:00). The ISS picture is its own small layer
+  over the canvas (`issLayer` in its `view.js`), placed to the phone's own pixel, so it glides rather than stepping a whole (large) canvas pixel at a time. Stage 1 drops back
   into the air, glows and burns up before it reaches the ground (`HOT`, `embers` in its `view.js`). Then a minute's coast and a minute's burn for the Moon (`PHASES`; banners "Earth orbit reached" and "Off to the Moon!"), stage 3 separation at 14:29 (27 minutes
   after the burn on the coast's sped-up clock, as on Apollo 11), and a
   Kepler orbit round Earth whose three days are sped up about 275 times, so Moon orbit comes at 30:00; once within the Moon's reach (`SOI`) its pull
@@ -182,6 +183,8 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
   same pull request whenever any of these is added, removed, upgraded or used differently (including any change to `package-lock.json`),
   and keep a copied item's license notice next to the copy, as the wheel-gestures one above `WHEEL_TRACES` in `src/core.js`.
 - Only the theme on screen (and the one a swipe is revealing) is drawn; drawing hidden themes made swipes lag on phones.
+- Themes move on at the session's ticks (every 46 ms) and draw at the screen's frame rate: something drawn from tick-time state moves in steps.
+  Rocket draws each frame between the last two ticks (`between` in its `view.js`, a tick behind) and leaves the sim as the ticks have it.
 - Words the player sees: write them in English through `tr()` or `trn()` (or `MT.word()` in a table, or a table `test/words.js` knows), never joined
   from pieces, and add their Chinese and French to `src/lang.js` if the page shows them, or to the theme's `words.js` if only a theme does (for each
   language in its `langs`); `npm test` names any that are missing or no longer used. French is the longest: check it still fits an iPhone SE.
