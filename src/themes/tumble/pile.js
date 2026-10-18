@@ -25,12 +25,16 @@ function makePhysicsPile(M) {
     P.live.length = 0; P.settled.length = 0; P.count = 0; binTop.fill(0); plateTop = 0; acc = 0;
   };
   P.add = b => {
-    const w = b.units * PX, h = (b.h || 1) * PX, x = Math.max(w / 2 + 1, Math.min(W - w / 2 - 1, b.x * PX));
-    const body = Bodies.rectangle(x, -P.spawnY * PX, w, h, { chamfer: { radius: Math.min(3, h / 4) }, friction: 0.6, frictionStatic: 0.9, restitution: 0.05, density: 0.0015, label: 'block' });
+    const w = b.units * PX, h = (b.h || 1) * PX, x = Math.max(w / 2 + 1, Math.min(W - w / 2 - 1, b.x * PX)), y = b.y != null ? b.y : P.spawnY;   // a spec with a y (a glued plank) drops from there
+    const body = Bodies.rectangle(x, -y * PX, w, h, { chamfer: { radius: Math.min(3, h / 4) }, friction: 0.6, frictionStatic: 0.9, restitution: 0.05, density: 0.0015, label: 'block' });
     Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.05); Body.setVelocity(body, { x: (Math.random() - 0.5) * 0.6, y: 1.5 });
-    const k = { b: b, x: x / PX, y: P.spawnY, w: b.units, h: b.h || 1, a: 0, rest: false, body: body };
+    const k = { b: b, x: x / PX, y: y, w: b.units, h: b.h || 1, a: 0, rest: false, body: body };
     P.live.push(k); Composite.add(world, body); P.count++;
   };
+  /* blocks taken out of the pile (glued into a plank) */
+  P.remove = list => { for (const k of list) if (k.body) { Composite.remove(world, k.body); delete k.body; } P.live = P.live.filter(k => !list.includes(k)); };
+  /* the pile's top under a block w wide at x (units) */
+  P.topUnder = (x, w) => { const h = heights(), a = Math.max(0, Math.floor(x - w / 2)), z = Math.min(TU.COLS - 1, Math.ceil(x + w / 2) - 1); let top = 0; for (let i = a; i <= z; i++) if (h[i] > top) top = h[i]; return top; };
   /* fixed steps of a sixtieth, at most three a frame, so a slow frame never throws the blocks about */
   P.step = dt => {
     acc += dt; let n = 0;

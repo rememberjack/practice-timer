@@ -1,13 +1,13 @@
-/* Tumble's drawing: a wooden crate seen from the front, the blocks falling in from under the read-outs and piling up, a ruler of minutes
-   written on the right-hand wall as the pile reaches them, and the practice goal as a gold line. What falls, and where, comes from TumbleSim
+/* Tumble's drawing: a wooden crate seen from the front, the blocks falling in from under the read-outs and piling up, the practice goal as a
+   gold line, and the walls of past sessions marked on the crate like heights pencilled on a doorframe. What falls, and where, comes from TumbleSim
    and its pile (sim.js, pile.js); this only draws them. The view follows the top of the pile up as the wall grows; a finger dragged up or down
    the crate looks back through the layers, and the view goes back to following a moment later. Blocks deep in the wall are drawn once into
    strips of canvas (the record of the session), so drawing stays cheap however long the session.
-   MT: { TU, tuColour, label(b) (a block's face, in the page's language), goalText(), unitsFor, reduceMotion } */
+   MT: { TU, tuColour, label(b) (a block's face, in the page's language), markText(k) (a past wall's name: 'last', 'best'), unitsFor, reduceMotion } */
 'use strict';
 function makeTumbleView(cv, hud, sim, MT) {
   const g = cv.getContext('2d'), TU = MT.TU, RM = MT.reduceMotion;
-  const INK = '#2A1F18', WOOD = '#D1A265', WOOD_DK = '#A3733C', WOOD_LT = '#ECC993', GOLD = '#F0C04A', BOX = '#1F2C33';
+  const INK = '#2A1F18', WOOD = '#D1A265', WOOD_DK = '#A3733C', WOOD_LT = '#ECC993', GOLD = '#F0C04A', BOX = '#1F2C33', PENCIL = 'rgba(243,238,230,.55)';
   const WL = 12, WR = 22, CHU = 32, FONT = '"Fredoka", "Trebuchet MS", "Helvetica Neue", Arial, sans-serif';   // the walls, the strips of settled wall (units)
   let W = 0, H = 0, dpr = 1, top = 0, IL = WL, IR = 0, IW = 0, ppu = 16, VU = 20;   // ppu: pixels to a block unit; VU: units from the floor line to the read-outs
   let cam = -0.8, userCamUntil = 0, drag = null, chunks = {}, labels = 0;         // cam: the unit at the foot of the view (the floor sits 0.8 under it at first)
@@ -62,17 +62,24 @@ function makeTumbleView(cv, hud, sim, MT) {
     if (f.sub) { c.font = '600 ' + f.fs + 'px ' + FONT; c.textAlign = 'left'; c.fillText(f.name, -f.sw / 2, 0.6); c.font = '500 ' + (f.fs * 0.6) + 'px ' + FONT; c.fillText(f.sub, -f.sw / 2 + f.lw + 1, f.fs * 0.22); }
     else { c.font = '600 ' + f.fs + 'px ' + FONT; c.textAlign = 'center'; c.fillText(f.name, 0, 0.6); }
   }
-  /* a block at x, y (canvas px) turned by a (radians): painted wood, a light edge above and left, a dark one below and right, the name on the face;
-     gold for the trophy, a gold frame for a block in a chord outline, a little darker once settled deep in the wall */
+  /* a block at x, y (canvas px) turned by a (radians); a chord's plank is its blocks' faces side by side in one gold frame */
   function drawBlock(c, x, y, a, b, w, h, aged) {
-    c.save(); c.translate(x, y); if (a) c.rotate(a); const r = Math.min(4, h / 4);
-    rr(c, -w / 2, -h / 2, w, h, r); c.fillStyle = b.kind === 'trophy' ? GOLD : colour(b); c.fill();
-    c.fillStyle = 'rgba(255,255,255,.32)'; c.fillRect(-w / 2 + 1, -h / 2 + 1, w - 2, 1.5); c.fillRect(-w / 2 + 1, -h / 2 + 1, 1.5, h - 2);
-    c.fillStyle = 'rgba(0,0,0,.26)'; c.fillRect(-w / 2 + 1, h / 2 - 2.5, w - 2, 1.5); c.fillRect(w / 2 - 2.5, -h / 2 + 1, 1.5, h - 2);
-    if (b.chord) { c.strokeStyle = GOLD; c.lineWidth = 2; rr(c, -w / 2 + 2.5, -h / 2 + 2.5, w - 5, h - 5, Math.max(1, r - 1)); c.stroke(); }
-    face(c, b, w, h);
-    if (aged) { c.fillStyle = 'rgba(50,35,20,.16)'; rr(c, -w / 2, -h / 2, w, h, r); c.fill(); }
+    c.save(); c.translate(x, y); if (a) c.rotate(a);
+    if (b.parts) { let px = -w / 2; for (const p of b.parts) { const pw = p.units * ppu; paint(c, p, px + pw / 2, pw, h, aged, true); px += pw; }
+      c.strokeStyle = GOLD; c.lineWidth = 2; rr(c, -w / 2 + 1.5, -h / 2 + 1.5, w - 3, h - 3, 3); c.stroke(); }
+    else paint(c, b, 0, w, h, aged, false);
     c.restore();
+  }
+  /* one face, its middle dx from the block's: painted wood, a light edge above and left, a dark one below and right, the name on the face; gold for
+     the trophy, a gold frame for a block in a chord outline (a part of a plank shares the plank's), a little darker once settled deep in the wall */
+  function paint(c, b, dx, w, h, aged, part) {
+    const r = Math.min(4, h / 4), x0 = dx - w / 2, y0 = -h / 2;
+    rr(c, x0, y0, w, h, r); c.fillStyle = b.kind === 'trophy' ? GOLD : colour(b); c.fill();
+    c.fillStyle = 'rgba(255,255,255,.32)'; c.fillRect(x0 + 1, y0 + 1, w - 2, 1.5); c.fillRect(x0 + 1, y0 + 1, 1.5, h - 2);
+    c.fillStyle = 'rgba(0,0,0,.26)'; c.fillRect(x0 + 1, y0 + h - 2.5, w - 2, 1.5); c.fillRect(x0 + w - 2.5, y0 + 1, 1.5, h - 2);
+    if (b.chord && !part) { c.strokeStyle = GOLD; c.lineWidth = 2; rr(c, x0 + 2.5, y0 + 2.5, w - 5, h - 5, Math.max(1, r - 1)); c.stroke(); }
+    c.save(); c.translate(dx, 0); face(c, b, w, h); c.restore();
+    if (aged) { c.fillStyle = 'rgba(50,35,20,.16)'; rr(c, x0, y0, w, h, r); c.fill(); }
   }
 
   /* ---------- the settled wall: strips of canvas, CHU units tall, drawn once and kept ---------- */
@@ -111,24 +118,26 @@ function makeTumbleView(cv, hud, sim, MT) {
     const bot = cam, up = cam + H / ppu, pile = sim.pile, s = sim.surface, play = sim.play;
     /* the settled wall */
     for (let key = Math.max(0, Math.floor(bot / CHU)); key <= Math.floor(up / CHU); key++) { if (!pile.settled.length) break; const c = chunk(key); g.drawImage(c.canvas, IL, sy(c.top), IW, CHU * ppu); }
-    /* the ruler: a faint line across the crate at each minute the wall has reached; dotted lines where the next minutes should come; the goal in gold */
-    const perMin = sim.perMin(), goalMin = sim.goal / 60, marks = [];
-    g.lineWidth = 1; g.setLineDash([]); g.strokeStyle = 'rgba(255,255,255,.22)';
-    for (const m of sim.stamps) { if (m.y < bot - 1 || m.y > up + 1) continue; line(IL, sy(m.y), IR, sy(m.y)); marks.push({ m: m.m, y: m.y, a: 0.9 }); }
-    if (!sim.goalDone && sim.goal > 0) { g.setLineDash([2, 4]); g.strokeStyle = 'rgba(255,255,255,.13)';
-      for (let m = sim.stamps.length + 1; m < goalMin; m++) { const y = s + ((m * 60 - play) / 60) * perMin; if (y < bot - 1) continue; if (y > up + 1) break; line(IL, sy(y), IR, sy(y)); marks.push({ m: m, y: y, a: 0.4 }); } g.setLineDash([]); }
-    const gy = sim.goal > 0 ? (sim.goalDone ? sim.goalY : s + Math.max(0, sim.goal - play) / 60 * perMin) : -1, gOn = gy >= 0 && gy > bot - 2 && gy < up + 2;
+    /* the height chart: a pencil line across the crate where each past wall reached (the last session's, the tallest), and the goal in gold */
+    const marks = sim.marks.filter(m => m.y > bot - 2 && m.y < up + 2);
+    g.lineWidth = 1; g.setLineDash([4, 4]); g.strokeStyle = PENCIL;
+    for (const m of marks) line(IL, sy(m.y), IR, sy(m.y));
+    g.setLineDash([]);
+    const gy = sim.goal > 0 ? (sim.goalDone ? sim.goalY : s + Math.max(0, sim.goal - play) / 60 * sim.perMin()) : -1, gOn = gy >= 0 && gy > bot - 2 && gy < up + 2;
     if (gOn) { g.setLineDash(sim.goalDone ? [] : [6, 4]); g.strokeStyle = GOLD; g.lineWidth = 2; line(IL, sy(gy), IR, sy(gy)); g.setLineDash([]); g.lineWidth = 1; }
     /* the live blocks */
     for (const k of pile.live) { if (k.y + k.w < bot || k.y - k.w > up) continue; drawBlock(g, sx(k.x), sy(k.y), -k.a, k.b, k.w * ppu, k.h * ppu, false); }
-    if (gOn) { g.fillStyle = GOLD; g.font = '700 10px ' + FONT; g.textAlign = 'left'; g.textBaseline = 'bottom'; g.fillText(o.goalText, IL + 6, sy(gy) - 3); }   // the goal's name over the blocks, so it can be read
+    /* the lines' names over the blocks, so they can be read: the goal's at the left, each past wall's at the right (above the line; under it when the next mark is close above) */
+    g.font = '700 10px ' + FONT; g.textBaseline = 'bottom';
+    if (gOn) { g.fillStyle = GOLD; g.textAlign = 'left'; g.fillText(o.goalText, IL + 6, sy(gy) - 3); }
+    g.fillStyle = PENCIL; g.textAlign = 'right';
+    marks.forEach((m, i) => { const under = i + 1 < marks.length && marks[i + 1].y - m.y < 1.6; g.textBaseline = under ? 'top' : 'bottom'; g.fillText(MT.markText(m.k), IR - 6, sy(m.y) + (under ? 3 : -3)); });
     /* the walls and the floor, over the blocks' edges, with the grain and the ruler's figures */
     g.fillStyle = WOOD; g.fillRect(0, 0, WL, H); g.fillRect(IR, 0, WR, H);
     g.fillStyle = WOOD_LT; g.fillRect(WL - 2, 0, 2, H); g.fillRect(IR, 0, 2, H);
     g.strokeStyle = 'rgba(120,80,30,.22)'; for (let i = 0; i < 3; i++) { line(3 + i * 3, 0, 3 + i * 3, H); line(IR + 7 + i * 4, 0, IR + 7 + i * 4, H); }
     if (bot < 0) { const fy = sy(0); g.fillStyle = WOOD_DK; g.fillRect(0, fy, W, H - fy + 2); g.fillStyle = WOOD_LT; g.fillRect(0, fy, W, 2); }
-    g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = '700 8.5px ' + FONT;
-    for (const mk of marks) { g.fillStyle = 'rgba(42,31,24,' + mk.a + ')'; g.fillRect(IR + 2, sy(mk.y) - 0.5, 6, 1); g.fillText(String(mk.m), IR + 15, sy(mk.y)); }
+    g.fillStyle = 'rgba(42,31,24,.8)'; for (const m of marks) g.fillRect(IR + 2, sy(m.y) - 0.75, 10, 1.5);   // a pencil mark on the wall at each past wall's height
     if (gOn) { const y = sy(gy); g.fillStyle = GOLD; g.beginPath(); g.moveTo(IR + 4, y); g.lineTo(IR + 11, y - 5); g.lineTo(IR + 18, y); g.lineTo(IR + 11, y + 5); g.closePath(); g.fill(); }
     /* confetti at the goal, sparks on a chord outline (in units; they fall with the view) */
     for (let i = confetti.length - 1; i >= 0; i--) { const p = confetti[i]; p.vy -= 14 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.98; p.life -= dt * 0.6;
