@@ -110,10 +110,14 @@ Node 20.19+ or 22.13+. `npm install` once, for the linter (ESLint, a dev depende
   On screen the car brakes for each bend to its corner speed (`raceCorners`, `RaceSim.cornerAt`: the hairpin about 110 km/h) and speeds up
   out of it; that is only the picture, as every car takes the same bends: the race distance, places and laps still come from playing alone. In the race order, a rival who overtakes has their row grow to show their full name for 3 s (`RIVAL_NAMES` in `src/themes/race/theme.js`).
   The race runs until the practice goal; the trophy card names the place.
-- Fireworks (`FireworkSim` in `src/themes/fireworks/sim.js`, drawn by its `view.js`) sends up a shell for each note played: its colour is the note (the twelve
-  notes are twelve colours, `fwHue`) and its height how high the note is. The last minute of playing is shown as Intensity (Power in the other
-  themes): it sets the pace, so the higher it is the more shells are in the sky at once (`FW.PACE`; a held note keeps them going up), and their
-  size and kinds. Only playing sends shells up, and fast runs are capped (the extra notes make the next shell bigger). It makes no sound.
+- Fireworks (`FireworkSim` in `src/themes/fireworks/sim.js`, drawn by its `view.js`): while the music plays, shells go up and wait in the sky as glowing embers,
+  and each note sets one off, in the note's colour (the twelve notes are twelve colours, `fwHue`): the shell nearest the note's height, so low notes
+  burst the low ones and high notes the high ones. The last minute of playing is shown as Intensity (Power in the other themes): it sets how many
+  go up (`FW.PACE`, at least `FW.FLOOR` a second; up to `FW.AIRMAX` + `FW.AIRPER` x Intensity waiting), so the higher it is the more shells are in the
+  sky at once, and the size and kinds of the bursts. A shell goes up as soon as the music starts; a note can set off one nearly at the top of
+  its climb (`FW.READY`), never one still down among the roofs; a note with none ready makes the next burst bigger. A shell no note sets off for
+  `FW.WAIT` s fades and falls; a pause holds them; stopping lets them all fall. Only playing sends shells up. It makes no sound. The bursts are kept
+  small beside the town's houses (`sizeR` in both views); the finale's trophy is the largest.
   Now and then (about one shell in twenty, at most one every 6 s, `FW.SYMBOL`) a shell bursts into a musical symbol in its note's colour: notes, a clef,
   a sharp or a flat (`fwSymbolShape`, `FW_SYMBOLS`); it opens, holds the shape a moment, then falls, like the finale's trophy.
   The goal sets off a grand finale once, ending in a shell that bursts into a gold trophy (`fwTrophyShape`); on Fireworks the trophy card waits
