@@ -267,12 +267,13 @@ function makeRocketView(cv, hud, sim, MT) {
   /* the lunar module close up (deep space, docked to the capsule's nose): the same 13 x 12 footprint at three times the pixels, like DETAILS.
      A rounded cabin lit from the left with its two windows facing forward, the eight-sided descent stage in gold foil, the engine bell and
      four legs a quarter turn apart. Frame f has it rolled f sixty-fourths of a turn about its length, with the capsule: the windows, the
-     box's edges and the legs come round, those behind drawn first and darker */
+     box's edges and the legs come round, those behind drawn first and darker. It is drawn turned round in the stack (docked top to nose, so
+     upside down ahead of the capsule), which mirrors it: so it is lit from the right here, and its frames are played backwards */
   function detailLM(f) {
     const N = 39, M = 36, c = document.createElement('canvas'); c.width = N; c.height = M; const x = c.getContext('2d'), phi = -2 * Math.PI * f / ROLL_FINE, cx = 19.5;
     const px = (col, row, w, h, colr) => { x.fillStyle = colr; x.fillRect(col, row, w, h); };
     for (let r = 0; r < 15; r++) { const hw = r < 2 ? 6 : r < 4 ? 9 : 10.5;
-      for (let i = Math.round(cx - hw); i < Math.round(cx + hw); i++) { const u = (i - cx) / hw; px(i, r, 1, 1, u < -0.5 ? '#F4F6FA' : u < 0.5 ? '#E8ECF2' : '#C3CAD6'); } }
+      for (let i = Math.round(cx - hw); i < Math.round(cx + hw); i++) { const u = (i - cx) / hw; px(i, r, 1, 1, u > 0.5 ? '#F4F6FA' : u > -0.5 ? '#E8ECF2' : '#C3CAD6'); } }
     for (const w of [-0.5, 0.5]) { const a = phi + w; if (Math.cos(a) > 0.15) { const wx = Math.round(cx + 8 * Math.sin(a) - 2); px(wx - 1, 5, 6, 6, '#8A93A3'); px(wx, 6, 4, 4, '#5CC8FF'); px(wx, 6, 1, 1, '#E8ECF2'); } }
     for (let r = 15; r < 27; r++) for (let i = 6; i < 33; i++) px(i, r, 1, 1, r >= 25 ? '#B07A2A' : '#D9A441');
     for (let e = 0; e < 8; e++) { const a = phi + e * Math.PI / 4; if (Math.cos(a) > -0.1) px(Math.round(cx + 13 * Math.sin(a)), 15, 1, 10, Math.cos(a) > 0.7 ? '#F0C86A' : '#B07A2A'); }
@@ -399,7 +400,11 @@ function makeRocketView(cv, hud, sim, MT) {
       if (still > 0) { f[0] = Math.exp(lerp(Math.log(f[0]), Math.log(sO), still)); f[1] = lerp(f[1], fw / 2 + (p.x - Mt.x) * sO, still); f[2] = lerp(f[2], r0 - (p.y - Mt.y) * sO, still); }
       blend(f, wM); }
     if (wD > 0) { const thL = Math.atan2(pw.y - MOON.y, pw.x - MOON.x), altC = Math.max(1e-9, Math.hypot(pw.x - MOON.x, pw.y - MOON.y) - MOON.r - relief(thL * MOON.r, RES / (landS || s)));   // above the ground as drawn under it
-      blend([Math.min(S_LAND, 0.5 * usable / altC), fw * 0.42, r0 - usable * 0.15], wD); }
+      blend([Math.min(S_LAND, 0.5 * usable / altC), fw * 0.42, r0 - usable * 0.15], wD);
+      // for the last seconds the view holds still on the landing site, a little right of the middle, and the module comes in and settles into it
+      const wS = smooth(LAND.len - 18, LAND.len - 8, sim.tD);
+      if (wS > 0) { const st = turn(MOON.x + MOON.r * Math.cos(LAND.site), MOON.y + MOON.r * Math.sin(LAND.site)), yG = r0 + usable * 0.14;   // the ground, well down the picture
+        blend([S_LAND, fw * 0.58 + (p.x - st.x) * S_LAND, yG - (p.y - st.y) * S_LAND], wS); } }
     landS = s;
     const ox = (rx - W / 2) / s, oy = -(ry - H / 2) / s;                                      // the rocket's offset from the middle of the screen, turned
     return { s: s, rot: rot, rc: rc, rs: rs, cx: pw.x - (rc * ox - rs * oy), cy: pw.y - (rs * ox + rc * oy), wM: wM, wW: wW, wI: wI, wC: wC * (1 - wM) * (1 - wW), wD: wD, k: lerp(lerp(lerp(lerp(lerp(kE, KS, wO), 3.2, wC), KS, wW), lerp(0.9, 1.15, appr) + 0.3 * sim.spinUp, wM), 0.75, wD) };          // a little larger still once it is spinning in orbit
@@ -679,7 +684,7 @@ function makeRocketView(cv, hud, sim, MT) {
         g.translate(0, cyC); g.rotate(turn);
         g.save(); g.translate(0, d);
         if (fine < 1) { g.globalAlpha = aL * (1 - fine); g.drawImage(k < RES ? LM_SMALL : LM, -6.5 * k, -6 * k, 13 * k, 12 * k); }
-        if (fine > 0) { g.globalAlpha = aL * fine; g.drawImage(LM_DETAILS[roll], -6.5 * k, -6 * k, 13 * k, 12 * k); }
+        if (fine > 0) { g.globalAlpha = aL * fine; g.drawImage(LM_DETAILS[(ROLL_FINE - roll) % ROLL_FINE], -6.5 * k, -6 * k, 13 * k, 12 * k); }   // turned round, so rolled the other way
         g.restore(); g.rotate(flip); g.translate(0, -cyC); g.globalAlpha = shown; }
       if (fine < 1) { g.globalAlpha = shown * (1 - fine); g.drawImage(spr, -5.5 * k, -cut - hh, 11 * k, hh); }
       if (fine > 0) { g.globalAlpha = shown * fine; g.drawImage(DETAILS[roll], -5.5 * k, -cut - 11 * k, 11 * k, 11 * k); }
